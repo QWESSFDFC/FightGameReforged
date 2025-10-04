@@ -5,8 +5,8 @@ public class Event {
 
     public boolean isCanceled() {
         return isCanceled;
-    }
 
+    }
     public void setCanceled(boolean canceled) {
         isCanceled = canceled;
     }
