@@ -16,7 +16,7 @@ public class GameStartEventListener {
         for(Mod m:mods){
             if (m==null){
                 return;
-            }
+            }       
             m.registerItself(world);
         }
     }

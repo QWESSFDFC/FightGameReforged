@@ -21,6 +21,10 @@ public class GameStartEvent extends Event {
         this.world = world;
     }
     public List<Mod> getMods() {
+        if (mods==null) {
+            List<Mod> j=new java.util.ArrayList<>();
+            return j;
+        }
         return mods;
     }
     public   GameStartEvent(List<Mod> mods){
