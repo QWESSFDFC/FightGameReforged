@@ -171,7 +171,6 @@ public void ifEffectAlive(){
     public void setDfkloss(double dfkloss) {
         this.dfkloss = dfkloss;
     }
-
     public LivingThing getFightEntity() {
         return fightEntity;
     }
