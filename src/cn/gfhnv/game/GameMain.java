@@ -1,5 +1,4 @@
 package cn.gfhnv.game;
-
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.event.DamageEvent;
 import cn.gfhnv.game.event.EventBus;
@@ -10,7 +9,6 @@ import cn.gfhnv.game.event.eventListener.WorldTurnEventListener;
 import cn.gfhnv.game.mod.Mod;
 import cn.gfhnv.game.mod.OfficialGameContent;
 import cn.gfhnv.game.world.World;
-
 import java.util.ArrayList;
 import java.util.List;
 

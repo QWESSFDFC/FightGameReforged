@@ -1,12 +1,8 @@
 package cn.gfhnv.game.damage;
-
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entity.Player;
 import cn.gfhnv.game.system.ElementSort;
-
 import javax.lang.model.util.Elements;
-
-
 public class DamageCalculate {
     public static long calculate(LivingThing attacker, LivingThing attackEntity){
         double enhance=attacker.getEnhance();

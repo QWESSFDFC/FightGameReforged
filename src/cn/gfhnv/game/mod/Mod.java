@@ -8,23 +8,18 @@ public abstract class Mod {
     private final String MOD_ID;
     private static List<Entity> entityList=new ArrayList<>();
     private static List<Item> items=new ArrayList<>();
-
     public List<Entity> getEntityList() {
         return entityList;
     }
-
     public void setEntityList(List<Entity> entityList) {
         Mod.entityList = entityList;
     }
-
     public List<Item> getItems() {
         return items;
     }
-
     public void setItems(List<Item> items) {
         Mod.items = items;
     }
-
     public World registerItself(World wd){
             for (Item m:items){
                 wd.addItem(m);

@@ -1,5 +1,4 @@
 package cn.gfhnv.game.mod;
-
 import cn.gfhnv.game.entity.Entity;
 import cn.gfhnv.game.event.Event;
 import cn.gfhnv.game.event.EventBus;
@@ -10,9 +9,7 @@ import cn.gfhnv.game.mod.officialModStuff.customEvent.InsectBossDeathEventListen
 
 import java.util.ArrayList;
 import java.util.List;
-
 public class OfficialGameContent extends Mod {
-
     public OfficialGameContent() {
         super("game_official_content:");
         List<Entity> entities=new ArrayList<>();

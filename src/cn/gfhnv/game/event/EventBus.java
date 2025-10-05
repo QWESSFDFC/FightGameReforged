@@ -8,10 +8,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import cn.gfhnv.game.annotation.SubscribeEvent;
-
 public class EventBus {
     private static Map<Class<?>, List<Consumer<Event>>> handlers=new HashMap<>();
-
     public static void register(Object listener) {
         // 扫描对象中所有带@SubscribeEvent注解的方法
         // 并添加到handlers映射中
@@ -21,7 +19,6 @@ public class EventBus {
             if (method.isAnnotationPresent(SubscribeEvent.class)) {
                 Parameter[] p=method.getParameters();
                 Class<?> eventType=p[0].getType();
-
                 Consumer<Event> handler = event -> {
                     try {
                         method.invoke(listener, event);
@@ -32,7 +29,6 @@ public class EventBus {
                 handlers.computeIfAbsent(eventType, k -> new ArrayList<>())
                         .add(handler);
             }
-
         }
     }
     public static void post(Event event) {
