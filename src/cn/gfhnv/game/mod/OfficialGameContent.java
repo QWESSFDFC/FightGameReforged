@@ -5,6 +5,8 @@ import cn.gfhnv.game.event.Event;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.mod.officialModStuff.InsectBoss;
 import cn.gfhnv.game.mod.officialModStuff.PlayerOne;
+import cn.gfhnv.game.mod.officialModStuff.customEvent.InsectBossDeathEvent;
+import cn.gfhnv.game.mod.officialModStuff.customEvent.InsectBossDeathEventListener;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,6 +20,7 @@ public class OfficialGameContent extends Mod {
         entities.add(new InsectBoss());
         setEntityList(entities);
         EventBus.post(new Event());
+        EventBus.register(new InsectBossDeathEventListener());
 
     }
 

@@ -1,0 +1,10 @@
+package cn.gfhnv.game.mod.officialModStuff.customEvent;
+
+import cn.gfhnv.game.annotation.SubscribeEvent;
+
+public class InsectBossDeathEventListener {
+    @SubscribeEvent
+    public void deathEventTrigger(InsectBossDeathEvent event){
+        System.out.println(event.getInsectBoss().isAlive());
+    }
+}
