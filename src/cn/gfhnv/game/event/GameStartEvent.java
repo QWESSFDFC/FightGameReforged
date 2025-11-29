@@ -22,8 +22,7 @@ public class GameStartEvent extends Event {
     }
     public List<Mod> getMods() {
         if (mods==null) {
-            List<Mod> j=new java.util.ArrayList<>();
-            return j;
+            return new java.util.ArrayList<>();
         }
         return mods;
     }
