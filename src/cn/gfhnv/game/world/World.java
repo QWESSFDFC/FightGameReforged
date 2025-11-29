@@ -12,8 +12,8 @@ import java.util.List;
 public class World {
     private static List<Mod> modList=new ArrayList<>();
     public static int turnTimer=0;
-    public void addMod(Mod m){modList.add(m);}
-    public void removeMod(Mod m){modList.remove(m);}
+    public static void addMod(Mod m){modList.add(m);}
+    public static void removeMod(Mod m){modList.remove(m);}
     public static List<Mod> getModList() {return modList;}
     private static List<Entity> entityList=new ArrayList<>();
     private static List<Item> itemList=new ArrayList<>();

@@ -17,7 +17,7 @@ public class GameStartEventListener {
             if (m==null){
                 return;
             }       
-            m.registerItself(world);
+            m.registerItself();
         }
     }
 }

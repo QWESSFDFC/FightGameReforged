@@ -27,7 +27,7 @@ public class GameStartEvent extends Event {
         }
         return mods;
     }
-    public   GameStartEvent(List<Mod> mods){
+    public GameStartEvent(List<Mod> mods){
         this.mods=mods;
     }
 }

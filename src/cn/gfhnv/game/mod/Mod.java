@@ -20,15 +20,14 @@ public abstract class Mod {
     public void setItems(List<Item> items) {
         Mod.items = items;
     }
-    public World registerItself(World wd){
+    public void registerItself(){
             for (Item m:items){
-                wd.addItem(m);
+                World.addItem(m);
             }
           for (Entity m:entityList){
-              wd.addEntity(m);
+              World.addEntity(m);
           }
-          return wd;
-      }
+    }
     public Mod(String MOD_ID) {
           this.MOD_ID=MOD_ID;
     }

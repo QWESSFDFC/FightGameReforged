@@ -8,10 +8,10 @@ import cn.gfhnv.game.event.eventListener.GameStartEventListener;
 import cn.gfhnv.game.event.eventListener.WorldTurnEventListener;
 import cn.gfhnv.game.mod.Mod;
 import cn.gfhnv.game.mod.OfficialGameContent;
+import cn.gfhnv.game.system.mod.ModLoader;
 import cn.gfhnv.game.world.World;
 import java.util.ArrayList;
 import java.util.List;
-
 /**
  * @author gfhnv
  */
@@ -21,7 +21,8 @@ public class GameMain {
         EventBus.register( new GameStartEventListener());
         EventBus.register( new EffectEventListener());
         EventBus.register( new WorldTurnEventListener());
-        gameWorld.addMod(new OfficialGameContent());
+        ModLoader.modLoaderIntialize();
+        World.addMod(new OfficialGameContent());
         EventBus.post(new GameStartEvent(gameWorld));
         System.out.println(World.getModList());
         System.out.println(gameWorld.getEntityList());
