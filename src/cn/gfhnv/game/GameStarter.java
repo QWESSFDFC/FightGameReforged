@@ -1,6 +1,7 @@
 package cn.gfhnv.game;
 /**
- * @author gfhnv
+ *
+ * 代码开源 MIT　License.---------- @author gfhnv
  */
 public class GameStarter {
     public static void main(String[] args) {

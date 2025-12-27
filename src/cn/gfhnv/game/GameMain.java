@@ -13,7 +13,7 @@ import cn.gfhnv.game.world.World;
 import java.util.ArrayList;
 import java.util.List;
 /**
- * @author gfhnv
+ 代码开源 MIT　License.---------- @author gfhnv
  */
 public class GameMain {
     public static void main(String[] args) {
