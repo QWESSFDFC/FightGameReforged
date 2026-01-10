@@ -1,5 +1,6 @@
 package cn.gfhnv.game.world;
 
+import cn.gfhnv.game.Thing;
 import cn.gfhnv.game.entity.Entity;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.event.WorldTurnEvent;
@@ -8,15 +9,19 @@ import cn.gfhnv.game.mod.Mod;
 
 import java.util.ArrayList;
 import java.util.List;
-
+//Things为游戏内运行的东西.itemList,entityList为注册表.
 public class World {
     private static List<Mod> modList=new ArrayList<>();
     public static int turnTimer=0;
-    public static void addMod(Mod m){modList.add(m);}
+    private static List<Thing> things=new ArrayList<>();
+        public static void addMod(Mod m){modList.add(m);}
     public static void removeMod(Mod m){modList.remove(m);}
     public static List<Mod> getModList() {return modList;}
     private static List<Entity> entityList=new ArrayList<>();
     private static List<Item> itemList=new ArrayList<>();
+    public static List<Thing> getThings(){
+        return things;
+    }
     public static void addEntity(Entity e){
     entityList.add(e);
  }

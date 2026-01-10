@@ -1,22 +1,25 @@
 package cn.gfhnv.game.entity;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import cn.gfhnv.game.Thing;
 import cn.gfhnv.game.inventory.Inventory;
 import cn.gfhnv.game.item.Item;
 import cn.gfhnv.game.system.ElementSort;
-public class Entity {
+public class Entity extends Thing {
     public LivingThing transToLivingTing(){
         if (this instanceof LivingThing){
             return (LivingThing) this;
         }
         System.out.println("ERROR!TRANS FAILED! RETURN NULL.Entity.transToLivingTing!");
         return null;
+
     }
     private long level;
     private String name;
-    private double x,y,z;
     private String id;
     private double hpGrowNumber;
     private double atkGrowNumber;
@@ -28,9 +31,6 @@ public class Entity {
         return "Entity{" +
                 "level=" + level +
                 ", name='" + name + '\'' +
-                ", x=" + x +
-                ", y=" + y +
-                ", z=" + z +
                 ", id='" + id + '\'' +
                 ", hpGrowNumber=" + hpGrowNumber +
                 ", atkGrowNumber=" + atkGrowNumber +
@@ -98,36 +98,22 @@ public class Entity {
     public void setLevel(long level) {
         this.level = level;
     }
-    public double getX() {
-        return x;
-    }
-    public void setX(double x) {
-        this.x = x;
-    }
-    public double getY() {
-        return y;
-    }
-    public void setY(double y) {
-        this.y = y;
-    }
-    public double getZ() {
-        return z;
-    }
-    public void setZ(double z) {
-        this.z = z;
-    }
     public String getId() {
         return id;
     }
     public void setId(String id) {
         this.id = id;
     }
-    public Entity(){}
-    public Entity(String name, double x, double y, double z, String id,long l,ElementSort h) {
+    public Entity(){super(new BigDecimal(0));}
+    public Entity(String name, String id,long l,ElementSort h) {
         this.name = name;
-        this.x = x;
-        this.y = y;
-        this.z = z;
+        this.id = id;
+        this.level=l;
+        this.yuanshu=h;
+    }
+    public Entity(String name,String id,long l,ElementSort h,BigDecimal bigDecimal) {
+        super(bigDecimal);
+        this.name = name;
         this.id = id;
         this.level=l;
         this.yuanshu=h;

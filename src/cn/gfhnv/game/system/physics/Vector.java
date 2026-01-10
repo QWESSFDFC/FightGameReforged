@@ -1,6 +1,6 @@
-package cn.gfhnv.game.system;
+package cn.gfhnv.game.system.physics;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
+
 public class Vector {
     private BigDecimal xScale;
     private BigDecimal yScale;
@@ -13,7 +13,6 @@ public class Vector {
                 ", zScale=" + zScale +
                 '}';
     }
-
     public Vector(BigDecimal xScale, BigDecimal yScale, BigDecimal zScale) {
         this.xScale = xScale;
         this.yScale = yScale;
