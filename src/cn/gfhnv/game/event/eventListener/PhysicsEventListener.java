@@ -14,6 +14,7 @@ public class PhysicsEventListener {
     @SubscribeEvent
     public void updateState(PhysicsStateUpdateEvent physicsStateUpdateEvent){
         List<?extends Thing> things=physicsStateUpdateEvent.getWorld().getEntityList();
+        if  (things.isEmpty()){return;}
         for (Thing thing:things){
             thing.setAceleration(new Aceleration(thing.getForce().getxScale().divide(thing.getMass()),thing.getForce().getyScale().divide(thing.getMass()),thing.getForce().getzScale().divide(thing.getMass())));
             thing.setVelocity(new Velocity(thing.getVelocity().getxScale().add(thing.getAceleration().getxScale().multiply(BigDecimal.valueOf(1))),thing.getVelocity().getyScale().add(thing.getAceleration().getyScale().multiply(BigDecimal.valueOf(1))),thing.getVelocity().getzScale().add(thing.getAceleration().getzScale().multiply(BigDecimal.valueOf(1)))));

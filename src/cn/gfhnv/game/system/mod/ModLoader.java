@@ -1,15 +1,11 @@
 package cn.gfhnv.game.system.mod;
 import cn.gfhnv.game.mod.Mod;
-import cn.gfhnv.game.world.World;
 
 import java.io.File;
-import java.io.IOException;
-import java.net.URI;
-import java.nio.file.*;
 import java.util.ArrayList;
 import java.util.List;
 public class ModLoader {
-    public static void modLoaderIntialize(){
+    public static void modLoaderInitialize(){
         List<Mod> preToLoadMods =new ArrayList<>();
         File modDir=new File("./mods");
         if (!modDir.exists()){

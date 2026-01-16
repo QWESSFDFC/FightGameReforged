@@ -6,27 +6,35 @@ import java.util.ArrayList;
 import java.util.List;
 public abstract class Mod {
     private final String MOD_ID;
-    private static List<Entity> entityList=new ArrayList<>();
-    private static List<Item> items=new ArrayList<>();
+    private List<Entity> entityList=new ArrayList<>();
+    private List<Item> items=new ArrayList<>();
     public List<Entity> getEntityList() {
         return entityList;
     }
     public void setEntityList(List<Entity> entityList) {
-        Mod.entityList = entityList;
+        this.entityList = entityList;
     }
     public List<Item> getItems() {
         return items;
     }
+    public void addItem(Item item) {items.add(item);}
+    public void removeItem(Item item) {items.remove(item);}
+    public void addEntity(Entity entity) {entityList.add(entity);}
+    public void removeEntity(Entity entity) {entityList.remove(entity);}
     public void setItems(List<Item> items) {
-        Mod.items = items;
+        this.items = items;
     }
     public void registerItself(){
-            for (Item m:items){
+        for (Item m:items){
+            if (!World.getItemList().contains(m)) {
                 World.addItem(m);
             }
-          for (Entity m:entityList){
-              World.addEntity(m);
-          }
+        }
+        for (Entity m:entityList){
+            if (!World.getEntityList().contains(m)) {
+                World.addEntity(m);
+            }
+        }
     }
     public Mod(String MOD_ID) {
           this.MOD_ID=MOD_ID;

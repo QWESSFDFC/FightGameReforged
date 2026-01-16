@@ -32,12 +32,7 @@ public class World {
     public static void removeEntity(Entity e){
      entityList.remove(e);
  }
-    public void nextTurn(){
-        EventBus.post(new WorldTurnEvent(this));
-        turnTimer++;
- }
-
-    public List<Entity> getEntityList() {
+ public static List<Entity> getEntityList() {
         return entityList;
     }
 }

@@ -12,7 +12,6 @@ public class GameStartEventListener {
             return;
         }
       List<Mod> mods = ev.getMods();
-      World world=ev.getWorld();
         for(Mod m:mods){
             if (m==null){
                 return;

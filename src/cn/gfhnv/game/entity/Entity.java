@@ -1,9 +1,6 @@
 package cn.gfhnv.game.entity;
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import cn.gfhnv.game.Thing;
 import cn.gfhnv.game.inventory.Inventory;
@@ -26,6 +23,19 @@ public class Entity extends Thing {
     private double dfkGrowNumber;
     private ElementSort yuanshu;
     private final int UUID=1;
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        Entity entity = (Entity) o;
+        return getLevel() == entity.getLevel() && Double.compare(getHpGrowNumber(), entity.getHpGrowNumber()) == 0 && Double.compare(getAtkGrowNumber(), entity.getAtkGrowNumber()) == 0 && Double.compare(getDfkGrowNumber(), entity.getDfkGrowNumber()) == 0 && getUUID() == entity.getUUID() && Objects.equals(getName(), entity.getName()) && Objects.equals(getId(), entity.getId()) && getYuanshu() == entity.getYuanshu() && Objects.equals(getInventory(), entity.getInventory()) && Objects.equals(getType(), entity.getType());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getLevel(), getName(), getId(), getHpGrowNumber(), getAtkGrowNumber(), getDfkGrowNumber(), getYuanshu(), getUUID(), getInventory(), getType());
+    }
+
     @Override
     public String toString() {
         return "Entity{" +

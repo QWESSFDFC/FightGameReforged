@@ -1,4 +1,5 @@
 package cn.gfhnv.game.event.eventListener;
+import cn.gfhnv.game.Thing;
 import cn.gfhnv.game.annotation.SubscribeEvent;
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.Entity;
@@ -10,19 +11,21 @@ import java.util.Objects;
 public class EffectEventListener {
  @SubscribeEvent
     public void effectTimer(WorldTurnEvent wd){
-     List<Entity> entities=wd.getWorld().getEntityList();
-     for (Entity en:entities){
-         if (en instanceof LivingThing){
-             List<Effect> effects=((LivingThing) en).getEntityEffectList();
-             for (Effect ef:effects){
-                 if (ef.getLastTime()==0){
-                     ((LivingThing) en).removeEffect(ef);
-                     System.out.println(en.getName()+"的"+ef.getID()+"持续时间到了.");
-                 }
-                 ef.setLastTime(ef.getLastTime()-1);
-             }
-         }
-     }
-     World.setEntityList(entities);
+    List<Thing> things= World.getThings();
+    for (Thing thing:things){
+        if(thing instanceof LivingThing){
+            List<Effect> effectList=((LivingThing) thing).getEntityEffectList();
+            for (Effect ef:effectList){
+                if (ef.getLastTime()==0){
+                    ((LivingThing) thing).removeEffect(ef);
+                    System.out.println(((LivingThing) thing).getName()+"的"+ef.getID()+"持续时间到了.");
+                }
+                if (ef.getLastTime()>0){
+                    ef.comeIntoEffect((LivingThing) thing);//效果生效
+                }
+                ef.setLastTime(ef.getLastTime()-1);
+            }
+        }
+    }
  }
 }
