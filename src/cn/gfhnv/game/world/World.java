@@ -1,5 +1,4 @@
 package cn.gfhnv.game.world;
-
 import cn.gfhnv.game.Thing;
 import cn.gfhnv.game.entity.Entity;
 import cn.gfhnv.game.event.EventBus;

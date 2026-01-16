@@ -41,5 +41,8 @@ public class EventBus {
     public static void clear(){
         handlers.clear();
     }
+    public static Map<Class<?>, List<Consumer<Event>>> getHandlers() {
+        return handlers;
+    }
 }
 

@@ -25,6 +25,5 @@ public class GameMain {
         EventBus.post(new GameStartEvent(gameWorld));
         System.out.println(World.getModList());
         System.out.println(gameWorld.getEntityList());
-
       }
 }
