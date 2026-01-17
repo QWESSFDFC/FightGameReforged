@@ -78,24 +78,37 @@ public class LivingThing extends Entity {
         return entityEffectList;
     }
     public void addEffect(LivingThing target, Effect effect){
-    if (target.entityEffectList.getFirst()!=null){
-    for (Effect e:target.entityEffectList){
-        if (e.getID().equals(effect.getID())){
-            if (e.getLevel()>effect.getLevel()){
-                return;
-            }
-            target.entityEffectList.remove(e);
-            target.entityEffectList.add(effect);
-            return;
-        }
+           if(target.getEntityEffectList().contains(effect)){
+               for (Effect e : target.entityEffectList){
+                   if (e.equals(effect)){
+                       if (e.getLevel()>=effect.getLevel()){
+                           e.setLevel(effect.getLevel()+e.getLevel());
+                           return;
+                       }
+                       target.entityEffectList.remove(e);
+                       target.entityEffectList.add(effect);
+                   }
+               }
+
+    }
         target.entityEffectList.add(effect);
-        return;
-    }}
-    target.entityEffectList.add(effect);
 }
-public void ifEffectAlive(){
-    this.entityEffectList.removeIf(e -> e.getLastTime() ==0);
-}
+    public void addEffect(Effect effect){
+
+        if(this.getEntityEffectList().contains(effect)){
+            for (Effect e : this.entityEffectList){
+                if (e.equals(effect)){
+                    if (e.getLevel()>=effect.getLevel()){
+                        e.setLevel(effect.getLevel()+e.getLevel());
+                        return;
+                    }
+                    this.entityEffectList.remove(e);
+                    this.entityEffectList.add(effect);
+                }
+            }
+        }
+        this.entityEffectList.add(effect);
+    }
     public void setEntityEffectList(List<Effect> entityEffectList) {
         this.entityEffectList = entityEffectList;
     }

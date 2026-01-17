@@ -10,18 +10,18 @@ public class FightStartEvent extends Event {
     private List<?extends Entity> enemiesList;
     private List<?extends Item> rewardList;
     private List<?extends Entity> fighterList;
-    private World world;
-    public FightStartEvent(List<? extends Entity> enemiesList, List<? extends Item> rewardList, List<? extends Entity> fighterList,World world) {
+
+    public FightStartEvent(List<? extends Entity> enemiesList, List<? extends Item> rewardList, List<? extends Entity> fighterList) {
         this.enemiesList = enemiesList;
         this.rewardList = rewardList;
         this.fighterList = fighterList;
-        this.world = world;
+
     }
-    public FightStartEvent(List<? extends Entity> enemiesList,List<? extends Entity> fighterList,World world) {
+    public FightStartEvent(List<? extends Entity> enemiesList,List<? extends Entity> fighterList) {
         this.enemiesList = enemiesList;
         this.rewardList = null;
         this.fighterList = fighterList;
-        this.world = world;
+
     }
     public List<? extends Entity> getEnemiesList() {
         return enemiesList;
@@ -42,7 +42,5 @@ public class FightStartEvent extends Event {
         this.fighterList = fighterList;
     }
 
-    public World getWorld() {
-        return world;
-    }
+
 }

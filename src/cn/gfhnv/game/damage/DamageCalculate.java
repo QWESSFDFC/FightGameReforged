@@ -1,8 +1,6 @@
 package cn.gfhnv.game.damage;
 import cn.gfhnv.game.entity.LivingThing;
-import cn.gfhnv.game.entity.Player;
-import cn.gfhnv.game.system.ElementSort;
-import javax.lang.model.util.Elements;
+
 public class DamageCalculate {
     public static long calculate(LivingThing attacker, LivingThing attackEntity){
         double enhance=attacker.getEnhance();
@@ -13,7 +11,7 @@ public class DamageCalculate {
         double metalResistance=attackEntity.getMetalResistance();
         double woodResistance=attackEntity.getWoodResistance();
         double dirtResistance=attackEntity.getDirtResistance();
-        double atk=attacker.getAfk(); double hp=attacker.getHp(); double dfk=attacker.getDfk();double hpMagnification=attacker.getHpMagnification(); double atkMagnification=attacker.getAtkMagnification(); double dfkMagnification=attacker.getDfkMagnification(); long l=attacker.getLevel(); double critialDMG=-1; double criticalRATE=-1; cn.gfhnv.game.system.ElementSort yuanshu =attacker.getYuanshu(); double dfk2=attackEntity.getDfk(); double dfkloss= attackEntity.getDfkloss();
+        double atk=attacker.getAfk(); double hp=attacker.getHp(); double dfk=attacker.getDfk();double hpMagnification=attacker.getHpMagnification(); double atkMagnification=attacker.getAtkMagnification(); double dfkMagnification=attacker.getDfkMagnification(); long l=attacker.getLevel(); double critialDMG=-1; double criticalRATE=-1; cn.gfhnv.game.system.ElementSort yuanshu =attacker.getElementSort(); double dfk2=attackEntity.getDfk(); double dfkloss= attackEntity.getDfkloss();
         criticalRATE=(attacker).getGetCriticalRATE();
         critialDMG=(attacker).getCriticalDMG();
         if (Math.random()<=criticalRATE){

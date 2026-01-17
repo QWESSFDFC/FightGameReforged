@@ -8,6 +8,6 @@ import cn.gfhnv.game.event.WorldTurnEvent;
 public class WorldTurnEventListener {
 @SubscribeEvent
     public void worldTurnEventListner(WorldTurnEvent worldTurnEvent){
-    EventBus.post(new PhysicsStateUpdateEvent(worldTurnEvent.getWorld()));
+    EventBus.post(new PhysicsStateUpdateEvent());
 }
 }

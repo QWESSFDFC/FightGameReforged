@@ -1,4 +1,4 @@
-package cn.gfhnv.game.mod.officialModStuff;
+package cn.gfhnv.game.mod.officialModStuff.customEntity;
 import cn.gfhnv.game.entity.LivingThing;
 import static cn.gfhnv.game.system.ElementSort.METAL;
 public class InsectBoss extends LivingThing {

@@ -1,4 +1,4 @@
-package cn.gfhnv.game.mod.officialModStuff;
+package cn.gfhnv.game.mod.officialModStuff.customEntity;
 import cn.gfhnv.game.entity.Player;
 import cn.gfhnv.game.system.ElementSort;
 public class PlayerOne extends Player {

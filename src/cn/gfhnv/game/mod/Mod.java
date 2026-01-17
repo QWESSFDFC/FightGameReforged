@@ -1,13 +1,17 @@
 package cn.gfhnv.game.mod;
+import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.Entity;
 import cn.gfhnv.game.item.Item;
 import cn.gfhnv.game.world.World;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+
 public abstract class Mod {
     private final String MOD_ID;
     private List<Entity> entityList=new ArrayList<>();
     private List<Item> items=new ArrayList<>();
+    private List<Effect> effects=new ArrayList<>();
     public List<Entity> getEntityList() {
         return entityList;
     }
@@ -25,17 +29,41 @@ public abstract class Mod {
         this.items = items;
     }
     public void registerItself(){
+        if (!items.isEmpty()){
         for (Item m:items){
             if (!World.getItemList().contains(m)) {
                 World.addItem(m);
             }
-        }
-        for (Entity m:entityList){
-            if (!World.getEntityList().contains(m)) {
-                World.addEntity(m);
+        }}
+        if (!entityList.isEmpty()){
+            for (Entity m:entityList){
+                if (!World.getEntityList().contains(m)) {
+                    World.addEntity(m);
+                }
             }
         }
+       if (!effects.isEmpty()){
+           for (Effect m:effects){
+               if (!World.getEffectList().contains(m)) {
+                   World.addEffect(m);
+               }
+           }
+       }
+
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        Mod mod = (Mod) o;
+        return Objects.equals(getMOD_ID(), mod.getMOD_ID()) && Objects.equals(getEntityList(), mod.getEntityList()) && Objects.equals(getItems(), mod.getItems());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getMOD_ID(), getEntityList(), getItems());
+    }
+
     public Mod(String MOD_ID) {
           this.MOD_ID=MOD_ID;
     }

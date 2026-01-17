@@ -7,6 +7,7 @@ import cn.gfhnv.game.event.eventListener.GameStartEventListener;
 import cn.gfhnv.game.event.eventListener.PhysicsEventListener;
 import cn.gfhnv.game.event.eventListener.WorldTurnEventListener;
 import cn.gfhnv.game.mod.officialModStuff.OfficialGameContent;
+import cn.gfhnv.game.mod.officialModStuff.customEntity.PlayerOne;
 import cn.gfhnv.game.system.mod.ModLoader;
 import cn.gfhnv.game.world.World;
 
@@ -15,15 +16,22 @@ import cn.gfhnv.game.world.World;
  */
 public class GameMain {
     public static void main(String[] args) {
-        World gameWorld=new World();
         World.addMod(new OfficialGameContent());
         ModLoader.modLoaderInitialize();
         EventBus.register( new GameStartEventListener());
         EventBus.register( new EffectEventListener());
         EventBus.register( new WorldTurnEventListener());
         EventBus.register(new PhysicsEventListener());
-        EventBus.post(new GameStartEvent(gameWorld));
+        EventBus.post(new GameStartEvent());
         System.out.println(World.getModList());
-        System.out.println(gameWorld.getEntityList());
+        System.out.println(World.getEntityList());
+        LivingThing livingThing1=new PlayerOne();
+        World.addEntity(livingThing1);
+        LivingThing livingThing2=new PlayerOne();
+        World.addEntity(livingThing2);
+        livingThing2.setFightEntity(livingThing1);
+        livingThing1.setFightEntity(livingThing2);
+        livingThing1.makeDamage(livingThing2);
+        livingThing2.addEffect(World.getEffectList().getFirst());
       }
 }

@@ -5,6 +5,7 @@ import cn.gfhnv.game.system.physics.type.Force;
 import cn.gfhnv.game.system.physics.type.Velocity;
 
 import java.math.BigDecimal;
+import java.util.Objects;
 
 public class Thing {
     private BigDecimal mass=new BigDecimal(0);
@@ -18,6 +19,18 @@ public class Thing {
 
     public void setAceleration(Aceleration aceleration) {
         this.aceleration = aceleration;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        Thing thing = (Thing) o;
+        return Objects.equals(getMass(), thing.getMass()) && Objects.equals(getForce(), thing.getForce()) && Objects.equals(getVelocity(), thing.getVelocity()) && Objects.equals(getAceleration(), thing.getAceleration()) && Objects.equals(getX(), thing.getX()) && Objects.equals(getY(), thing.getY()) && Objects.equals(getZ(), thing.getZ());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getMass(), getForce(), getVelocity(), getAceleration(), getX(), getY(), getZ());
     }
 
     private BigDecimal x=new BigDecimal(0);

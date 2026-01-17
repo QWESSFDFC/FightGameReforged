@@ -3,7 +3,6 @@ import java.math.BigDecimal;
 import java.util.*;
 
 import cn.gfhnv.game.Thing;
-import cn.gfhnv.game.inventory.Inventory;
 import cn.gfhnv.game.item.Item;
 import cn.gfhnv.game.system.ElementSort;
 public class Entity extends Thing {
@@ -21,19 +20,19 @@ public class Entity extends Thing {
     private double hpGrowNumber;
     private double atkGrowNumber;
     private double dfkGrowNumber;
-    private ElementSort yuanshu;
+    private ElementSort elementSort;
     private final int UUID=1;
 
     @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
         Entity entity = (Entity) o;
-        return getLevel() == entity.getLevel() && Double.compare(getHpGrowNumber(), entity.getHpGrowNumber()) == 0 && Double.compare(getAtkGrowNumber(), entity.getAtkGrowNumber()) == 0 && Double.compare(getDfkGrowNumber(), entity.getDfkGrowNumber()) == 0 && getUUID() == entity.getUUID() && Objects.equals(getName(), entity.getName()) && Objects.equals(getId(), entity.getId()) && getYuanshu() == entity.getYuanshu() && Objects.equals(getInventory(), entity.getInventory()) && Objects.equals(getType(), entity.getType());
+        return getLevel() == entity.getLevel() && Double.compare(getHpGrowNumber(), entity.getHpGrowNumber()) == 0 && Double.compare(getAtkGrowNumber(), entity.getAtkGrowNumber()) == 0 && Double.compare(getDfkGrowNumber(), entity.getDfkGrowNumber()) == 0 && getUUID() == entity.getUUID() && Objects.equals(getName(), entity.getName()) && Objects.equals(getId(), entity.getId()) && getElementSort() == entity.getElementSort() && Objects.equals(getInventory(), entity.getInventory()) && Objects.equals(getType(), entity.getType());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getLevel(), getName(), getId(), getHpGrowNumber(), getAtkGrowNumber(), getDfkGrowNumber(), getYuanshu(), getUUID(), getInventory(), getType());
+        return Objects.hash(getLevel(), getName(), getId(), getHpGrowNumber(), getAtkGrowNumber(), getDfkGrowNumber(), getElementSort(), getUUID(), getInventory(), getType());
     }
 
     @Override
@@ -45,7 +44,7 @@ public class Entity extends Thing {
                 ", hpGrowNumber=" + hpGrowNumber +
                 ", atkGrowNumber=" + atkGrowNumber +
                 ", dfkGrowNumber=" + dfkGrowNumber +
-                ", yuanshu='" + yuanshu + '\'' +
+                ", yuanshu='" + elementSort + '\'' +
                 ", UUID=" + UUID +
                 ", inventory=" + inventory +
                 ", type='" + type + '\'' +
@@ -57,11 +56,11 @@ public class Entity extends Thing {
     public Map<Item, Integer> getInventory() {
         return inventory;
     }
-    public ElementSort getYuanshu() {
-        return yuanshu;
+    public ElementSort getElementSort() {
+        return elementSort;
     }
-    public void setYuanshu(ElementSort yuanshu) {
-        this.yuanshu = yuanshu;
+    public void setElementSort(ElementSort elementSort) {
+        this.elementSort = elementSort;
     }
     private Map<Item, Integer> inventory= new HashMap<>();
     private String type="entity";
@@ -119,13 +118,13 @@ public class Entity extends Thing {
         this.name = name;
         this.id = id;
         this.level=l;
-        this.yuanshu=h;
+        this.elementSort =h;
     }
     public Entity(String name,String id,long l,ElementSort h,BigDecimal bigDecimal) {
         super(bigDecimal);
         this.name = name;
         this.id = id;
         this.level=l;
-        this.yuanshu=h;
+        this.elementSort =h;
     }
 }

@@ -13,7 +13,7 @@ import java.util.List;
 public class PhysicsEventListener {
     @SubscribeEvent
     public void updateState(PhysicsStateUpdateEvent physicsStateUpdateEvent){
-        List<?extends Thing> things=physicsStateUpdateEvent.getWorld().getEntityList();
+        List<?extends Thing> things=World.getEntityList();
         if  (things.isEmpty()){return;}
         for (Thing thing:things){
             thing.setAceleration(new Aceleration(thing.getForce().getxScale().divide(thing.getMass()),thing.getForce().getyScale().divide(thing.getMass()),thing.getForce().getzScale().divide(thing.getMass())));
