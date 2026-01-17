@@ -8,10 +8,26 @@ import java.math.BigDecimal;
 import java.util.Objects;
 
 public class Thing {
-    private BigDecimal mass=new BigDecimal(1);
-    private Force force=new Force(new BigDecimal(0),new BigDecimal(0),new BigDecimal(0));
-    private Velocity velocity=new Velocity(new BigDecimal(0),new BigDecimal(0),new BigDecimal(0));
-    private Acceleration acceleration =new Acceleration(new BigDecimal(0),new BigDecimal(0),new BigDecimal(0));
+    private BigDecimal mass = new BigDecimal(1);
+    private Force force = new Force(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
+    private Velocity velocity = new Velocity(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
+    private Acceleration acceleration = new Acceleration(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
+    private BigDecimal x = new BigDecimal(0);
+    private BigDecimal y = new BigDecimal(0);
+    private BigDecimal z = new BigDecimal(0);
+
+    public Thing(BigDecimal y, BigDecimal z, BigDecimal x, BigDecimal mass) {
+        this.y = y;
+        this.z = z;
+        this.x = x;
+        this.mass = mass;
+    }
+
+    public Thing(BigDecimal mass) {
+        this.mass = mass;
+    }
+    public Thing() {
+    }
 
     public Acceleration getAcceleration() {
         return acceleration;
@@ -33,9 +49,6 @@ public class Thing {
         return Objects.hash(getMass(), getForce(), getVelocity(), getAcceleration(), getX(), getY(), getZ());
     }
 
-    private BigDecimal x=new BigDecimal(0);
-    private BigDecimal y=new BigDecimal(0);
-    private BigDecimal z=new BigDecimal(0);
     public BigDecimal getX() {
         return x;
     }
@@ -59,20 +72,6 @@ public class Thing {
     public void setY(BigDecimal y) {
         this.y = y;
     }
-
-    public Thing(BigDecimal y, BigDecimal z, BigDecimal x, BigDecimal mass) {
-        this.y = y;
-        this.z = z;
-        this.x = x;
-        this.mass = mass;
-    }
-
-    public Thing(BigDecimal mass) {
-        this.mass = mass;
-    }
-    public Thing() {
-    }
-
 
     @Override
     public String toString() {

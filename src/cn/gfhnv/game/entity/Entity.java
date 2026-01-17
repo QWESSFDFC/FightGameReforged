@@ -1,19 +1,16 @@
 package cn.gfhnv.game.entity;
-import java.math.BigDecimal;
-import java.util.*;
 
 import cn.gfhnv.game.Thing;
 import cn.gfhnv.game.item.Item;
 import cn.gfhnv.game.system.ElementSort;
-public class Entity extends Thing {
-    public LivingThing transToLivingTing(){
-        if (this instanceof LivingThing){
-            return (LivingThing) this;
-        }
-        System.out.println("ERROR!TRANS FAILED! RETURN NULL.Entity.transToLivingTing!");
-        return null;
 
-    }
+import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+
+public class Entity extends Thing {
+    private final int UUID = 1;
     private long level;
     private String name;
     private String id;
@@ -21,7 +18,36 @@ public class Entity extends Thing {
     private double atkGrowNumber;
     private double dfkGrowNumber;
     private ElementSort elementSort;
-    private final int UUID=1;
+    private Map<Item, Integer> inventory = new HashMap<>();
+    private String type = "entity";
+
+    public Entity() {
+        super(new BigDecimal(1));
+    }
+
+    public Entity(String name, String id, long l, ElementSort h) {
+        this.name = name;
+        this.id = id;
+        this.level = l;
+        this.elementSort = h;
+    }
+
+    public Entity(String name, String id, long l, ElementSort h, BigDecimal bigDecimal) {
+        super(bigDecimal);
+        this.name = name;
+        this.id = id;
+        this.level = l;
+        this.elementSort = h;
+    }
+
+    public LivingThing transToLivingTing() {
+        if (this instanceof LivingThing) {
+            return (LivingThing) this;
+        }
+        System.out.println("ERROR!TRANS FAILED! RETURN NULL.Entity.transToLivingTing!");
+        return null;
+
+    }
 
     @Override
     public boolean equals(Object o) {
@@ -34,14 +60,16 @@ public class Entity extends Thing {
     public int hashCode() {
         return Objects.hash(getLevel(), getName(), getId(), getHpGrowNumber(), getAtkGrowNumber(), getDfkGrowNumber(), getElementSort(), getUUID(), getInventory(), getType());
     }
-     public void showState() {
-         System.out.println(this.getName());
-         System.out.println(this.getId());
-         System.out.println(this.getElementSort());
-         System.out.println(this.getVelocity()+"Velocity");
-         System.out.println(this.getMass()+"Mass");
-         System.out.println(this.getAcceleration()+"Acceleration");
-     }
+
+    public void showState() {
+        System.out.println(this.getName());
+        System.out.println(this.getId());
+        System.out.println(this.getElementSort());
+        System.out.println(this.getVelocity() + "Velocity");
+        System.out.println(this.getMass() + "Mass");
+        System.out.println(this.getAcceleration() + "Acceleration");
+    }
+
     @Override
     public String toString() {
         return "Entity{" +
@@ -57,81 +85,84 @@ public class Entity extends Thing {
                 ", type='" + type + '\'' +
                 '}';
     }
+
     public int getUUID() {
         return UUID;
     }
+
     public Map<Item, Integer> getInventory() {
         return inventory;
     }
+
     public ElementSort getElementSort() {
         return elementSort;
     }
+
     public void setElementSort(ElementSort elementSort) {
         this.elementSort = elementSort;
     }
-    private Map<Item, Integer> inventory= new HashMap<>();
-    private String type="entity";
-    public void giveThingToEntity(Entity e,Item i,Integer ss){
-        if (e.inventory.getOrDefault(i,null)!=null){
-            e.inventory.replace(i, inventory.get(i),inventory.get(i)+ ss);
+
+    public void giveThingToEntity(Entity e, Item i, Integer ss) {
+        if (e.inventory.getOrDefault(i, null) != null) {
+            e.inventory.replace(i, inventory.get(i), inventory.get(i) + ss);
             return;
         }
-        e.inventory.put(i,ss);
+        e.inventory.put(i, ss);
     }
+
     public String getName() {
         return name;
     }
-    public double getDfkGrowNumber() {
-        return dfkGrowNumber;
-    }
-    public void setDfkGrowNumber(double dfkGrowNumber) {
-        this.dfkGrowNumber = dfkGrowNumber;
-    }
-    public double getAtkGrowNumber() {
-        return atkGrowNumber;
-    }
-    public void setAtkGrowNumber(double atkGrowNumber) {
-        this.atkGrowNumber = atkGrowNumber;
-    }
-    public double getHpGrowNumber() {
-        return hpGrowNumber;
-    }
-    public void setHpGrowNumber(double hpGrowNumber) {
-        this.hpGrowNumber = hpGrowNumber;
-    }
+
     public void setName(String name) {
         this.name = name;
     }
+
+    public double getDfkGrowNumber() {
+        return dfkGrowNumber;
+    }
+
+    public void setDfkGrowNumber(double dfkGrowNumber) {
+        this.dfkGrowNumber = dfkGrowNumber;
+    }
+
+    public double getAtkGrowNumber() {
+        return atkGrowNumber;
+    }
+
+    public void setAtkGrowNumber(double atkGrowNumber) {
+        this.atkGrowNumber = atkGrowNumber;
+    }
+
+    public double getHpGrowNumber() {
+        return hpGrowNumber;
+    }
+
+    public void setHpGrowNumber(double hpGrowNumber) {
+        this.hpGrowNumber = hpGrowNumber;
+    }
+
     public String getType() {
         return type;
     }
+
     public void setType(String type) {
         this.type = type;
     }
+
     public long getLevel() {
         return level;
     }
+
     public void setLevel(long level) {
         this.level = level;
     }
+
     public String getId() {
         return id;
     }
+
     public void setId(String id) {
         this.id = id;
-    }
-    public Entity(){super(new BigDecimal(1));}
-    public Entity(String name, String id,long l,ElementSort h) {
-        this.name = name;
-        this.id = id;
-        this.level=l;
-        this.elementSort =h;
-    }
-    public Entity(String name,String id,long l,ElementSort h,BigDecimal bigDecimal) {
-        super(bigDecimal);
-        this.name = name;
-        this.id = id;
-        this.level=l;
-        this.elementSort =h;
     }
 }

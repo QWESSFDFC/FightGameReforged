@@ -1,58 +1,89 @@
 package cn.gfhnv.game.mod;
+
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.Entity;
 import cn.gfhnv.game.item.Item;
 import cn.gfhnv.game.world.World;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 public abstract class Mod {
     private final String MOD_ID;
-    private List<Entity> entityList=new ArrayList<>();
-    private List<Item> items=new ArrayList<>();
-    private List<Effect> effects=new ArrayList<>();
+    private List<Entity> entityList = new ArrayList<>();
+    private List<Item> items = new ArrayList<>();
+    private List<Effect> effects = new ArrayList<>();
+
+    public Mod(String MOD_ID) {
+        this.MOD_ID = MOD_ID;
+    }
+
     public List<Entity> getEntityList() {
         return entityList;
     }
+
     public void setEntityList(List<Entity> entityList) {
         this.entityList = entityList;
     }
+
     public List<Item> getItems() {
         return items;
     }
-    public void addItem(Item item) {items.add(item);}
-    public void removeItem(Item item) {items.remove(item);}
-    public void addEntity(Entity entity) {entityList.add(entity);}
-    public void removeEntity(Entity entity) {entityList.remove(entity);}
+
     public void setItems(List<Item> items) {
         this.items = items;
     }
-    public void addEffect(Effect effect) {effects.add(effect);}
+
+    public void addItem(Item item) {
+        items.add(item);
+    }
+
+    public void removeItem(Item item) {
+        items.remove(item);
+    }
+
+    public void addEntity(Entity entity) {
+        entityList.add(entity);
+    }
+
+    public void removeEntity(Entity entity) {
+        entityList.remove(entity);
+    }
+
+    public void addEffect(Effect effect) {
+        effects.add(effect);
+    }
+
     public void removeEffect(Effect effect) {
-        if(!effects.contains(effect)){return;}
-        effects.remove(effect);}
-      public void registerItself(){
-        if (!items.isEmpty()){
-        for (Item m:items){
-            if (!World.getItemList().contains(m)) {
-                World.addItem(m);
+        if (!effects.contains(effect)) {
+            return;
+        }
+        effects.remove(effect);
+    }
+
+    public void registerItself() {
+        if (!items.isEmpty()) {
+            for (Item m : items) {
+                if (!World.getItemList().contains(m)) {
+                    World.addItem(m);
+                }
             }
-        }}
-        if (!entityList.isEmpty()){
-            for (Entity m:entityList){
+        }
+        if (!entityList.isEmpty()) {
+            for (Entity m : entityList) {
                 if (!World.getEntityList().contains(m)) {
                     World.addEntity(m);
                 }
             }
         }
-       if (!effects.isEmpty()){
-           for (Effect m:effects){
-               if (!World.getEffectList().contains(m)) {
-                   World.addEffect(m);
-               }
-           }
-       }
+        if (!effects.isEmpty()) {
+            for (Effect m : effects) {
+                if (!World.getEffectList().contains(m)) {
+                    World.addEffect(m);
+                }
+            }
+        }
     }
 
     @Override
@@ -67,9 +98,6 @@ public abstract class Mod {
         return Objects.hash(getMOD_ID(), getEntityList(), getItems());
     }
 
-    public Mod(String MOD_ID) {
-          this.MOD_ID=MOD_ID;
-    }
     public String getMOD_ID() {
         return MOD_ID;
     }

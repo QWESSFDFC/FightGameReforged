@@ -9,14 +9,14 @@ import cn.gfhnv.game.event.WorldTurnEvent;
 import cn.gfhnv.game.world.World;
 
 public class WorldTurnEventListener {
-@SubscribeEvent
-    public void worldTurnEventListener(WorldTurnEvent worldTurnEvent){
-    EventBus.post(new PhysicsStateUpdateEvent());
-    System.out.println("NEXT TURN.");
-    for (Thing thing:World.getThings()){
-        if(thing instanceof LivingThing){
-            ((LivingThing) thing).showState();
+    @SubscribeEvent
+    public void worldTurnEventListener(WorldTurnEvent worldTurnEvent) {
+        EventBus.post(new PhysicsStateUpdateEvent());
+        System.out.println("NEXT TURN.");
+        for (Thing thing : World.getThings()) {
+            if (thing instanceof LivingThing) {
+                ((LivingThing) thing).showState();
+            }
         }
     }
-}
 }

@@ -1,21 +1,23 @@
 package cn.gfhnv.game.event.eventListener;
-import java.util.List;
+
 import cn.gfhnv.game.annotation.SubscribeEvent;
 import cn.gfhnv.game.event.GameStartEvent;
 import cn.gfhnv.game.mod.Mod;
-import cn.gfhnv.game.world.World;
+
+import java.util.List;
+
 public class GameStartEventListener {
     @SubscribeEvent
-    public void load(GameStartEvent ev){
-        if (ev.getMods()==null){
+    public void load(GameStartEvent ev) {
+        if (ev.getMods() == null) {
             System.out.println("NULL.NO MOD.");
             return;
         }
-      List<Mod> mods = ev.getMods();
-        for(Mod m:mods){
-            if (m==null){
+        List<Mod> mods = ev.getMods();
+        for (Mod m : mods) {
+            if (m == null) {
                 return;
-            }       
+            }
             m.registerItself();
         }
     }
