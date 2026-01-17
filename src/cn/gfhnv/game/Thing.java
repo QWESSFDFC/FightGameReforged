@@ -1,6 +1,6 @@
 package cn.gfhnv.game;
 
-import cn.gfhnv.game.system.physics.type.Aceleration;
+import cn.gfhnv.game.system.physics.type.Acceleration;
 import cn.gfhnv.game.system.physics.type.Force;
 import cn.gfhnv.game.system.physics.type.Velocity;
 
@@ -8,29 +8,29 @@ import java.math.BigDecimal;
 import java.util.Objects;
 
 public class Thing {
-    private BigDecimal mass=new BigDecimal(0);
+    private BigDecimal mass=new BigDecimal(1);
     private Force force=new Force(new BigDecimal(0),new BigDecimal(0),new BigDecimal(0));
     private Velocity velocity=new Velocity(new BigDecimal(0),new BigDecimal(0),new BigDecimal(0));
-    private Aceleration aceleration=new Aceleration(new BigDecimal(0),new BigDecimal(0),new BigDecimal(0));
+    private Acceleration acceleration =new Acceleration(new BigDecimal(0),new BigDecimal(0),new BigDecimal(0));
 
-    public Aceleration getAceleration() {
-        return aceleration;
+    public Acceleration getAcceleration() {
+        return acceleration;
     }
 
-    public void setAceleration(Aceleration aceleration) {
-        this.aceleration = aceleration;
+    public void setAcceleration(Acceleration acceleration) {
+        this.acceleration = acceleration;
     }
 
     @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
         Thing thing = (Thing) o;
-        return Objects.equals(getMass(), thing.getMass()) && Objects.equals(getForce(), thing.getForce()) && Objects.equals(getVelocity(), thing.getVelocity()) && Objects.equals(getAceleration(), thing.getAceleration()) && Objects.equals(getX(), thing.getX()) && Objects.equals(getY(), thing.getY()) && Objects.equals(getZ(), thing.getZ());
+        return Objects.equals(getMass(), thing.getMass()) && Objects.equals(getForce(), thing.getForce()) && Objects.equals(getVelocity(), thing.getVelocity()) && Objects.equals(getAcceleration(), thing.getAcceleration()) && Objects.equals(getX(), thing.getX()) && Objects.equals(getY(), thing.getY()) && Objects.equals(getZ(), thing.getZ());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getMass(), getForce(), getVelocity(), getAceleration(), getX(), getY(), getZ());
+        return Objects.hash(getMass(), getForce(), getVelocity(), getAcceleration(), getX(), getY(), getZ());
     }
 
     private BigDecimal x=new BigDecimal(0);

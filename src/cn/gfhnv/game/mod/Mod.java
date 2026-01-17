@@ -28,7 +28,11 @@ public abstract class Mod {
     public void setItems(List<Item> items) {
         this.items = items;
     }
-    public void registerItself(){
+    public void addEffect(Effect effect) {effects.add(effect);}
+    public void removeEffect(Effect effect) {
+        if(!effects.contains(effect)){return;}
+        effects.remove(effect);}
+      public void registerItself(){
         if (!items.isEmpty()){
         for (Item m:items){
             if (!World.getItemList().contains(m)) {
@@ -49,7 +53,6 @@ public abstract class Mod {
                }
            }
        }
-
     }
 
     @Override

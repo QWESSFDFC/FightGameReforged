@@ -34,7 +34,14 @@ public class Entity extends Thing {
     public int hashCode() {
         return Objects.hash(getLevel(), getName(), getId(), getHpGrowNumber(), getAtkGrowNumber(), getDfkGrowNumber(), getElementSort(), getUUID(), getInventory(), getType());
     }
-
+     public void showState() {
+         System.out.println(this.getName());
+         System.out.println(this.getId());
+         System.out.println(this.getElementSort());
+         System.out.println(this.getVelocity()+"Velocity");
+         System.out.println(this.getMass()+"Mass");
+         System.out.println(this.getAcceleration()+"Acceleration");
+     }
     @Override
     public String toString() {
         return "Entity{" +
@@ -113,7 +120,7 @@ public class Entity extends Thing {
     public void setId(String id) {
         this.id = id;
     }
-    public Entity(){super(new BigDecimal(0));}
+    public Entity(){super(new BigDecimal(1));}
     public Entity(String name, String id,long l,ElementSort h) {
         this.name = name;
         this.id = id;

@@ -2,11 +2,14 @@ package cn.gfhnv.game.event;
 import cn.gfhnv.game.mod.Mod;
 import cn.gfhnv.game.world.World;
 
+import java.util.ArrayList;
 import java.util.List;
 public class GameStartEvent extends Event {
     private List<Mod> mods;
 
-    public GameStartEvent(){}
+    public GameStartEvent(){
+        this.mods = World.getModList();
+    }
     public void setMods(List<Mod> mods) {
         this.mods = mods;
     }
