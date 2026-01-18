@@ -1,5 +1,6 @@
 package cn.gfhnv.game;
 
+import cn.gfhnv.game.inventory.Inventory;
 import cn.gfhnv.game.system.physics.type.Acceleration;
 import cn.gfhnv.game.system.physics.type.Force;
 import cn.gfhnv.game.system.physics.type.Velocity;
@@ -15,6 +16,15 @@ public class Thing {
     private BigDecimal x = new BigDecimal(0);
     private BigDecimal y = new BigDecimal(0);
     private BigDecimal z = new BigDecimal(0);
+    private Inventory inventory = new Inventory(1);
+
+    public Inventory getInventory() {
+        return inventory;
+    }
+
+    public void setInventory(Inventory inventory) {
+        this.inventory = inventory;
+    }
 
     public Thing(BigDecimal y, BigDecimal z, BigDecimal x, BigDecimal mass) {
         this.y = y;

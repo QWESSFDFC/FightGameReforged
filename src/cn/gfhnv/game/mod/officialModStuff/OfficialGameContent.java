@@ -9,7 +9,7 @@ import cn.gfhnv.game.mod.officialModStuff.customEvent.InsectBossDeathEventListen
 
 public class OfficialGameContent extends Mod {
     public OfficialGameContent() {
-        super("game_official_content:");
+        super("game_official_content:",new OfficialModInformation());
         this.addEntity(new PlayerOne());
         this.addEntity(new InsectBoss());
         this.addEffect(new HealthRestoreEffect());

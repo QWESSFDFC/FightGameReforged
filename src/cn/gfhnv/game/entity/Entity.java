@@ -18,7 +18,6 @@ public class Entity extends Thing {
     private double atkGrowNumber;
     private double dfkGrowNumber;
     private ElementSort elementSort;
-    private Map<Item, Integer> inventory = new HashMap<>();
     private String type = "entity";
 
     public Entity() {
@@ -81,7 +80,6 @@ public class Entity extends Thing {
                 ", dfkGrowNumber=" + dfkGrowNumber +
                 ", yuanshu='" + elementSort + '\'' +
                 ", UUID=" + UUID +
-                ", inventory=" + inventory +
                 ", type='" + type + '\'' +
                 '}';
     }
@@ -90,9 +88,7 @@ public class Entity extends Thing {
         return UUID;
     }
 
-    public Map<Item, Integer> getInventory() {
-        return inventory;
-    }
+
 
     public ElementSort getElementSort() {
         return elementSort;
@@ -102,13 +98,6 @@ public class Entity extends Thing {
         this.elementSort = elementSort;
     }
 
-    public void giveThingToEntity(Entity e, Item i, Integer ss) {
-        if (e.inventory.getOrDefault(i, null) != null) {
-            e.inventory.replace(i, inventory.get(i), inventory.get(i) + ss);
-            return;
-        }
-        e.inventory.put(i, ss);
-    }
 
     public String getName() {
         return name;
