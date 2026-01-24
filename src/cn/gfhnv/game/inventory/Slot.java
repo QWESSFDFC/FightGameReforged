@@ -4,7 +4,6 @@ import cn.gfhnv.game.item.Item;
 
 public class Slot {
     private Item containedItem;
-    private boolean isBanned=false;
     private final long slotNumber;
     public Slot(Item containedItem,long slotNumber) {
         this.containedItem = containedItem;
@@ -17,14 +16,6 @@ public class Slot {
 
     public void setContainedItem(Item containedItem) {
         this.containedItem = containedItem;
-    }
-
-    public boolean isBanned() {
-        return isBanned;
-    }
-
-    public void setBanned(boolean banned) {
-        isBanned = banned;
     }
 
     public long getSlotNumber() {
