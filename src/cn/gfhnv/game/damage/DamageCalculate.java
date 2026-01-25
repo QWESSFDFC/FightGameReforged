@@ -23,7 +23,7 @@ public class DamageCalculate {
         double criticalRATE = -1;
         cn.gfhnv.game.system.ElementSort yuanshu = attacker.getElementSort();
         double dfk2 = attackEntity.getDfk();
-        double dfkloss = attackEntity.getDfkloss();
+        double dfkloss = attackEntity.getDefenseLoss();
         criticalRATE = (attacker).getGetCriticalRATE();
         critialDMG = (attacker).getCriticalDMG();
         if (Math.random() <= criticalRATE) {

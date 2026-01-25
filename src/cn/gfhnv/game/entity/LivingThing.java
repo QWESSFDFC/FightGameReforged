@@ -4,6 +4,7 @@ import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.event.DamageEvent;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.system.ElementSort;
+import cn.gfhnv.game.system.fight.Fight;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,11 +19,11 @@ public class LivingThing extends Entity {
     private double chuantong = 0;
     private double damageAbsorbedPercent = 0;
     private long hp, dfk, speed, afk;
-    private LivingThing fightEntity;
     private double enhance;
-    private double dfkloss;
+    private double defenseLoss;
+    private Fight participateFight;
 
-    public LivingThing(String name, String id, double fireResistance, double waterResistance, double metalResistance, double woodResistance, double dirtResistance, long speed, LivingThing fightEntity, long l, String type, double hp, double atk, double dfk, ElementSort yu, double hpMagnification, double atkMagnification, double dfkMagnification) {
+    public LivingThing(String name, String id, double fireResistance, double waterResistance, double metalResistance, double woodResistance, double dirtResistance, long speed,long l, String type, double hp, double atk, double dfk, ElementSort yu, double hpMagnification, double atkMagnification, double dfkMagnification) {
         super(name, id, l, yu);
         this.setHpGrowNumber(hp);
         this.setAtkGrowNumber(atk);
@@ -41,8 +42,7 @@ public class LivingThing extends Entity {
         this.dfk = (long) ((l - 1) * getDfkGrowNumber() + 200);
         this.speed = speed;
         this.afk = (long) (110 + getAtkGrowNumber() * (l - 1));
-        this.fightEntity = fightEntity;
-        this.dfkloss = 0;
+        this.defenseLoss = 0;
         this.enhance = 0;
         this.hpMax = this.hp;
     }
@@ -121,6 +121,14 @@ public class LivingThing extends Entity {
 
     public void setGetCriticalRATE(double getCriticalRATE) {
         this.getCriticalRATE = getCriticalRATE;
+    }
+
+    public Fight getParticipateFight() {
+        return participateFight;
+    }
+
+    public void setParticipateFight(Fight participateFight) {
+        this.participateFight = participateFight;
     }
 
     public List<Effect> getEntityEffectList() {
@@ -209,21 +217,14 @@ public class LivingThing extends Entity {
         this.enhance = enhance;
     }
 
-    public double getDfkloss() {
-        return dfkloss;
+    public double getDefenseLoss() {
+        return defenseLoss;
     }
 
-    public void setDfkloss(double dfkloss) {
-        this.dfkloss = dfkloss;
+    public void setDefenseLoss(double defenseLoss) {
+        this.defenseLoss = defenseLoss;
     }
 
-    public LivingThing getFightEntity() {
-        return fightEntity;
-    }
-
-    public void setFightEntity(LivingThing fightEntity) {
-        this.fightEntity = fightEntity;
-    }
 
     public long getAfk() {
         return afk;
@@ -296,9 +297,8 @@ public class LivingThing extends Entity {
                 ", dfk=" + dfk +
                 ", speed=" + speed +
                 ", afk=" + afk +
-                ", fightEntity=" + fightEntity +
                 ", enhance=" + enhance +
-                ", dfkloss=" + dfkloss +
+                ", dfkloss=" + defenseLoss +
                 '}';
     }
 }
