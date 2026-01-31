@@ -1,2 +1,2 @@
-这是一个使用java编写的游戏.目前只有文字,而且不能正常玩.我是高中生,没时间.偶尔更新.编写此项目只是为了图一乐.
-This is a game written in Java. Currently it's text-based and not fully playable. I'm a high school student with limited time, so updates are occasional. I'm working on this project just for fun.
+这是一个使用java编写的游戏.目前只有文字,而且不能正常玩.我是高中生,没时间.偶尔更新.编写此项目只是为了图一乐.目前没有使用java的相关游戏引擎,只是自己写东西,自娱自乐.
+This is a game written in Java. Currently, it only has text and cannot be played properly. I am a high school student and don't have much time. Updates are occasional. This project is just for fun. At the moment, no Java-related game engines are being used—I'm simply writing things on my own for self-entertainment.
