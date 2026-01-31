@@ -6,6 +6,7 @@ import cn.gfhnv.game.system.ElementSort;
 
 import java.math.BigDecimal;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -19,6 +20,7 @@ public class Entity extends Thing {
     private double dfkGrowNumber;
     private ElementSort elementSort;
     private String type = "entity";
+
 
     public Entity() {
         super(new BigDecimal(1));
