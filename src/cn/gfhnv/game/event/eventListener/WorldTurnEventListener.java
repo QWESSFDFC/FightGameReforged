@@ -6,17 +6,12 @@ import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.event.PhysicsStateUpdateEvent;
 import cn.gfhnv.game.event.WorldTurnEvent;
+import cn.gfhnv.game.system.fight.TurnManager;
 import cn.gfhnv.game.world.World;
 
 public class WorldTurnEventListener {
     @SubscribeEvent
     public void worldTurnEventListener(WorldTurnEvent worldTurnEvent) {
         EventBus.post(new PhysicsStateUpdateEvent());
-        System.out.println("NEXT TURN.");
-        for (Thing thing : World.getThings()) {
-            if (thing instanceof LivingThing) {
-                ((LivingThing) thing).showState();
-            }
-        }
     }
 }

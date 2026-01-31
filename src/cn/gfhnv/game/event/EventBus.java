@@ -34,6 +34,9 @@ public class EventBus {
             }
         }
     }
+    public static void unregister(Object listener) {
+        handlers.get(listener.getClass()).remove(listener);
+    }
 
     public static void post(Event event) {
         Class<?> eventType = event.getClass();

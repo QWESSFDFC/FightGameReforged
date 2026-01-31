@@ -8,6 +8,7 @@ import cn.gfhnv.game.event.eventListener.PhysicsEventListener;
 import cn.gfhnv.game.event.eventListener.WorldTurnEventListener;
 import cn.gfhnv.game.mod.officialModStuff.OfficialGameContent;
 import cn.gfhnv.game.mod.ModLoader;
+import cn.gfhnv.game.system.fight.FightStartEventListener;
 import cn.gfhnv.game.world.World;
 
 /**
@@ -21,6 +22,8 @@ public class GameMain {
         EventBus.register(new EffectEventListener());
         EventBus.register(new WorldTurnEventListener());
         EventBus.register(new PhysicsEventListener());
+        EventBus.register(new FightStartEventListener());
         EventBus.post(new GameStartEvent());
+
     }
 }

@@ -14,7 +14,6 @@ public class Inventory {
                 return true;
             }
         }
-        System.out.println("空间不足."+item.getName()+"没有被储存.");
         return false;
     }
     public boolean removeItem(Item item) {

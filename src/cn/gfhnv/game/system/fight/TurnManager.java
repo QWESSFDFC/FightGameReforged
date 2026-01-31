@@ -7,12 +7,22 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class TurnManager {
+    private static long pastTimes;
+    public static long getPastTimes() {
+        return pastTimes;
+    }
+    public static void pastTimesAdd(){
+        pastTimes++;
+    }
+    public static void setPastTimes(long pastTimes) {
+        TurnManager.pastTimes = pastTimes;
+    }
     public static List<LivingThing> arrangeTurn(List<LivingThing> livingThings, int times) {
         List<TurnEntry> allEntries = new ArrayList<>();
         for (LivingThing livingThing : livingThings) {
             double actionPoint = 1000.0 / livingThing.getSpeed();
             for (int i = 0; i < times; i++) {
-                allEntries.add(new TurnEntry(actionPoint * i, livingThing));
+                allEntries.add(new TurnEntry(actionPoint * (pastTimes +i), livingThing));
             }
         }
      allEntries.sort((e1, e2) -> {
