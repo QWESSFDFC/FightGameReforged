@@ -10,6 +10,7 @@ import cn.gfhnv.game.item.Item;
 public class FightEndEventListener {
     @SubscribeEvent
     public void worldTurnEventListener(FightEndEvent fightEndEvent) {
+        TurnManager.setPastTimes(0);
         EventBus.unregister(this);
         EventBus.unregister(new FightTurnPastListener());
         if (fightEndEvent.isPlayerWin()){
