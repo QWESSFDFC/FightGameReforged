@@ -6,17 +6,19 @@ public class ModInformation {
     private String description;
     private String mainClass;
     private String version;
-    @Override
-    public String toString() {
-        return String.format("ModInfo{name='%s', author='%s', version='%s', mainClass='%s'}",
-                name, author, version, mainClass);
-    }
+
     public ModInformation(String name, String author, String description, String mainClass, String version) {
         this.name = name;
         this.author = author;
         this.description = description;
         this.mainClass = mainClass;
         this.version = version;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("ModInfo{name='%s', author='%s', version='%s', mainClass='%s'}",
+                name, author, version, mainClass);
     }
 
     public String getName() {

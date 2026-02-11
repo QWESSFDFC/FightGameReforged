@@ -23,7 +23,7 @@ public class LivingThing extends Entity {
     private double defenseLoss;
     private Fight participateFight;
 
-    public LivingThing(String name, String id, double fireResistance, double waterResistance, double metalResistance, double woodResistance, double dirtResistance, long speed,long l, String type, double hp, double atk, double dfk, ElementSort yu, double hpMagnification, double atkMagnification, double dfkMagnification) {
+    public LivingThing(String name, String id, double fireResistance, double waterResistance, double metalResistance, double woodResistance, double dirtResistance, long speed, long l, String type, double hp, double atk, double dfk, ElementSort yu, double hpMagnification, double atkMagnification, double dfkMagnification) {
         super(name, id, l, yu);
         this.setHpGrowNumber(hp);
         this.setAtkGrowNumber(atk);

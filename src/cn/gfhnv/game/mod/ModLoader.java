@@ -1,14 +1,6 @@
 package cn.gfhnv.game.mod;
 
-import cn.gfhnv.game.utils.JSONHelper;
-import org.json.JSONObject;
-
-import javax.tools.JavaCompiler;
 import java.io.File;
-import java.io.IOException;
-import java.io.StringWriter;
-import java.util.ArrayList;
-import java.util.List;
 
 public class ModLoader {
 

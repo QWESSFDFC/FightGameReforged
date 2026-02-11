@@ -1,13 +1,9 @@
 package cn.gfhnv.game.entity;
 
 import cn.gfhnv.game.Thing;
-import cn.gfhnv.game.item.Item;
 import cn.gfhnv.game.system.ElementSort;
 
 import java.math.BigDecimal;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 public class Entity extends Thing {
@@ -89,7 +85,6 @@ public class Entity extends Thing {
     public int getUUID() {
         return UUID;
     }
-
 
 
     public ElementSort getElementSort() {

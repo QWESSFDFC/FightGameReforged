@@ -3,9 +3,10 @@ package cn.gfhnv.game.inventory;
 import cn.gfhnv.game.item.Item;
 
 public class Slot {
-    private Item containedItem;
     private final long slotNumber;
-    public Slot(Item containedItem,long slotNumber) {
+    private Item containedItem;
+
+    public Slot(Item containedItem, long slotNumber) {
         this.containedItem = containedItem;
         this.slotNumber = slotNumber;
     }

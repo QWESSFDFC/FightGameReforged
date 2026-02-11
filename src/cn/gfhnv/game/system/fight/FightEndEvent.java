@@ -1,6 +1,5 @@
 package cn.gfhnv.game.system.fight;
 
-import cn.gfhnv.game.entity.Player;
 import cn.gfhnv.game.event.Event;
 
 public class FightEndEvent extends Event {

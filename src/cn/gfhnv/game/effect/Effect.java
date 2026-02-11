@@ -8,6 +8,7 @@ public class Effect {
     private String id;
     private int level;//效果等级
     private int lastTime;//seconds
+
     public Effect(String id, int level, int lastTime) {
         this.id = id;
         this.level = level;

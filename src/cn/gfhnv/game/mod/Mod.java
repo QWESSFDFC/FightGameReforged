@@ -11,10 +11,11 @@ import java.util.Objects;
 
 public abstract class Mod {
     private final String MOD_ID;
+    private final ModInformation modInformation;
     private List<Entity> entityList = new ArrayList<>();
     private List<Item> items = new ArrayList<>();
     private List<Effect> effects = new ArrayList<>();
-    private final ModInformation modInformation;
+
     public Mod(String MOD_ID, ModInformation modInformation) {
         this.MOD_ID = MOD_ID;
         this.modInformation = modInformation;

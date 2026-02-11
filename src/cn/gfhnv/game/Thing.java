@@ -18,14 +18,6 @@ public class Thing {
     private BigDecimal z = new BigDecimal(0);
     private Inventory inventory = new Inventory(1);
 
-    public Inventory getInventory() {
-        return inventory;
-    }
-
-    public void setInventory(Inventory inventory) {
-        this.inventory = inventory;
-    }
-
     public Thing(BigDecimal y, BigDecimal z, BigDecimal x, BigDecimal mass) {
         this.y = y;
         this.z = z;
@@ -36,7 +28,16 @@ public class Thing {
     public Thing(BigDecimal mass) {
         this.mass = mass;
     }
+
     public Thing() {
+    }
+
+    public Inventory getInventory() {
+        return inventory;
+    }
+
+    public void setInventory(Inventory inventory) {
+        this.inventory = inventory;
     }
 
     public Acceleration getAcceleration() {
