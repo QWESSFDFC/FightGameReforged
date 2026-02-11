@@ -20,7 +20,7 @@ public class TurnManager {
         pastTimes++;
     }
 
-    public static List<LivingThing> arrangeTurn(List<LivingThing> livingThings, int times) {
+    public static void arrangeTurn(List<LivingThing> livingThings, int times) {
         List<TurnEntry> allEntries = new ArrayList<>();
         for (LivingThing livingThing : livingThings) {
             double actionPoint = 1000.0 / livingThing.getSpeed();
@@ -39,7 +39,6 @@ public class TurnManager {
         for (TurnEntry entry : allEntries) {
             result.add(entry.livingThing);
         }
-        return result;
     }
 
     private static class TurnEntry {
