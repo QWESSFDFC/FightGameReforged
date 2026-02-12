@@ -14,11 +14,14 @@ public class Effect {
         this.level = level;
         this.lastTime = lastTime;
     }
+    public Effect(String id) {
+        this.id = id;
+    }
 
     public String getId() {
         return id;
     }
-
+    public void whenLastTimeEnd(LivingThing livingThing) {}
     public void setId(String id) {
         this.id = id;
     }
@@ -59,12 +62,4 @@ public class Effect {
         System.out.printf("这里写效果具体内容........请重写这个方法.回合更新时此方法会被调用");
     }
 
-    public boolean ifEntityHavaThisEffect(LivingThing l) {
-        if (l.getEntityEffectList() == null) return false;
-        for (Effect e : l.getEntityEffectList()) {
-            if (e == null) return false;
-            return Objects.equals(e.getID(), id);
-        }
-        return false;
-    }
 }

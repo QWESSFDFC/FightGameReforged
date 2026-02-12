@@ -151,7 +151,6 @@ public class LivingThing extends Entity {
                     target.entityEffectList.add(effect);
                 }
             }
-
         }
         target.entityEffectList.add(effect);
     }

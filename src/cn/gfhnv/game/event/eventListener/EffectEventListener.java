@@ -18,6 +18,7 @@ public class EffectEventListener {
                 List<Effect> effectList = ((LivingThing) thing).getEntityEffectList();
                 for (Effect ef : effectList) {
                     if (ef.getLastTime() <= 0) {
+                        ef.whenLastTimeEnd((LivingThing) thing);
                         ((LivingThing) thing).removeEffect(ef);
                         System.out.println(((LivingThing) thing).getName() + "的" + ef.getID() + "持续时间到了.");
                     }
