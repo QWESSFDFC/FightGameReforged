@@ -15,7 +15,7 @@ import cn.gfhnv.game.world.World;
  * 代码开源 MIT　License.---------- @author gfhnv
  */
 public class GameMain {
-    public static void main(String[] args) {
+    public static void gameInitialize(){
         World.addMod(new OfficialGameContent());
         ModLoader.modLoaderInitialize();
         EventBus.register(new GameStartEventListener());
@@ -24,5 +24,8 @@ public class GameMain {
         EventBus.register(new PhysicsEventListener());
         EventBus.register(new FightStartEventListener());
         EventBus.post(new GameStartEvent());
+    }
+    public static void main(String[] args) {
+        gameInitialize();
     }
 }
