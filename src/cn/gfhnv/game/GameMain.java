@@ -27,5 +27,6 @@ public class GameMain {
     }
     public static void main(String[] args) {
         gameInitialize();
+        System.out.println("Hello World!");
     }
 }

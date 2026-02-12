@@ -7,8 +7,7 @@ package cn.gfhnv.game;
 public class GameStarter {
     public static void main(String[] args) {
         System.out.println("作者gfhnv.本游戏纯属娱乐.代码开源()2025.9.1");
-        System.out.println("Author: gfhnv");
-        System.out.println("https://github.com/QWESSFDFC/FightGameReforged");
+        System.out.println("此项目Github仓库:https://github.com/QWESSFDFC/FightGameReforged");
         GameMain.main(args);
     }
 }
