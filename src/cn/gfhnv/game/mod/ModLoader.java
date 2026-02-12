@@ -1,9 +1,7 @@
 package cn.gfhnv.game.mod;
-
 import cn.gfhnv.game.utils.JSONHelper;
 import cn.gfhnv.game.world.World;
 import org.json.JSONObject;
-
 import javax.tools.*;
 import java.io.File;
 import java.io.IOException;
@@ -13,11 +11,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
-
 public class ModLoader {
-
     public static void modLoaderInitialize() {
-
         System.out.println("正在初始化模组加载器...");
         File modDir = new File("./mods");
         if (!modDir.exists()) {
@@ -42,7 +37,6 @@ public class ModLoader {
             }
         }
     }
-
     private static void loadFolderModItself(File modFolder) {
 
         ModInformation modInfo = null;
@@ -64,13 +58,11 @@ public class ModLoader {
             System.err.println("模组 [" + modFolder.getName() + "] main.json 解析失败: " + e.getMessage());
             return;
         }
-
         File codeDir = new File(modFolder, "code");
         if (!codeDir.exists() || !codeDir.isDirectory()) {
             System.err.println("模组 [" + modFolder.getName() + "] 缺少 code 目录，跳过");
             return;
         }
-
         List<JavaFileObject> sourceFiles = new ArrayList<>();
         collectJavaFiles(codeDir, sourceFiles, "");  // 递归收集，自动推导包名
 
@@ -78,35 +70,26 @@ public class ModLoader {
             System.err.println("模组 [" + modFolder.getName() + "] code 目录下没有 .java 文件，跳过");
             return;
         }
-
         File outputDir = new File(modFolder, "bin");
         if (outputDir.exists()) {
-            deleteDirectory(outputDir);  // 递归删除旧编译结果
+            deleteDirectory(outputDir);
         }
         if (!outputDir.mkdirs()) {
             System.err.println("模组 [" + modFolder.getName() + "] 无法创建 bin 目录");
             return;
         }
-
-
         boolean compileSuccess = compileJavaFiles(sourceFiles, outputDir);
         if (!compileSuccess) {
             System.err.println("模组 [" + modFolder.getName() + "] 编译失败，跳过加载");
             return;
         }
-
-
         try (URLClassLoader classLoader = URLClassLoader.newInstance(
                 new URL[]{outputDir.toURI().toURL()},
                 Thread.currentThread().getContextClassLoader()
         )) {
-
             Class<?> mainClass = Class.forName(modInfo.getMainClass(), true, classLoader);
-
-
             Object instance = mainClass.getConstructor(ModInformation.class)
                     .newInstance(modInfo);
-
             if (instance instanceof Mod) {
                 Mod modInstance = (Mod) instance;
                 World.addMod(modInstance);
@@ -114,27 +97,21 @@ public class ModLoader {
             } else {
                 System.err.println("模组主类未继承 Mod: " + modInfo.getMainClass());
             }
-
         } catch (Exception e) {
             System.err.println("模组 [" + modFolder.getName() + "] 实例化主类失败: " + e.getMessage());
             e.printStackTrace();
         }
     }
-
-
     private static void collectJavaFiles(File dir, List<JavaFileObject> sources, String pkgPrefix) {
         File[] files = dir.listFiles();
         if (files == null) return;
-
         for (File file : files) {
             if (file.isDirectory()) {
                 String subPkg = pkgPrefix.isEmpty() ? file.getName() : pkgPrefix + "." + file.getName();
                 collectJavaFiles(file, sources, subPkg);
             } else if (file.isFile() && file.getName().endsWith(".java")) {
                 try {
-
                     String content = Files.readString(file.toPath(), StandardCharsets.UTF_8);
-
                     String className = pkgPrefix.isEmpty()
                             ? file.getName().replace(".java", "")
                             : pkgPrefix + "." + file.getName().replace(".java", "");
@@ -146,26 +123,19 @@ public class ModLoader {
             }
         }
     }
-
     private static boolean compileJavaFiles(List<JavaFileObject> sources, File outputDir) {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         if (compiler == null) {
             System.err.println("无法获取 Java 编译器，请确保在 JDK 环境下运行");
             return false;
         }
-
         DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
         StandardJavaFileManager fileManager = compiler.getStandardFileManager(diagnostics, null, null);
-
-
         List<String> options = new ArrayList<>();
         options.add("-d");
         options.add(outputDir.getAbsolutePath());
         options.add("-cp");
-
         options.add(System.getProperty("java.class.path"));
-
-
         JavaCompiler.CompilationTask task = compiler.getTask(
                 null,
                 fileManager,
@@ -174,14 +144,12 @@ public class ModLoader {
                 null,
                 sources
         );
-
         boolean success = task.call();
         try {
             fileManager.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
-
         if (!success) {
             System.err.println("编译错误：");
             for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
@@ -193,8 +161,6 @@ public class ModLoader {
         }
         return success;
     }
-
-
     private static void deleteDirectory(File dir) {
         File[] files = dir.listFiles();
         if (files != null) {
