@@ -13,7 +13,7 @@ public class OfficialGameContent extends Mod {
         this.addEntity(new PlayerOne());
         this.addEntity(new InsectBoss());
         this.addEffect(new HealthRestoreEffect());
-        System.out.println("OfficialGameContent Initialized.");
+        System.out.println("游戏自带内容加载完成");
         EventBus.register(new InsectBossDeathEventListener());
     }
 }

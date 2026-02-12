@@ -2,6 +2,7 @@
   "name": "模组名",
   "author": "作者",
   "description": "描述",
-  "mainClass": "mainClass",
-  "version": "版本"
+  "mainClass": "com.gfhnv.mods.mainClass",
+  "version": "版本",
+  "description_about_writing_mods": ":\"name\",\"author\",\"mainClass\",\"description\",\"version\"是必须要有的.mainClass需要包含完整包名,code文件夹不算.比如code/com/gfhnv/mods写成com.gfhnv.mods."
 }

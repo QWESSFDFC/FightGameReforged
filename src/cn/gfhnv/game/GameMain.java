@@ -24,6 +24,5 @@ public class GameMain {
         EventBus.register(new PhysicsEventListener());
         EventBus.register(new FightStartEventListener());
         EventBus.post(new GameStartEvent());
-
     }
 }

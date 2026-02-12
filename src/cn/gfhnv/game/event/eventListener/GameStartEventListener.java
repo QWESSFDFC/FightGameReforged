@@ -19,6 +19,7 @@ public class GameStartEventListener {
                 return;
             }
             m.registerItself();
+            m.invokeWhenLoaded();
         }
     }
 }
