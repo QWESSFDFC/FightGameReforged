@@ -5,15 +5,14 @@ import cn.gfhnv.game.world.World;
 import org.json.JSONObject;
 
 import javax.tools.*;
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 
 public class ModLoader {
 
