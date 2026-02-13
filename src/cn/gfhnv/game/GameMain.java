@@ -37,12 +37,5 @@ public class GameMain {
 
     public static void main(String[] args) {
         gameInitialize();
-        World.addThing(new InsectBoss());
-        World.addThing(new PlayerOne());
-        List<LivingThing> list = new ArrayList<>();
-        List<LivingThing> list2 = new ArrayList<>();
-        list.add(new InsectBoss());
-        list2.add(new PlayerOne());
-        EventBus.post(new FightStartEvent(new Fight(list,null,list2) ));
     }
 }
