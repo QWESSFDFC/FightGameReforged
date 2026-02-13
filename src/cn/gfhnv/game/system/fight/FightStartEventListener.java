@@ -8,8 +8,9 @@ import cn.gfhnv.game.event.FightStartEvent;
 public class FightStartEventListener {
     @SubscribeEvent
     public void onFightStartEvent(FightStartEvent event) {
-        EventBus.register(new FightTurnPastListener());
-        EventBus.register(new FightEndEventListener());
+        FightTurnPastListener listener = new FightTurnPastListener();
+        EventBus.register(listener);
+        EventBus.register(new FightEndEventListener(listener));
         TurnManager.initialQueue(event.getFight().getAllEntities());
         EventBus.post(new FightPastOneTurnEvent(event.getFight()));
     }
