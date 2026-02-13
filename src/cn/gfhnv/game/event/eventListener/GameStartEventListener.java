@@ -18,8 +18,8 @@ public class GameStartEventListener {
             if (m == null) {
                 return;
             }
-            m.registerItself();
             m.invokeWhenLoaded();
+            m.registerItself();
         }
     }
 }

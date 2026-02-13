@@ -2,6 +2,7 @@ package cn.gfhnv.game.system.fight;
 
 import cn.gfhnv.game.Thing;
 import cn.gfhnv.game.annotation.SubscribeEvent;
+import cn.gfhnv.game.entity.Entity;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.item.Item;
@@ -9,7 +10,12 @@ import cn.gfhnv.game.item.Item;
 public class FightEndEventListener {
     @SubscribeEvent
     public void worldTurnEventListener(FightEndEvent fightEndEvent) {
-        TurnManager.setPastTimes(0);
+        TurnManager.actionQueue.clear();
+        for (Entity entity : fightEndEvent.getFight().getAllEntities()) {
+            if (entity instanceof LivingThing) {
+                ((LivingThing) entity).setPresentTurn(null);
+            }
+        }
         EventBus.unregister(this);
         EventBus.unregister(new FightTurnPastListener());
         if (fightEndEvent.isPlayerWin()) {

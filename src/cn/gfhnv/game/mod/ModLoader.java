@@ -1,7 +1,9 @@
 package cn.gfhnv.game.mod;
+
 import cn.gfhnv.game.utils.JSONHelper;
 import cn.gfhnv.game.world.World;
 import org.json.JSONObject;
+
 import javax.tools.*;
 import java.io.File;
 import java.io.IOException;
@@ -11,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
+
 public class ModLoader {
     public static void modLoaderInitialize() {
         System.out.println("正在初始化模组加载器...");
@@ -37,6 +40,7 @@ public class ModLoader {
             }
         }
     }
+
     private static void loadFolderModItself(File modFolder) {
 
         ModInformation modInfo = null;
@@ -102,6 +106,7 @@ public class ModLoader {
             e.printStackTrace();
         }
     }
+
     private static void collectJavaFiles(File dir, List<JavaFileObject> sources, String pkgPrefix) {
         File[] files = dir.listFiles();
         if (files == null) return;
@@ -123,6 +128,7 @@ public class ModLoader {
             }
         }
     }
+
     private static boolean compileJavaFiles(List<JavaFileObject> sources, File outputDir) {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         if (compiler == null) {
@@ -161,6 +167,7 @@ public class ModLoader {
         }
         return success;
     }
+
     private static void deleteDirectory(File dir) {
         File[] files = dir.listFiles();
         if (files != null) {

@@ -5,9 +5,12 @@ import cn.gfhnv.game.event.DamageEvent;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
+import cn.gfhnv.game.system.fight.TurnEntry;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import static cn.gfhnv.game.system.fight.TurnManager.actionQueue;
 
 public class LivingThing extends Entity {
     private double fireResistance, waterResistance, metalResistance, woodResistance, dirtResistance, hpMax;
@@ -22,6 +25,7 @@ public class LivingThing extends Entity {
     private double enhance;
     private double defenseLoss;
     private Fight participateFight;
+    private TurnEntry presentTurn;
 
     public LivingThing(String name, String id, double fireResistance, double waterResistance, double metalResistance, double woodResistance, double dirtResistance, long speed, long l, String type, double hp, double atk, double dfk, ElementSort yu, double hpMagnification, double atkMagnification, double dfkMagnification) {
         super(name, id, l, yu);
@@ -49,6 +53,25 @@ public class LivingThing extends Entity {
 
     public LivingThing(String name, String id, long l, ElementSort u) {
         super(name, id, l, u);
+    }
+
+    public LivingThing(long speed) {
+        this.speed = speed;
+
+    }
+
+    public TurnEntry getPresentTurn() {
+        return presentTurn;
+    }
+
+    public void setPresentTurn(TurnEntry presentTurn) {
+        this.presentTurn = presentTurn;
+    }
+
+    public void onActionTaken() {
+        double nextTime = this.getPresentTurn().getoValue() + 1000.0 / this.getSpeed();
+        TurnEntry nextEntry = new TurnEntry(nextTime, this);
+        actionQueue.offer(nextEntry);
     }
 
     public double getHpMagnification() {

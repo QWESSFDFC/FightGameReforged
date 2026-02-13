@@ -15,6 +15,7 @@ public abstract class Mod {
     private List<Entity> entityList = new ArrayList<>();
     private List<Item> items = new ArrayList<>();
     private List<Effect> effects = new ArrayList<>();
+
     public Mod(String modID) {
         this.MOD_ID = modID;
     }

@@ -14,6 +14,7 @@ public class Effect {
         this.level = level;
         this.lastTime = lastTime;
     }
+
     public Effect(String id) {
         this.id = id;
     }
@@ -21,9 +22,12 @@ public class Effect {
     public String getId() {
         return id;
     }
-    public void whenLastTimeEnd(LivingThing livingThing) {}
+
     public void setId(String id) {
         this.id = id;
+    }
+
+    public void whenLastTimeEnd(LivingThing livingThing) {
     }
 
     @Override

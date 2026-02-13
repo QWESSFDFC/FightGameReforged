@@ -2,7 +2,6 @@ package cn.gfhnv.game.mod.officialModStuff.customEntity;
 
 import cn.gfhnv.game.entity.Player;
 import cn.gfhnv.game.system.ElementSort;
-import cn.gfhnv.game.utils.JSONHelper;
 
 import java.math.BigDecimal;
 

@@ -1,53 +1,33 @@
 package cn.gfhnv.game.system.fight;
 
+import cn.gfhnv.game.GameMain;
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.event.EventBus;
+import cn.gfhnv.game.event.FightStartEvent;
+import cn.gfhnv.game.mod.officialModStuff.customEntity.InsectBoss;
+import cn.gfhnv.game.mod.officialModStuff.customEntity.PlayerOne;
+import cn.gfhnv.game.world.World;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.PriorityBlockingQueue;
 
 public class TurnManager {
+    public static PriorityBlockingQueue<TurnEntry> actionQueue = new PriorityBlockingQueue<>();
     private static long pastTimes;
 
-    public static long getPastTimes() {
-        return pastTimes;
-    }
-
-    public static void setPastTimes(long pastTimes) {
-        TurnManager.pastTimes = pastTimes;
-    }
-
-    public static void pastTimesAdd() {
-        pastTimes++;
-    }
-
-    public static void arrangeTurn(List<LivingThing> livingThings, int times) {
-        List<TurnEntry> allEntries = new ArrayList<>();
-        for (LivingThing livingThing : livingThings) {
-            double actionPoint = 1000.0 / livingThing.getSpeed();
-            for (int i = 0; i < times; i++) {
-                allEntries.add(new TurnEntry(actionPoint * (pastTimes + i), livingThing));
-            }
-        }
-        allEntries.sort((e1, e2) -> {
-            int oValueComparison = Double.compare(e1.oValue, e2.oValue);
-            if (oValueComparison != 0) {
-                return oValueComparison;
-            }
-            return Integer.compare((int) e2.livingThing.getSpeed(), (int) e1.livingThing.getSpeed());
-        });
-        List<LivingThing> result = new ArrayList<>(allEntries.size());
-        for (TurnEntry entry : allEntries) {
-            result.add(entry.livingThing);
+    public static void initialQueue(List<LivingThing> list) {
+        for (LivingThing lv1 : list) {
+            lv1.setPresentTurn(new TurnEntry(0, lv1));
+            TurnEntry nextEntry = new TurnEntry(0, lv1);
+            actionQueue.offer(nextEntry);
         }
     }
 
-    private static class TurnEntry {
-        double oValue;
-        LivingThing livingThing;
-
-        TurnEntry(double oValue, LivingThing livingThing) {
-            this.oValue = oValue;
-            this.livingThing = livingThing;
-        }
+    public static Queue<TurnEntry> getActionQueue() {
+        return actionQueue;
     }
+
+
 }

@@ -10,7 +10,7 @@ public class FightStartEventListener {
     public void onFightStartEvent(FightStartEvent event) {
         EventBus.register(new FightTurnPastListener());
         EventBus.register(new FightEndEventListener());
-        TurnManager.arrangeTurn(event.getFight().getAllEntities(), 10);
+        TurnManager.initialQueue(event.getFight().getAllEntities());
         EventBus.post(new FightPastOneTurnEvent(event.getFight()));
     }
 }

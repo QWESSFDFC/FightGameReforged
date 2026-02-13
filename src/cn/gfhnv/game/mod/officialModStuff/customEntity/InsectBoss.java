@@ -12,4 +12,9 @@ public class InsectBoss extends LivingThing {
         this.setMass(BigDecimal.valueOf(1250));
         this.getInventory().addSlot(63);
     }
+
+    @Override
+    public void entityAct() {
+        System.out.println("Boss行动");
+    }
 }
