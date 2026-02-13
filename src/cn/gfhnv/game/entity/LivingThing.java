@@ -71,6 +71,7 @@ public class LivingThing extends Entity {
     public void onActionTaken() {
         double nextTime = this.getPresentTurn().getoValue() + 1000.0 / this.getSpeed();
         TurnEntry nextEntry = new TurnEntry(nextTime, this);
+        this.setPresentTurn(nextEntry);
         actionQueue.offer(nextEntry);
     }
 

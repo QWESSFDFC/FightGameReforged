@@ -16,5 +16,6 @@ public class InsectBoss extends LivingThing {
     @Override
     public void entityAct() {
         System.out.println("Boss行动");
+        onActionTaken();
     }
 }

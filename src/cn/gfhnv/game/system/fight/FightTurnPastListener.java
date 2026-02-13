@@ -12,7 +12,7 @@ public class FightTurnPastListener {
     public void fightTurnPastOne(FightPastOneTurnEvent fightPastOneTurnEvent) throws InterruptedException {
         this.presentTurn = TurnManager.actionQueue.take();
         if (this.presentTurn.getLivingThing().getType().equals("player")) {
-            this.presentTurn.getLivingThing().onActionTaken();
+            this.presentTurn.getLivingThing().entityAct();
         } else {
             presentTurn.getLivingThing().entityAct();
         }
@@ -27,11 +27,12 @@ public class FightTurnPastListener {
         i=0;
         for (LivingThing livingThing:fightPastOneTurnEvent.getFight().getEnemiesList()) {
             if (!livingThing.isAlive()) {i++;}
-            return;
         }
         if (i==fightPastOneTurnEvent.getFight().getEnemiesList().size()) {
             EventBus.post(new FightEndEvent(true,fightPastOneTurnEvent.getFight()) );
             return;
         }
+        Thread.sleep(100);
+        TurnManager.nextTurn(fightPastOneTurnEvent.getFight());
     }
 }
