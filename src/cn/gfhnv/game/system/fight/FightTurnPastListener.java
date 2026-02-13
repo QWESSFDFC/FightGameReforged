@@ -16,20 +16,24 @@ public class FightTurnPastListener {
         } else {
             presentTurn.getLivingThing().entityAct();
         }
-        int i=0;
-        for (LivingThing livingThing:fightPastOneTurnEvent.getFight().getFighterList()) {
-            if (!livingThing.isAlive()) {i++;}
+        int i = 0;
+        for (LivingThing livingThing : fightPastOneTurnEvent.getFight().getFighterList()) {
+            if (!livingThing.isAlive()) {
+                i++;
+            }
         }
-        if (i==fightPastOneTurnEvent.getFight().getFighterList().size()) {
-            EventBus.post(new FightEndEvent(false,fightPastOneTurnEvent.getFight()) );
+        if (i == fightPastOneTurnEvent.getFight().getFighterList().size()) {
+            EventBus.post(new FightEndEvent(false, fightPastOneTurnEvent.getFight()));
             return;
         }
-        i=0;
-        for (LivingThing livingThing:fightPastOneTurnEvent.getFight().getEnemiesList()) {
-            if (!livingThing.isAlive()) {i++;}
+        i = 0;
+        for (LivingThing livingThing : fightPastOneTurnEvent.getFight().getEnemiesList()) {
+            if (!livingThing.isAlive()) {
+                i++;
+            }
         }
-        if (i==fightPastOneTurnEvent.getFight().getEnemiesList().size()) {
-            EventBus.post(new FightEndEvent(true,fightPastOneTurnEvent.getFight()) );
+        if (i == fightPastOneTurnEvent.getFight().getEnemiesList().size()) {
+            EventBus.post(new FightEndEvent(true, fightPastOneTurnEvent.getFight()));
             return;
         }
         Thread.sleep(100);

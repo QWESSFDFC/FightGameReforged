@@ -1,15 +1,9 @@
 package cn.gfhnv.game.system.fight;
 
-import cn.gfhnv.game.GameMain;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.event.FightPastOneTurnEvent;
-import cn.gfhnv.game.event.FightStartEvent;
-import cn.gfhnv.game.mod.officialModStuff.customEntity.InsectBoss;
-import cn.gfhnv.game.mod.officialModStuff.customEntity.PlayerOne;
-import cn.gfhnv.game.world.World;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.PriorityBlockingQueue;
@@ -25,9 +19,11 @@ public class TurnManager {
             actionQueue.offer(nextEntry);
         }
     }
-     public static void nextTurn(Fight fight) {
-       EventBus.post(new FightPastOneTurnEvent(fight));
-     }
+
+    public static void nextTurn(Fight fight) {
+        EventBus.post(new FightPastOneTurnEvent(fight));
+    }
+
     public static Queue<TurnEntry> getActionQueue() {
         return actionQueue;
     }

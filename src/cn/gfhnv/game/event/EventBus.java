@@ -13,29 +13,6 @@ import java.util.function.Consumer;
 public class EventBus {
     private static final Map<Class<?>, List<EventHandler>> handlers = new HashMap<>();
 
-    private static class EventHandler implements Consumer<Event> {
-        final Object listener;
-        final Method method;
-
-        EventHandler(Object listener, Method method) {
-            this.listener = listener;
-            this.method = method;
-        }
-
-        @Override
-        public void accept(Event event) {
-            try {
-                method.invoke(listener, event);
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to invoke event handler on " + listener, e);
-            }
-        }
-
-        boolean belongsTo(Object listener) {
-            return this.listener == listener;
-        }
-    }
-
     public static void register(Object listener) {
         Method[] methods = listener.getClass().getDeclaredMethods();
         for (Method method : methods) {
@@ -78,5 +55,28 @@ public class EventBus {
 
     public static Map<Class<?>, List<EventHandler>> getHandlers() {
         return handlers;
+    }
+
+    private static class EventHandler implements Consumer<Event> {
+        final Object listener;
+        final Method method;
+
+        EventHandler(Object listener, Method method) {
+            this.listener = listener;
+            this.method = method;
+        }
+
+        @Override
+        public void accept(Event event) {
+            try {
+                method.invoke(listener, event);
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to invoke event handler on " + listener, e);
+            }
+        }
+
+        boolean belongsTo(Object listener) {
+            return this.listener == listener;
+        }
     }
 }
