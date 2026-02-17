@@ -12,7 +12,6 @@ public class FightTurnPastListener {
         fightPastOneTurnEvent.getFight().getFighterList().removeIf(livingThing -> !livingThing.isAlive());
         fightPastOneTurnEvent.getFight().getEnemiesList().removeIf(livingThing -> !livingThing.isAlive());
 
-
         if (fightPastOneTurnEvent.getFight().getFighterList().isEmpty()) {
             EventBus.post(new FightEndEvent(false, fightPastOneTurnEvent.getFight()));
             return;
@@ -24,6 +23,7 @@ public class FightTurnPastListener {
             return;
         }
         this.presentTurn = TurnManager.actionQueue.take();
+        if (presentTurn.getLivingThing()==null){TurnManager.nextTurn(fightPastOneTurnEvent.getFight());}
         System.out.println("现在是" + presentTurn.getLivingThing().getName() + "的回合");
         System.out.println("状态:HP:" + presentTurn.getLivingThing().getHp() + "/" + presentTurn.getLivingThing().getHpMax());
         presentTurn.getLivingThing().getController().act(fightPastOneTurnEvent.getFight());
