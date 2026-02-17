@@ -1,9 +1,10 @@
 package cn.gfhnv.game.damage;
 
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.entity.skill.Skill;
 
 public class DamageCalculate {
-    public static long calculate(LivingThing attacker, LivingThing attackEntity) {
+    public static long calculate(LivingThing attacker, LivingThing attackEntity, Skill skill) {
         double enhance = attacker.getEnhance();
         double chuantong = attacker.getChuantong();
         double damageAbsorbed = attackEntity.getDamageAbsorbedPercent();
@@ -15,9 +16,9 @@ public class DamageCalculate {
         double atk = attacker.getAfk();
         double hp = attacker.getHp();
         double dfk = attacker.getDfk();
-        double hpMagnification = attacker.getHpMagnification();
-        double atkMagnification = attacker.getAtkMagnification();
-        double dfkMagnification = attacker.getDfkMagnification();
+        double hpMagnification = skill.getHpMagnification();
+        double atkMagnification = skill.getAtkMagnification();
+        double dfkMagnification = skill.getDefMagnification();
         long l = attacker.getLevel();
         double critialDMG = -1;
         double criticalRATE = -1;

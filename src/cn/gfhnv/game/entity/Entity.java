@@ -37,8 +37,6 @@ public class Entity extends Thing {
         this.elementSort = h;
     }
 
-    public void entityAct() {
-    }
 
     public LivingThing transToLivingTing() {
         if (this instanceof LivingThing) {

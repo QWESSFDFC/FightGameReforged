@@ -1,8 +1,9 @@
 package cn.gfhnv.game.entity;
 
 import cn.gfhnv.game.effect.Effect;
+import cn.gfhnv.game.entity.entityController.UniversalController;
+import cn.gfhnv.game.entity.skill.Skill;
 import cn.gfhnv.game.event.DamageEvent;
-import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.fight.TurnEntry;
@@ -26,6 +27,7 @@ public class LivingThing extends Entity {
     private double defenseLoss;
     private Fight participateFight;
     private TurnEntry presentTurn;
+    private UniversalController controller;
 
     public LivingThing(String name, String id, double fireResistance, double waterResistance, double metalResistance, double woodResistance, double dirtResistance, long speed, long l, String type, double hp, double atk, double dfk, ElementSort yu, double hpMagnification, double atkMagnification, double dfkMagnification) {
         super(name, id, l, yu);
@@ -58,6 +60,14 @@ public class LivingThing extends Entity {
     public LivingThing(long speed) {
         this.speed = speed;
 
+    }
+
+    public UniversalController getController() {
+        return controller;
+    }
+
+    public void setController(UniversalController controller) {
+        this.controller = controller;
     }
 
     public TurnEntry getPresentTurn() {
@@ -225,6 +235,9 @@ public class LivingThing extends Entity {
     }
 
     public boolean isAlive() {
+        if (getHp() < 0) {
+            Alive = false;
+        }
         return Alive;
     }
 
@@ -258,13 +271,14 @@ public class LivingThing extends Entity {
     }
 
     private void getDamage(DamageEvent da) {
-        EventBus.post(da);
         this.hp -= da.getDamage().getDamageAmount();
+        System.out.print("剩余HP" + this.getHp());
     }
 
-    public void makeDamage(LivingThing attacked) {
-        EventBus.post(new DamageEvent(this, attacked));
-        attacked.getDamage(new DamageEvent(this, attacked));
+    public void makeDamage(LivingThing attacked, Skill skill) {
+        System.out.print("造成了" + new DamageEvent(this, attacked, skill).getDamage().getDamageAmount());
+        attacked.getDamage(new DamageEvent(this, attacked, skill));
+
     }
 
     public long getSpeed() {

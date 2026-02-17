@@ -2,16 +2,19 @@ package cn.gfhnv.game.damage;
 
 import cn.gfhnv.game.entity.Entity;
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.entity.skill.Skill;
 
 public class Damage {
     private LivingThing attacker;
     private LivingThing attackedEntity;
     private Long damageAmount;
+    private Skill skill;
 
-    public Damage(LivingThing attacker, LivingThing attackedEntity) {
+    public Damage(LivingThing attacker, LivingThing attackedEntity, Skill skill) {
         this.attacker = attacker;
+        this.skill = skill;
         this.attackedEntity = (LivingThing) attackedEntity;
-        damageAmount = DamageCalculate.calculate(attacker, (LivingThing) attackedEntity);
+        damageAmount = DamageCalculate.calculate(attacker, (LivingThing) attackedEntity, skill);
     }
 
     public LivingThing getAttacker() {

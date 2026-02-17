@@ -1,24 +1,20 @@
 package cn.gfhnv.game.mod.officialModStuff.customEntity;
 
-import cn.gfhnv.game.entity.Player;
+import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entity.entityController.UniversalController;
 import cn.gfhnv.game.entity.skill.Skill;
 import cn.gfhnv.game.mod.officialModStuff.customSkill.CommonAttack;
 import cn.gfhnv.game.system.ElementSort;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
-public class PlayerOne extends Player {
-    public PlayerOne(long l) {
-        super("PLAYER", "player_one", 0.3, 0.0, 0.0, 0.0, 0.3, 120, l, "player", 9, 25, 5, ElementSort.DIRT, 10, 5, 0);
-        this.setMass(BigDecimal.valueOf(60));
-        this.getInventory().addSlot(63);
+public class CommonInsect extends LivingThing {
+
+    public CommonInsect(Long l) {
+        super("Insect", "commonInsect", 0.0, 0.1, 0.95, 0.5, 0.8, 150, l, "insect", 30, 5, 9, ElementSort.METAL, 5, 2, 3);
         List<Skill> skills = new ArrayList<>();
-        skills.add(new CommonAttack(0, 1, 0));
+        skills.add(new CommonAttack(0, 0.3, 0));
         this.setController(new UniversalController(skills, this));
     }
-
-
 }
