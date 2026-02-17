@@ -2,6 +2,7 @@ package cn.gfhnv.game.mod.officialModStuff.customSkill;
 
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entity.skill.Skill;
+import cn.gfhnv.game.mod.officialModStuff.customEffect.HealthRestoreEffect;
 import cn.gfhnv.game.mod.officialModStuff.customEntity.CommonInsect;
 import cn.gfhnv.game.system.fight.Fight;
 
@@ -14,6 +15,7 @@ public class InsectBossSkillSummonEnemy extends Skill {
     @Override
     public void comeToEffect(Fight fight, LivingThing user) {
         System.out.println("Boss分裂了");
+        user.addEffect(new HealthRestoreEffect(20,1));
         if (fight.getEnemiesList().contains(user)) {
             fight.getEnemiesList().add(new CommonInsect(user.getLevel()));
             return;

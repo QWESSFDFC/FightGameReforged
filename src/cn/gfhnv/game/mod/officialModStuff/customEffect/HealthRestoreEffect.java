@@ -17,6 +17,5 @@ public class HealthRestoreEffect extends Effect {
         long hp1 = thing.getHp();
         thing.setHp((long) (Math.min(thing.getHpMax(), thing.getHp()) + this.getLevel() * 2L));
         long hp2 = thing.getHp() - hp1;
-        System.out.println(thing.getName() + "回复了" + hp2);
     }
 }

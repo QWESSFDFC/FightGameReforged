@@ -195,7 +195,7 @@ public class LivingThing extends Entity {
             for (Effect e : this.entityEffectList) {
                 if (e.equals(effect)) {
                     if (e.getLevel() >= effect.getLevel()) {
-                        e.setLevel(effect.getLevel() + e.getLevel());
+                       e.setLastTime(effect.getLastTime()+e.getLevel());
                         return;
                     }
                     this.entityEffectList.remove(e);
