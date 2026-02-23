@@ -4,6 +4,7 @@ import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.entityController.UniversalController;
 import cn.gfhnv.game.entity.skill.Skill;
 import cn.gfhnv.game.event.DamageEvent;
+import cn.gfhnv.game.inventory.Inventory;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.fight.TurnEntry;
@@ -28,7 +29,48 @@ public class LivingThing extends Entity {
     private Fight participateFight;
     private TurnEntry presentTurn;
     private UniversalController controller;
+    private String description;
 
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+    public LivingThing(LivingThing other) {
+        super(other.getName(), other.getId(),other.getLevel(),other.getElementSort());
+        this.fireResistance = other.fireResistance;
+        this.waterResistance = other.waterResistance;
+        this.metalResistance = other.metalResistance;
+        this.woodResistance = other.woodResistance;
+        this.dirtResistance = other.dirtResistance;
+        this.description=other.description;
+        this.speed = other.speed;
+        this.hpMagnification = other.hpMagnification;
+        this.atkMagnification = other.atkMagnification;
+        this.dfkMagnification = other.dfkMagnification;
+        this.setType(other.getType());
+        this.Alive = other.Alive;
+        this.defenseLoss = other.defenseLoss;
+        this.enhance = other.enhance;
+        this.setHpGrowNumber(other.getHpGrowNumber());
+        this.setAtkGrowNumber(other.getAtkGrowNumber());
+        this.setDfkGrowNumber(other.getDfkGrowNumber());
+        this.hp = other.hp;
+        this.dfk = other.dfk;
+        this.afk = other.afk;
+        this.hpMax = other.hpMax;
+        this.criticalDMG = other.criticalDMG;
+        this.getCriticalRATE = other.getCriticalRATE;
+        this.entityEffectList = new ArrayList<>(other.entityEffectList);
+        this.chuantong = other.chuantong;
+        this.damageAbsorbedPercent = other.damageAbsorbedPercent;
+        this.participateFight = null;
+        this.presentTurn = null;
+        this.controller = other.controller;
+
+    }
     public LivingThing(String name, String id, double fireResistance, double waterResistance, double metalResistance, double woodResistance, double dirtResistance, long speed, long l, String type, double hp, double atk, double dfk, ElementSort yu, double hpMagnification, double atkMagnification, double dfkMagnification) {
         super(name, id, l, yu);
         this.setHpGrowNumber(hp);
@@ -44,12 +86,12 @@ public class LivingThing extends Entity {
         this.dirtResistance = dirtResistance;
         this.setType(type);
         Alive = true;
-        this.hp = (long) ((l - 1) * getHpGrowNumber() + 200);
-        this.dfk = (long) ((l - 1) * getDfkGrowNumber() + 200);
         this.speed = speed;
-        this.afk = (long) (110 + getAtkGrowNumber() * (l - 1));
         this.defenseLoss = 0;
         this.enhance = 0;
+        this.hp = (long) ((l - 1) * getHpGrowNumber() + 200);
+        this.dfk = (long) ((l - 1) * getDfkGrowNumber() + 200);
+        this.afk = (long) (110 + getAtkGrowNumber() * (l - 1));
         this.hpMax = this.hp;
     }
 
@@ -233,10 +275,12 @@ public class LivingThing extends Entity {
     public void setHpMax(double hpMax) {
         this.hpMax = hpMax;
     }
-
     public boolean isAlive() {
-        if (getHp() < 0) {
+        if (getHp() <= 0) {
             Alive = false;
+        }
+        if (getHp()>0){
+            Alive = true;
         }
         return Alive;
     }

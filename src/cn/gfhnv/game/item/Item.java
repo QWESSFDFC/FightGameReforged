@@ -12,7 +12,10 @@ public class Item extends Thing {
         this.name = name;
         this.description = description;
     }
-
+ public Item(Item item) {
+        this.name = item.getName();
+        this.description = item.getDescription();
+ }
     public Item(String name, String description, BigDecimal bigDecimal) {
         super(bigDecimal);
         this.name = name;

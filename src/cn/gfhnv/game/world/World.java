@@ -5,7 +5,7 @@ import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.Entity;
 import cn.gfhnv.game.item.Item;
 import cn.gfhnv.game.mod.Mod;
-
+import cn.gfhnv.game.entity.LivingThing;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -84,7 +84,15 @@ public class World {
     public static List<Entity> getEntityList() {
         return entityList;
     }
-
+    public static List<LivingThing> getLivingEntityList() {
+        List<LivingThing> livingThingList = new ArrayList<>();
+        for (Entity e : entityList) {
+            if (e instanceof LivingThing) {
+                livingThingList.add((LivingThing) e);
+            }
+        }
+        return livingThingList;
+    }
     public static void setEntityList(List<Entity> entgityList) {
         entityList = entgityList;
     }

@@ -14,8 +14,9 @@ import static cn.gfhnv.game.system.ElementSort.METAL;
 
 public class InsectBoss extends LivingThing {
     public InsectBoss(long l) {
-        super("insectBoss", "insectBoss", 0.1, 0.2, 0.8, 0.2, 0.3, 150, l, "insect", 400, 10, 20, METAL, 1, 5, 1);
+        super("虫皇", "insectBoss", 0.1, 0.2, 0.8, 0.2, 0.3, 150, l, "insect", 400, 10, 20, METAL, 1, 5, 1);
         List<Skill> skills = new ArrayList<>();
+        this.setDescription("这是虫皇.可以普通攻击和分裂出普通虫子,无上限");
         skills.add(new InsectBossSkillSummonEnemy());
         skills.add(new CommonAttack(0, 0.9, 0));
         this.setController(new UniversalController(skills, this));

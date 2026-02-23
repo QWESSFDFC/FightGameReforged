@@ -1,5 +1,6 @@
 package cn.gfhnv.game.system.fight;
 
+import cn.gfhnv.game.GameMain;
 import cn.gfhnv.game.Thing;
 import cn.gfhnv.game.annotation.SubscribeEvent;
 import cn.gfhnv.game.entity.Entity;
@@ -8,6 +9,7 @@ import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.item.Item;
 
 import java.util.Iterator;
+import java.util.Scanner;
 
 public class FightEndEventListener {
     private FightTurnPastListener fightTurnPastListener;
@@ -19,9 +21,10 @@ public class FightEndEventListener {
     @SubscribeEvent
     public void worldTurnEventListener(FightEndEvent fightEndEvent) {
         TurnManager.actionQueue.clear();
-        for (Entity entity : fightEndEvent.getFight().getAllEntities()) {
-            if (entity instanceof LivingThing) {
-                ((LivingThing) entity).setPresentTurn(null);
+        for (LivingThing entity : fightEndEvent.getFight().getAllEntities()) {
+            if (entity != null) {
+                entity.setPresentTurn(null);
+                entity.setHp((long) entity.getHpMax());
             }
         }
         EventBus.unregister(this);
@@ -30,13 +33,7 @@ public class FightEndEventListener {
             System.out.println("恭喜你在战斗中获得了胜利.如果战斗有奖励而且你背包空间够,你会获得奖励");
             for (Thing thing : fightEndEvent.getFight().getFighterList()) {
                 if (thing instanceof LivingThing) {
-                    Iterator<Item> iter = fightEndEvent.getFight().getRewardList().iterator();
-                    while (iter.hasNext()) {
-                        Item item = iter.next();
-                        if (thing.getInventory().addItem(item)) {
-                            iter.remove();
-                        }
-                    }
+                    fightEndEvent.getFight().getRewardList().removeIf(item -> thing.getInventory().addItem(item));
                 }
             }
             if (!fightEndEvent.getFight().getRewardList().isEmpty()) {
@@ -46,10 +43,7 @@ public class FightEndEventListener {
         if (!fightEndEvent.isPlayerWin()) {
             System.out.println("你在战斗中失败了.游戏目前没有失败惩罚");
         }
-        for (Thing thing : fightEndEvent.getFight().getFighterList()) {
-            if (thing instanceof LivingThing) {
-                ((LivingThing) thing).setHp((long) ((LivingThing) thing).getHpMax());
-            }
-        }
-    }
-}
+
+
+
+}}

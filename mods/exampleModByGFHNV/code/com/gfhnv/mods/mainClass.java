@@ -9,6 +9,8 @@ public class mainClass extends cn.gfhnv.game.mod.Mod {
 
     @Override
     public void invokeWhenLoaded() {
-        this.addEntity(new PlayerTwo());
+        System.out.println("Mod Loaded!!!!!!");
+        //重写此方法,添加实体和物品等,这是为了保证其他类被编译
+
     }
 }
