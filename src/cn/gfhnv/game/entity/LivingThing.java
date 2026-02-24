@@ -1,6 +1,7 @@
 package cn.gfhnv.game.entity;
 
 import cn.gfhnv.game.effect.Effect;
+import cn.gfhnv.game.entity.entityController.PlayerController;
 import cn.gfhnv.game.entity.entityController.UniversalController;
 import cn.gfhnv.game.entity.skill.Skill;
 import cn.gfhnv.game.event.DamageEvent;
@@ -68,7 +69,8 @@ public class LivingThing extends Entity {
         this.damageAbsorbedPercent = other.damageAbsorbedPercent;
         this.participateFight = null;
         this.presentTurn = null;
-        this.controller = other.controller;
+        this.controller=new UniversalController(other.controller,this);
+        if (other.getController() instanceof PlayerController) {this.controller = new PlayerController(other.controller.getSkills(),this);} else {this.controller = new UniversalController(other.controller,this);}
 
     }
     public LivingThing(String name, String id, double fireResistance, double waterResistance, double metalResistance, double woodResistance, double dirtResistance, long speed, long l, String type, double hp, double atk, double dfk, ElementSort yu, double hpMagnification, double atkMagnification, double dfkMagnification) {
@@ -320,8 +322,9 @@ public class LivingThing extends Entity {
     }
 
     public void makeDamage(LivingThing attacked, Skill skill) {
-        System.out.print("造成了" + new DamageEvent(this, attacked, skill).getDamage().getDamageAmount());
-        attacked.getDamage(new DamageEvent(this, attacked, skill));
+        DamageEvent damageEvent=new DamageEvent(this, attacked, skill);
+        System.out.print("造成了" + damageEvent.getDamage().getDamageAmount());
+        attacked.getDamage(damageEvent);
 
     }
 

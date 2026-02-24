@@ -9,7 +9,7 @@ import cn.gfhnv.game.system.fight.Fight;
 public class InsectBossSkillSummonEnemy extends Skill {
 
     public InsectBossSkillSummonEnemy() {
-        super("分裂", "分裂其他虫子,没有数量上限", 0, 0, 0);
+        super("分裂", "分裂其他虫子,没有数量上限", 0, 0, 0,0);
     }
 
     @Override

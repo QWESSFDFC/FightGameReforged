@@ -3,24 +3,36 @@ package cn.gfhnv.game.entity.skill;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.system.fight.Fight;
 
+import java.util.List;
+
 public class Skill {
     private String name;
     private String description;
     private double hpMagnification = 0;
     private double atkMagnification = 0;
     private double defMagnification = 0;
+    private int aims;
 
-    public Skill(String name, String description, double hpMagnification, double atkMagnification, double defMagnification) {
+    public int getAims() {
+        return aims;
+    }
+
+    public void setAims(int aims) {
+        this.aims = aims;
+    }
+
+    public Skill(String name, String description, double hpMagnification, double atkMagnification, double defMagnification,int aims) {
         this.name = name;
         this.description = description;
         this.hpMagnification = hpMagnification;
         this.atkMagnification = atkMagnification;
         this.defMagnification = defMagnification;
+        this.aims = aims;
     }
 
     public void comeToEffect(Fight fight, LivingThing user) {
     }
-
+    public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies){}
     public String getName() {
         return name;
     }
