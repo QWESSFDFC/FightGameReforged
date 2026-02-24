@@ -1,4 +1,4 @@
-package cn.gfhnv.game.mod.officialModStuff.customEvent;
+package cn.gfhnv.game.officialStuff.customEvent;
 
 import cn.gfhnv.game.annotation.SubscribeEvent;
 

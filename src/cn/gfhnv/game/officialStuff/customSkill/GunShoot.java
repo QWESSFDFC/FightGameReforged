@@ -1,8 +1,8 @@
-package cn.gfhnv.game.mod.officialModStuff.customSkill;
+package cn.gfhnv.game.officialStuff.customSkill;
 
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entity.skill.Skill;
-import cn.gfhnv.game.mod.officialModStuff.customEffect.DamageEnhanceEffect;
+import cn.gfhnv.game.officialStuff.customEffect.DamageEnhanceEffect;
 import cn.gfhnv.game.system.fight.Fight;
 
 import java.util.List;

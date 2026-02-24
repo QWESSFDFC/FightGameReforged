@@ -12,7 +12,7 @@ import java.util.Objects;
 public abstract class Mod {
     private final String MOD_ID;
     private ModInformation modInformation;
-    private List<Entity> entityList = new ArrayList<>();
+    private List<Entity> entityList = new ArrayList<>();//模组各个内容先在invokeWhenLoaded方法中添加到模组的各个List中.不要弄错了List类型
     private List<Item> items = new ArrayList<>();
     private List<Effect> effects = new ArrayList<>();
 
@@ -23,7 +23,7 @@ public abstract class Mod {
     public Mod(String MOD_ID, ModInformation modInformation) {
         this.MOD_ID = MOD_ID;
         this.modInformation = modInformation;
-    }
+    }//请模组加载时把模组内容在invokeWhenLoaded方法中添加到模组的各个List中.不要学officialStuff
 
     public ModInformation getModInformation() {
         return modInformation;
@@ -77,7 +77,7 @@ public abstract class Mod {
     }
 
     public void invokeWhenLoaded() {
-    }
+    }//请模组加载时把模组内容在这个方法中添加到模组的各个List中.不要学officialStuff
 
     public void registerItself() {
         if (!items.isEmpty()) {

@@ -1,7 +1,7 @@
-package cn.gfhnv.game.mod.officialModStuff.customEvent;
+package cn.gfhnv.game.officialStuff.customEvent;
 
 import cn.gfhnv.game.event.Event;
-import cn.gfhnv.game.mod.officialModStuff.customEntity.InsectBoss;
+import cn.gfhnv.game.officialStuff.customEntity.InsectBoss;
 
 public class InsectBossDeathEvent extends Event {
     private final InsectBoss insectBoss;

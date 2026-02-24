@@ -68,7 +68,7 @@ public class ModLoader {
             return;
         }
         List<JavaFileObject> sourceFiles = new ArrayList<>();
-        collectJavaFiles(codeDir, sourceFiles, "");  // 递归收集，自动推导包名
+        collectJavaFiles(codeDir, sourceFiles, "");
 
         if (sourceFiles.isEmpty()) {
             System.err.println("模组 [" + modFolder.getName() + "] code 目录下没有 .java 文件，跳过");

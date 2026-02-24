@@ -1,4 +1,4 @@
-package cn.gfhnv.game.mod.officialModStuff.customItem;
+package cn.gfhnv.game.officialStuff.customItem;
 
 import cn.gfhnv.game.item.Item;
 

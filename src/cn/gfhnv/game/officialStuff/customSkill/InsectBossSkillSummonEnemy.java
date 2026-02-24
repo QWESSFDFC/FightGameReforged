@@ -1,9 +1,9 @@
-package cn.gfhnv.game.mod.officialModStuff.customSkill;
+package cn.gfhnv.game.officialStuff.customSkill;
 
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entity.skill.Skill;
-import cn.gfhnv.game.mod.officialModStuff.customEffect.HealthRestoreEffect;
-import cn.gfhnv.game.mod.officialModStuff.customEntity.CommonInsect;
+import cn.gfhnv.game.officialStuff.customEffect.HealthRestoreEffect;
+import cn.gfhnv.game.officialStuff.customEntity.CommonInsect;
 import cn.gfhnv.game.system.fight.Fight;
 
 public class InsectBossSkillSummonEnemy extends Skill {

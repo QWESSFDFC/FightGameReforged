@@ -1,10 +1,10 @@
-package cn.gfhnv.game.mod.officialModStuff.customEntity;
+package cn.gfhnv.game.officialStuff.customEntity;
 
 import cn.gfhnv.game.entity.Player;
 import cn.gfhnv.game.entity.entityController.PlayerController;
 import cn.gfhnv.game.entity.skill.Skill;
-import cn.gfhnv.game.mod.officialModStuff.customSkill.CommonAttack;
-import cn.gfhnv.game.mod.officialModStuff.customSkill.GunShoot;
+import cn.gfhnv.game.officialStuff.customSkill.CommonAttack;
+import cn.gfhnv.game.officialStuff.customSkill.GunShoot;
 import cn.gfhnv.game.system.ElementSort;
 
 import java.math.BigDecimal;

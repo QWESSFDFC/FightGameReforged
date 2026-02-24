@@ -2,10 +2,89 @@
 这是一个使用java编写的游戏.目前只有文字,大概能正常玩了?代码随便用,随便改.我是高中生,没时间.偶尔更新.编写此项目只是为了图一乐,发到Github上纯粹是闲的没事.目前没有使用java的相关游戏引擎,只是自己写东西,自娱自乐.......
 
 使用方法:直接运行.jar文件.可以自己编译或者下载Release中编译好的.但是Release中版本可能落后一点.
-English:
-This is a game written in Java. It's currently only text-based and probably playable? Feel free to use and modify the code however you like. I'm a high school student with limited time, so updates will be occasional. I'm only working on this project for fun and uploading it to GitHub just for the sake of it. I'm not using any Java game engine at the moment—just writing stuff on my own for self-entertainment.......
 
-How to use: Just run the .jar file. You can compile it yourself or download a pre-compiled version from Releases. However, the version in Releases might be a bit outdated.
+下面是使用AI写的README.md
+FightGameReforged
+一个使用 Java 编写的文字回合制战斗游戏。
+玩家可以选择自己的角色、敌人和奖励，在回合制系统中与敌人战斗。
+项目完全开源，使用事件驱动架构，支持模组加载。
+作者为高中生，利用课余时间编写，代码随意使用和修改。
+
+🎮 纯属娱乐，自娱自乐项目，欢迎 Star 和 Fork！
+
+✨ 功能特点
+文字交互：所有操作通过命令行完成，简单易上手。
+
+回合制战斗：玩家与敌人轮流行动，每个单位有独立的回合时间。
+
+角色选择：可以从预设的生物列表中选择任意数量的角色加入队伍。
+
+敌人选择：同样可以选择任意数量的敌人作为对手。
+
+奖励系统：战斗胜利后可以获得物品。
+
+技能系统：每个生物拥有多个技能，玩家可以手动选择技能和目标。
+
+事件驱动架构：使用自定义的 EventBus 处理游戏内事件，方便扩展。
+
+模组加载：支持通过 ModLoader 加载官方或第三方模组（目前只有官方内容）。
+
+开源协议：MIT 许可证，可自由使用、修改、分发。
+
+🚀 如何运行
+方式一：直接运行 JAR 包
+确保已安装 Java 17 或更高版本。我写的时候用的Java 25.
 
 
-Translated by AI.
+打开命令行，执行：
+
+bash
+java -jar FightGameReforged.jar
+方式二：从源码编译运行
+克隆仓库：
+
+bash
+git clone https://github.com/QWESSFDFC/FightGameReforged.git
+cd FightGameReforged
+使用 IntelliJ IDEA 打开项目，或使用命令行编译：
+
+bash
+javac -d out -cp "lib/*" src/cn/gfhnv/game/*.java
+运行主类 cn.gfhnv.game.GameStarter。
+
+方式三：打包为可执行镜像（使用 jpackage）
+项目已配置 jpackage 命令，可在 Windows 上生成带控制台的 exe 应用。
+详细步骤请参考 打包指南（待补充）。
+
+🎯 基本玩法
+输入你的名字：游戏开始时会要求输入玩家名（仅用于显示）。
+
+选择角色：从列表中选择生物加入你的队伍。输入编号查看介绍，输入 yes 确认加入，输入 no 取消，输入 next 完成选择。
+
+选择敌人：同样方式选择你要面对的敌人。
+
+选择奖励：选择战斗胜利后可能获得的物品（目前只有一把剑）。
+
+战斗开始：
+
+每个单位按速度决定行动顺序。
+
+轮到你控制的角色时，会显示可用技能列表，输入编号选择技能。
+
+根据技能的目标数，选择攻击目标（可多选，输入 next 提前结束选择）。
+
+敌人会自动选择技能和目标。
+
+战斗结束：一方全部死亡后，显示胜利或失败信息，并询问是否再玩一局。
+
+欢迎提交 Issue 或 Pull Request 帮助改进！不一定看.
+
+📦 模组开发
+项目支持简单的模组加载。官方模组位(exampleModByGFHNV)于 仓库的mods文件夹下，包含：空气
+
+若要开发自己的模组，可看游戏mod方面的源码，以及阅读officialStuff
+
+
+📄 许可证
+本项目使用 MIT 许可证。
+你可以自由使用、修改、分发代码，但需保留原作者的版权声明。

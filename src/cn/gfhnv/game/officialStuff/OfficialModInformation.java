@@ -1,4 +1,4 @@
-package cn.gfhnv.game.mod.officialModStuff;
+package cn.gfhnv.game.officialStuff;
 
 import cn.gfhnv.game.mod.ModInformation;
 
