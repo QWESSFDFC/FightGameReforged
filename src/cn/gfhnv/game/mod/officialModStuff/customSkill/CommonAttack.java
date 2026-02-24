@@ -10,7 +10,7 @@ import java.util.Random;
 
 public class CommonAttack extends Skill {
     public CommonAttack(double hpMagnification, double atkMagnification, double defMagnification) {
-        super("普通攻击", "最普通的攻击", hpMagnification, atkMagnification, defMagnification,1);
+        super("普通攻击", "最普通的攻击", hpMagnification, atkMagnification, defMagnification, 1);
     }
 
     @Override
@@ -31,8 +31,9 @@ public class CommonAttack extends Skill {
         user.makeDamage(target, this);
         return;
     }
+
     @Override
-    public void comeToEffect(Fight fight, LivingThing user,List<LivingThing> enemies) {
+    public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         user.addEffect(new DamageEnhanceEffect(1, 1));
         for (LivingThing livingThing : enemies) {
             System.out.print(user.getName() + "攻击了" + livingThing.getName());

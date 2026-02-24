@@ -11,8 +11,6 @@ import cn.gfhnv.game.event.eventListener.WorldTurnEventListener;
 import cn.gfhnv.game.item.Item;
 import cn.gfhnv.game.mod.ModLoader;
 import cn.gfhnv.game.mod.officialModStuff.OfficialGameContent;
-import cn.gfhnv.game.mod.officialModStuff.customEntity.InsectBoss;
-import cn.gfhnv.game.mod.officialModStuff.customEntity.PlayerOne;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.fight.FightStartEventListener;
 import cn.gfhnv.game.world.World;
@@ -26,6 +24,7 @@ import java.util.Scanner;
  */
 public class GameMain {
     public static String userName;
+
     public static void gameInitialize() {
         World.addMod(new OfficialGameContent());
         ModLoader.modLoaderInitialize();
@@ -41,11 +40,11 @@ public class GameMain {
         gameInitialize();
 
         Scanner sc = new Scanner(System.in);
-     String input;
+        String input;
         System.out.println("欢迎进入游戏!请你输入你的名字");
         userName = sc.nextLine();
-        System.out.println("好的."+userName+".这是一款文字战斗游戏马上你可以选择你的角色和你的敌人,甚至是你的奖励");
-       startAFight();
+        System.out.println("好的." + userName + ".这是一款文字战斗游戏马上你可以选择你的角色和你的敌人,甚至是你的奖励");
+        startAFight();
         do {
             System.out.println("要不要再玩一局?" + GameMain.userName);
             input = sc.nextLine();
@@ -55,7 +54,8 @@ public class GameMain {
         } while (!input.equalsIgnoreCase("no"));
         sc.close();
     }
-    public static void startAFight(){
+
+    public static void startAFight() {
         Scanner sc = new Scanner(System.in);
         List<Item> rewards = new ArrayList<>();
         List<LivingThing> enemies = new ArrayList<>();
@@ -66,34 +66,43 @@ public class GameMain {
         System.out.println("首先让我们从选择你的角色开始.可以选择任意数量的角色.这是角色列表.->输入角色名字前的数字来选择<-.\n输入next下一步,quit退出游戏");
         System.out.println("选择一名角色之后你可以获得其介绍,之后再输入yes来把其加入到队伍中,输入no返回上一步");
         while (true) {
-            if (!enemies.isEmpty()&&!fighters.isEmpty()) {break;}
+            if (!enemies.isEmpty() && !fighters.isEmpty()) {
+                break;
+            }
 
             LivingThing[] livingThings = World.getLivingEntityList().toArray(new LivingThing[0]);
-            int i=0;
-            for(LivingThing livingThing : World.getLivingEntityList()) {
-                System.out.println(i+livingThing.getName());
-                i++;}
+            int i = 0;
+            for (LivingThing livingThing : World.getLivingEntityList()) {
+                System.out.println(i + livingThing.getName());
+                i++;
+            }
             while (true) {
                 input = sc.nextLine();
-                if (input.equalsIgnoreCase("quit")) {System.exit(0);}
-                if (input.equalsIgnoreCase("next")) {break;}
+                if (input.equalsIgnoreCase("quit")) {
+                    System.exit(0);
+                }
+                if (input.equalsIgnoreCase("next")) {
+                    break;
+                }
                 try {
-                    selectedLivingThing= new LivingThing(livingThings[Integer.parseInt(input)]);
+                    selectedLivingThing = new LivingThing(livingThings[Integer.parseInt(input)]);
                     System.out.println(selectedLivingThing.getName());
                     System.out.println(selectedLivingThing.getDescription());
-                    while(true){
-                        input=sc.nextLine();
-                        if(input.equalsIgnoreCase("yes")){
+                    while (true) {
+                        input = sc.nextLine();
+                        if (input.equalsIgnoreCase("yes")) {
                             World.addThing(selectedLivingThing);
                             System.out.println("输入下一个数字或next");
                             fighters.add(selectedLivingThing);
-                            break;}
-                        if (input.equalsIgnoreCase("no")){
-                            selectedLivingThing=null;
+                            break;
+                        }
+                        if (input.equalsIgnoreCase("no")) {
+                            selectedLivingThing = null;
                             System.out.println("输入下一个数字或next");
-                            break;}
+                            break;
+                        }
                     }
-                } catch (Exception e){
+                } catch (Exception e) {
                     System.out.println("输入错误");
                     selectedLivingThing = null;
                     System.out.println("输入下一个数字或next");
@@ -101,31 +110,38 @@ public class GameMain {
             }
 
             System.out.println("接下来选择对手.依然是刚才的生物列表");
-            i=0;
-            for(LivingThing livingThing : World.getLivingEntityList()) {
-                System.out.println(i+livingThing.getName());
-                i++;}
-            while(true){
+            i = 0;
+            for (LivingThing livingThing : World.getLivingEntityList()) {
+                System.out.println(i + livingThing.getName());
+                i++;
+            }
+            while (true) {
                 input = sc.nextLine();
-                if (input.equalsIgnoreCase("quit")) {System.exit(0);}
-                if (input.equalsIgnoreCase("next")) {break;}
+                if (input.equalsIgnoreCase("quit")) {
+                    System.exit(0);
+                }
+                if (input.equalsIgnoreCase("next")) {
+                    break;
+                }
                 try {
-                    selectedLivingThing= new LivingThing(livingThings[Integer.parseInt(input)]);
+                    selectedLivingThing = new LivingThing(livingThings[Integer.parseInt(input)]);
                     System.out.println(selectedLivingThing.getName());
                     System.out.println(selectedLivingThing.getDescription());
-                    while(true){
-                        input=sc.nextLine();
-                        if(input.equalsIgnoreCase("yes")){
+                    while (true) {
+                        input = sc.nextLine();
+                        if (input.equalsIgnoreCase("yes")) {
                             World.addThing(selectedLivingThing);
                             enemies.add(selectedLivingThing);
                             System.out.println("输入下一个数字或next");
-                            break;}
-                        if (input.equalsIgnoreCase("no")){
-                            selectedLivingThing=null;
+                            break;
+                        }
+                        if (input.equalsIgnoreCase("no")) {
+                            selectedLivingThing = null;
                             System.out.println("输入下一个数字或next");
-                            break;}
+                            break;
+                        }
                     }
-                } catch (Exception e){
+                } catch (Exception e) {
                     System.out.println("输入错误");
                     selectedLivingThing = null;
                     System.out.println("输入下一个数字或next");
@@ -133,35 +149,43 @@ public class GameMain {
             }
 
             System.out.println("奖励.同理");
-            i= 0;
-            Item[] items=World.getItemList().toArray(new Item[0]);
+            i = 0;
+            Item[] items = World.getItemList().toArray(new Item[0]);
             for (Item item : World.getItemList()) {
-                System.out.println(i+item.getName());
+                System.out.println(i + item.getName());
                 i++;
             }
-            while (true){input = sc.nextLine();
-                if (input.equalsIgnoreCase("quit")) {System.exit(0);}
-                if (input.equalsIgnoreCase("next")) {break;}
+            while (true) {
+                input = sc.nextLine();
+                if (input.equalsIgnoreCase("quit")) {
+                    System.exit(0);
+                }
+                if (input.equalsIgnoreCase("next")) {
+                    break;
+                }
                 try {
-                    selectedItem=new Item(items[Integer.parseInt(input)]);
+                    selectedItem = new Item(items[Integer.parseInt(input)]);
                     System.out.println(selectedItem.getDescription());
-                    while(true){
-                        input=sc.nextLine();
-                        if(input.equalsIgnoreCase("yes")){
+                    while (true) {
+                        input = sc.nextLine();
+                        if (input.equalsIgnoreCase("yes")) {
                             World.addThing(selectedItem);
                             rewards.add(selectedItem);
                             System.out.println("输入下一个数字或next");
-                            break;}
-                        if (input.equalsIgnoreCase("no")){
-                            selectedItem=null;
+                            break;
+                        }
+                        if (input.equalsIgnoreCase("no")) {
+                            selectedItem = null;
                             System.out.println("输入下一个数字或next");
-                            break;}
+                            break;
+                        }
                     }
-                }catch (Exception e){
-                    System.out.println("输入错误");selectedItem=null;
+                } catch (Exception e) {
+                    System.out.println("输入错误");
+                    selectedItem = null;
                     System.out.println("输入下一个数字或next");
                 }
-                }
+            }
         }
         for (LivingThing fighter : fighters) {
             fighter.setHp((long) fighter.getHpMax());

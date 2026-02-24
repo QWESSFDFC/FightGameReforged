@@ -2,7 +2,6 @@ package cn.gfhnv.game.mod.officialModStuff.customEntity;
 
 import cn.gfhnv.game.entity.Player;
 import cn.gfhnv.game.entity.entityController.PlayerController;
-import cn.gfhnv.game.entity.entityController.UniversalController;
 import cn.gfhnv.game.entity.skill.Skill;
 import cn.gfhnv.game.mod.officialModStuff.customSkill.CommonAttack;
 import cn.gfhnv.game.mod.officialModStuff.customSkill.GunShoot;
@@ -21,7 +20,7 @@ public class PlayerOne extends Player {
         List<Skill> skills = new ArrayList<>();
         skills.add(new GunShoot());
         skills.add(new CommonAttack(0, 1, 0));
-        this.setController(new PlayerController(skills,this));
+        this.setController(new PlayerController(skills, this));
     }
 
 

@@ -5,7 +5,6 @@ import cn.gfhnv.game.entity.entityController.PlayerController;
 import cn.gfhnv.game.entity.entityController.UniversalController;
 import cn.gfhnv.game.entity.skill.Skill;
 import cn.gfhnv.game.event.DamageEvent;
-import cn.gfhnv.game.inventory.Inventory;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.fight.TurnEntry;
@@ -32,21 +31,14 @@ public class LivingThing extends Entity {
     private UniversalController controller;
     private String description;
 
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
     public LivingThing(LivingThing other) {
-        super(other.getName(), other.getId(),other.getLevel(),other.getElementSort());
+        super(other.getName(), other.getId(), other.getLevel(), other.getElementSort());
         this.fireResistance = other.fireResistance;
         this.waterResistance = other.waterResistance;
         this.metalResistance = other.metalResistance;
         this.woodResistance = other.woodResistance;
         this.dirtResistance = other.dirtResistance;
-        this.description=other.description;
+        this.description = other.description;
         this.speed = other.speed;
         this.hpMagnification = other.hpMagnification;
         this.atkMagnification = other.atkMagnification;
@@ -69,10 +61,15 @@ public class LivingThing extends Entity {
         this.damageAbsorbedPercent = other.damageAbsorbedPercent;
         this.participateFight = null;
         this.presentTurn = null;
-        this.controller=new UniversalController(other.controller,this);
-        if (other.getController() instanceof PlayerController) {this.controller = new PlayerController(other.controller.getSkills(),this);} else {this.controller = new UniversalController(other.controller,this);}
+        this.controller = new UniversalController(other.controller, this);
+        if (other.getController() instanceof PlayerController) {
+            this.controller = new PlayerController(other.controller.getSkills(), this);
+        } else {
+            this.controller = new UniversalController(other.controller, this);
+        }
 
     }
+
     public LivingThing(String name, String id, double fireResistance, double waterResistance, double metalResistance, double woodResistance, double dirtResistance, long speed, long l, String type, double hp, double atk, double dfk, ElementSort yu, double hpMagnification, double atkMagnification, double dfkMagnification) {
         super(name, id, l, yu);
         this.setHpGrowNumber(hp);
@@ -104,6 +101,14 @@ public class LivingThing extends Entity {
     public LivingThing(long speed) {
         this.speed = speed;
 
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 
     public UniversalController getController() {
@@ -239,7 +244,7 @@ public class LivingThing extends Entity {
             for (Effect e : this.entityEffectList) {
                 if (e.equals(effect)) {
                     if (e.getLevel() >= effect.getLevel()) {
-                       e.setLastTime(effect.getLastTime()+e.getLevel());
+                        e.setLastTime(effect.getLastTime() + e.getLevel());
                         return;
                     }
                     this.entityEffectList.remove(e);
@@ -277,11 +282,12 @@ public class LivingThing extends Entity {
     public void setHpMax(double hpMax) {
         this.hpMax = hpMax;
     }
+
     public boolean isAlive() {
         if (getHp() <= 0) {
             Alive = false;
         }
-        if (getHp()>0){
+        if (getHp() > 0) {
             Alive = true;
         }
         return Alive;
@@ -322,7 +328,7 @@ public class LivingThing extends Entity {
     }
 
     public void makeDamage(LivingThing attacked, Skill skill) {
-        DamageEvent damageEvent=new DamageEvent(this, attacked, skill);
+        DamageEvent damageEvent = new DamageEvent(this, attacked, skill);
         System.out.print("造成了" + damageEvent.getDamage().getDamageAmount());
         attacked.getDamage(damageEvent);
 

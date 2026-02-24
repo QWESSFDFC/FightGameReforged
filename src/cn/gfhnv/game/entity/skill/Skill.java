@@ -13,15 +13,7 @@ public class Skill {
     private double defMagnification = 0;
     private int aims;
 
-    public int getAims() {
-        return aims;
-    }
-
-    public void setAims(int aims) {
-        this.aims = aims;
-    }
-
-    public Skill(String name, String description, double hpMagnification, double atkMagnification, double defMagnification,int aims) {
+    public Skill(String name, String description, double hpMagnification, double atkMagnification, double defMagnification, int aims) {
         this.name = name;
         this.description = description;
         this.hpMagnification = hpMagnification;
@@ -30,9 +22,20 @@ public class Skill {
         this.aims = aims;
     }
 
+    public int getAims() {
+        return aims;
+    }
+
+    public void setAims(int aims) {
+        this.aims = aims;
+    }
+
     public void comeToEffect(Fight fight, LivingThing user) {
     }
-    public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies){}
+
+    public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
+    }
+
     public String getName() {
         return name;
     }

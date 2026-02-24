@@ -1,15 +1,9 @@
 package cn.gfhnv.game.system.fight;
 
-import cn.gfhnv.game.GameMain;
 import cn.gfhnv.game.Thing;
 import cn.gfhnv.game.annotation.SubscribeEvent;
-import cn.gfhnv.game.entity.Entity;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.event.EventBus;
-import cn.gfhnv.game.item.Item;
-
-import java.util.Iterator;
-import java.util.Scanner;
 
 public class FightEndEventListener {
     private FightTurnPastListener fightTurnPastListener;
@@ -46,5 +40,5 @@ public class FightEndEventListener {
         }
 
 
-
-}}
+    }
+}

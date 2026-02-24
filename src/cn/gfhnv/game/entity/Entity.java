@@ -143,7 +143,7 @@ public class Entity extends Thing {
 
     public void setLevel(long level) {
         this.level = level;
-        if (this instanceof LivingThing){
+        if (this instanceof LivingThing) {
             this.transToLivingTing().setHp((long) ((level - 1) * getHpGrowNumber() + 200));
             this.transToLivingTing().setDfk((long) ((level - 1) * getDfkGrowNumber() + 200));
             this.transToLivingTing().setAfk((long) (110 + getAtkGrowNumber() * (level - 1)));

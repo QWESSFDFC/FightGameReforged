@@ -14,6 +14,7 @@ public class Effect {
         this.level = level;
         this.lastTime = lastTime;
     }
+
     public Effect(Effect effect) {
         this.id = effect.id;
         this.level = effect.level;

@@ -9,13 +9,13 @@ import cn.gfhnv.game.system.fight.Fight;
 public class InsectBossSkillSummonEnemy extends Skill {
 
     public InsectBossSkillSummonEnemy() {
-        super("分裂", "分裂其他虫子,没有数量上限", 0, 0, 0,0);
+        super("分裂", "分裂其他虫子,没有数量上限", 0, 0, 0, 0);
     }
 
     @Override
     public void comeToEffect(Fight fight, LivingThing user) {
         System.out.println("Boss分裂了");
-        user.addEffect(new HealthRestoreEffect(2,1));
+        user.addEffect(new HealthRestoreEffect(2, 1));
         if (fight.getEnemiesList().contains(user)) {
             fight.getEnemiesList().add(new CommonInsect(user.getLevel()));
             return;
