@@ -88,3 +88,97 @@ javac -d out -cp "lib/*" src/cn/gfhnv/game/*.java
 📄 许可证
 本项目使用 MIT 许可证。
 你可以自由使用、修改、分发代码，但需保留原作者的版权声明。
+
+English:
+Translated by AI.
+This is a game written in Java. Currently, it's text-based only, but it should be playable? Feel free to use and modify the code however you want. I'm a high school student and don't have much time. Updates will be occasional. This project was created just for fun, and uploading it to GitHub was purely out of boredom. Currently, no Java game engines are used; it's just my own code for my own entertainment.......
+
+How to use: Simply run the .jar file. You can compile it yourself or download a pre-compiled version from Releases. However, the version in Releases might be a bit outdated.
+
+Below is a README.md written by AI
+
+FightGameReforged
+A text-based turn-based combat game written in Java.
+Players can choose their characters, enemies, and rewards, and battle enemies in a turn-based system.
+The project is fully open-source, uses an event-driven architecture, and supports mod loading.
+The author is a high school student, writing this in their spare time. The code can be used and modified freely.
+
+🎮 Purely for entertainment, a personal fun project. Stars and Forks are welcome!
+
+✨ Features
+
+Text-based Interaction: All operations are done through the command line, making it simple and easy to learn.
+
+Turn-Based Combat: Players and enemies take turns acting, with each unit having its own independent turn timer.
+
+Character Selection: Choose any number of characters from a preset list of creatures to join your party.
+
+Enemy Selection: Similarly, choose any number of enemies to face as opponents.
+
+Reward System: Obtain items after winning a battle.
+
+Skill System: Each creature has multiple skills, and players can manually choose skills and targets.
+
+Event-Driven Architecture: Uses a custom EventBus to handle in-game events, making it easy to extend.
+
+Mod Loading: Supports loading official or third-party mods via a ModLoader (currently only official content exists).
+
+Open Source License: Licensed under the MIT License, allowing free use, modification, and distribution.
+
+🚀 How to Run
+
+Method 1: Run the JAR file directly
+Ensure Java 17 or higher is installed. I used Java 25 when writing this.
+
+Open a command line and execute:
+
+bash
+java -jar FightGameReforged.jar
+Method 2: Compile and run from source
+Clone the repository:
+
+bash
+git clone https://github.com/QWESSFDFC/FightGameReforged.git
+cd FightGameReforged
+Open the project with IntelliJ IDEA, or compile using the command line:
+
+bash
+javac -d out -cp "lib/*" src/cn/gfhnv/game/*.java
+Run the main class cn.gfhnv.game.GameStarter.
+
+Method 3: Package as an executable image (using jpackage)
+The project is configured with jpackage commands, which can generate a console-based EXE application on Windows.
+For detailed steps, please refer to the Packaging Guide (to be added).
+
+🎯 Basic Gameplay
+
+Enter your name: At the start, you'll be prompted to enter a player name (for display purposes only).
+
+Choose your characters: Select creatures from the list to add to your party. Enter a number to view a creature's description, enter yes to confirm adding them, no to cancel, and next to finish selection.
+
+Choose your enemies: Similarly, select the enemies you want to face.
+
+Choose a reward: Select an item you might obtain after winning the battle (currently only a sword is available).
+
+Battle begins:
+
+Each unit acts in order determined by their speed.
+
+When it's your controlled character's turn, a list of available skills will be displayed. Enter a number to choose a skill.
+
+Based on the skill's target count, select targets (multiple selections possible, enter next to finish selecting early).
+
+Enemies automatically choose their skills and targets.
+
+Battle ends: When one side is completely defeated, a victory or defeat message is displayed, and you are asked if you want to play another round.
+
+Issues or Pull Requests for improvements are welcome! (Though I might not always see them.)
+
+📦 Mod Development
+The project supports simple mod loading. The official mod (exampleModByGFHNV) is located in the repository's mods folder, containing: nothing (air).
+
+To develop your own mod, you can look at the game's mod-related source code and read officialStuff (referring to the package cn.gfhnv.game.officialStuff).
+
+📄 License
+This project uses the MIT License.
+You are free to use, modify, and distribute the code, but you must retain the original author's copyright notice.
