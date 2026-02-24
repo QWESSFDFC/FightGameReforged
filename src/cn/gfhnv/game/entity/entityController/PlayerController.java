@@ -63,6 +63,7 @@ public class PlayerController extends UniversalController {
                 }
             }
             selectedSkill.comeToEffect(fight, getOwner(), attackTargets);
+            sc.close();
         }
     }
 }
