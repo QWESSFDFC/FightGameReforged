@@ -10,7 +10,8 @@ import java.util.Random;
 
 public class CommonAttack extends Skill {
     public CommonAttack(double hpMagnification, double atkMagnification, double defMagnification) {
-        super("普通攻击", "最普通的攻击", hpMagnification, atkMagnification, defMagnification, 1);
+        super("普通攻击", "最普通的攻击.无发动条件", hpMagnification, atkMagnification, defMagnification, 1);
+        this.setCoolDown(0);
     }
 
     @Override

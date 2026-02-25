@@ -12,6 +12,24 @@ public class Skill {
     private double atkMagnification = 0;
     private double defMagnification = 0;
     private int aims;
+    private int coolDown;
+    private int nowCoolDown=0;
+
+    public int getNowCoolDown() {
+        return nowCoolDown;
+    }
+
+    public void setNowCoolDown(int nowCoolDown) {
+        this.nowCoolDown = nowCoolDown;
+    }
+
+    public int getCoolDown() {
+        return coolDown;
+    }
+
+    public void setCoolDown(int coolDown) {
+        this.coolDown = coolDown;
+    }
 
     public Skill(String name, String description, double hpMagnification, double atkMagnification, double defMagnification, int aims) {
         this.name = name;
@@ -30,11 +48,14 @@ public class Skill {
         this.aims = aims;
     }
 
-    public void comeToEffect(Fight fight, LivingThing user) {
-    }
-
-    public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
-    }
+    public boolean canUse(Fight fight, LivingThing user, List<LivingThing> enemies){return this.nowCoolDown<=0;}
+    //两个重写一个
+public boolean canUse(Fight fight, LivingThing user){return this.nowCoolDown<=0;}
+    public boolean useSkill(Fight fight, LivingThing user, List<LivingThing> enemies){if (this.canUse(fight,user,enemies)){this.comeToEffect(fight, user, enemies);this.setNowCoolDown(this.getCoolDown()+1);return true;}return false;}
+    public boolean useSkill(Fight fight,LivingThing user){if (this.canUse(fight,user)){this.comeToEffect(fight,user);this.setNowCoolDown(this.getCoolDown()+1);return true;}return false;}
+    public void comeToEffect(Fight fight, LivingThing user) {}
+//两个重写一个.尽量不直接调用comeToEffect
+    public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {}
 
     public String getName() {
         return name;

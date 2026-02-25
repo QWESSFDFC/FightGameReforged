@@ -40,16 +40,19 @@ public class UniversalController {
 
 
     public void act(Fight fight) {
-        if (getOwner().getController().getSkills().isEmpty()) {
+
+        List<Skill> approachableSkill =new ArrayList<>();
+        for (Skill skill : getSkills()) {if (skill.canUse(fight,getOwner())&&skill.canUse(fight,getOwner(),null)) {approachableSkill.add(skill);}}
+        Skill[] canUseSkil = new Skill[approachableSkill.size()];
+        canUseSkil = approachableSkill.toArray(canUseSkil);
+        if (approachableSkill.isEmpty()) {
             System.out.println(getOwner().getName() + "没行动");
             return;
         }
-        Skill[] canUseSkil = new Skill[skills.size()];
-        canUseSkil = skills.toArray(canUseSkil);
         Random rand = new Random();
-        Skill selectedSkill = canUseSkil[rand.nextInt(skills.size())];
+        Skill selectedSkill = canUseSkil[rand.nextInt(approachableSkill.size())];
         if (selectedSkill.getAims() == 0) {
-            selectedSkill.comeToEffect(fight, getOwner());
+            selectedSkill.useSkill(fight, owner);
             return;
         }
         if (fight.getEnemiesList().contains(owner)) {
@@ -58,8 +61,16 @@ public class UniversalController {
             while (targetEnemies.size() < selectedSkill.getAims()) {
                 targetEnemies.add(attackableEnemies[rand.nextInt(attackableEnemies.length)]);
             }
-            selectedSkill.comeToEffect(fight, getOwner(), targetEnemies);
+            selectedSkill.useSkill(fight, getOwner(), targetEnemies);
+            return;
         }
-
+        if (fight.getFighterList().contains(owner)) {
+            List<LivingThing> targetEnemies = new ArrayList<>();
+            LivingThing[] attackableEnemies = fight.getEnemiesList().toArray(new LivingThing[0]);
+            while (targetEnemies.size() < selectedSkill.getAims()) {
+                targetEnemies.add(attackableEnemies[rand.nextInt(attackableEnemies.length)]);
+            }
+            selectedSkill.useSkill(fight, getOwner(), targetEnemies);
+        }
     }
 }

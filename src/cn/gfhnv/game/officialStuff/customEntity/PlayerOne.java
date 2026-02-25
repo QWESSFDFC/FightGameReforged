@@ -22,6 +22,4 @@ public class PlayerOne extends Player {
         skills.add(new CommonAttack(0, 1, 0));
         this.setController(new PlayerController(skills, this));
     }
-
-
 }

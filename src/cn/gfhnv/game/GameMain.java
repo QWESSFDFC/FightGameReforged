@@ -24,6 +24,7 @@ import java.util.Scanner;
  */
 public class GameMain {
     public static String userName;
+    public static Scanner SCANNER=new Scanner(System.in);
 
     public static void gameInitialize() {
         World.addMod(new OfficialGameContent());
@@ -39,24 +40,21 @@ public class GameMain {
     public static void main(String[] args) {
         gameInitialize();
 
-        Scanner sc = new Scanner(System.in);
         String input;
         System.out.println("欢迎进入游戏!请你输入你的名字");
-        userName = sc.nextLine();
+        userName = SCANNER.nextLine();
         System.out.println("好的." + userName + ".这是一款文字战斗游戏马上你可以选择你的角色和你的敌人,甚至是你的奖励");
         startAFight();
         do {
             System.out.println("要不要再玩一局?" + GameMain.userName);
-            input = sc.nextLine();
+            input = SCANNER.nextLine();
             if (input.equalsIgnoreCase("yes")) {
                 GameMain.startAFight();
             }
         } while (!input.equalsIgnoreCase("no"));
-        sc.close();
     }
 
     public static void startAFight() {
-        Scanner sc = new Scanner(System.in);
         List<Item> rewards = new ArrayList<>();
         List<LivingThing> enemies = new ArrayList<>();
         List<LivingThing> fighters = new ArrayList<>();
@@ -77,7 +75,7 @@ public class GameMain {
                 i++;
             }
             while (true) {
-                input = sc.nextLine();
+                input = SCANNER.nextLine();
                 if (input.equalsIgnoreCase("quit")) {
                     System.exit(0);
                 }
@@ -89,7 +87,7 @@ public class GameMain {
                     System.out.println(selectedLivingThing.getName());
                     System.out.println(selectedLivingThing.getDescription());
                     while (true) {
-                        input = sc.nextLine();
+                        input = SCANNER.nextLine();
                         if (input.equalsIgnoreCase("yes")) {
                             World.addThing(selectedLivingThing);
                             System.out.println("输入下一个数字或next");
@@ -116,7 +114,7 @@ public class GameMain {
                 i++;
             }
             while (true) {
-                input = sc.nextLine();
+                input = SCANNER.nextLine();
                 if (input.equalsIgnoreCase("quit")) {
                     System.exit(0);
                 }
@@ -128,7 +126,7 @@ public class GameMain {
                     System.out.println(selectedLivingThing.getName());
                     System.out.println(selectedLivingThing.getDescription());
                     while (true) {
-                        input = sc.nextLine();
+                        input = SCANNER.nextLine();
                         if (input.equalsIgnoreCase("yes")) {
                             World.addThing(selectedLivingThing);
                             enemies.add(selectedLivingThing);
@@ -156,7 +154,7 @@ public class GameMain {
                 i++;
             }
             while (true) {
-                input = sc.nextLine();
+                input = SCANNER.nextLine();
                 if (input.equalsIgnoreCase("quit")) {
                     System.exit(0);
                 }
@@ -167,7 +165,7 @@ public class GameMain {
                     selectedItem = new Item(items[Integer.parseInt(input)]);
                     System.out.println(selectedItem.getDescription());
                     while (true) {
-                        input = sc.nextLine();
+                        input = SCANNER.nextLine();
                         if (input.equalsIgnoreCase("yes")) {
                             World.addThing(selectedItem);
                             rewards.add(selectedItem);

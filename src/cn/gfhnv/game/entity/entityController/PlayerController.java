@@ -1,5 +1,6 @@
 package cn.gfhnv.game.entity.entityController;
 
+import cn.gfhnv.game.GameMain;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entity.skill.Skill;
 import cn.gfhnv.game.system.fight.Fight;
@@ -27,21 +28,23 @@ public class PlayerController extends UniversalController {
             Skill[] skills = getSkills().toArray(new Skill[0]);
             int i = 0;
             for (Skill skill : skills) {
-                System.out.println(i + skill.getName());
+                System.out.println(i + skill.getName()+"剩余冷却时间"+skill.getNowCoolDown());
                 i++;
             }
-            Scanner sc = new Scanner(System.in);
             while (true) {
-                input = sc.nextLine();
+                input = GameMain.SCANNER.nextLine();
                 try {
                     selectedSkill = skills[Integer.parseInt(input)];
-                    break;
+                    if (!(selectedSkill.canUse(fight,getOwner())|| selectedSkill.canUse(fight,getOwner(),null))) {
+                        System.out.println("技能释放条件不满足");
+                    }
+                    if (selectedSkill.canUse(fight,getOwner())&&selectedSkill.canUse(fight,getOwner(),null)) {break;}
                 } catch (Exception e) {
                     System.out.println("输入错误.重新输入");
                 }
             }
             if (selectedSkill.getAims() == 0) {
-                selectedSkill.comeToEffect(fight, getOwner());
+                selectedSkill.useSkill(fight, getOwner());
                 return;
             }
             System.out.println("选择目标.至少输入一个之后输入next可提前结束选择" + "\n可选目标数量" + selectedSkill.getAims());
@@ -52,7 +55,7 @@ public class PlayerController extends UniversalController {
                 i++;
             }
             while (attackTargets.size() < selectedSkill.getAims() && selectedSkill.getAims() != 0) {
-                input = sc.nextLine();
+                input = GameMain.SCANNER.nextLine();
                 if (input.equals("next") && !attackTargets.isEmpty()) {
                     break;
                 }
@@ -62,8 +65,7 @@ public class PlayerController extends UniversalController {
                     System.out.println("输入错误.重新输入");
                 }
             }
-            selectedSkill.comeToEffect(fight, getOwner(), attackTargets);
-            sc.close();
+            selectedSkill.useSkill(fight, getOwner(), attackTargets);
         }
     }
 }
