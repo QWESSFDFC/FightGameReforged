@@ -2,6 +2,7 @@ package cn.gfhnv.game.system.fight;
 
 import cn.gfhnv.game.annotation.SubscribeEvent;
 import cn.gfhnv.game.entity.skill.Skill;
+import cn.gfhnv.game.event.EffectUpdateEvent;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.event.FightPastOneTurnEvent;
 
@@ -38,6 +39,7 @@ public class FightTurnPastListener {
             skill.setNowCoolDown(Math.max(0, skill.getNowCoolDown() - 1));
         }
         Thread.sleep(100);
+        EventBus.post(new EffectUpdateEvent(presentTurn.livingThing));
         TurnManager.nextTurn(fightPastOneTurnEvent.getFight());
     }
 }

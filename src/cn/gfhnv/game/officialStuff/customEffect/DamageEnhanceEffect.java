@@ -5,7 +5,7 @@ import cn.gfhnv.game.entity.LivingThing;
 
 public class DamageEnhanceEffect extends Effect {
     private double enhanceN;
-
+   private boolean isOn;
     public DamageEnhanceEffect() {
         super("damageEnhanceEffect");
     }
@@ -22,11 +22,15 @@ public class DamageEnhanceEffect extends Effect {
 
     @Override
     public void comeIntoEffect(LivingThing thing) {
-        thing.setEnhance(thing.getEnhance() + enhanceN);
+        if (!isOn){
+            thing.setEnhance(thing.getEnhance() + enhanceN);
+        }
+        this.isOn = true;
     }
 
     @Override
     public void whenLastTimeEnd(LivingThing livingThing) {
         livingThing.setEnhance(livingThing.getEnhance() - enhanceN);
+        this.isOn = false;
     }
 }
