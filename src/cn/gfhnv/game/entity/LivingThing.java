@@ -52,6 +52,11 @@ public class LivingThing extends Entity {
         this.setHpGrowNumber(other.getHpGrowNumber());
         this.setAtkGrowNumber(other.getAtkGrowNumber());
         this.setDfkGrowNumber(other.getDfkGrowNumber());
+        this.setMetalManaGrowNumber(other.getMetalManaGrowNumber());
+        this.setWoodManaGrowNumber(other.getWoodManaGrowNumber());
+        this.setWaterManaGrowNumber(other.getWaterManaGrowNumber());
+        this.setFireManaGrowNumber(other.getFireManaGrowNumber());
+        this.setDirtManaGrowNumber(other.getFireManaGrowNumber());
         this.hp = other.hp;
         this.dfk = other.dfk;
         this.afk = other.afk;
@@ -69,7 +74,6 @@ public class LivingThing extends Entity {
         } else {
             this.controller = new UniversalController(other.controller, this);
         }
-        this.setManaMax(other.getManaMax());
          if (!other.getManas().isEmpty()){
              for (Mana mana:other.getManas()){this.getManas().add(mana);}
          }
@@ -97,6 +101,44 @@ public class LivingThing extends Entity {
         this.dfk = (long) ((l - 1) * getDfkGrowNumber() + 200);
         this.afk = (long) (110 + getAtkGrowNumber() * (l - 1));
         this.hpMax = this.hp;
+        switch (this.getElementSort()){
+            case METAL ->{
+                this.setMetalManaGrowNumber(20);
+                this.setWoodManaGrowNumber(4);
+                this.setWaterManaGrowNumber(10);
+                this.setFireManaGrowNumber(1);
+                this.setDirtManaGrowNumber(10);
+            }
+            case WOOD ->{
+                this.setMetalManaGrowNumber(1);
+                this.setWoodManaGrowNumber(20);
+                this.setWaterManaGrowNumber(10);
+                this.setFireManaGrowNumber(10);
+                this.setDirtManaGrowNumber(4);
+            }
+            case WATER ->{
+                this.setMetalManaGrowNumber(10);
+                this.setWoodManaGrowNumber(10);
+                this.setWaterManaGrowNumber(20);
+                this.setFireManaGrowNumber(4);
+                this.setDirtManaGrowNumber(1);
+            }
+            case FIRE ->{
+                this.setMetalManaGrowNumber(4);
+                this.setWoodManaGrowNumber(10);
+                this.setWaterManaGrowNumber(1);
+                this.setFireManaGrowNumber(20);
+                this.setDirtManaGrowNumber(10);
+            }
+            case DIRT ->{
+                this.setMetalManaGrowNumber(10);
+                this.setWoodManaGrowNumber(1);
+                this.setWaterManaGrowNumber(4);
+                this.setFireManaGrowNumber(10);
+                this.setDirtManaGrowNumber(20);
+            }
+        }
+        this.initialMana();
     }
 
     public LivingThing(String name, String id, long l, ElementSort u) {

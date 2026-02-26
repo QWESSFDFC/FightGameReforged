@@ -18,8 +18,53 @@ public class Entity extends Thing {
     private double atkGrowNumber;
     private double dfkGrowNumber;
     private ElementSort elementSort;
+    private double metalManaGrowNumber;
+    private double woodManaGrowNumber;
+    private double waterManaGrowNumber;
+    private double fireManaGrowNumber;
+    private double dirtManaGrowNumber;
+
+    public double getFireManaGrowNumber() {
+        return fireManaGrowNumber;
+    }
+
+    public void setFireManaGrowNumber(double fireManaGrowNumber) {
+        this.fireManaGrowNumber = fireManaGrowNumber;
+    }
+
+    public double getMetalManaGrowNumber() {
+        return metalManaGrowNumber;
+    }
+
+    public void setMetalManaGrowNumber(double metalManaGrowNumber) {
+        this.metalManaGrowNumber = metalManaGrowNumber;
+    }
+
+    public double getWoodManaGrowNumber() {
+        return woodManaGrowNumber;
+    }
+
+    public void setWoodManaGrowNumber(double woodManaGrowNumber) {
+        this.woodManaGrowNumber = woodManaGrowNumber;
+    }
+
+    public double getWaterManaGrowNumber() {
+        return waterManaGrowNumber;
+    }
+
+    public void setWaterManaGrowNumber(double waterManaGrowNumber) {
+        this.waterManaGrowNumber = waterManaGrowNumber;
+    }
+
+    public double getDirtManaGrowNumber() {
+        return dirtManaGrowNumber;
+    }
+
+    public void setDirtManaGrowNumber(double dirtManaGrowNumber) {
+        this.dirtManaGrowNumber = dirtManaGrowNumber;
+    }
+
     private String type = "entity";
-   private double manaMax;
   private List<Mana> manas=new ArrayList<>();//一个实体可以拥有多个Mana
     public Entity(Entity entity){
         this.level=entity.level;
@@ -29,8 +74,12 @@ public class Entity extends Thing {
         this.atkGrowNumber=entity.atkGrowNumber;
         this.dfkGrowNumber=entity.dfkGrowNumber;
         this.elementSort=entity.elementSort;
+        this.metalManaGrowNumber=entity.metalManaGrowNumber;
+        this.woodManaGrowNumber=entity.woodManaGrowNumber;
+        this.waterManaGrowNumber=entity.waterManaGrowNumber;
+        this.fireManaGrowNumber=entity.fireManaGrowNumber;
+        this.dirtManaGrowNumber=entity.fireManaGrowNumber;
         this.type=entity.type;
-        this.manaMax=entity.manaMax;
         if (entity.getManas().size()>0){
             manas.addAll(entity.getManas());
         }
@@ -44,13 +93,6 @@ public class Entity extends Thing {
         this.manas = manas;
     }
 
-    public double getManaMax() {
-        return manaMax;
-    }
-
-    public void setManaMax(double manaMax) {
-        this.manaMax = manaMax;
-    }
 
     public Entity() {
         super(new BigDecimal(1));
@@ -69,6 +111,44 @@ public class Entity extends Thing {
         this.id = id;
         this.level = l;
         this.elementSort = h;
+        switch (this.getElementSort()){
+            case METAL ->{
+                this.setMetalManaGrowNumber(20);
+                this.setWoodManaGrowNumber(4);
+                this.setWaterManaGrowNumber(10);
+                this.setFireManaGrowNumber(1);
+                this.setDirtManaGrowNumber(10);
+            }
+            case WOOD ->{
+                this.setMetalManaGrowNumber(1);
+                this.setWoodManaGrowNumber(20);
+                this.setWaterManaGrowNumber(10);
+                this.setFireManaGrowNumber(10);
+                this.setDirtManaGrowNumber(4);
+            }
+            case WATER ->{
+                this.setMetalManaGrowNumber(10);
+                this.setWoodManaGrowNumber(10);
+                this.setWaterManaGrowNumber(20);
+                this.setFireManaGrowNumber(4);
+                this.setDirtManaGrowNumber(1);
+            }
+            case FIRE ->{
+                this.setMetalManaGrowNumber(4);
+                this.setWoodManaGrowNumber(10);
+                this.setWaterManaGrowNumber(1);
+                this.setFireManaGrowNumber(20);
+                this.setDirtManaGrowNumber(10);
+            }
+            case DIRT ->{
+                this.setMetalManaGrowNumber(10);
+                this.setWoodManaGrowNumber(1);
+                this.setWaterManaGrowNumber(4);
+                this.setFireManaGrowNumber(10);
+                this.setDirtManaGrowNumber(20);
+            }
+        }
+        this.initialMana();
     }
 
 
@@ -80,7 +160,42 @@ public class Entity extends Thing {
         return null;
 
     }
+     public void initialMana(){
+        this.manas=new ArrayList<>();
+        switch (this.getElementSort()){
+            case METAL ->{manas.add(new Mana(this.metalManaGrowNumber*(level-1)+200,ElementSort.METAL));
+                          manas.add(new Mana(this.woodManaGrowNumber*(level-1)+20,ElementSort.WOOD));
+                          manas.add(new Mana(this.waterManaGrowNumber*(level-1)+20,ElementSort.WATER));
+                          manas.add(new Mana(this.fireManaGrowNumber*(level-1)+20,ElementSort.FIRE));
+                          manas.add(new Mana(this.dirtManaGrowNumber*(level-1)+20,ElementSort.DIRT));
+            }
+            case WOOD -> {manas.add(new Mana(this.metalManaGrowNumber*(level-1)+20,ElementSort.METAL));
+                manas.add(new Mana(this.woodManaGrowNumber*(level-1)+200,ElementSort.WOOD));
+                manas.add(new Mana(this.waterManaGrowNumber*(level-1)+20,ElementSort.WATER));
+                manas.add(new Mana(this.fireManaGrowNumber*(level-1)+20,ElementSort.FIRE));
+                manas.add(new Mana(this.dirtManaGrowNumber*(level-1)+20,ElementSort.DIRT));
+            }
+            case WATER -> {manas.add(new Mana(this.metalManaGrowNumber*(level-1)+20,ElementSort.METAL));
+                manas.add(new Mana(this.woodManaGrowNumber*(level-1)+20,ElementSort.WOOD));
+                manas.add(new Mana(this.waterManaGrowNumber*(level-1)+200,ElementSort.WATER));
+                manas.add(new Mana(this.fireManaGrowNumber*(level-1)+20,ElementSort.FIRE));
+                manas.add(new Mana(this.dirtManaGrowNumber*(level-1)+20,ElementSort.DIRT));
+            }
+            case FIRE -> {manas.add(new Mana(this.metalManaGrowNumber*(level-1)+20,ElementSort.METAL));
+                manas.add(new Mana(this.woodManaGrowNumber*(level-1)+20,ElementSort.WOOD));
+                manas.add(new Mana(this.waterManaGrowNumber*(level-1)+20,ElementSort.WATER));
+                manas.add(new Mana(this.fireManaGrowNumber*(level-1)+200,ElementSort.FIRE));
+                manas.add(new Mana(this.dirtManaGrowNumber*(level-1)+20,ElementSort.DIRT));
+            }
+            case DIRT -> {manas.add(new Mana(this.metalManaGrowNumber*(level-1)+20,ElementSort.METAL));
+                manas.add(new Mana(this.woodManaGrowNumber*(level-1)+20,ElementSort.WOOD));
+                manas.add(new Mana(this.waterManaGrowNumber*(level-1)+20,ElementSort.WATER));
+                manas.add(new Mana(this.fireManaGrowNumber*(level-1)+20,ElementSort.FIRE));
+                manas.add(new Mana(this.dirtManaGrowNumber*(level-1)+200,ElementSort.DIRT));
+            }
+        }
 
+     }
     @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
@@ -183,6 +298,7 @@ public class Entity extends Thing {
             this.transToLivingTing().setAfk((long) (110 + getAtkGrowNumber() * (level - 1)));
             ((LivingThing) this).setHpMax(this.transToLivingTing().getHp());
         }
+        this.initialMana();
     }
 
     public String getId() {

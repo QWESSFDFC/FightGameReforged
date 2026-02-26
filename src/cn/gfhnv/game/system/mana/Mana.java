@@ -4,15 +4,26 @@ import cn.gfhnv.game.system.ElementSort;
 
 public class Mana {
     private double amount;
+    private double amountMax;
     private ElementSort elementSort;
+
+    public double getAmountMax() {
+        return amountMax;
+    }
+
+    public void setAmountMax(double amountMax) {
+        this.amountMax = amountMax;
+    }
 
     public Mana(double amount, ElementSort elementSort) {
         this.amount = amount;
         this.elementSort = elementSort;
+        this.amountMax = amount;
     }
       public Mana(Mana mana){
         this.amount = mana.amount;
         this.elementSort = mana.elementSort;
+        this.amountMax=mana.amountMax;
       }
 
     public double getAmount() {
