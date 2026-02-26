@@ -29,7 +29,7 @@ public class FightTurnPastListener {
             TurnManager.nextTurn(fightPastOneTurnEvent.getFight());
             return;
         }
-
+        System.out.println();
         System.out.println("现在是" + presentTurn.getLivingThing().getName() + "的回合");
         System.out.println("状态:HP:" + presentTurn.getLivingThing().getHp() + "/" + presentTurn.getLivingThing().getHpMax());
         presentTurn.getLivingThing().getController().act(fightPastOneTurnEvent.getFight());
