@@ -13,7 +13,16 @@ public class Skill {
     private double defMagnification = 0;
     private int aims;
     private int coolDown;
-    private int nowCoolDown=0;
+    private int nowCoolDown = 0;
+
+    public Skill(String name, String description, double hpMagnification, double atkMagnification, double defMagnification, int aims) {
+        this.name = name;
+        this.description = description;
+        this.hpMagnification = hpMagnification;
+        this.atkMagnification = atkMagnification;
+        this.defMagnification = defMagnification;
+        this.aims = aims;
+    }
 
     public int getNowCoolDown() {
         return nowCoolDown;
@@ -31,15 +40,6 @@ public class Skill {
         this.coolDown = coolDown;
     }
 
-    public Skill(String name, String description, double hpMagnification, double atkMagnification, double defMagnification, int aims) {
-        this.name = name;
-        this.description = description;
-        this.hpMagnification = hpMagnification;
-        this.atkMagnification = atkMagnification;
-        this.defMagnification = defMagnification;
-        this.aims = aims;
-    }
-
     public int getAims() {
         return aims;
     }
@@ -48,14 +48,39 @@ public class Skill {
         this.aims = aims;
     }
 
-    public boolean canUse(Fight fight, LivingThing user, List<LivingThing> enemies){return this.nowCoolDown<=0;}
+    public boolean canUse(Fight fight, LivingThing user, List<LivingThing> enemies) {
+        return this.nowCoolDown <= 0;
+    }
+
     //两个重写一个
-public boolean canUse(Fight fight, LivingThing user){return this.nowCoolDown<=0;}
-    public boolean useSkill(Fight fight, LivingThing user, List<LivingThing> enemies){if (this.canUse(fight,user,enemies)){this.comeToEffect(fight, user, enemies);this.setNowCoolDown(this.getCoolDown()+1);return true;}return false;}
-    public boolean useSkill(Fight fight,LivingThing user){if (this.canUse(fight,user)){this.comeToEffect(fight,user);this.setNowCoolDown(this.getCoolDown()+1);return true;}return false;}
-    public void comeToEffect(Fight fight, LivingThing user) {}
-//两个重写一个.尽量不直接调用comeToEffect
-    public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {}
+    public boolean canUse(Fight fight, LivingThing user) {
+        return this.nowCoolDown <= 0;
+    }
+
+    public boolean useSkill(Fight fight, LivingThing user, List<LivingThing> enemies) {
+        if (this.canUse(fight, user, enemies)) {
+            this.comeToEffect(fight, user, enemies);
+            this.setNowCoolDown(this.getCoolDown() + 1);
+            return true;
+        }
+        return false;
+    }
+
+    public boolean useSkill(Fight fight, LivingThing user) {
+        if (this.canUse(fight, user)) {
+            this.comeToEffect(fight, user);
+            this.setNowCoolDown(this.getCoolDown() + 1);
+            return true;
+        }
+        return false;
+    }
+
+    public void comeToEffect(Fight fight, LivingThing user) {
+    }
+
+    //两个重写一个.尽量不直接调用comeToEffect
+    public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
+    }
 
     public String getName() {
         return name;

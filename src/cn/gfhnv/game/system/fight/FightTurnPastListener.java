@@ -34,7 +34,9 @@ public class FightTurnPastListener {
         System.out.println("状态:HP:" + presentTurn.getLivingThing().getHp() + "/" + presentTurn.getLivingThing().getHpMax());
         presentTurn.getLivingThing().getController().act(fightPastOneTurnEvent.getFight());
         presentTurn.getLivingThing().onActionTaken();
-        for (Skill skill:presentTurn.getLivingThing().getController().getSkills()) {skill.setNowCoolDown(Math.max(0,skill.getNowCoolDown()-1));}
+        for (Skill skill : presentTurn.getLivingThing().getController().getSkills()) {
+            skill.setNowCoolDown(Math.max(0, skill.getNowCoolDown() - 1));
+        }
         Thread.sleep(100);
         TurnManager.nextTurn(fightPastOneTurnEvent.getFight());
     }

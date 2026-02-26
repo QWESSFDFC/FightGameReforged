@@ -24,7 +24,7 @@ import java.util.Scanner;
  */
 public class GameMain {
     public static String userName;
-    public static Scanner SCANNER=new Scanner(System.in);
+    public static Scanner SCANNER = new Scanner(System.in);
 
     public static void gameInitialize() {
         World.addMod(new OfficialGameContent());
@@ -46,7 +46,7 @@ public class GameMain {
         System.out.println("好的." + userName + ".这是一款文字战斗游戏马上你可以选择你的角色和你的敌人,甚至是你的奖励");
         startAFight();
         do {
-            System.out.println("要不要再玩一局?" + GameMain.userName);
+            System.out.println("要不要再玩一局?输入no退出游戏.yes继续." + GameMain.userName);
             input = SCANNER.nextLine();
             if (input.equalsIgnoreCase("yes")) {
                 GameMain.startAFight();

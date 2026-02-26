@@ -11,7 +11,7 @@ public class GunShoot extends Skill {
 
     public GunShoot() {
         super("枪射击", "射出多发子弹.伤害基于攻击力.1冷却", 0, 7.5, 0, 2);
-          this.setCoolDown(1);
+        this.setCoolDown(1);
     }
 
     @Override

@@ -2,12 +2,15 @@ package cn.gfhnv.game.entity;
 
 import cn.gfhnv.game.Thing;
 import cn.gfhnv.game.system.ElementSort;
+import cn.gfhnv.game.system.mana.Mana;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 public class Entity extends Thing {
-    private final int UUID = 1;
+    private int UUID = 1;
     private long level;
     private String name;
     private String id;
@@ -16,7 +19,38 @@ public class Entity extends Thing {
     private double dfkGrowNumber;
     private ElementSort elementSort;
     private String type = "entity";
+   private double manaMax;
+  private List<Mana> manas=new ArrayList<>();//一个实体可以拥有多个Mana
+    public Entity(Entity entity){
+        this.level=entity.level;
+        this.name=entity.name;
+        this.id=entity.id;
+        this.hpGrowNumber=entity.hpGrowNumber;
+        this.atkGrowNumber=entity.atkGrowNumber;
+        this.dfkGrowNumber=entity.dfkGrowNumber;
+        this.elementSort=entity.elementSort;
+        this.type=entity.type;
+        this.manaMax=entity.manaMax;
+        if (entity.getManas().size()>0){
+            manas.addAll(entity.getManas());
+        }
+    }
 
+    public List<Mana> getManas() {
+        return manas;
+    }
+
+    public void setManas(List<Mana> manas) {
+        this.manas = manas;
+    }
+
+    public double getManaMax() {
+        return manaMax;
+    }
+
+    public void setManaMax(double manaMax) {
+        this.manaMax = manaMax;
+    }
 
     public Entity() {
         super(new BigDecimal(1));

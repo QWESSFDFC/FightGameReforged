@@ -7,7 +7,6 @@ import cn.gfhnv.game.system.fight.Fight;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Scanner;
 
 public class PlayerController extends UniversalController {
     public PlayerController(List<Skill> skills, LivingThing owner) {
@@ -28,17 +27,19 @@ public class PlayerController extends UniversalController {
             Skill[] skills = getSkills().toArray(new Skill[0]);
             int i = 0;
             for (Skill skill : skills) {
-                System.out.println(i + skill.getName()+"剩余冷却时间"+skill.getNowCoolDown());
+                System.out.println(i + skill.getName() + "剩余冷却时间" + skill.getNowCoolDown());
                 i++;
             }
             while (true) {
                 input = GameMain.SCANNER.nextLine();
                 try {
                     selectedSkill = skills[Integer.parseInt(input)];
-                    if (!(selectedSkill.canUse(fight,getOwner())|| selectedSkill.canUse(fight,getOwner(),null))) {
+                    if (!(selectedSkill.canUse(fight, getOwner()) || selectedSkill.canUse(fight, getOwner(), null))) {
                         System.out.println("技能释放条件不满足");
                     }
-                    if (selectedSkill.canUse(fight,getOwner())&&selectedSkill.canUse(fight,getOwner(),null)) {break;}
+                    if (selectedSkill.canUse(fight, getOwner()) && selectedSkill.canUse(fight, getOwner(), null)) {
+                        break;
+                    }
                 } catch (Exception e) {
                     System.out.println("输入错误.重新输入");
                 }

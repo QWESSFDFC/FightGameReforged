@@ -8,8 +8,10 @@ import cn.gfhnv.game.event.DamageEvent;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.fight.TurnEntry;
+import cn.gfhnv.game.system.mana.Mana;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 import static cn.gfhnv.game.system.fight.TurnManager.actionQueue;
@@ -67,7 +69,10 @@ public class LivingThing extends Entity {
         } else {
             this.controller = new UniversalController(other.controller, this);
         }
-
+        this.setManaMax(other.getManaMax());
+         if (!other.getManas().isEmpty()){
+             for (Mana mana:other.getManas()){this.getManas().add(mana);}
+         }
     }
 
     public LivingThing(String name, String id, double fireResistance, double waterResistance, double metalResistance, double woodResistance, double dirtResistance, long speed, long l, String type, double hp, double atk, double dfk, ElementSort yu, double hpMagnification, double atkMagnification, double dfkMagnification) {

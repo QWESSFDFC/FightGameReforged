@@ -41,8 +41,12 @@ public class UniversalController {
 
     public void act(Fight fight) {
 
-        List<Skill> approachableSkill =new ArrayList<>();
-        for (Skill skill : getSkills()) {if (skill.canUse(fight,getOwner())&&skill.canUse(fight,getOwner(),null)) {approachableSkill.add(skill);}}
+        List<Skill> approachableSkill = new ArrayList<>();
+        for (Skill skill : getSkills()) {
+            if (skill.canUse(fight, getOwner()) && skill.canUse(fight, getOwner(), null)) {
+                approachableSkill.add(skill);
+            }
+        }
         Skill[] canUseSkil = new Skill[approachableSkill.size()];
         canUseSkil = approachableSkill.toArray(canUseSkil);
         if (approachableSkill.isEmpty()) {
