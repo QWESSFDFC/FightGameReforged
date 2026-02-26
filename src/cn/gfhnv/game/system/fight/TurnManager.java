@@ -21,12 +21,7 @@ public class TurnManager {
     }
 
     public static void nextTurn(Fight fight) {
-        new Thread(() -> {
-            try {
-                Thread.sleep(1);
-            } catch (InterruptedException ignored) {}
             EventBus.post(new FightPastOneTurnEvent(fight));
-        }).start();
     }
 
     public static Queue<TurnEntry> getActionQueue() {
