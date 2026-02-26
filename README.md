@@ -35,7 +35,6 @@ FightGameReforged
 方式一：直接运行 JAR 包
 确保已安装 Java 17 或更高版本。我写的时候用的Java 25.
 
-
 打开命令行，执行：
 
 bash
@@ -84,16 +83,19 @@ javac -d out -cp "lib/*" src/cn/gfhnv/game/*.java
 
 若要开发自己的模组，可看游戏mod方面的源码，以及阅读officialStuff
 
-
 📄 许可证
 本项目使用 MIT 许可证。
 你可以自由使用、修改、分发代码，但需保留原作者的版权声明。
 
 English:
 Translated by AI.
-This is a game written in Java. Currently, it's text-based only, but it should be playable? Feel free to use and modify the code however you want. I'm a high school student and don't have much time. Updates will be occasional. This project was created just for fun, and uploading it to GitHub was purely out of boredom. Currently, no Java game engines are used; it's just my own code for my own entertainment.......
+This is a game written in Java. Currently, it's text-based only, but it should be playable? Feel free to use and modify
+the code however you want. I'm a high school student and don't have much time. Updates will be occasional. This project
+was created just for fun, and uploading it to GitHub was purely out of boredom. Currently, no Java game engines are
+used; it's just my own code for my own entertainment.......
 
-How to use: Simply run the .jar file. You can compile it yourself or download a pre-compiled version from Releases. However, the version in Releases might be a bit outdated.
+How to use: Simply run the .jar file. You can compile it yourself or download a pre-compiled version from Releases.
+However, the version in Releases might be a bit outdated.
 
 Below is a README.md written by AI
 
@@ -154,7 +156,8 @@ For detailed steps, please refer to the Packaging Guide (to be added).
 
 Enter your name: At the start, you'll be prompted to enter a player name (for display purposes only).
 
-Choose your characters: Select creatures from the list to add to your party. Enter a number to view a creature's description, enter yes to confirm adding them, no to cancel, and next to finish selection.
+Choose your characters: Select creatures from the list to add to your party. Enter a number to view a creature's
+description, enter yes to confirm adding them, no to cancel, and next to finish selection.
 
 Choose your enemies: Similarly, select the enemies you want to face.
 
@@ -164,20 +167,24 @@ Battle begins:
 
 Each unit acts in order determined by their speed.
 
-When it's your controlled character's turn, a list of available skills will be displayed. Enter a number to choose a skill.
+When it's your controlled character's turn, a list of available skills will be displayed. Enter a number to choose a
+skill.
 
 Based on the skill's target count, select targets (multiple selections possible, enter next to finish selecting early).
 
 Enemies automatically choose their skills and targets.
 
-Battle ends: When one side is completely defeated, a victory or defeat message is displayed, and you are asked if you want to play another round.
+Battle ends: When one side is completely defeated, a victory or defeat message is displayed, and you are asked if you
+want to play another round.
 
 Issues or Pull Requests for improvements are welcome! (Though I might not always see them.)
 
 📦 Mod Development
-The project supports simple mod loading. The official mod (exampleModByGFHNV) is located in the repository's mods folder, containing: nothing (air).
+The project supports simple mod loading. The official mod (exampleModByGFHNV) is located in the repository's mods
+folder, containing: nothing (air).
 
-To develop your own mod, you can look at the game's mod-related source code and read officialStuff (referring to the package cn.gfhnv.game.officialStuff).
+To develop your own mod, you can look at the game's mod-related source code and read officialStuff (referring to the
+package cn.gfhnv.game.officialStuff).
 
 📄 License
 This project uses the MIT License.
