@@ -5,6 +5,7 @@ import cn.gfhnv.game.entity.skill.Skill;
 import cn.gfhnv.game.event.EffectUpdateEvent;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.event.FightPastOneTurnEvent;
+import cn.gfhnv.game.world.World;
 
 public class FightTurnPastListener {
     private TurnEntry presentTurn;
@@ -30,6 +31,7 @@ public class FightTurnPastListener {
             return;
         }
         System.out.println();
+        World.turnTimer++;
         System.out.println("现在是" + presentTurn.getLivingThing().getName() + "的回合");
         presentTurn.getLivingThing().recoverManaEveryTurn();
         System.out.println("状态:HP:" + presentTurn.getLivingThing().getHp() + "/" + presentTurn.getLivingThing().getHpMax());
