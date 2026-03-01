@@ -14,6 +14,15 @@ public class Skill {
     private int aims;
     private int coolDown;
     private int nowCoolDown = 0;
+    private boolean isForEnemies=true;
+
+    public boolean isForEnemies() {
+        return isForEnemies;
+    }
+
+    public void setForEnemies(boolean forEnemies) {
+        isForEnemies = forEnemies;
+    }
 
     public Skill(String name, String description, double hpMagnification, double atkMagnification, double defMagnification, int aims) {
         this.name = name;
@@ -57,7 +66,7 @@ public class Skill {
         return this.nowCoolDown <= 0;
     }
 
-    public boolean useSkill(Fight fight, LivingThing user, List<LivingThing> enemies) {
+    public boolean use(Fight fight, LivingThing user, List<LivingThing> enemies) {
         if (this.canUse(fight, user, enemies)) {
             this.comeToEffect(fight, user, enemies);
             this.setNowCoolDown(this.getCoolDown() + 1);
@@ -66,7 +75,7 @@ public class Skill {
         return false;
     }
 
-    public boolean useSkill(Fight fight, LivingThing user) {
+    public boolean use(Fight fight, LivingThing user) {
         if (this.canUse(fight, user)) {
             this.comeToEffect(fight, user);
             this.setNowCoolDown(this.getCoolDown() + 1);

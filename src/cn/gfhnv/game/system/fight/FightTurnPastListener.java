@@ -32,7 +32,14 @@ public class FightTurnPastListener {
         }
         System.out.println();
         System.out.println("现在是" + presentTurn.getLivingThing().getName() + "的回合");
+        presentTurn.getLivingThing().recoverManaEveryTurn();
         System.out.println("状态:HP:" + presentTurn.getLivingThing().getHp() + "/" + presentTurn.getLivingThing().getHpMax());
+        System.out.println("能量");
+        System.out.println("金"+presentTurn.getLivingThing().getMetalMana().getAmount()+"/"+presentTurn.getLivingThing().getMetalMana().getAmountMax());
+        System.out.println("木"+presentTurn.getLivingThing().getWoodMana().getAmount()+"/"+presentTurn.getLivingThing().getWoodMana().getAmountMax());
+        System.out.println("水"+presentTurn.getLivingThing().getWaterMana().getAmount()+"/"+presentTurn.getLivingThing().getWaterMana().getAmountMax());
+        System.out.println("火"+presentTurn.getLivingThing().getFireMana().getAmount()+"/"+presentTurn.getLivingThing().getFireMana().getAmountMax());
+        System.out.println("土"+presentTurn.getLivingThing().getDirtMana().getAmount()+"/"+presentTurn.getLivingThing().getDirtMana().getAmountMax());
         presentTurn.getLivingThing().getController().act(fightPastOneTurnEvent.getFight());
         presentTurn.getLivingThing().onActionTaken();
         for (Skill skill : presentTurn.getLivingThing().getController().getSkills()) {

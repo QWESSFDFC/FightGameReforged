@@ -32,7 +32,7 @@ public class Mana {
     }
 
     public void setAmount(double amount) {
-        this.amount = amount;
+        this.amount = Math.min(amount, amountMax);
     }
 
     public ElementSort getElementSort() {
