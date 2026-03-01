@@ -51,23 +51,24 @@ public class PlayerController extends UniversalController {
             System.out.println("选择目标.至少输入一个之后输入next可提前结束选择" + "\n可选目标数量" + selectedSkill.getAims());
             i = 0;
             if (selectedSkill.isForEnemies()) {
-            LivingThing[] attackableTargets = fight.getEnemiesList().toArray(new LivingThing[0]);
-            for (LivingThing target : attackableTargets) {
-                System.out.println(i + target.getName());
-                i++;
+                LivingThing[] attackableTargets = fight.getEnemiesList().toArray(new LivingThing[0]);
+                for (LivingThing target : attackableTargets) {
+                    System.out.println(i + target.getName());
+                    i++;
+                }
+                while (attackTargets.size() < selectedSkill.getAims() && selectedSkill.getAims() != 0) {
+                    input = GameMain.SCANNER.nextLine();
+                    if (input.equals("next") && !attackTargets.isEmpty()) {
+                        break;
+                    }
+                    try {
+                        attackTargets.add(attackableTargets[Integer.parseInt(input)]);
+                    } catch (Exception e) {
+                        System.out.println("输入错误.重新输入");
+                    }
+                }
             }
-            while (attackTargets.size() < selectedSkill.getAims() && selectedSkill.getAims() != 0) {
-                input = GameMain.SCANNER.nextLine();
-                if (input.equals("next") && !attackTargets.isEmpty()) {
-                    break;
-                }
-                try {
-                    attackTargets.add(attackableTargets[Integer.parseInt(input)]);
-                } catch (Exception e) {
-                    System.out.println("输入错误.重新输入");
-                }
-            }}
-            i=0;
+            i = 0;
             if (!selectedSkill.isForEnemies()) {
                 LivingThing[] attackableTargets = fight.getFighterList().toArray(new LivingThing[0]);
                 for (LivingThing target : attackableTargets) {

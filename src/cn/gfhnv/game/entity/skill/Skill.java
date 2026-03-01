@@ -14,15 +14,7 @@ public class Skill {
     private int aims;
     private int coolDown;
     private int nowCoolDown = 0;
-    private boolean isForEnemies=true;
-
-    public boolean isForEnemies() {
-        return isForEnemies;
-    }
-
-    public void setForEnemies(boolean forEnemies) {
-        isForEnemies = forEnemies;
-    }
+    private boolean isForEnemies = true;
 
     public Skill(String name, String description, double hpMagnification, double atkMagnification, double defMagnification, int aims) {
         this.name = name;
@@ -31,6 +23,14 @@ public class Skill {
         this.atkMagnification = atkMagnification;
         this.defMagnification = defMagnification;
         this.aims = aims;
+    }
+
+    public boolean isForEnemies() {
+        return isForEnemies;
+    }
+
+    public void setForEnemies(boolean forEnemies) {
+        isForEnemies = forEnemies;
     }
 
     public int getNowCoolDown() {

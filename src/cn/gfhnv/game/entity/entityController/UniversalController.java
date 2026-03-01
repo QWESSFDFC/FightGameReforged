@@ -60,40 +60,44 @@ public class UniversalController {
             return;
         }
         if (fight.getEnemiesList().contains(owner)) {
-            if (selectedSkill.isForEnemies()){
+            if (selectedSkill.isForEnemies()) {
                 List<LivingThing> targetEnemies = new ArrayList<>();
                 LivingThing[] attackableEnemies = fight.getFighterList().toArray(new LivingThing[0]);
                 while (targetEnemies.size() < selectedSkill.getAims()) {
                     targetEnemies.add(attackableEnemies[rand.nextInt(attackableEnemies.length)]);
                 }
                 selectedSkill.use(fight, getOwner(), targetEnemies);
-                return;}
-            if (!selectedSkill.isForEnemies()){
+                return;
+            }
+            if (!selectedSkill.isForEnemies()) {
                 List<LivingThing> targetEnemies = new ArrayList<>();
                 LivingThing[] attackableEnemies = fight.getEnemiesList().toArray(new LivingThing[0]);
                 while (targetEnemies.size() < selectedSkill.getAims()) {
                     targetEnemies.add(attackableEnemies[rand.nextInt(attackableEnemies.length)]);
                 }
                 selectedSkill.use(fight, getOwner(), targetEnemies);
-                return;}
+                return;
+            }
         }
         if (fight.getFighterList().contains(owner)) {
-            if (!selectedSkill.isForEnemies()){
+            if (!selectedSkill.isForEnemies()) {
                 List<LivingThing> targetEnemies = new ArrayList<>();
                 LivingThing[] attackableEnemies = fight.getFighterList().toArray(new LivingThing[0]);
                 while (targetEnemies.size() < selectedSkill.getAims()) {
                     targetEnemies.add(attackableEnemies[rand.nextInt(attackableEnemies.length)]);
                 }
                 selectedSkill.use(fight, getOwner(), targetEnemies);
-                return;}
-            if (selectedSkill.isForEnemies()){
+                return;
+            }
+            if (selectedSkill.isForEnemies()) {
                 List<LivingThing> targetEnemies = new ArrayList<>();
                 LivingThing[] attackableEnemies = fight.getEnemiesList().toArray(new LivingThing[0]);
                 while (targetEnemies.size() < selectedSkill.getAims()) {
                     targetEnemies.add(attackableEnemies[rand.nextInt(attackableEnemies.length)]);
                 }
                 selectedSkill.use(fight, getOwner(), targetEnemies);
-                return;}
+                return;
+            }
         }
     }
 }

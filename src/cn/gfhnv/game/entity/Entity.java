@@ -41,9 +41,9 @@ public class Entity extends Thing {
         this.dirtManaGrowNumber = entity.fireManaGrowNumber;
         this.type = entity.type;
         if (!entity.getManas().isEmpty()) {
-           for (Mana mana:entity.getManas()) {
-               this.manas.add(new  Mana(mana));
-           }
+            for (Mana mana : entity.getManas()) {
+                this.manas.add(new Mana(mana));
+            }
         }
     }
 
@@ -57,58 +57,7 @@ public class Entity extends Thing {
         this.level = l;
         this.elementSort = h;
     }
-   public Mana getMetalMana(){
-        for (Mana mana :this.manas){
-            if (mana.getElementSort().equals(ElementSort.METAL)) return mana;
-        }
-        return null;
-   }
-    public Mana getWoodMana(){
-        for (Mana mana :this.manas){
-            if (mana.getElementSort().equals(ElementSort.WOOD)) return mana;
-        }
-        return null;
-    }
-    public Mana getWaterMana(){
-        for (Mana mana :this.manas){
-            if (mana.getElementSort().equals(ElementSort.WATER)) return mana;
-        }
-        return null;
-    }
-    public Mana getFireMana(){
-        for (Mana mana :this.manas){
-            if (mana.getElementSort().equals(ElementSort.FIRE)) return mana;
-        }
-        return null;
-    }
-    public Mana getDirtMana(){
-        for (Mana mana :this.manas){
-        if (mana.getElementSort().equals(ElementSort.DIRT)) return mana;
-        }
-        return null;
-    }
-    public Mana getMana(ElementSort elementSortNeeded){
-        for (Mana mana :this.manas){
-            if (mana.getElementSort().equals(elementSortNeeded)) return mana;
-        }
-        return null;
-    }
-    public void recoverManaEveryTurn(){
-        for (Mana mana:manas){
-            if (mana.getElementSort().equals(ElementSort.METAL)){mana.setAmount(mana.getAmount()+this.getLevel()/100.00*this.getMetalManaGrowNumber()+100);}
-            if (this.getElementSort().equals(ElementSort.METAL)){mana.setAmount(mana.getAmount()+this.level);}
-            if (mana.getElementSort().equals(ElementSort.WOOD)){mana.setAmount(mana.getAmount()+this.getLevel()/100.00*this.getWoodManaGrowNumber()+100);}
-            if (this.getElementSort().equals(ElementSort.WOOD)){mana.setAmount(mana.getAmount()+this.level);}
-            if (mana.getElementSort().equals(ElementSort.WATER)){mana.setAmount(mana.getAmount()+this.getLevel()/100.00*this.getWaterManaGrowNumber()+100);}
-            if (this.getElementSort().equals(ElementSort.WATER)){mana.setAmount(mana.getAmount()+this.level);}
-            if (mana.getElementSort().equals(ElementSort.FIRE)){mana.setAmount(mana.getAmount()+this.getLevel()/100.00*this.getFireManaGrowNumber()+100);}
-            if (this.getElementSort().equals(ElementSort.FIRE)){mana.setAmount(mana.getAmount()+this.level);}
-            if (mana.getElementSort().equals(ElementSort.DIRT)){mana.setAmount(mana.getAmount()+this.getLevel()/100.00*this.getDirtManaGrowNumber()+100);}
-            if (this.getElementSort().equals(ElementSort.DIRT)){mana.setAmount(mana.getAmount()+this.level);}
-        }
 
-
-    }
     public Entity(String name, String id, long l, ElementSort h, BigDecimal bigDecimal) {
         super(bigDecimal);
         this.name = name;
@@ -153,6 +102,85 @@ public class Entity extends Thing {
             }
         }
         this.initialMana();
+    }
+
+    public Mana getMetalMana() {
+        for (Mana mana : this.manas) {
+            if (mana.getElementSort().equals(ElementSort.METAL)) return mana;
+        }
+        return null;
+    }
+
+    public Mana getWoodMana() {
+        for (Mana mana : this.manas) {
+            if (mana.getElementSort().equals(ElementSort.WOOD)) return mana;
+        }
+        return null;
+    }
+
+    public Mana getWaterMana() {
+        for (Mana mana : this.manas) {
+            if (mana.getElementSort().equals(ElementSort.WATER)) return mana;
+        }
+        return null;
+    }
+
+    public Mana getFireMana() {
+        for (Mana mana : this.manas) {
+            if (mana.getElementSort().equals(ElementSort.FIRE)) return mana;
+        }
+        return null;
+    }
+
+    public Mana getDirtMana() {
+        for (Mana mana : this.manas) {
+            if (mana.getElementSort().equals(ElementSort.DIRT)) return mana;
+        }
+        return null;
+    }
+
+    public Mana getMana(ElementSort elementSortNeeded) {
+        for (Mana mana : this.manas) {
+            if (mana.getElementSort().equals(elementSortNeeded)) return mana;
+        }
+        return null;
+    }
+
+    public void recoverManaEveryTurn() {
+        for (Mana mana : manas) {
+            if (mana.getElementSort().equals(ElementSort.METAL)) {
+                mana.setAmount(mana.getAmount() + this.getLevel() / 100.00 * this.getMetalManaGrowNumber() + 100);
+            }
+            if (this.getElementSort().equals(ElementSort.METAL)) {
+                mana.setAmount(mana.getAmount() + this.level);
+            }
+            if (mana.getElementSort().equals(ElementSort.WOOD)) {
+                mana.setAmount(mana.getAmount() + this.getLevel() / 100.00 * this.getWoodManaGrowNumber() + 100);
+            }
+            if (this.getElementSort().equals(ElementSort.WOOD)) {
+                mana.setAmount(mana.getAmount() + this.level);
+            }
+            if (mana.getElementSort().equals(ElementSort.WATER)) {
+                mana.setAmount(mana.getAmount() + this.getLevel() / 100.00 * this.getWaterManaGrowNumber() + 100);
+            }
+            if (this.getElementSort().equals(ElementSort.WATER)) {
+                mana.setAmount(mana.getAmount() + this.level);
+            }
+            if (mana.getElementSort().equals(ElementSort.FIRE)) {
+                mana.setAmount(mana.getAmount() + this.getLevel() / 100.00 * this.getFireManaGrowNumber() + 100);
+            }
+            if (this.getElementSort().equals(ElementSort.FIRE)) {
+                mana.setAmount(mana.getAmount() + this.level);
+            }
+            if (mana.getElementSort().equals(ElementSort.DIRT)) {
+                mana.setAmount(mana.getAmount() + this.getLevel() / 100.00 * this.getDirtManaGrowNumber() + 100);
+            }
+            if (this.getElementSort().equals(ElementSort.DIRT)) {
+                mana.setAmount(mana.getAmount() + this.level);
+            }
+        }
+
+
     }
 
     public double getFireManaGrowNumber() {

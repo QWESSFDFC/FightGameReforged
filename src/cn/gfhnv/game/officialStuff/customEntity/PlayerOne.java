@@ -20,7 +20,7 @@ public class PlayerOne extends Player {
         this.getInventory().addSlot(63);
         List<Skill> skills = new ArrayList<>();
         skills.add(new GunShoot());
-        skills.add(new RestorationHealthSkill(0.1,0.1,0,3,90));
+        skills.add(new RestorationHealthSkill(0.1, 0.1, 0, 3, 90));
         skills.add(new CommonAttack(0, 1, 0));
         this.setController(new PlayerController(skills, this));
     }

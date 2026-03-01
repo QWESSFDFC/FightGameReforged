@@ -21,7 +21,7 @@ public class TurnManager {
     }
 
     public static void nextTurn(Fight fight) {
-            EventBus.post(new FightPastOneTurnEvent(fight));
+        EventBus.post(new FightPastOneTurnEvent(fight));
     }
 
     public static Queue<TurnEntry> getActionQueue() {

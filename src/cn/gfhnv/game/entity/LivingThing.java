@@ -403,7 +403,7 @@ public class LivingThing extends Entity {
     }
 
     public void setHp(long hp) {
-        this.hp = (long) Math.min(this.getHpMax(),hp);
+        this.hp = (long) Math.min(this.getHpMax(), hp);
     }
 
     public double getCriticalDMG() {
