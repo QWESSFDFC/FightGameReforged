@@ -8,7 +8,6 @@ import cn.gfhnv.game.event.FightPastOneTurnEvent;
 
 public class FightTurnPastListener {
     private TurnEntry presentTurn;
-
     @SubscribeEvent
     public void fightTurnPastOne(FightPastOneTurnEvent fightPastOneTurnEvent) throws InterruptedException {
         fightPastOneTurnEvent.getFight().getFighterList().removeIf(livingThing -> !livingThing.isAlive());
@@ -21,12 +20,12 @@ public class FightTurnPastListener {
             EventBus.post(new FightEndEvent(true, fightPastOneTurnEvent.getFight()));
             return;
         }
-        this.presentTurn = TurnManager.actionQueue.take();
+        presentTurn = TurnManager.actionQueue.take();
         if (presentTurn.getLivingThing() == null) {
             TurnManager.nextTurn(fightPastOneTurnEvent.getFight());
             return;
         }
-        if (!this.presentTurn.getLivingThing().isAlive()) {
+        if (!presentTurn.getLivingThing().isAlive()) {
             TurnManager.nextTurn(fightPastOneTurnEvent.getFight());
             return;
         }
