@@ -3,9 +3,9 @@ package cn.gfhnv.game.officialStuff.customEntity;
 import cn.gfhnv.game.entity.Player;
 import cn.gfhnv.game.entity.entityController.PlayerController;
 import cn.gfhnv.game.entity.skill.Skill;
-import cn.gfhnv.game.officialStuff.customSkill.CommonAttack;
-import cn.gfhnv.game.officialStuff.customSkill.GunShoot;
-import cn.gfhnv.game.officialStuff.customSkill.RestorationHealthSkill;
+import cn.gfhnv.game.officialStuff.customSkill.universialSkill.CommonAttack;
+import cn.gfhnv.game.officialStuff.customSkill.universialSkill.GunShoot;
+import cn.gfhnv.game.officialStuff.customSkill.universialSkill.RestorationHealthSkill;
 import cn.gfhnv.game.system.ElementSort;
 
 import java.math.BigDecimal;
@@ -20,8 +20,8 @@ public class PlayerOne extends Player {
         this.getInventory().addSlot(63);
         List<Skill> skills = new ArrayList<>();
         skills.add(new GunShoot());
-        skills.add(new RestorationHealthSkill(0.1, 0.1, 0, 3, 90));
-        skills.add(new CommonAttack(0, 1, 0));
+        skills.add(new RestorationHealthSkill(0.1, 0.9, 0, 3, 90));
+        skills.add(new CommonAttack(0, 1, 0,1));
         this.setController(new PlayerController(skills, this));
     }
 }

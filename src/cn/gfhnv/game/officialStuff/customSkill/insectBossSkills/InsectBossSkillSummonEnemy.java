@@ -1,4 +1,4 @@
-package cn.gfhnv.game.officialStuff.customSkill;
+package cn.gfhnv.game.officialStuff.customSkill.insectBossSkills;
 
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entity.skill.Skill;

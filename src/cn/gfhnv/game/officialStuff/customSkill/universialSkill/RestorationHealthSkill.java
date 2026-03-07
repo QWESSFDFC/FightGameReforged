@@ -1,4 +1,4 @@
-package cn.gfhnv.game.officialStuff.customSkill;
+package cn.gfhnv.game.officialStuff.customSkill.universialSkill;
 
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entity.skill.Skill;
@@ -11,9 +11,10 @@ public class RestorationHealthSkill extends Skill {
     private int neededManaScale;
 
     public RestorationHealthSkill(double hpMagnification, double atkMagnification, double defMagnification, int aims, int neededManaScale) {
-        super("生命值恢复", "恢复生命值", hpMagnification, atkMagnification, defMagnification, aims);
+        super("生命值恢复", "恢复生命值.1冷却", hpMagnification, atkMagnification, defMagnification, aims);
         this.neededManaScale = neededManaScale;
         this.setForEnemies(false);
+        this.setCoolDown(1);
     }
 
     @Override

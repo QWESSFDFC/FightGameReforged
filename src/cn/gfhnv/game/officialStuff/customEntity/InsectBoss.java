@@ -3,8 +3,8 @@ package cn.gfhnv.game.officialStuff.customEntity;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entity.entityController.UniversalController;
 import cn.gfhnv.game.entity.skill.Skill;
-import cn.gfhnv.game.officialStuff.customSkill.CommonAttack;
-import cn.gfhnv.game.officialStuff.customSkill.InsectBossSkillSummonEnemy;
+import cn.gfhnv.game.officialStuff.customSkill.universialSkill.CommonAttack;
+import cn.gfhnv.game.officialStuff.customSkill.insectBossSkills.InsectBossSkillSummonEnemy;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -18,7 +18,7 @@ public class InsectBoss extends LivingThing {
         List<Skill> skills = new ArrayList<>();
         this.setDescription("这是虫皇.可以普通攻击和分裂出普通虫子,无上限");
         skills.add(new InsectBossSkillSummonEnemy());
-        skills.add(new CommonAttack(0, 0.9, 0));
+        skills.add(new CommonAttack(0, 0.9, 0,2));
         this.setController(new UniversalController(skills, this));
         this.setMass(BigDecimal.valueOf(1250));
         this.getInventory().addSlot(63);
