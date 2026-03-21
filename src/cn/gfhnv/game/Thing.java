@@ -3,6 +3,7 @@ package cn.gfhnv.game;
 import cn.gfhnv.game.inventory.Inventory;
 import cn.gfhnv.game.system.physics.type.Acceleration;
 import cn.gfhnv.game.system.physics.type.Force;
+import cn.gfhnv.game.system.physics.type.Position;
 import cn.gfhnv.game.system.physics.type.Velocity;
 
 import java.math.BigDecimal;
@@ -13,16 +14,10 @@ public class Thing {
     private Force force = new Force(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
     private Velocity velocity = new Velocity(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
     private Acceleration acceleration = new Acceleration(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
-    private BigDecimal x = new BigDecimal(0);
-    private BigDecimal y = new BigDecimal(0);
-    private BigDecimal z = new BigDecimal(0);
+    private Position position = new Position(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
     private Inventory inventory = new Inventory(1);
-
-    public Thing(BigDecimal y, BigDecimal z, BigDecimal x, BigDecimal mass) {
-        this.y = y;
-        this.z = z;
-        this.x = x;
-        this.mass = mass;
+    public void setPosition(Position position) {
+        this.position = position;
     }
 
     public Thing(BigDecimal mass) {
@@ -52,37 +47,15 @@ public class Thing {
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
         Thing thing = (Thing) o;
-        return Objects.equals(getMass(), thing.getMass()) && Objects.equals(getForce(), thing.getForce()) && Objects.equals(getVelocity(), thing.getVelocity()) && Objects.equals(getAcceleration(), thing.getAcceleration()) && Objects.equals(getX(), thing.getX()) && Objects.equals(getY(), thing.getY()) && Objects.equals(getZ(), thing.getZ());
+        return Objects.equals(getMass(), thing.getMass()) && Objects.equals(getForce(), thing.getForce()) && Objects.equals(getVelocity(), thing.getVelocity()) && Objects.equals(getAcceleration(), thing.getAcceleration()) && Objects.equals(getInventory(), thing.getInventory());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getMass(), getForce(), getVelocity(), getAcceleration(), getX(), getY(), getZ());
+        return Objects.hash(getMass(), getForce(), getVelocity(), getAcceleration());
     }
 
-    public BigDecimal getX() {
-        return x;
-    }
 
-    public void setX(BigDecimal x) {
-        this.x = x;
-    }
-
-    public BigDecimal getZ() {
-        return z;
-    }
-
-    public void setZ(BigDecimal z) {
-        this.z = z;
-    }
-
-    public BigDecimal getY() {
-        return y;
-    }
-
-    public void setY(BigDecimal y) {
-        this.y = y;
-    }
 
     @Override
     public String toString() {
@@ -115,5 +88,9 @@ public class Thing {
 
     public void setMass(BigDecimal mass) {
         this.mass = mass;
+    }
+
+    public Position getPosition() {
+        return position;
     }
 }

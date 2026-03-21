@@ -7,7 +7,6 @@ import cn.gfhnv.game.event.GameStartEvent;
 import cn.gfhnv.game.event.eventListener.EffectEventListener;
 import cn.gfhnv.game.event.eventListener.GameStartEventListener;
 import cn.gfhnv.game.event.eventListener.PhysicsEventListener;
-import cn.gfhnv.game.event.eventListener.WorldTurnEventListener;
 import cn.gfhnv.game.item.Item;
 import cn.gfhnv.game.mod.ModLoader;
 import cn.gfhnv.game.officialStuff.OfficialGameContent;
@@ -31,7 +30,6 @@ public class GameMain {
         ModLoader.modLoaderInitialize();
         EventBus.register(new GameStartEventListener());
         EventBus.register(new EffectEventListener());
-        EventBus.register(new WorldTurnEventListener());
         EventBus.register(new PhysicsEventListener());
         EventBus.register(new FightStartEventListener());
         EventBus.post(new GameStartEvent());

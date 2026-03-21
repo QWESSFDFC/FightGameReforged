@@ -1,7 +1,9 @@
 package cn.gfhnv.game.entity.skill;
 
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
+import cn.gfhnv.game.system.mana.Mana;
 
 import java.util.List;
 
@@ -15,6 +17,7 @@ public class Skill {
     private int coolDown;
     private int nowCoolDown = 0;
     private boolean isForEnemies = true;
+    private Mana consumedMana;
 
     public Skill(String name, String description, double hpMagnification, double atkMagnification, double defMagnification, int aims) {
         this.name = name;
@@ -58,18 +61,68 @@ public class Skill {
     }
 
     public boolean canUse(Fight fight, LivingThing user, List<LivingThing> enemies) {
-        return this.nowCoolDown <= 0;
+        boolean canUse = false;
+        boolean canUseMana = false;
+        for (Mana mana:user.getManas()){
+            if (this.getConsumedMana()==null){
+                canUseMana=true;
+                break;
+            }
+            if (consumedMana.getElementSort().equals(ElementSort.UNIVERSAL)){
+                if(mana.getAmount()>=consumedMana.getAmount()){
+                    canUseMana=true;
+
+                    break;}            }
+            if (mana.getElementSort().equals(consumedMana.getElementSort())){canUseMana= mana.getAmount()>=consumedMana.getAmount();
+
+                break;}
+        }
+        if (canUseMana&&nowCoolDown<=0){canUse=true;}
+        return canUse;
     }
 
-    //两个重写一个
+    //两个重写一个.如果true里面消耗mana
     public boolean canUse(Fight fight, LivingThing user) {
-        return this.nowCoolDown <= 0;
+        boolean canUse = false;
+        boolean canUseMana = false;
+        for (Mana mana:user.getManas()){
+            if (this.getConsumedMana()==null){
+                canUseMana=true;
+                break;
+            }
+            if (consumedMana.getElementSort().equals(ElementSort.UNIVERSAL)){
+                if(mana.getAmount()>=consumedMana.getAmount()){
+                    canUseMana=true;
+
+                    break;}            }
+            if (mana.getElementSort().equals(consumedMana.getElementSort())){canUseMana= mana.getAmount()>=consumedMana.getAmount();
+
+                break;}
+        }
+        if (canUseMana&&nowCoolDown<=0){canUse=true;}
+        return canUse;
     }
 
     public boolean use(Fight fight, LivingThing user, List<LivingThing> enemies) {
         if (this.canUse(fight, user, enemies)) {
             this.comeToEffect(fight, user, enemies);
             this.setNowCoolDown(this.getCoolDown() + 1);
+            for (Mana mana:user.getManas()){
+                if (this.getConsumedMana()==null){
+                    break;
+                }
+                if (consumedMana.getElementSort().equals(ElementSort.UNIVERSAL)){
+                    if(mana.getAmount()>=consumedMana.getAmount()){
+                        if (nowCoolDown<=0){
+                            mana.setAmount(mana.getAmount()-consumedMana.getAmount());
+                        }
+                        break;}            }
+                if (mana.getElementSort().equals(consumedMana.getElementSort())){
+                    if (nowCoolDown<=0){
+                        mana.setAmount(mana.getAmount()-consumedMana.getAmount());
+                    }
+                    break;}
+            }
             return true;
         }
         return false;
@@ -79,6 +132,22 @@ public class Skill {
         if (this.canUse(fight, user)) {
             this.comeToEffect(fight, user);
             this.setNowCoolDown(this.getCoolDown() + 1);
+            for (Mana mana:user.getManas()){
+                if (this.getConsumedMana()==null){
+                    break;
+                }
+                if (consumedMana.getElementSort().equals(ElementSort.UNIVERSAL)){
+                    if(mana.getAmount()>=consumedMana.getAmount()){
+                        if (nowCoolDown<=0){
+                            mana.setAmount(mana.getAmount()-consumedMana.getAmount());
+                        }
+                        break;}            }
+                if (mana.getElementSort().equals(consumedMana.getElementSort())){
+                    if (nowCoolDown<=0){
+                        mana.setAmount(mana.getAmount()-consumedMana.getAmount());
+                    }
+                    break;}
+            }
             return true;
         }
         return false;
@@ -129,5 +198,13 @@ public class Skill {
 
     public void setDefMagnification(double defMagnification) {
         this.defMagnification = defMagnification;
+    }
+
+    public Mana getConsumedMana() {
+        return consumedMana;
+    }
+
+    public void setConsumedMana(Mana consumedMana) {
+        this.consumedMana = consumedMana;
     }
 }
