@@ -8,12 +8,13 @@ public class DamageEnhanceEffect extends Effect {
     private boolean isOn;
     private double baseNum;
     private double enhanceNum;
+
     public DamageEnhanceEffect() {
         super("damageEnhanceEffect");
         this.isOn = false;
         this.baseNum = 1.0;
         this.enhanceNum = 1.0;
-        enhanceN = this.getLevel() * enhanceNum+baseNum;
+        enhanceN = this.getLevel() * enhanceNum + baseNum;
     }
 
     public DamageEnhanceEffect(int level, int lastTime) {
@@ -21,20 +22,20 @@ public class DamageEnhanceEffect extends Effect {
         this.isOn = false;
         this.baseNum = 1.0;
         this.enhanceNum = 1.0;
-        enhanceN = this.getLevel() * enhanceNum+baseNum;
+        enhanceN = this.getLevel() * enhanceNum + baseNum;
     }
 
     public DamageEnhanceEffect(String id, int level, int lastTime, double baseNum, double enhanceNum) {
         super(id, level, lastTime);
         this.baseNum = baseNum;
         this.enhanceNum = enhanceNum;
-        enhanceN = this.getLevel() * enhanceNum+baseNum;
+        enhanceN = this.getLevel() * enhanceNum + baseNum;
     }
 
     @Override
     public void setLevel(int level) {
         super.setLevel(level);
-        enhanceN = this.getLevel() * enhanceNum+baseNum;
+        enhanceN = this.getLevel() * enhanceNum + baseNum;
     }
 
     @Override

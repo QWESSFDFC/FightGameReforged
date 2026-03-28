@@ -38,7 +38,7 @@ public class Entity extends Thing {
         this.woodManaGrowNumber = entity.woodManaGrowNumber;
         this.waterManaGrowNumber = entity.waterManaGrowNumber;
         this.fireManaGrowNumber = entity.fireManaGrowNumber;
-        this.dirtManaGrowNumber = entity.fireManaGrowNumber;
+        this.dirtManaGrowNumber = entity.dirtManaGrowNumber;
         this.type = entity.type;
         if (!entity.getManas().isEmpty()) {
             for (Mana mana : entity.getManas()) {
@@ -130,6 +130,82 @@ public class Entity extends Thing {
             if (mana.getElementSort().equals(ElementSort.FIRE)) return mana;
         }
         return null;
+    }
+
+    public Entity facSetUUID(int uuid) {
+        this.UUID = uuid;
+        return this;
+    }
+
+    public Entity facSetLevel(long level) {
+        this.setLevel(level);
+        return this;
+    }
+
+    public Entity facSetName(String name) {
+        this.setName(name);
+        return this;
+    }
+
+    public Entity facSetId(String id) {
+        this.setId(id);
+        return this;
+    }
+
+    public Entity facSetHpGrowNumber(double hpGrowNumber) {
+        this.setHpGrowNumber(hpGrowNumber);
+        return this;
+    }
+
+    public Entity facSetAtkGrowNumber(double atkGrowNumber) {
+        this.setAtkGrowNumber(atkGrowNumber);
+        return this;
+    }
+
+    public Entity facSetDfkGrowNumber(double dfkGrowNumber) {
+        this.setDfkGrowNumber(dfkGrowNumber);
+        return this;
+    }
+
+    public Entity facSetElementSort(ElementSort elementSort) {
+        this.setElementSort(elementSort);
+        return this;
+    }
+
+    public Entity facSetMetalManaGrowNumber(double metalManaGrowNumber) {
+        this.setMetalManaGrowNumber(metalManaGrowNumber);
+        return this;
+    }
+
+    public Entity facSetWoodManaGrowNumber(double woodManaGrowNumber) {
+        this.setWoodManaGrowNumber(woodManaGrowNumber);
+        return this;
+    }
+
+    public Entity facSetWaterManaGrowNumber(double waterManaGrowNumber) {
+        this.setWaterManaGrowNumber(waterManaGrowNumber);
+        return this;
+    }
+
+    public Entity facSetFireManaGrowNumber(double fireManaGrowNumber) {
+        this.setFireManaGrowNumber(fireManaGrowNumber);
+        return this;
+    }
+
+    public Entity facSetDirtManaGrowNumber(double dirtManaGrowNumber) {
+        this.setDirtManaGrowNumber(dirtManaGrowNumber);
+        return this;
+    }
+
+    public Entity facSetType(String type) {
+        this.setType(type);
+        return this;
+    }
+
+
+    public Entity facSetManas(List<Mana> manas) {
+        this.setManas(manas);
+        return this;
     }
 
     public Mana getDirtMana() {

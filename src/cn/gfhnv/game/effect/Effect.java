@@ -43,6 +43,21 @@ public class Effect {
         return Objects.equals(getId(), effect.getId());
     }
 
+    public Effect facSetId(String id) {
+        this.setId(id);
+        return this;
+    }
+
+    public Effect facSetLevel(int level) {
+        this.setLevel(level);
+        return this;
+    }
+
+    public Effect facSetLastTime(int lastTime) {
+        this.setLastTime(lastTime);
+        return this;
+    }
+
     @Override
     public int hashCode() {
         return Objects.hashCode(getId());

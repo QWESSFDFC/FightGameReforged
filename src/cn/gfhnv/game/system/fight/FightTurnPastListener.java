@@ -9,6 +9,7 @@ import cn.gfhnv.game.world.World;
 
 public class FightTurnPastListener {
     private TurnEntry presentTurn;
+
     @SubscribeEvent
     public void fightTurnPastOne(FightPastOneTurnEvent fightPastOneTurnEvent) throws InterruptedException {
         fightPastOneTurnEvent.getFight().getFighterList().removeIf(livingThing -> !livingThing.isAlive());

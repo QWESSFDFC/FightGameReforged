@@ -4,13 +4,16 @@ import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entity.skill.Skill;
 import cn.gfhnv.game.officialStuff.customEffect.HealthRestoreEffect;
 import cn.gfhnv.game.officialStuff.customEntity.CommonInsect;
+import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
+import cn.gfhnv.game.system.mana.Mana;
 
 public class InsectBossSkillSummonEnemy extends Skill {
 
     public InsectBossSkillSummonEnemy() {
         super("分裂", "分裂其他虫子,没有数量上限.冷却10", 0, 0, 0, 0);
         this.setCoolDown(10);
+        this.setConsumedMana(new Mana(100, ElementSort.UNIVERSAL));
     }
 
     @Override

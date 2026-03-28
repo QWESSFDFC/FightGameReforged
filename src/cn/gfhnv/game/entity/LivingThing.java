@@ -32,6 +32,10 @@ public class LivingThing extends Entity {
     private UniversalController controller;
     private String description;
 
+    public LivingThing() {
+
+    }
+
     public LivingThing(LivingThing other) {
         super(other.getName(), other.getId(), other.getLevel(), other.getElementSort());
         this.fireResistance = other.fireResistance;
@@ -55,7 +59,7 @@ public class LivingThing extends Entity {
         this.setWoodManaGrowNumber(other.getWoodManaGrowNumber());
         this.setWaterManaGrowNumber(other.getWaterManaGrowNumber());
         this.setFireManaGrowNumber(other.getFireManaGrowNumber());
-        this.setDirtManaGrowNumber(other.getFireManaGrowNumber());
+        this.setDirtManaGrowNumber(other.getDirtManaGrowNumber());
         this.hp = other.hp;
         this.dfk = other.dfk;
         this.afk = other.afk;
@@ -149,6 +153,120 @@ public class LivingThing extends Entity {
     public LivingThing(long speed) {
         this.speed = speed;
 
+    }
+
+    public LivingThing livingThingFactory() {
+        return new LivingThing();
+    }
+
+    public LivingThing facSetLevel(Long level) {
+        this.setLevel(level);
+        return this;
+    }
+
+    public LivingThing facSetFireResistance(double fireResistance) {
+        this.fireResistance = fireResistance;
+        return this;
+    }
+
+    public LivingThing facSetWaterResistance(double waterResistance) {
+        this.waterResistance = waterResistance;
+        return this;
+    }
+
+    public LivingThing facSetMetalResistance(double metalResistance) {
+        this.metalResistance = metalResistance;
+        return this;
+    }
+
+    public LivingThing facSetWoodResistance(double woodResistance) {
+        this.woodResistance = woodResistance;
+        return this;
+    }
+
+    public LivingThing facSetDirtResistance(double dirtResistance) {
+        this.dirtResistance = dirtResistance;
+        return this;
+    }
+
+    public LivingThing facSetHpMax(double hpMax) {
+        this.hpMax = hpMax;
+        return this;
+    }
+
+    public LivingThing facSetHpMagnification(double hpMagnification) {
+        this.hpMagnification = hpMagnification;
+        return this;
+    }
+
+    public LivingThing facSetAtkMagnification(double atkMagnification) {
+        this.atkMagnification = atkMagnification;
+        return this;
+    }
+
+    public LivingThing facSetDfkMagnification(double dfkMagnification) {
+        this.dfkMagnification = dfkMagnification;
+        return this;
+    }
+
+    public LivingThing facSetCriticalDMG(double criticalDMG) {
+        this.criticalDMG = criticalDMG;
+        return this;
+    }
+
+    public LivingThing facSetCriticalRATE(double criticalRATE) {
+        this.getCriticalRATE = criticalRATE;
+        return this;
+    }
+
+    public LivingThing facSetAlive(boolean alive) {
+        this.Alive = alive;
+        return this;
+    }
+
+    public LivingThing facSetChuantong(double chuantong) {
+        this.chuantong = chuantong;
+        return this;
+    }
+
+    public LivingThing facSetDamageAbsorbedPercent(double damageAbsorbedPercent) {
+        this.damageAbsorbedPercent = damageAbsorbedPercent;
+        return this;
+    }
+
+    public LivingThing facSetHp(long hp) {
+        this.setHp(hp);
+        return this;
+    }
+
+    public LivingThing facSetDfk(long dfk) {
+        this.dfk = dfk;
+        return this;
+    }
+
+    public LivingThing facSetSpeed(long speed) {
+        this.speed = speed;
+        return this;
+    }
+
+    public LivingThing facSetAfk(long afk) {
+        this.afk = afk;
+        return this;
+    }
+
+    public LivingThing facSetEnhance(double enhance) {
+        this.enhance = enhance;
+        return this;
+    }
+
+    public LivingThing facSetDefenseLoss(double defenseLoss) {
+        this.defenseLoss = defenseLoss;
+        return this;
+    }
+
+    public LivingThing facSetDescription(String description) {
+        this.description = description;
+        return this;
     }
 
     public String getDescription() {

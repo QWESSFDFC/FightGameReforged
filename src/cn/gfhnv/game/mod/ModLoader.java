@@ -94,8 +94,7 @@ public class ModLoader {
             Class<?> mainClass = Class.forName(modInfo.getMainClass(), true, classLoader);
             Object instance = mainClass.getConstructor(ModInformation.class)
                     .newInstance(modInfo);
-            if (instance instanceof Mod) {
-                Mod modInstance = (Mod) instance;
+            if (instance instanceof Mod modInstance) {
                 World.addMod(modInstance);
                 System.out.println("模组 [" + modInfo.getName() + "] 加载成功！");
             } else {

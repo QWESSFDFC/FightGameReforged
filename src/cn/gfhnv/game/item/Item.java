@@ -24,6 +24,16 @@ public class Item extends Thing {
         this.description = description;
     }
 
+    public Item facSetName(String name) {
+        this.setName(name);
+        return this;
+    }
+
+    public Item facSetDescription(String description) {
+        this.setDescription(description);
+        return this;
+    }
+
     @Override
     public String toString() {
         return "Item{" +

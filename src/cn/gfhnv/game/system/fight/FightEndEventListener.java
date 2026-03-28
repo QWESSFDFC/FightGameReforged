@@ -24,7 +24,7 @@ public class FightEndEventListener {
         }
         EventBus.unregister(this);
         EventBus.unregister(fightTurnPastListener);
-        World.turnTimer=0;
+        World.turnTimer = 0;
         if (fightEndEvent.isPlayerWin()) {
             System.out.println();
             System.out.println("恭喜你在战斗中获得了胜利.如果战斗有奖励而且你背包空间够,你会获得奖励");

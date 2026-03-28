@@ -6,14 +6,12 @@ import cn.gfhnv.game.officialStuff.customEffect.DamageEnhanceEffect;
 import cn.gfhnv.game.system.fight.Fight;
 
 import java.util.List;
-import java.util.Random;
 
 public class CommonAttack extends Skill {
-    public CommonAttack(double hpMagnification, double atkMagnification, double defMagnification ,int aim) {
-        super("普通攻击", "最普通的攻击.无发动条件", hpMagnification, atkMagnification, defMagnification,aim);
+    public CommonAttack(double hpMagnification, double atkMagnification, double defMagnification, int aim) {
+        super("普通攻击", "最普通的攻击.无发动条件", hpMagnification, atkMagnification, defMagnification, aim);
         this.setCoolDown(0);
     }
-
 
 
     @Override

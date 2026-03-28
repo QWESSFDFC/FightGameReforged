@@ -16,15 +16,42 @@ public class Thing {
     private Acceleration acceleration = new Acceleration(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
     private Position position = new Position(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
     private Inventory inventory = new Inventory(1);
-    public void setPosition(Position position) {
-        this.position = position;
-    }
 
     public Thing(BigDecimal mass) {
         this.mass = mass;
     }
 
     public Thing() {
+    }
+
+    public Thing facSetMass(BigDecimal mass) {
+        this.setMass(mass);
+        return this;
+    }
+
+    public Thing facSetForce(Force force) {
+        this.setForce(force);
+        return this;
+    }
+
+    public Thing facSetVelocity(Velocity velocity) {
+        this.setVelocity(velocity);
+        return this;
+    }
+
+    public Thing facSetAcceleration(Acceleration acceleration) {
+        this.setAcceleration(acceleration);
+        return this;
+    }
+
+    public Thing facSetPosition(Position position) {
+        this.setPosition(position);
+        return this;
+    }
+
+    public Thing facSetInventory(Inventory inventory) {
+        this.setInventory(inventory);
+        return this;
     }
 
     public Inventory getInventory() {
@@ -54,8 +81,6 @@ public class Thing {
     public int hashCode() {
         return Objects.hash(getMass(), getForce(), getVelocity(), getAcceleration());
     }
-
-
 
     @Override
     public String toString() {
@@ -92,5 +117,9 @@ public class Thing {
 
     public Position getPosition() {
         return position;
+    }
+
+    public void setPosition(Position position) {
+        this.position = position;
     }
 }
