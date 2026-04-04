@@ -8,6 +8,7 @@ import cn.gfhnv.game.event.eventListener.EffectEventListener;
 import cn.gfhnv.game.event.eventListener.GameStartEventListener;
 import cn.gfhnv.game.event.eventListener.PhysicsEventListener;
 import cn.gfhnv.game.item.Item;
+import cn.gfhnv.game.logSystem.LogWriter;
 import cn.gfhnv.game.mod.ModLoader;
 import cn.gfhnv.game.officialStuff.OfficialGameContent;
 import cn.gfhnv.game.system.fight.Fight;
@@ -41,6 +42,7 @@ public class GameMain {
         String input;
         System.out.println("欢迎进入游戏!请你输入你的名字");
         userName = SCANNER.nextLine();
+        LogWriter.writeLog("UserName:"+userName);
         System.out.println("好的." + userName + ".这是一款文字战斗游戏马上你可以选择你的角色和你的敌人,甚至是你的奖励");
         startAFight();
         do {
