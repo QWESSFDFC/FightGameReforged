@@ -12,6 +12,16 @@ public class Fight {
     private List<LivingThing> fighterList;
     private List<LivingThing> allEntities = new ArrayList<LivingThing>();
 
+    @Override
+    public String toString() {
+        return "Fight{" +
+                "enemiesList=" + enemiesList +
+                ", rewardList=" + rewardList +
+                ", fighterList=" + fighterList +
+                ", allEntities=" + allEntities +
+                '}';
+    }
+
     public Fight(List<LivingThing> enemiesList, List<Item> rewardList, List<LivingThing> fighterList) {
         this.enemiesList = enemiesList;
         this.rewardList = rewardList;

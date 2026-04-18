@@ -1,16 +1,25 @@
 package cn.gfhnv.game.entity;
 
 import cn.gfhnv.game.Thing;
+import cn.gfhnv.game.inventory.Inventory;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.mana.Mana;
+import cn.gfhnv.game.system.physics.Vector;
+import cn.gfhnv.game.system.physics.type.Acceleration;
+import cn.gfhnv.game.system.physics.type.Force;
+import cn.gfhnv.game.system.physics.type.Position;
+import cn.gfhnv.game.system.physics.type.Velocity;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.math.BigDecimal;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 
 public class Entity extends Thing {
-    private int UUID = 1;
     private long level;
     private String name;
     private String id;
@@ -25,8 +34,9 @@ public class Entity extends Thing {
     private double dirtManaGrowNumber;
     private String type = "entity";
     private List<Mana> manas = new ArrayList<>();//一个实体可以拥有多个Mana
-
+private Inventory inventory=new Inventory();
     public Entity(Entity entity) {
+
         this.level = entity.level;
         this.name = entity.name;
         this.id = entity.id;
@@ -132,10 +142,7 @@ public class Entity extends Thing {
         return null;
     }
 
-    public Entity facSetUUID(int uuid) {
-        this.UUID = uuid;
-        return this;
-    }
+
 
     public Entity facSetLevel(long level) {
         this.setLevel(level);
@@ -379,24 +386,28 @@ public class Entity extends Thing {
         System.out.println(this.getAcceleration() + "Acceleration");
     }
 
+
     @Override
     public String toString() {
         return "Entity{" +
-                "level=" + level +
+                "UUID=" + getUUID()+
+                ", level=" + level +
                 ", name='" + name + '\'' +
                 ", id='" + id + '\'' +
                 ", hpGrowNumber=" + hpGrowNumber +
                 ", atkGrowNumber=" + atkGrowNumber +
                 ", dfkGrowNumber=" + dfkGrowNumber +
-                ", yuanshu='" + elementSort + '\'' +
-                ", UUID=" + UUID +
+                ", elementSort=" + elementSort +
+                ", metalManaGrowNumber=" + metalManaGrowNumber +
+                ", woodManaGrowNumber=" + woodManaGrowNumber +
+                ", waterManaGrowNumber=" + waterManaGrowNumber +
+                ", fireManaGrowNumber=" + fireManaGrowNumber +
+                ", dirtManaGrowNumber=" + dirtManaGrowNumber +
                 ", type='" + type + '\'' +
+                ", manas=" + manas +
                 '}';
     }
 
-    public int getUUID() {
-        return UUID;
-    }
 
 
     public ElementSort getElementSort() {
@@ -469,5 +480,18 @@ public class Entity extends Thing {
 
     public void setId(String id) {
         this.id = id;
+    }
+
+    public Inventory getInventory() {
+        return inventory;
+    }
+
+
+
+
+
+
+    protected void setInventory(Inventory inventory) {
+        this.inventory=inventory;
     }
 }

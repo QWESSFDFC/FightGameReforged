@@ -10,7 +10,7 @@ import java.time.format.DateTimeFormatter;
 public class LogWriter {
     private static final Path LOG_DIR = Paths.get("./logs");
     private static final Path LATEST_LOG = LOG_DIR.resolve("latest.log");
-
+    private static final long MAX_SIZE=1024*1024*10;
     static {
         try {
             if (!Files.exists(LOG_DIR)) {
@@ -18,7 +18,9 @@ public class LogWriter {
             }
 
             if (Files.exists(LATEST_LOG)) {
-                archiveLatestLog();
+                if (Files.size(LATEST_LOG) >=MAX_SIZE) {LATEST_LOG.toFile().delete();}
+                else {
+                archiveLatestLog();}
             }
         } catch (IOException e) {
             throw new RuntimeException("初始化日志系统失败", e);

@@ -1,6 +1,7 @@
 package cn.gfhnv.game.inventory;
 
 import cn.gfhnv.game.item.Item;
+import org.json.JSONObject;
 
 public class Slot {
     private final long slotNumber;
@@ -10,6 +11,11 @@ public class Slot {
         this.containedItem = containedItem;
         this.slotNumber = slotNumber;
     }
+
+    public Slot() {
+ slotNumber=0;
+    }
+
 
     public Item getContainedItem() {
         return containedItem;

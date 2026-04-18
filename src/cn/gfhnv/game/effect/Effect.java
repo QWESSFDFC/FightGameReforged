@@ -1,6 +1,7 @@
 package cn.gfhnv.game.effect;
 
 import cn.gfhnv.game.entity.LivingThing;
+import org.json.JSONObject;
 
 import java.util.Objects;
 
@@ -13,6 +14,15 @@ public class Effect {
         this.id = id;
         this.level = level;
         this.lastTime = lastTime;
+    }
+
+    @Override
+    public String toString() {
+        return "Effect{" +
+                "id='" + id + '\'' +
+                ", level=" + level +
+                ", lastTime=" + lastTime +
+                '}';
     }
 
     public Effect(Effect effect) {
@@ -86,5 +96,6 @@ public class Effect {
     public void comeIntoEffect(LivingThing thing) {
         System.out.printf("这里写效果具体内容........请重写这个方法.回合更新时此方法会被调用");
     }
+
 
 }

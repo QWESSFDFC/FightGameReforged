@@ -1,6 +1,7 @@
 package cn.gfhnv.game.system.mana;
 
 import cn.gfhnv.game.system.ElementSort;
+import org.json.JSONObject;
 
 public class Mana {
     private double amount;
@@ -25,6 +26,9 @@ public class Mana {
 
     public void setAmountMax(double amountMax) {
         this.amountMax = amountMax;
+        if (this.amount > amountMax) {
+            this.amount = amountMax;
+        }
     }
 
     public double getAmount() {

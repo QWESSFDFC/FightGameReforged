@@ -9,6 +9,8 @@ import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.fight.TurnEntry;
 import cn.gfhnv.game.system.mana.Mana;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,8 +27,50 @@ public class LivingThing extends Entity {
     private double chuantong = 0;
     private double damageAbsorbedPercent = 0;
     private long hp, dfk, speed, afk;
-    private double enhance;
+    private double enhance;//全属性
+    private double metalDamageEnhance,woodDamageEnhance,waterDamageEnhance,fireDamageEnhance,dirtDamageEnhance;
     private double defenseLoss;
+
+    public double getMetalDamageEnhance() {
+        return metalDamageEnhance;
+    }
+
+    public void setMetalDamageEnhance(double metalDamageEnhance) {
+        this.metalDamageEnhance = metalDamageEnhance;
+    }
+
+    public double getWoodDamageEnhance() {
+        return woodDamageEnhance;
+    }
+
+    public void setWoodDamageEnhance(double woodDamageEnhance) {
+        this.woodDamageEnhance = woodDamageEnhance;
+    }
+
+    public double getWaterDamageEnhance() {
+        return waterDamageEnhance;
+    }
+
+    public void setWaterDamageEnhance(double waterDamageEnhance) {
+        this.waterDamageEnhance = waterDamageEnhance;
+    }
+
+    public double getFireDamageEnhance() {
+        return fireDamageEnhance;
+    }
+
+    public void setFireDamageEnhance(double fireDamageEnhance) {
+        this.fireDamageEnhance = fireDamageEnhance;
+    }
+
+    public double getDirtDamageEnhance() {
+        return dirtDamageEnhance;
+    }
+
+    public void setDirtDamageEnhance(double dirtDamageEnhance) {
+        this.dirtDamageEnhance = dirtDamageEnhance;
+    }
+
     private Fight participateFight;
     private TurnEntry presentTurn;
     private UniversalController controller;
@@ -539,22 +583,28 @@ public class LivingThing extends Entity {
                 ", waterResistance=" + waterResistance +
                 ", metalResistance=" + metalResistance +
                 ", woodResistance=" + woodResistance +
-                ", dirtResistance=\n" + dirtResistance +
+                ", dirtResistance=" + dirtResistance +
                 ", hpMax=" + hpMax +
                 ", hpMagnification=" + hpMagnification +
                 ", atkMagnification=" + atkMagnification +
                 ", dfkMagnification=" + dfkMagnification +
                 ", criticalDMG=" + criticalDMG +
-                ", getCriticalRATE=\n" + getCriticalRATE +
+                ", getCriticalRATE=" + getCriticalRATE +
                 ", Alive=" + Alive +
                 ", entityEffectList=" + entityEffectList +
                 ", chuantong=" + chuantong +
+                ", damageAbsorbedPercent=" + damageAbsorbedPercent +
                 ", hp=" + hp +
                 ", dfk=" + dfk +
                 ", speed=" + speed +
                 ", afk=" + afk +
                 ", enhance=" + enhance +
-                ", dfkloss=" + defenseLoss +
+                ", defenseLoss=" + defenseLoss +
+                ", participateFight=" + participateFight +
+                ", presentTurn=" + presentTurn +
+                ", controller=" + controller +
+                ", description='" + description + '\'' +
                 '}';
     }
+
 }

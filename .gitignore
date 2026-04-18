@@ -28,3 +28,4 @@ build-output/
 build-input/
 ### Mac OS ###
 .DS_Store
+/logs/

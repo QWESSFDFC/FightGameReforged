@@ -1,6 +1,12 @@
 package cn.gfhnv.game.item;
 
 import cn.gfhnv.game.Thing;
+import cn.gfhnv.game.inventory.Inventory;
+import cn.gfhnv.game.system.physics.type.Acceleration;
+import cn.gfhnv.game.system.physics.type.Force;
+import cn.gfhnv.game.system.physics.type.Position;
+import cn.gfhnv.game.system.physics.type.Velocity;
+import org.json.JSONObject;
 
 import java.math.BigDecimal;
 
@@ -11,6 +17,7 @@ public class Item extends Thing {
     public Item(String name, String description) {
         this.name = name;
         this.description = description;
+
     }
 
     public Item(Item item) {
@@ -22,6 +29,10 @@ public class Item extends Thing {
         super(bigDecimal);
         this.name = name;
         this.description = description;
+    }
+
+    public Item() {
+
     }
 
     public Item facSetName(String name) {

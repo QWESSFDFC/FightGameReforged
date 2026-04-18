@@ -1,13 +1,16 @@
 package cn.gfhnv.game;
 
 import cn.gfhnv.game.inventory.Inventory;
+import cn.gfhnv.game.system.physics.Vector;
 import cn.gfhnv.game.system.physics.type.Acceleration;
 import cn.gfhnv.game.system.physics.type.Force;
 import cn.gfhnv.game.system.physics.type.Position;
 import cn.gfhnv.game.system.physics.type.Velocity;
+import org.json.JSONObject;
 
 import java.math.BigDecimal;
 import java.util.Objects;
+import java.util.UUID;
 
 public class Thing {
     private BigDecimal mass = new BigDecimal(1);
@@ -15,13 +18,19 @@ public class Thing {
     private Velocity velocity = new Velocity(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
     private Acceleration acceleration = new Acceleration(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
     private Position position = new Position(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
-    private Inventory inventory = new Inventory(1);
 
+    private final String uuid;
     public Thing(BigDecimal mass) {
         this.mass = mass;
+        this.uuid = UUID.randomUUID().toString();
+    }
+
+    public String getUUID() {
+        return uuid;
     }
 
     public Thing() {
+        this.uuid = UUID.randomUUID().toString();
     }
 
     public Thing facSetMass(BigDecimal mass) {
@@ -49,18 +58,6 @@ public class Thing {
         return this;
     }
 
-    public Thing facSetInventory(Inventory inventory) {
-        this.setInventory(inventory);
-        return this;
-    }
-
-    public Inventory getInventory() {
-        return inventory;
-    }
-
-    public void setInventory(Inventory inventory) {
-        this.inventory = inventory;
-    }
 
     public Acceleration getAcceleration() {
         return acceleration;
@@ -70,17 +67,6 @@ public class Thing {
         this.acceleration = acceleration;
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (o == null || getClass() != o.getClass()) return false;
-        Thing thing = (Thing) o;
-        return Objects.equals(getMass(), thing.getMass()) && Objects.equals(getForce(), thing.getForce()) && Objects.equals(getVelocity(), thing.getVelocity()) && Objects.equals(getAcceleration(), thing.getAcceleration()) && Objects.equals(getInventory(), thing.getInventory());
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(getMass(), getForce(), getVelocity(), getAcceleration());
-    }
 
     @Override
     public String toString() {
@@ -88,7 +74,22 @@ public class Thing {
                 "mass=" + mass +
                 ", force=" + force +
                 ", velocity=" + velocity +
+                ", acceleration=" + acceleration +
+                ", position=" + position +
+                ", uuid='" + uuid + '\'' +
                 '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        Thing thing = (Thing) o;
+        return Objects.equals(getMass(), thing.getMass()) && Objects.equals(getForce(), thing.getForce()) && Objects.equals(getVelocity(), thing.getVelocity()) && Objects.equals(getAcceleration(), thing.getAcceleration()) && Objects.equals(getPosition(), thing.getPosition()) && Objects.equals(uuid, thing.uuid);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getMass(), getForce(), getVelocity(), getAcceleration(), getPosition(), uuid);
     }
 
     public Velocity getVelocity() {

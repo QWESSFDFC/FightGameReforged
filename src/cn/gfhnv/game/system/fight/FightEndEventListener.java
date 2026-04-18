@@ -30,7 +30,7 @@ public class FightEndEventListener {
             System.out.println("恭喜你在战斗中获得了胜利.如果战斗有奖励而且你背包空间够,你会获得奖励");
             for (Thing thing : fightEndEvent.getFight().getFighterList()) {
                 if (thing instanceof LivingThing) {
-                    fightEndEvent.getFight().getRewardList().removeIf(item -> thing.getInventory().addItem(item));
+                    fightEndEvent.getFight().getRewardList().removeIf(item -> ((LivingThing) thing).getInventory().addItem(item));
                 }
             }
             if (!fightEndEvent.getFight().getRewardList().isEmpty()) {
