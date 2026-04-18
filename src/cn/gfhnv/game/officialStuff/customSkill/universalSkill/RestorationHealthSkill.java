@@ -1,4 +1,4 @@
-package cn.gfhnv.game.officialStuff.customSkill.universialSkill;
+package cn.gfhnv.game.officialStuff.customSkill.universalSkill;
 
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entity.skill.Skill;

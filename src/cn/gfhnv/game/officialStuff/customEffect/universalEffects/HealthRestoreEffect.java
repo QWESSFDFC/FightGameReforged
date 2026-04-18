@@ -1,4 +1,4 @@
-package cn.gfhnv.game.officialStuff.customEffect;
+package cn.gfhnv.game.officialStuff.customEffect.universalEffects;
 
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.LivingThing;

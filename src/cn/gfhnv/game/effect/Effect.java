@@ -46,12 +46,7 @@ public class Effect {
     public void whenLastTimeEnd(LivingThing livingThing) {
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (o == null || getClass() != o.getClass()) return false;
-        Effect effect = (Effect) o;
-        return Objects.equals(getId(), effect.getId());
-    }
+
 
     public Effect facSetId(String id) {
         this.setId(id);
@@ -66,6 +61,13 @@ public class Effect {
     public Effect facSetLastTime(int lastTime) {
         this.setLastTime(lastTime);
         return this;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        Effect effect = (Effect) o;
+        return Objects.equals(getId(), effect.getId());
     }
 
     @Override

@@ -4,7 +4,7 @@ import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.entityController.PlayerController;
 import cn.gfhnv.game.entity.entityController.UniversalController;
 import cn.gfhnv.game.entity.skill.Skill;
-import cn.gfhnv.game.event.DamageEvent;
+import cn.gfhnv.game.event.*;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.fight.TurnEntry;
@@ -66,15 +66,33 @@ public class LivingThing extends Entity {
     public double getDirtDamageEnhance() {
         return dirtDamageEnhance;
     }
+    public long extraDamage=0;
+
+    public void setExtraDamage(long extraDamage) {
+        this.extraDamage = extraDamage;
+    }
+
+    public long getExtraDamage() {
+        return extraDamage;
+    }
 
     public void setDirtDamageEnhance(double dirtDamageEnhance) {
         this.dirtDamageEnhance = dirtDamageEnhance;
     }
-
+    public void updateSelf(){}//每回合执行.可以写天赋等更新状态
     private Fight participateFight;
     private TurnEntry presentTurn;
     private UniversalController controller;
     private String description;
+   private double individualMultipleArea=1;
+
+    public double getIndividualMultipleArea() {
+        return individualMultipleArea;
+    }
+
+    public void setIndividualMultipleArea(double individualMultipleArea) {
+        this.individualMultipleArea = individualMultipleArea;
+    }
 
     public LivingThing() {
 
@@ -532,9 +550,21 @@ public class LivingThing extends Entity {
         this.afk = afk;
     }
 
-    private void getDamage(DamageEvent da) {
-        this.hp -= da.getDamage().getDamageAmount();
+    public void getDamage(DamageEvent da) {
+        long newHp = this.getHp() - da.getDamage().getDamageAmount();
+        newHp = applyDamageModifiers(newHp, da);
+        this.setHp(newHp);
         System.out.print("剩余HP" + this.getHp());
+    }
+
+    /**
+     * 子类可重写此方法，在血量被扣减前进行修正（如锁血、免死等）。
+     * @param newHp 计算出的新血量（当前血量 - 伤害值）
+     * @param da    伤害事件
+     * @return 修正后的新血量
+     */
+    protected long applyDamageModifiers(long newHp, DamageEvent da) {
+        return newHp;
     }
 
     public void makeDamage(LivingThing attacked, Skill skill) {
@@ -565,7 +595,16 @@ public class LivingThing extends Entity {
     }
 
     public void setHp(long hp) {
+        if (hp<getHp()){
+            EventBus.post(new HpLossEvent(getHp()-hp,this));
+        }
+        if (hp>getHp()){
+            EventBus.post(new HpRestorationEvent(hp-getHp(),this));
+        }
         this.hp = (long) Math.min(this.getHpMax(), hp);
+        if (this.hp<0){
+            this.hp=0;
+        }
     }
 
     public double getCriticalDMG() {

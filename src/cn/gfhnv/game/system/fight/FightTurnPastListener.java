@@ -1,6 +1,8 @@
 package cn.gfhnv.game.system.fight;
 
 import cn.gfhnv.game.annotation.SubscribeEvent;
+import cn.gfhnv.game.entity.Entity;
+import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entity.skill.Skill;
 import cn.gfhnv.game.event.EffectUpdateEvent;
 import cn.gfhnv.game.event.EventBus;
@@ -30,6 +32,11 @@ public class FightTurnPastListener {
         if (!presentTurn.getLivingThing().isAlive()) {
             TurnManager.nextTurn(fightPastOneTurnEvent.getFight());
             return;
+        }
+        for(LivingThing entity:fightPastOneTurnEvent.getFight().getAllEntities()){
+            if (entity != null){
+                entity.updateSelf();
+            }
         }
         System.out.println();
         World.turnTimer++;

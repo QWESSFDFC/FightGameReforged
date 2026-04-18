@@ -1,0 +1,102 @@
+package cn.gfhnv.game.officialStuff.customEntity.players;
+
+import cn.gfhnv.game.effect.Effect;
+import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.entity.entityController.PlayerController;
+import cn.gfhnv.game.entity.skill.Skill;
+import cn.gfhnv.game.event.DamageEvent;
+import cn.gfhnv.game.officialStuff.customEffect.universalEffects.actorLiXiaoYanEffects.MemorizedHp;
+import cn.gfhnv.game.officialStuff.customSkill.actorLiXiaoYanSkills.CommonAttack;
+import cn.gfhnv.game.officialStuff.customSkill.actorLiXiaoYanSkills.PyrohemicPumping;
+import cn.gfhnv.game.officialStuff.customSkill.actorLiXiaoYanSkills.UltimateAttack;
+import cn.gfhnv.game.system.ElementSort;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+
+public class ActorLiXiaoYan extends LivingThing {
+
+    private int ignition = 3;
+    private int ignitionMax = 10;
+    private int lastIgnition = 3;
+    private double memorizedRate = -1;
+
+    public ActorLiXiaoYan(long l) {
+        super("李晓焰", "actor_li_xiao_yan", 0.4, 0.0, 0.0, 0.0, 0.0, 100, l, "player", 58, 22, 3, ElementSort.FIRE, 30, 0, 5);
+        this.setMass(BigDecimal.valueOf(60));
+        this.setDescription("这是李晓焰.");
+        this.getInventory().addSlot(63);
+        List<Skill> skills = new ArrayList<>();
+        skills.add(new CommonAttack());
+        skills.add(new PyrohemicPumping());
+        skills.add(new UltimateAttack());
+        this.setController(new PlayerController(skills, this));
+        this.setIndividualMultipleArea(1.0 + 0.04 * ignition);
+        this.lastIgnition = ignition;
+    }
+
+    public int getIgnition() {
+        return ignition;
+    }
+
+    public int getIgnitionMax() {
+        return ignitionMax;
+    }
+
+    public void setIgnition(int ignition) {
+        int max = ignitionMax;
+        if (getHp() < getHpMax() * 0.5) {
+            max = 15;
+        }
+        this.ignition = Math.min(ignition, max);
+    }
+
+    public void setMemorizedRate(double memorizedRate) {
+        this.memorizedRate = memorizedRate;
+    }
+
+    public double getMemorizedRate() {
+        return memorizedRate;
+    }
+
+    private boolean hasMemorizedHpEffect() {
+        for (Effect e : getEntityEffectList()) {
+            if (e instanceof MemorizedHp) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public void updateSelf() {
+        if (lastIgnition != ignition) {
+            setIndividualMultipleArea(getIndividualMultipleArea() + 0.04 * ignition - 0.04 * lastIgnition);
+            lastIgnition = ignition;
+        }
+    }
+
+    @Override
+    protected long applyDamageModifiers(long newHp, DamageEvent da) {
+        long correctedHp = newHp;
+
+        // 锁血检查
+        if (hasMemorizedHpEffect() && memorizedRate > 0) {
+            long minHp = (long) (getHpMax() * memorizedRate);
+            if (correctedHp < minHp) {
+                correctedHp = minHp;
+            }
+        }
+
+        // 免死检查：燃点≥10且将死时，回血30%并消耗10层燃点
+        if (ignition >= 10 && correctedHp <= 0) {
+            correctedHp = (long) (getHpMax() * 0.3);
+            setIgnition(ignition - 10);
+        }
+
+        return correctedHp;
+    }
+
+
+}

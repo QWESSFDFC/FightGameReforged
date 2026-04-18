@@ -1,11 +1,11 @@
-package cn.gfhnv.game.officialStuff.customEntity;
+package cn.gfhnv.game.officialStuff.customEntity.players;
 
 import cn.gfhnv.game.entity.Player;
 import cn.gfhnv.game.entity.entityController.PlayerController;
 import cn.gfhnv.game.entity.skill.Skill;
-import cn.gfhnv.game.officialStuff.customSkill.universialSkill.CommonAttack;
-import cn.gfhnv.game.officialStuff.customSkill.universialSkill.GunShoot;
-import cn.gfhnv.game.officialStuff.customSkill.universialSkill.RestorationHealthSkill;
+import cn.gfhnv.game.officialStuff.customSkill.universalSkill.CommonAttack;
+import cn.gfhnv.game.officialStuff.customSkill.universalSkill.GunShoot;
+import cn.gfhnv.game.officialStuff.customSkill.universalSkill.RestorationHealthSkill;
 import cn.gfhnv.game.system.ElementSort;
 
 import java.math.BigDecimal;
