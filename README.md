@@ -4,89 +4,43 @@
 使用方法:直接运行.jar文件.可以自己编译或者下载Release中编译好的.但是Release中版本可能落后一点.
 
 下面是使用AI写的README.md
-FightGameReforged
-一个使用 Java 编写的文字回合制战斗游戏。
-玩家可以选择自己的角色、敌人和奖励，在回合制系统中与敌人战斗。
-项目完全开源，使用事件驱动架构，支持模组加载。
-作者为高中生，利用课余时间编写，代码随意使用和修改。
+# FightGameReforged
 
-🎮 纯属娱乐，自娱自乐项目，欢迎 Star 和 Fork！
+一个由高中生从零编写的**命令行回合制文字战斗游戏**，纯 Java 实现，基于事件驱动架构，并支持模组加载。
 
-✨ 功能特点
-文字交互：所有操作通过命令行完成，简单易上手。
+## ✨ 核心特色
 
-回合制战斗：玩家与敌人轮流行动，每个单位有独立的回合时间。
+- **经典回合制战斗**：玩家自由组建队伍，选择敌人与奖励，手动操控每个角色释放技能。
+- **五行元素体系**：引入金、木、水、火、土五种元素，并设计了对应的抗性与伤害加成机制。
+- **事件驱动架构**：通过自定义 `EventBus` 和 `@SubscribeEvent` 注解解耦游戏逻辑，为扩展性打下基础。
+- **内置模组系统**：可自动扫描并加载外部模组，支持动态编译 `.java` 源码，方便添加新生物、技能与物品。
+- **MIT 开源许可**：代码完全开放，随意使用、修改、分发。
 
-角色选择：可以从预设的生物列表中选择任意数量的角色加入队伍。
+## 🚧 当前状态
 
-敌人选择：同样可以选择任意数量的敌人作为对手。
+项目仍处于**早期开发阶段**。战斗核心循环、奖励系统等功能尚未完全闭环，但它已经是一个架构清晰、可运行的技术演示，并持续迭代中。
 
-奖励系统：战斗胜利后可以获得物品。
+## 🛠️ 技术栈
 
-技能系统：每个生物拥有多个技能，玩家可以手动选择技能和目标。
+- **语言**：Java (JDK 17+)
+- **构建工具**：IntelliJ IDEA (原生)
+- **核心依赖**：无外部依赖（纯 Java 标准库）
 
-事件驱动架构：使用自定义的 EventBus 处理游戏内事件，方便扩展。
+## 🎮 快速开始
 
-模组加载：支持通过 ModLoader 加载官方或第三方模组（目前只有官方内容）。
+1. 克隆仓库
+2. 使用 IntelliJ IDEA 打开项目
+3. 运行 `cn.gfhnv.game.GameMain` 主类
+4. 按照命令行提示开始游戏
 
-开源协议：MIT 许可证，可自由使用、修改、分发。
+> **注意**：项目包含一个示例模组 `exampleModByGFHNV`，位于 `mods/` 目录下，可作为模组开发参考。
 
-🚀 如何运行
-方式一：直接运行 JAR 包
-确保已安装 Java 17 或更高版本。我写的时候用的Java 25.
+## 🤝 贡献与反馈
 
-打开命令行，执行：
+欢迎提交 Issue 和 Pull Request。任何形式的反馈、建议、代码贡献都会让这个项目变得更好。
 
-bash
-java -jar FightGameReforged.jar
-方式二：从源码编译运行
-克隆仓库：
-
-bash
-git clone https://github.com/QWESSFDFC/FightGameReforged.git
-cd FightGameReforged
-使用 IntelliJ IDEA 打开项目，或使用命令行编译：
-
-bash
-javac -d out -cp "lib/*" src/cn/gfhnv/game/*.java
-运行主类 cn.gfhnv.game.GameStarter。
-
-方式三：打包为可执行镜像（使用 jpackage）
-项目已配置 jpackage 命令，可在 Windows 上生成带控制台的 exe 应用。
-详细步骤请参考 打包指南（待补充）。
-
-🎯 基本玩法
-输入你的名字：游戏开始时会要求输入玩家名（仅用于显示）。
-
-选择角色：从列表中选择生物加入你的队伍。输入编号查看介绍，输入 yes 确认加入，输入 no 取消，输入 next 完成选择。
-
-选择敌人：同样方式选择你要面对的敌人。
-
-选择奖励：选择战斗胜利后可能获得的物品（目前只有一把剑）。
-
-战斗开始：
-
-每个单位按速度决定行动顺序。
-
-轮到你控制的角色时，会显示可用技能列表，输入编号选择技能。
-
-根据技能的目标数，选择攻击目标（可多选，输入 next 提前结束选择）。
-
-敌人会自动选择技能和目标。
-
-战斗结束：一方全部死亡后，显示胜利或失败信息，并询问是否再玩一局。
-
-欢迎提交 Issue 或 Pull Request 帮助改进！不一定看.
-
-📦 模组开发
-项目支持简单的模组加载。官方模组位(exampleModByGFHNV)于 仓库的mods文件夹下，包含：空气
-
-若要开发自己的模组，可看游戏mod方面的源码，以及阅读officialStuff
-
-📄 许可证
-本项目使用 MIT 许可证。
-你可以自由使用、修改、分发代码，但需保留原作者的版权声明。
-
+---
+**作者**：一名热爱编程与游戏开发的高中生
 English:
 Translated by AI.
 This is a game written in Java. Currently, it's text-based only, but it should be playable? Feel free to use and modify
@@ -99,93 +53,40 @@ However, the version in Releases might be a bit outdated.
 
 Below is a README.md written by AI
 
-FightGameReforged
-A text-based turn-based combat game written in Java.
-Players can choose their characters, enemies, and rewards, and battle enemies in a turn-based system.
-The project is fully open-source, uses an event-driven architecture, and supports mod loading.
-The author is a high school student, writing this in their spare time. The code can be used and modified freely.
+# FightGameReforged
 
-🎮 Purely for entertainment, a personal fun project. Stars and Forks are welcome!
+A **command-line turn-based text battle game** built from scratch by a high school student. Written in pure Java, featuring an event-driven architecture and built-in mod support.
 
-✨ Features
+## ✨ Key Features
 
-Text-based Interaction: All operations are done through the command line, making it simple and easy to learn.
+- **Classic Turn-Based Combat**: Assemble your party, choose enemies and rewards, and manually control each character's skills in tactical battles.
+- **Five-Element System**: Inspired by *Wu Xing*, the game implements elemental resistances and damage bonuses across Metal, Wood, Water, Fire, and Earth.
+- **Event-Driven Architecture**: A custom `EventBus` with `@SubscribeEvent` annotations decouples game logic and simplifies future expansion.
+- **Mod System**: Automatically scans and loads external mods, including on-the-fly compilation of `.java` source files—perfect for adding new creatures, skills, or items.
+- **MIT Licensed**: Fully open-source. Use, modify, and distribute the code freely.
 
-Turn-Based Combat: Players and enemies take turns acting, with each unit having its own independent turn timer.
+## 🚧 Current Status
 
-Character Selection: Choose any number of characters from a preset list of creatures to join your party.
+The project is in **early development**. Core features like the full combat loop and reward system are still being implemented. However, it already serves as a cleanly architected, runnable tech demo that continues to evolve.
 
-Enemy Selection: Similarly, choose any number of enemies to face as opponents.
+## 🛠️ Tech Stack
 
-Reward System: Obtain items after winning a battle.
+- **Language**: Java (JDK 17+)
+- **Build**: IntelliJ IDEA (native)
+- **Dependencies**: Zero external libraries (pure Java standard library)
 
-Skill System: Each creature has multiple skills, and players can manually choose skills and targets.
+## 🎮 Quick Start
 
-Event-Driven Architecture: Uses a custom EventBus to handle in-game events, making it easy to extend.
+1. Clone the repository  
+2. Open the project in IntelliJ IDEA  
+3. Run the main class `cn.gfhnv.game.GameMain`  
+4. Follow the on-screen prompts to play  
 
-Mod Loading: Supports loading official or third-party mods via a ModLoader (currently only official content exists).
+> **Note**: An example mod (`exampleModByGFHNV`) is included under the `mods/` directory—use it as a reference for creating your own content.
 
-Open Source License: Licensed under the MIT License, allowing free use, modification, and distribution.
+## 🤝 Contributing
 
-🚀 How to Run
+Issues and pull requests are warmly welcomed. Feedback, suggestions, or code contributions of any size help move this project forward.
 
-Method 1: Run the JAR file directly
-Ensure Java 17 or higher is installed. I used Java 25 when writing this.
-
-Open a command line and execute:
-
-bash
-java -jar FightGameReforged.jar
-Method 2: Compile and run from source
-Clone the repository:
-
-bash
-git clone https://github.com/QWESSFDFC/FightGameReforged.git
-cd FightGameReforged
-Open the project with IntelliJ IDEA, or compile using the command line:
-
-bash
-javac -d out -cp "lib/*" src/cn/gfhnv/game/*.java
-Run the main class cn.gfhnv.game.GameStarter.
-
-Method 3: Package as an executable image (using jpackage)
-The project is configured with jpackage commands, which can generate a console-based EXE application on Windows.
-For detailed steps, please refer to the Packaging Guide (to be added).
-
-🎯 Basic Gameplay
-
-Enter your name: At the start, you'll be prompted to enter a player name (for display purposes only).
-
-Choose your characters: Select creatures from the list to add to your party. Enter a number to view a creature's
-description, enter yes to confirm adding them, no to cancel, and next to finish selection.
-
-Choose your enemies: Similarly, select the enemies you want to face.
-
-Choose a reward: Select an item you might obtain after winning the battle (currently only a sword is available).
-
-Battle begins:
-
-Each unit acts in order determined by their speed.
-
-When it's your controlled character's turn, a list of available skills will be displayed. Enter a number to choose a
-skill.
-
-Based on the skill's target count, select targets (multiple selections possible, enter next to finish selecting early).
-
-Enemies automatically choose their skills and targets.
-
-Battle ends: When one side is completely defeated, a victory or defeat message is displayed, and you are asked if you
-want to play another round.
-
-Issues or Pull Requests for improvements are welcome! (Though I might not always see them.)
-
-📦 Mod Development
-The project supports simple mod loading. The official mod (exampleModByGFHNV) is located in the repository's mods
-folder, containing: nothing (air).
-
-To develop your own mod, you can look at the game's mod-related source code and read officialStuff (referring to the
-package cn.gfhnv.game.officialStuff).
-
-📄 License
-This project uses the MIT License.
-You are free to use, modify, and distribute the code, but you must retain the original author's copyright notice.
+---
+**Author**: A high school student passionate about programming and game development
