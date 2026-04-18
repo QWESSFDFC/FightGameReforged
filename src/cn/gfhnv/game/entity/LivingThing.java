@@ -556,7 +556,9 @@ public class LivingThing extends Entity {
         this.setHp(newHp);
         System.out.print("剩余HP" + this.getHp());
     }
-
+    public LivingThing copy() {
+        return new LivingThing(this);
+    }
     /**
      * 子类可重写此方法，在血量被扣减前进行修正（如锁血、免死等）。
      * @param newHp 计算出的新血量（当前血量 - 伤害值）

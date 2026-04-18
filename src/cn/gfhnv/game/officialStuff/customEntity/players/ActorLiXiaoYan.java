@@ -21,7 +21,18 @@ public class ActorLiXiaoYan extends LivingThing {
     private int ignitionMax = 10;
     private int lastIgnition = 3;
     private double memorizedRate = -1;
-
+    public ActorLiXiaoYan(ActorLiXiaoYan other) {
+        super(other);
+        this.ignition = other.ignition;
+        this.ignitionMax = other.ignitionMax;
+        this.lastIgnition = other.lastIgnition;
+        this.memorizedRate = other.memorizedRate;
+        this.setIndividualMultipleArea(other.getIndividualMultipleArea());
+    }
+    @Override
+    public LivingThing copy() {
+        return new ActorLiXiaoYan(this);
+    }
     public ActorLiXiaoYan(long l) {
         super("李晓焰", "actor_li_xiao_yan", 0.4, 0.0, 0.0, 0.0, 0.0, 100, l, "player", 58, 22, 3, ElementSort.FIRE, 30, 0, 5);
         this.setMass(BigDecimal.valueOf(60));

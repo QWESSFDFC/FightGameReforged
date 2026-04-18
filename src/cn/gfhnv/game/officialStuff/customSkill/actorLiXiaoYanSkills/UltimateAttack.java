@@ -24,7 +24,6 @@ public class UltimateAttack extends Skill {
         if (user instanceof ActorLiXiaoYan) {
             double rate = (double) user.getHp() / user.getHpMax();
             ((ActorLiXiaoYan) user).setMemorizedRate(rate);
-            System.out.println("[DEBUG] 锁定比例设置为: " + rate);
             if (((ActorLiXiaoYan) user).getIgnition()>=8) setExtraDamage((long) (this.getExtraDamage() +user.getHpMax()*0.05));
         }
         for (LivingThing livingThing : enemies) {

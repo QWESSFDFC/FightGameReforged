@@ -83,7 +83,7 @@ public class GameMain {
                     break;
                 }
                 try {
-                    selectedLivingThing = new LivingThing(livingThings[Integer.parseInt(input)]);
+                    selectedLivingThing=livingThings[Integer.parseInt(input)].copy();;
                     System.out.println(selectedLivingThing.getName());
                     System.out.println(selectedLivingThing.getDescription());
                     while (true) {
@@ -122,7 +122,7 @@ public class GameMain {
                     break;
                 }
                 try {
-                    selectedLivingThing = new LivingThing(livingThings[Integer.parseInt(input)]);
+                    selectedLivingThing =livingThings[Integer.parseInt(input)].copy();
                     System.out.println(selectedLivingThing.getName());
                     System.out.println(selectedLivingThing.getDescription());
                     while (true) {
