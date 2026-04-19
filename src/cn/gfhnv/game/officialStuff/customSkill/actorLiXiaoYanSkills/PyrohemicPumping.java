@@ -41,13 +41,15 @@ public class PyrohemicPumping extends Skill {
         }
         for (LivingThing livingThing : enemies) {
             System.out.print(user.getName() + "攻击了" + livingThing.getName());
-             if (user instanceof ActorLiXiaoYan) {
-                 if (((ActorLiXiaoYan) user).getIgnition()>=8) setExtraDamage((long) (this.getExtraDamage() +user.getHpMax()*0.05));
-             }
+            if (user instanceof ActorLiXiaoYan) {
+                if (((ActorLiXiaoYan) user).getIgnition() >= 8)
+                    setExtraDamage((long) (this.getExtraDamage() + user.getHpMax() * 0.05));
+            }
             user.makeDamage(livingThing, this);
         }
         if (user instanceof ActorLiXiaoYan) {
-            if (((ActorLiXiaoYan) user).getIgnition()<8) return;
-            ((ActorLiXiaoYan) user).setIgnition(((ActorLiXiaoYan) user).getIgnition()-1);}
+            if (((ActorLiXiaoYan) user).getIgnition() < 8) return;
+            ((ActorLiXiaoYan) user).setIgnition(((ActorLiXiaoYan) user).getIgnition() - 1);
+        }
     }
 }

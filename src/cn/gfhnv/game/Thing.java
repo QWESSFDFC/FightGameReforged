@@ -1,36 +1,33 @@
 package cn.gfhnv.game;
 
-import cn.gfhnv.game.inventory.Inventory;
-import cn.gfhnv.game.system.physics.Vector;
 import cn.gfhnv.game.system.physics.type.Acceleration;
 import cn.gfhnv.game.system.physics.type.Force;
 import cn.gfhnv.game.system.physics.type.Position;
 import cn.gfhnv.game.system.physics.type.Velocity;
-import org.json.JSONObject;
 
 import java.math.BigDecimal;
 import java.util.Objects;
 import java.util.UUID;
 
 public class Thing {
+    private final String uuid;
     private BigDecimal mass = new BigDecimal(1);
     private Force force = new Force(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
     private Velocity velocity = new Velocity(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
     private Acceleration acceleration = new Acceleration(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
     private Position position = new Position(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
 
-    private final String uuid;
     public Thing(BigDecimal mass) {
         this.mass = mass;
         this.uuid = UUID.randomUUID().toString();
     }
 
-    public String getUUID() {
-        return uuid;
-    }
-
     public Thing() {
         this.uuid = UUID.randomUUID().toString();
+    }
+
+    public String getUUID() {
+        return uuid;
     }
 
     public Thing facSetMass(BigDecimal mass) {

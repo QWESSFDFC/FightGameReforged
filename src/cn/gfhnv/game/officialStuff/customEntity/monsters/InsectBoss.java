@@ -23,6 +23,7 @@ public class InsectBoss extends LivingThing {
         this.setMass(BigDecimal.valueOf(1250));
         this.getInventory().addSlot(63);
     }
+
     public InsectBoss(InsectBoss other) {
         super(other);
 

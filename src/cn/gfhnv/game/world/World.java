@@ -89,13 +89,18 @@ public class World {
     public static void setEntityList(List<Entity> entgityList) {
         entityList = entgityList;
     }
-    public static Thing getAimedThing(String uuid){
-        if (uuid.equals("")) {return null;}
-        if (things.isEmpty()){
+
+    public static Thing getAimedThing(String uuid) {
+        if (uuid.equals("")) {
+            return null;
+        }
+        if (things.isEmpty()) {
             return null;
         }
         for (Thing thing : things) {
-            if (thing.getUUID().equals(uuid)) {return thing;}
+            if (thing.getUUID().equals(uuid)) {
+                return thing;
+            }
         }
         return null;
     }

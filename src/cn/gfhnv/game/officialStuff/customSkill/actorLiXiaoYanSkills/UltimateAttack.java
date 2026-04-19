@@ -2,8 +2,10 @@ package cn.gfhnv.game.officialStuff.customSkill.actorLiXiaoYanSkills;
 
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entity.skill.Skill;
+import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.officialStuff.customEffect.universalEffects.actorLiXiaoYanEffects.MemorizedHp;
 import cn.gfhnv.game.officialStuff.customEntity.players.ActorLiXiaoYan;
+import cn.gfhnv.game.officialStuff.customEvent.LiXiaoYanEvents.DamageEventListener;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.mana.Mana;
@@ -24,17 +26,24 @@ public class UltimateAttack extends Skill {
         if (user instanceof ActorLiXiaoYan) {
             double rate = (double) user.getHp() / user.getHpMax();
             ((ActorLiXiaoYan) user).setMemorizedRate(rate);
-            if (((ActorLiXiaoYan) user).getIgnition()>=8) setExtraDamage((long) (this.getExtraDamage() +user.getHpMax()*0.05));
+            if (((ActorLiXiaoYan) user).getIgnition() >= 8)
+                setExtraDamage((long) (this.getExtraDamage() + user.getHpMax() * 0.05));
         }
         for (LivingThing livingThing : enemies) {
             System.out.print(user.getName() + "攻击了" + livingThing.getName());
             user.makeDamage(livingThing, this);
         }
-        user.addEffect(new MemorizedHp());
+        MemorizedHp memorizedHp = new MemorizedHp();
+        memorizedHp.setLiXiaoYanEventListener(new DamageEventListener());
+        EventBus.register(memorizedHp.getLiXiaoYanEventListener());
+        user.addEffect(memorizedHp);
         System.out.printf("生命值锁定生效中");
-        if (user instanceof ActorLiXiaoYan) { ((ActorLiXiaoYan) user).setIgnition(((ActorLiXiaoYan) user).getIgnition()+1);}
         if (user instanceof ActorLiXiaoYan) {
-            if (((ActorLiXiaoYan) user).getIgnition()<8) return;
-            ((ActorLiXiaoYan) user).setIgnition(((ActorLiXiaoYan) user).getIgnition()-1);}
+            ((ActorLiXiaoYan) user).setIgnition(((ActorLiXiaoYan) user).getIgnition() + 1);
+        }
+        if (user instanceof ActorLiXiaoYan) {
+            if (((ActorLiXiaoYan) user).getIgnition() < 8) return;
+            ((ActorLiXiaoYan) user).setIgnition(((ActorLiXiaoYan) user).getIgnition() - 1);
+        }
     }
 }

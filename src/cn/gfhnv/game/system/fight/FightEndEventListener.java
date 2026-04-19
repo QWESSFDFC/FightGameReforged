@@ -18,8 +18,8 @@ public class FightEndEventListener {
         TurnManager.actionQueue.clear();
         for (LivingThing entity : fightEndEvent.getFight().getAllEntities()) {
             if (entity != null) {
-                entity.setPresentTurn(null);
-                entity.setHp((long) entity.getHpMax());
+                entity.whenFightEnds();
+
             }
         }
         EventBus.unregister(this);

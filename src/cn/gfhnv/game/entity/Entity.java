@@ -4,20 +4,11 @@ import cn.gfhnv.game.Thing;
 import cn.gfhnv.game.inventory.Inventory;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.mana.Mana;
-import cn.gfhnv.game.system.physics.Vector;
-import cn.gfhnv.game.system.physics.type.Acceleration;
-import cn.gfhnv.game.system.physics.type.Force;
-import cn.gfhnv.game.system.physics.type.Position;
-import cn.gfhnv.game.system.physics.type.Velocity;
-import org.json.JSONArray;
-import org.json.JSONObject;
 
 import java.math.BigDecimal;
-import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 
 public class Entity extends Thing {
     private long level;
@@ -34,7 +25,8 @@ public class Entity extends Thing {
     private double dirtManaGrowNumber;
     private String type = "entity";
     private List<Mana> manas = new ArrayList<>();//一个实体可以拥有多个Mana
-private Inventory inventory=new Inventory();
+    private Inventory inventory = new Inventory();
+
     public Entity(Entity entity) {
 
         this.level = entity.level;
@@ -141,7 +133,6 @@ private Inventory inventory=new Inventory();
         }
         return null;
     }
-
 
 
     public Entity facSetLevel(long level) {
@@ -390,7 +381,7 @@ private Inventory inventory=new Inventory();
     @Override
     public String toString() {
         return "Entity{" +
-                "UUID=" + getUUID()+
+                "UUID=" + getUUID() +
                 ", level=" + level +
                 ", name='" + name + '\'' +
                 ", id='" + id + '\'' +
@@ -407,7 +398,6 @@ private Inventory inventory=new Inventory();
                 ", manas=" + manas +
                 '}';
     }
-
 
 
     public ElementSort getElementSort() {
@@ -487,11 +477,7 @@ private Inventory inventory=new Inventory();
     }
 
 
-
-
-
-
     protected void setInventory(Inventory inventory) {
-        this.inventory=inventory;
+        this.inventory = inventory;
     }
 }

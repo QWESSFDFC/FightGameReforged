@@ -1,7 +1,6 @@
 package cn.gfhnv.game.effect;
 
 import cn.gfhnv.game.entity.LivingThing;
-import org.json.JSONObject;
 
 import java.util.Objects;
 
@@ -16,15 +15,6 @@ public class Effect {
         this.lastTime = lastTime;
     }
 
-    @Override
-    public String toString() {
-        return "Effect{" +
-                "id='" + id + '\'' +
-                ", level=" + level +
-                ", lastTime=" + lastTime +
-                '}';
-    }
-
     public Effect(Effect effect) {
         this.id = effect.id;
         this.level = effect.level;
@@ -33,6 +23,15 @@ public class Effect {
 
     public Effect(String id) {
         this.id = id;
+    }
+
+    @Override
+    public String toString() {
+        return "Effect{" +
+                "id='" + id + '\'' +
+                ", level=" + level +
+                ", lastTime=" + lastTime +
+                '}';
     }
 
     public String getId() {
@@ -45,7 +44,6 @@ public class Effect {
 
     public void whenLastTimeEnd(LivingThing livingThing) {
     }
-
 
 
     public Effect facSetId(String id) {

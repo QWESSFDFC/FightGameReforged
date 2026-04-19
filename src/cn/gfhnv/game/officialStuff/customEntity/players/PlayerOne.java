@@ -25,9 +25,9 @@ public class PlayerOne extends Player {
         skills.add(new CommonAttack(0, 1, 0, 1));
         this.setController(new PlayerController(skills, this));
     }
+
     public PlayerOne(PlayerOne other) {
-        super(other);   // 调用父类 Player 的复制构造器，复制所有基础属性
-        // 如果 PlayerOne 有自定义字段，在此处复制；目前无额外字段，故留空
+        super(other);
     }
 
     @Override

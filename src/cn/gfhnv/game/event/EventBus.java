@@ -41,14 +41,14 @@ public class EventBus {
 
     public static void post(Event event) {
         Class<?> eventType = event.getClass();
-        LogWriter.writeLog("EventBus.postEvent:"+event.toString());
+        LogWriter.writeLog("EventBus.postEvent:" + event.toString());
         List<EventHandler> eventHandlers = handlers.get(eventType);
-        LogWriter.writeLog("handlers:"+handlers.toString());
+        LogWriter.writeLog("handlers:" + handlers.toString());
         if (eventHandlers != null) {
             List<EventHandler> copy = new ArrayList<>(eventHandlers);
             for (EventHandler handler : copy) {
                 handler.accept(event);
-                LogWriter.writeLog(handler.toString()+"accepted"+event.toString());
+                LogWriter.writeLog(handler.toString() + "accepted" + event.toString());
             }
         }
     }

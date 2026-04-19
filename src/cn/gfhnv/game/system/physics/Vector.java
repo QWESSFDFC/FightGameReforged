@@ -1,7 +1,5 @@
 package cn.gfhnv.game.system.physics;
 
-import org.json.JSONObject;
-
 import java.math.BigDecimal;
 
 public class Vector {

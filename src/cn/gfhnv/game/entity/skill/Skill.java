@@ -18,7 +18,8 @@ public class Skill {
     private int nowCoolDown = 0;
     private boolean isForEnemies = true;
     private Mana consumedMana;
-   private long extraDamage = 0;//多倍率时把其他倍率计算的结果加到这里.伤害计算后重置为零
+    private long extraDamage = 0;//多倍率时把其他倍率计算的结果加到这里.伤害计算后重置为零
+
     public Skill(String name, String description, double hpMagnification, double atkMagnification, double defMagnification, int aims) {
         this.name = name;
         this.description = description;
@@ -226,11 +227,11 @@ public class Skill {
         this.consumedMana = consumedMana;
     }
 
-    public void setExtraDamage(long extraDamage) {
-        this.extraDamage = extraDamage;
-    }
-
     public long getExtraDamage() {
         return extraDamage;
+    }
+
+    public void setExtraDamage(long extraDamage) {
+        this.extraDamage = extraDamage;
     }
 }

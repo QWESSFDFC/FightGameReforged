@@ -4,13 +4,14 @@ import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.entityController.PlayerController;
 import cn.gfhnv.game.entity.entityController.UniversalController;
 import cn.gfhnv.game.entity.skill.Skill;
-import cn.gfhnv.game.event.*;
+import cn.gfhnv.game.event.DamageEvent;
+import cn.gfhnv.game.event.EventBus;
+import cn.gfhnv.game.event.HpLossEvent;
+import cn.gfhnv.game.event.HpRestorationEvent;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.fight.TurnEntry;
 import cn.gfhnv.game.system.mana.Mana;
-import org.json.JSONArray;
-import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,6 +19,7 @@ import java.util.List;
 import static cn.gfhnv.game.system.fight.TurnManager.actionQueue;
 
 public class LivingThing extends Entity {
+    public long extraDamage = 0;
     private double fireResistance, waterResistance, metalResistance, woodResistance, dirtResistance, hpMax;
     private double hpMagnification, atkMagnification, dfkMagnification;
     private double criticalDMG;
@@ -28,71 +30,13 @@ public class LivingThing extends Entity {
     private double damageAbsorbedPercent = 0;
     private long hp, dfk, speed, afk;
     private double enhance;//全属性
-    private double metalDamageEnhance,woodDamageEnhance,waterDamageEnhance,fireDamageEnhance,dirtDamageEnhance;
+    private double metalDamageEnhance, woodDamageEnhance, waterDamageEnhance, fireDamageEnhance, dirtDamageEnhance;
     private double defenseLoss;
-
-    public double getMetalDamageEnhance() {
-        return metalDamageEnhance;
-    }
-
-    public void setMetalDamageEnhance(double metalDamageEnhance) {
-        this.metalDamageEnhance = metalDamageEnhance;
-    }
-
-    public double getWoodDamageEnhance() {
-        return woodDamageEnhance;
-    }
-
-    public void setWoodDamageEnhance(double woodDamageEnhance) {
-        this.woodDamageEnhance = woodDamageEnhance;
-    }
-
-    public double getWaterDamageEnhance() {
-        return waterDamageEnhance;
-    }
-
-    public void setWaterDamageEnhance(double waterDamageEnhance) {
-        this.waterDamageEnhance = waterDamageEnhance;
-    }
-
-    public double getFireDamageEnhance() {
-        return fireDamageEnhance;
-    }
-
-    public void setFireDamageEnhance(double fireDamageEnhance) {
-        this.fireDamageEnhance = fireDamageEnhance;
-    }
-
-    public double getDirtDamageEnhance() {
-        return dirtDamageEnhance;
-    }
-    public long extraDamage=0;
-
-    public void setExtraDamage(long extraDamage) {
-        this.extraDamage = extraDamage;
-    }
-
-    public long getExtraDamage() {
-        return extraDamage;
-    }
-
-    public void setDirtDamageEnhance(double dirtDamageEnhance) {
-        this.dirtDamageEnhance = dirtDamageEnhance;
-    }
-    public void updateSelf(){}//每回合执行.可以写天赋等更新状态
     private Fight participateFight;
     private TurnEntry presentTurn;
     private UniversalController controller;
     private String description;
-   private double individualMultipleArea=1;
-
-    public double getIndividualMultipleArea() {
-        return individualMultipleArea;
-    }
-
-    public void setIndividualMultipleArea(double individualMultipleArea) {
-        this.individualMultipleArea = individualMultipleArea;
-    }
+    private double individualMultipleArea = 1;
 
     public LivingThing() {
 
@@ -215,6 +159,65 @@ public class LivingThing extends Entity {
     public LivingThing(long speed) {
         this.speed = speed;
 
+    }
+
+    public double getMetalDamageEnhance() {
+        return metalDamageEnhance;
+    }
+
+    public void setMetalDamageEnhance(double metalDamageEnhance) {
+        this.metalDamageEnhance = metalDamageEnhance;
+    }
+
+    public double getWoodDamageEnhance() {
+        return woodDamageEnhance;
+    }
+
+    public void setWoodDamageEnhance(double woodDamageEnhance) {
+        this.woodDamageEnhance = woodDamageEnhance;
+    }
+
+    public double getWaterDamageEnhance() {
+        return waterDamageEnhance;
+    }
+
+    public void setWaterDamageEnhance(double waterDamageEnhance) {
+        this.waterDamageEnhance = waterDamageEnhance;
+    }
+
+    public double getFireDamageEnhance() {
+        return fireDamageEnhance;
+    }
+
+    public void setFireDamageEnhance(double fireDamageEnhance) {
+        this.fireDamageEnhance = fireDamageEnhance;
+    }
+
+    public double getDirtDamageEnhance() {
+        return dirtDamageEnhance;
+    }
+
+    public void setDirtDamageEnhance(double dirtDamageEnhance) {
+        this.dirtDamageEnhance = dirtDamageEnhance;
+    }
+
+    public long getExtraDamage() {
+        return extraDamage;
+    }
+
+    public void setExtraDamage(long extraDamage) {
+        this.extraDamage = extraDamage;
+    }
+
+    public void updateSelf() {
+    }//每回合执行.可以写天赋等更新状态
+
+    public double getIndividualMultipleArea() {
+        return individualMultipleArea;
+    }
+
+    public void setIndividualMultipleArea(double individualMultipleArea) {
+        this.individualMultipleArea = individualMultipleArea;
     }
 
     public LivingThing livingThingFactory() {
@@ -556,11 +559,23 @@ public class LivingThing extends Entity {
         this.setHp(newHp);
         System.out.print("剩余HP" + this.getHp());
     }
+
     public LivingThing copy() {
         return new LivingThing(this);
     }
+
+    public void whenFightEnds() {
+        setPresentTurn(null);
+        setHp((long) getHpMax());
+        for (Effect effect : getEntityEffectList()) effect.whenLastTimeEnd(this);
+        for (Skill skill : getController().getSkills()) skill.setNowCoolDown(0);
+        for (Mana mana : getManas()) mana.setAmount(mana.getAmountMax());
+    }
+
     /**
+     *
      * 子类可重写此方法，在血量被扣减前进行修正（如锁血、免死等）。
+     *
      * @param newHp 计算出的新血量（当前血量 - 伤害值）
      * @param da    伤害事件
      * @return 修正后的新血量
@@ -597,15 +612,15 @@ public class LivingThing extends Entity {
     }
 
     public void setHp(long hp) {
-        if (hp<getHp()){
-            EventBus.post(new HpLossEvent(getHp()-hp,this));
+        if (hp < getHp()) {
+            EventBus.post(new HpLossEvent(getHp() - hp, this));
         }
-        if (hp>getHp()){
-            EventBus.post(new HpRestorationEvent(hp-getHp(),this));
+        if (hp > getHp()) {
+            EventBus.post(new HpRestorationEvent(hp - getHp(), this));
         }
         this.hp = (long) Math.min(this.getHpMax(), hp);
-        if (this.hp<0){
-            this.hp=0;
+        if (this.hp < 0) {
+            this.hp = 0;
         }
     }
 

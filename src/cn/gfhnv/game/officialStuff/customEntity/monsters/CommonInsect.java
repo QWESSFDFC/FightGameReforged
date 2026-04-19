@@ -17,9 +17,12 @@ public class CommonInsect extends LivingThing {
         this.setDescription("这是普通虫子.只有普通攻击");
         skills.add(new CommonAttack(0, 0.3, 0, 1));
         this.setController(new UniversalController(skills, this));
-    }public CommonInsect(CommonInsect other) {
+    }
+
+    public CommonInsect(CommonInsect other) {
         super(other);
-     }
+    }
+
     @Override
     public LivingThing copy() {
         return new CommonInsect(this);

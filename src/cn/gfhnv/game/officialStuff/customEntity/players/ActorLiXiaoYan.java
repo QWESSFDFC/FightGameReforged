@@ -16,11 +16,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ActorLiXiaoYan extends LivingThing {
-
     private int ignition = 3;
     private int ignitionMax = 10;
     private int lastIgnition = 3;
     private double memorizedRate = -1;
+
     public ActorLiXiaoYan(ActorLiXiaoYan other) {
         super(other);
         this.ignition = other.ignition;
@@ -29,10 +29,7 @@ public class ActorLiXiaoYan extends LivingThing {
         this.memorizedRate = other.memorizedRate;
         this.setIndividualMultipleArea(other.getIndividualMultipleArea());
     }
-    @Override
-    public LivingThing copy() {
-        return new ActorLiXiaoYan(this);
-    }
+
     public ActorLiXiaoYan(long l) {
         super("李晓焰", "actor_li_xiao_yan", 0.4, 0.0, 0.0, 0.0, 0.0, 100, l, "player", 58, 22, 3, ElementSort.FIRE, 30, 0, 5);
         this.setMass(BigDecimal.valueOf(60));
@@ -47,12 +44,19 @@ public class ActorLiXiaoYan extends LivingThing {
         this.lastIgnition = ignition;
     }
 
-    public int getIgnition() {
-        return ignition;
+    @Override
+    public LivingThing copy() {
+        return new ActorLiXiaoYan(this);
     }
 
-    public int getIgnitionMax() {
-        return ignitionMax;
+    @Override
+    public void whenFightEnds() {
+        this.setIgnition(3);
+        super.whenFightEnds();
+    }
+
+    public int getIgnition() {
+        return ignition;
     }
 
     public void setIgnition(int ignition) {
@@ -63,12 +67,16 @@ public class ActorLiXiaoYan extends LivingThing {
         this.ignition = Math.min(ignition, max);
     }
 
-    public void setMemorizedRate(double memorizedRate) {
-        this.memorizedRate = memorizedRate;
+    public int getIgnitionMax() {
+        return ignitionMax;
     }
 
     public double getMemorizedRate() {
         return memorizedRate;
+    }
+
+    public void setMemorizedRate(double memorizedRate) {
+        this.memorizedRate = memorizedRate;
     }
 
     private boolean hasMemorizedHpEffect() {
@@ -91,21 +99,16 @@ public class ActorLiXiaoYan extends LivingThing {
     @Override
     protected long applyDamageModifiers(long newHp, DamageEvent da) {
         long correctedHp = newHp;
-
-        // 锁血检查
         if (hasMemorizedHpEffect() && memorizedRate > 0) {
             long minHp = (long) (getHpMax() * memorizedRate);
             if (correctedHp < minHp) {
                 correctedHp = minHp;
             }
         }
-
-        // 免死检查：燃点≥10且将死时，回血30%并消耗10层燃点
         if (ignition >= 10 && correctedHp <= 0) {
             correctedHp = (long) (getHpMax() * 0.3);
             setIgnition(ignition - 10);
         }
-
         return correctedHp;
     }
 

@@ -1,21 +1,22 @@
 package cn.gfhnv.game.inventory;
 
 import cn.gfhnv.game.item.Item;
-import org.json.JSONArray;
-import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class Inventory {
     private List<Slot> slots = new ArrayList<>();
-//背包有slot/格子.格子中才放物品
+
+    //背包有slot/格子.格子中才放物品
     public Inventory(long slotNumbers) {
         for (long i = 0; i < slotNumbers; i++) {
             slots.add(new Slot(null, i));
         }
     }
-    public Inventory() {}
+
+    public Inventory() {
+    }
 
 
     public boolean addItem(Item item) {

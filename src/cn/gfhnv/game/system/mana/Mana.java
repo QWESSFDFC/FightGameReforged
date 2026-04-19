@@ -1,7 +1,6 @@
 package cn.gfhnv.game.system.mana;
 
 import cn.gfhnv.game.system.ElementSort;
-import org.json.JSONObject;
 
 public class Mana {
     private double amount;

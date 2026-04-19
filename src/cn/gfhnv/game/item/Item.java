@@ -1,12 +1,6 @@
 package cn.gfhnv.game.item;
 
 import cn.gfhnv.game.Thing;
-import cn.gfhnv.game.inventory.Inventory;
-import cn.gfhnv.game.system.physics.type.Acceleration;
-import cn.gfhnv.game.system.physics.type.Force;
-import cn.gfhnv.game.system.physics.type.Position;
-import cn.gfhnv.game.system.physics.type.Velocity;
-import org.json.JSONObject;
 
 import java.math.BigDecimal;
 
