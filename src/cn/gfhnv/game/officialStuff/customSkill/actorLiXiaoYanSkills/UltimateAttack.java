@@ -6,6 +6,7 @@ import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.officialStuff.customEffect.universalEffects.actorLiXiaoYanEffects.MemorizedHp;
 import cn.gfhnv.game.officialStuff.customEntity.players.ActorLiXiaoYan;
 import cn.gfhnv.game.officialStuff.customEvent.LiXiaoYanEvents.DamageEventListener;
+import cn.gfhnv.game.officialStuff.customSkill.universalSkill.GunShoot;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.mana.Mana;
@@ -21,6 +22,11 @@ public class UltimateAttack extends Skill {
         this.setConsumedMana(new Mana(300, ElementSort.FIRE));
     }
 
+
+    @Override
+    public Skill copy() {
+        return  new UltimateAttack();
+    }
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         if (user instanceof ActorLiXiaoYan) {

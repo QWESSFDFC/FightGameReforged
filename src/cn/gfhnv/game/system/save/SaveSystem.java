@@ -1,6 +1,6 @@
 package cn.gfhnv.game.system.save;
 
-import cn.gfhnv.game.logSystem.LogWriter;
+import cn.gfhnv.game.system.logSystem.LogWriter;
 
 import java.io.File;
 import java.io.IOException;

@@ -1,6 +1,6 @@
 package cn.gfhnv.game.mod;
 
-import cn.gfhnv.game.logSystem.LogWriter;
+import cn.gfhnv.game.system.logSystem.LogWriter;
 import cn.gfhnv.game.utils.JSONHelper;
 import cn.gfhnv.game.world.World;
 import org.json.JSONObject;

@@ -3,7 +3,6 @@
     <output-path>$PROJECT_DIR$/out/artifacts/FightGameReforged_jar</output-path>
     <root id="archive" name="FightGameReforged.jar">
       <element id="module-output" name="FightGameReforged" />
-      <element id="extracted-dir" path="$PROJECT_DIR$/lib/json-20231013.jar" path-in-jar="/" />
     </root>
   </artifact>
 </component>

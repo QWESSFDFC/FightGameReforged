@@ -4,7 +4,7 @@ import cn.gfhnv.game.annotation.SubscribeEvent;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.event.FightPastOneTurnEvent;
 import cn.gfhnv.game.event.FightStartEvent;
-import cn.gfhnv.game.logSystem.LogWriter;
+import cn.gfhnv.game.system.logSystem.LogWriter;
 
 public class FightStartEventListener {
     @SubscribeEvent

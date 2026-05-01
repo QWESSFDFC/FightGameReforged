@@ -13,6 +13,14 @@ public class CommonAttack extends Skill {
         this.setCoolDown(0);
     }
 
+public CommonAttack(CommonAttack commonAttack){
+        super(commonAttack);
+}
+
+    @Override
+    public Skill copy() {
+        return new CommonAttack(this);
+    }
 
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {

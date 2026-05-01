@@ -17,6 +17,12 @@ public class GunShoot extends Skill {
         this.setConsumedMana(new Mana(10, ElementSort.UNIVERSAL));
     }
 
+
+    @Override
+    public Skill copy() {
+        return  new GunShoot();
+    }
+
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         user.addEffect(new DamageEnhanceEffect(2, 1));

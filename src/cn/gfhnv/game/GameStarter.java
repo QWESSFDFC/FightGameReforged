@@ -1,6 +1,6 @@
 package cn.gfhnv.game;
 
-import cn.gfhnv.game.logSystem.LogWriter;
+import cn.gfhnv.game.system.logSystem.LogWriter;
 
 import java.sql.Time;
 import java.time.LocalTime;
