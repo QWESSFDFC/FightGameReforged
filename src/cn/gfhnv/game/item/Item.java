@@ -1,12 +1,16 @@
 package cn.gfhnv.game.item;
 
 import cn.gfhnv.game.Thing;
+import cn.gfhnv.game.system.thinkingSystem.Tag;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Item extends Thing {
     private String name;
     private String description;
+
 
     public Item(String name, String description) {
         this.name = name;
@@ -17,6 +21,7 @@ public class Item extends Thing {
     public Item(Item item) {
         this.name = item.getName();
         this.description = item.getDescription();
+
     }
 
     public Item(String name, String description, BigDecimal bigDecimal) {
@@ -28,6 +33,7 @@ public class Item extends Thing {
     public Item() {
 
     }
+
 
     public Item facSetName(String name) {
         this.setName(name);
@@ -62,4 +68,6 @@ public class Item extends Thing {
     public void setDescription(String description) {
         this.description = description;
     }
+
+
 }

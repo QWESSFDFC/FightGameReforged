@@ -1,7 +1,7 @@
 package cn.gfhnv.game.officialStuff.customEntity.monsters;
 
 import cn.gfhnv.game.entity.LivingThing;
-import cn.gfhnv.game.entity.entityController.UniversalController;
+import cn.gfhnv.game.entityController.UniversalController;
 import cn.gfhnv.game.entity.skill.Skill;
 import cn.gfhnv.game.officialStuff.customSkill.insectBossSkills.InsectBossSkillSummonEnemy;
 import cn.gfhnv.game.officialStuff.customSkill.universalSkill.CommonAttack;

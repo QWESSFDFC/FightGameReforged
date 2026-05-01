@@ -2,7 +2,7 @@ package cn.gfhnv.game.officialStuff.customEntity.players;
 
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entity.Player;
-import cn.gfhnv.game.entity.entityController.PlayerController;
+import cn.gfhnv.game.entityController.PlayerController;
 import cn.gfhnv.game.entity.skill.Skill;
 import cn.gfhnv.game.officialStuff.customSkill.universalSkill.CommonAttack;
 import cn.gfhnv.game.officialStuff.customSkill.universalSkill.GunShoot;

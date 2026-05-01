@@ -1,8 +1,8 @@
 package cn.gfhnv.game.entity;
 
 import cn.gfhnv.game.effect.Effect;
-import cn.gfhnv.game.entity.entityController.PlayerController;
-import cn.gfhnv.game.entity.entityController.UniversalController;
+import cn.gfhnv.game.entityController.PlayerController;
+import cn.gfhnv.game.entityController.UniversalController;
 import cn.gfhnv.game.entity.skill.Skill;
 import cn.gfhnv.game.event.DamageEvent;
 import cn.gfhnv.game.event.EventBus;
@@ -77,15 +77,14 @@ public class LivingThing extends Entity {
         this.damageAbsorbedPercent = other.damageAbsorbedPercent;
         this.participateFight = null;
         this.presentTurn = null;
-        this.controller = new UniversalController(other.controller, this);
         if (other.getController() instanceof PlayerController) {
-            this.controller = new PlayerController(other.controller.getSkills(), this);
+            this.controller = new PlayerController(other.controller.getSkills(),this);
         } else {
             this.controller = new UniversalController(other.controller, this);
         }
         if (!other.getManas().isEmpty()) {
             for (Mana mana : other.getManas()) {
-                this.getManas().add(mana);
+                this.getManas().add(new Mana(mana));
             }
         }
     }

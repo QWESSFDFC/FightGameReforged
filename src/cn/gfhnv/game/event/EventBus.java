@@ -1,7 +1,7 @@
 package cn.gfhnv.game.event;
 
 import cn.gfhnv.game.annotation.SubscribeEvent;
-import cn.gfhnv.game.logSystem.LogWriter;
+import cn.gfhnv.game.system.logSystem.LogWriter;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;

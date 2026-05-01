@@ -1,4 +1,4 @@
-package cn.gfhnv.game.logSystem;
+package cn.gfhnv.game.system.logSystem;
 
 import java.io.IOException;
 import java.nio.file.*;

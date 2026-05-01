@@ -1,6 +1,7 @@
 package cn.gfhnv.game.officialStuff.customSkill.actorLiXiaoYanSkills;
 
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.entity.skill.Skill;
 import cn.gfhnv.game.officialStuff.customEntity.players.ActorLiXiaoYan;
 import cn.gfhnv.game.system.fight.Fight;
 
@@ -9,6 +10,11 @@ import java.util.List;
 public class CommonAttack extends cn.gfhnv.game.officialStuff.customSkill.universalSkill.CommonAttack {
     public CommonAttack() {
         super(1, 0, 0, 1);
+    }
+
+    @Override
+    public CommonAttack copy() {
+        return new CommonAttack();
     }
 
     @Override

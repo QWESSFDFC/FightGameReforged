@@ -8,7 +8,7 @@ import cn.gfhnv.game.event.eventListener.EffectEventListener;
 import cn.gfhnv.game.event.eventListener.GameStartEventListener;
 import cn.gfhnv.game.event.eventListener.PhysicsEventListener;
 import cn.gfhnv.game.item.Item;
-import cn.gfhnv.game.logSystem.LogWriter;
+import cn.gfhnv.game.system.logSystem.LogWriter;
 import cn.gfhnv.game.mod.ModLoader;
 import cn.gfhnv.game.officialStuff.OfficialGameContent;
 import cn.gfhnv.game.system.fight.Fight;
@@ -84,7 +84,6 @@ public class GameMain {
                 }
                 try {
                     selectedLivingThing = livingThings[Integer.parseInt(input)].copy();
-                    ;
                     System.out.println(selectedLivingThing.getName());
                     System.out.println(selectedLivingThing.getDescription());
                     while (true) {
@@ -102,6 +101,7 @@ public class GameMain {
                         }
                     }
                 } catch (Exception e) {
+                    e.printStackTrace();
                     System.out.println("输入错误");
                     selectedLivingThing = null;
                     System.out.println("输入下一个数字或next");

@@ -1,10 +1,13 @@
 package cn.gfhnv.game.entity.skill;
 
+import cn.gfhnv.game.Thing;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.mana.Mana;
+import cn.gfhnv.game.system.thinkingSystem.Tag;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class Skill {
@@ -19,7 +22,23 @@ public class Skill {
     private boolean isForEnemies = true;
     private Mana consumedMana;
     private long extraDamage = 0;//多倍率时把其他倍率计算的结果加到这里.伤害计算后重置为零
-
+    private List<Tag> tags = new ArrayList<>();
+    public Skill facSetTag(Tag tag) {
+        if (this.tags.contains(tag)) {return this;}
+        this.tags.add(tag);
+        return this;
+    }
+    public Skill(Skill skill) {
+        this.name = skill.getName();
+        this.description = skill.getDescription();
+        this.hpMagnification = skill.getHpMagnification();
+        this.atkMagnification = skill.getAtkMagnification();
+        this.defMagnification = skill.getDefMagnification();
+        this.aims = skill.getAims();
+    }
+    public Skill copy(){
+        return new Skill(this);
+    }
     public Skill(String name, String description, double hpMagnification, double atkMagnification, double defMagnification, int aims) {
         this.name = name;
         this.description = description;
