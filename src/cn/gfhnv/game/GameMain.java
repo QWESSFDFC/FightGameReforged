@@ -101,7 +101,6 @@ public class GameMain {
                         }
                     }
                 } catch (Exception e) {
-                    e.printStackTrace();
                     System.out.println("输入错误");
                     selectedLivingThing = null;
                     System.out.println("输入下一个数字或next");
