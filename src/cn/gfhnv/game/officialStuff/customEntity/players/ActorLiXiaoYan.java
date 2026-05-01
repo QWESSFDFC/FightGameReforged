@@ -46,7 +46,7 @@ public class ActorLiXiaoYan extends LivingThing {
 
     @Override
     public LivingThing copy() {
-        return new ActorLiXiaoYan(this);
+        return new ActorLiXiaoYan(this.getLevel());
     }
 
     @Override
@@ -97,7 +97,7 @@ public class ActorLiXiaoYan extends LivingThing {
     }
 
     @Override
-    protected long applyDamageModifiers(long newHp, DamageEvent da) {
+    public long applyDamageModifiers(long newHp, DamageEvent da) {
         long correctedHp = newHp;
         if (hasMemorizedHpEffect() && memorizedRate > 0) {
             long minHp = (long) (getHpMax() * memorizedRate);

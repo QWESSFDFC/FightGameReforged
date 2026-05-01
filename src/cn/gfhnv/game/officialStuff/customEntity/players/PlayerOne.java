@@ -26,13 +26,11 @@ public class PlayerOne extends Player {
         this.setController(new PlayerController(skills, this));
     }
 
-    public PlayerOne(PlayerOne other) {
-        super(other);
-    }
+
 
     @Override
     public LivingThing copy() {
-        return new PlayerOne(this);
+        return new PlayerOne(this.getLevel());
     }
 
 }

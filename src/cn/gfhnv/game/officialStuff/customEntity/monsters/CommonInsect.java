@@ -19,12 +19,10 @@ public class CommonInsect extends LivingThing {
         this.setController(new UniversalController(skills, this));
     }
 
-    public CommonInsect(CommonInsect other) {
-        super(other);
-    }
+
 
     @Override
     public LivingThing copy() {
-        return new CommonInsect(this);
+        return new CommonInsect(this.getLevel());
     }
 }

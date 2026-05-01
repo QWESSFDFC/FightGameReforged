@@ -5,6 +5,7 @@ import cn.gfhnv.game.entity.skill.Skill;
 import cn.gfhnv.game.system.fight.Fight;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
@@ -49,64 +50,41 @@ public class UniversalController {
 
 
     public void act(Fight fight) {
-
         List<Skill> approachableSkill = new ArrayList<>();
         for (Skill skill : getSkills()) {
             if (skill.canUse(fight, getOwner()) && skill.canUse(fight, getOwner(), null)) {
                 approachableSkill.add(skill);
             }
         }
-        Skill[] canUseSkil = new Skill[approachableSkill.size()];
-        canUseSkil = approachableSkill.toArray(canUseSkil);
         if (approachableSkill.isEmpty()) {
             System.out.println(getOwner().getName() + "没行动");
             return;
         }
         Random rand = new Random();
-        Skill selectedSkill = canUseSkil[rand.nextInt(approachableSkill.size())];
+        Skill selectedSkill = approachableSkill.get(rand.nextInt(approachableSkill.size()));
         if (selectedSkill.getAims() == 0) {
             selectedSkill.use(fight, owner);
             return;
         }
-        if (fight.getEnemiesList().contains(owner)) {
-            if (selectedSkill.isForEnemies()) {
-                List<LivingThing> targetEnemies = new ArrayList<>();
-                LivingThing[] attackableEnemies = fight.getFighterList().toArray(new LivingThing[0]);
-                while (targetEnemies.size() < selectedSkill.getAims()) {
-                    targetEnemies.add(attackableEnemies[rand.nextInt(attackableEnemies.length)]);
-                }
-                selectedSkill.use(fight, getOwner(), targetEnemies);
-                return;
+        boolean ownerIsEnemy = fight.getEnemiesList().contains(owner);
+        boolean targetIsEnemy = selectedSkill.isForEnemies();
+        List<LivingThing> candidates;
+        if (ownerIsEnemy) {
+            if (targetIsEnemy) {
+                candidates = new ArrayList<>(fight.getFighterList());
+            } else {
+                candidates = new ArrayList<>(fight.getEnemiesList());
             }
-            if (!selectedSkill.isForEnemies()) {
-                List<LivingThing> targetEnemies = new ArrayList<>();
-                LivingThing[] attackableEnemies = fight.getEnemiesList().toArray(new LivingThing[0]);
-                while (targetEnemies.size() < selectedSkill.getAims()) {
-                    targetEnemies.add(attackableEnemies[rand.nextInt(attackableEnemies.length)]);
-                }
-                selectedSkill.use(fight, getOwner(), targetEnemies);
-                return;
+        } else {
+            if (targetIsEnemy) {
+                candidates = new ArrayList<>(fight.getEnemiesList());
+            } else {
+                candidates = new ArrayList<>(fight.getFighterList());
             }
         }
-        if (fight.getFighterList().contains(owner)) {
-            if (!selectedSkill.isForEnemies()) {
-                List<LivingThing> targetEnemies = new ArrayList<>();
-                LivingThing[] attackableEnemies = fight.getFighterList().toArray(new LivingThing[0]);
-                while (targetEnemies.size() < selectedSkill.getAims()) {
-                    targetEnemies.add(attackableEnemies[rand.nextInt(attackableEnemies.length)]);
-                }
-                selectedSkill.use(fight, getOwner(), targetEnemies);
-                return;
-            }
-            if (selectedSkill.isForEnemies()) {
-                List<LivingThing> targetEnemies = new ArrayList<>();
-                LivingThing[] attackableEnemies = fight.getEnemiesList().toArray(new LivingThing[0]);
-                while (targetEnemies.size() < selectedSkill.getAims()) {
-                    targetEnemies.add(attackableEnemies[rand.nextInt(attackableEnemies.length)]);
-                }
-                selectedSkill.use(fight, getOwner(), targetEnemies);
-                return;
-            }
-        }
+        int aimCount = Math.min(selectedSkill.getAims(), candidates.size());
+        Collections.shuffle(candidates, rand);
+        List<LivingThing> targets = candidates.subList(0, aimCount);
+        selectedSkill.use(fight, getOwner(), targets);
     }
 }

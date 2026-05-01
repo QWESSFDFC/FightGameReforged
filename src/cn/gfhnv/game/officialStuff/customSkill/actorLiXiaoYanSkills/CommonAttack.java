@@ -17,6 +17,8 @@ public class CommonAttack extends cn.gfhnv.game.officialStuff.customSkill.univer
         return new CommonAttack();
     }
 
+
+
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         if (user instanceof ActorLiXiaoYan) {

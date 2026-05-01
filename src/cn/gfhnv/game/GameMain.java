@@ -101,7 +101,6 @@ public class GameMain {
                         }
                     }
                 } catch (Exception e) {
-                    e.printStackTrace();
                     System.out.println("输入错误");
                     selectedLivingThing = null;
                     System.out.println("输入下一个数字或next");
@@ -188,9 +187,11 @@ public class GameMain {
         }
         for (LivingThing fighter : fighters) {
             fighter.setHp((long) fighter.getHpMax());
+
         }
         for (LivingThing enemy : enemies) {
             enemy.setHp((long) enemy.getHpMax());
+
         }
         System.out.println("游戏开始");
         EventBus.post(new FightStartEvent(new Fight(enemies, rewards, fighters)));

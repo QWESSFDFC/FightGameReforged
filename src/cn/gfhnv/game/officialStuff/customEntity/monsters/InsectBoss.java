@@ -24,14 +24,11 @@ public class InsectBoss extends LivingThing {
         this.getInventory().addSlot(63);
     }
 
-    public InsectBoss(InsectBoss other) {
-        super(other);
 
-    }
 
     @Override
     public LivingThing copy() {
-        return new InsectBoss(this);
+        return new InsectBoss(this.getLevel());
     }
 
 }

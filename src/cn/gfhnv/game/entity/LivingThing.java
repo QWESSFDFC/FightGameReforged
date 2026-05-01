@@ -579,7 +579,7 @@ public class LivingThing extends Entity {
      * @param da    伤害事件
      * @return 修正后的新血量
      */
-    protected long applyDamageModifiers(long newHp, DamageEvent da) {
+    public long applyDamageModifiers(long newHp, DamageEvent da) {
         return newHp;
     }
 

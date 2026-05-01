@@ -9,7 +9,6 @@ public class DamageEvent extends Event {
     private final LivingThing attacker;
     private final LivingThing attackedEntity;
     private final Skill skill;
-
     public DamageEvent(LivingThing attacker, LivingThing attackedEntity, Skill skill) {
         this.attacker = attacker;
         this.attackedEntity = attackedEntity;
@@ -27,5 +26,10 @@ public class DamageEvent extends Event {
 
     public LivingThing getAttackedEntity() {
         return attackedEntity;
+    }
+
+
+    public Skill getSkill() {
+        return skill;
     }
 }

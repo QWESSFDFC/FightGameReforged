@@ -22,6 +22,8 @@ public CommonAttack(CommonAttack commonAttack){
         return new CommonAttack(this);
     }
 
+
+
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         user.addEffect(new DamageEnhanceEffect(1, 1));

@@ -1,7 +1,9 @@
 package cn.gfhnv.game.entity.skill;
 
 import cn.gfhnv.game.Thing;
+import cn.gfhnv.game.entity.Entity;
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.event.DamageEvent;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.mana.Mana;
@@ -190,6 +192,12 @@ public class Skill {
         }
         return false;
     }
+public long getAnticipatedDamage(LivingThing attackedEntity,LivingThing attacker) {
+    DamageEvent da=new DamageEvent(attacker,attackedEntity,this);
+    long newHp = attackedEntity.getHp() - da.getDamage().getDamageAmount();
+    newHp = attackedEntity.applyDamageModifiers(newHp, da) ;
+    return attackedEntity.getHp()-newHp;
+}
 
     public void comeToEffect(Fight fight, LivingThing user) {
     }
