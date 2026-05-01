@@ -77,7 +77,6 @@ public class LivingThing extends Entity {
         this.damageAbsorbedPercent = other.damageAbsorbedPercent;
         this.participateFight = null;
         this.presentTurn = null;
-        this.controller = new UniversalController(other.controller, this);
         if (other.getController() instanceof PlayerController) {
             this.controller = new PlayerController(other.controller.getSkills(),this);
         } else {
