@@ -1,7 +1,7 @@
 package cn.gfhnv.game.entityController;
 
 import cn.gfhnv.game.entity.LivingThing;
-import cn.gfhnv.game.entity.skill.Skill;
+import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.fight.Fight;
 
 import java.util.ArrayList;
@@ -10,14 +10,15 @@ import java.util.List;
 import java.util.Random;
 
 public class UniversalController {
-    private List<Skill> skills;
+    private List<Skill> skills = new ArrayList<>();
     private LivingThing owner;
 
     public UniversalController(UniversalController universalController, LivingThing owner) {
         this.owner = owner;
         for (Skill skill : universalController.skills) {
-            if (skills != null) {
+            if (universalController.skills != null) {
                 skills.add(skill.copy());
+
             }
         }
 
@@ -25,7 +26,7 @@ public class UniversalController {
 
     public UniversalController(List<Skill> skills, LivingThing owner) {
         this.owner = owner;
-       this.skills = skills;
+        this.skills = skills;
     }
 
     public List<Skill> getSkills() {
@@ -34,9 +35,7 @@ public class UniversalController {
 
     public void setSkills(List<Skill> skills) {
         for (Skill skill : skills) {
-            if (skills != null) {
-                skills.add(skill.copy());
-            }
+            skills.add(skill.copy());
         }
     }
 

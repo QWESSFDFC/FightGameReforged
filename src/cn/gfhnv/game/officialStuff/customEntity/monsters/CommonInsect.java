@@ -2,8 +2,8 @@ package cn.gfhnv.game.officialStuff.customEntity.monsters;
 
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entityController.UniversalController;
-import cn.gfhnv.game.entity.skill.Skill;
 import cn.gfhnv.game.officialStuff.customSkill.universalSkill.CommonAttack;
+import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
 
 import java.util.ArrayList;
@@ -18,7 +18,6 @@ public class CommonInsect extends LivingThing {
         skills.add(new CommonAttack(0, 0.3, 0, 1));
         this.setController(new UniversalController(skills, this));
     }
-
 
 
     @Override

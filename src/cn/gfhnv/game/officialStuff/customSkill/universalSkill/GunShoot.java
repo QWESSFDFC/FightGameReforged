@@ -1,8 +1,8 @@
 package cn.gfhnv.game.officialStuff.customSkill.universalSkill;
 
 import cn.gfhnv.game.entity.LivingThing;
-import cn.gfhnv.game.entity.skill.Skill;
 import cn.gfhnv.game.officialStuff.customEffect.universalEffects.DamageEnhanceEffect;
+import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.mana.Mana;
@@ -20,7 +20,7 @@ public class GunShoot extends Skill {
 
     @Override
     public Skill copy() {
-        return  new GunShoot();
+        return new GunShoot();
     }
 
     @Override

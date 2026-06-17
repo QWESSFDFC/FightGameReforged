@@ -1,10 +1,12 @@
 package cn.gfhnv.game.system.fight;
 
-import cn.gfhnv.game.Thing;
 import cn.gfhnv.game.annotation.SubscribeEvent;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.event.EventBus;
+import cn.gfhnv.game.item.Item;
 import cn.gfhnv.game.world.World;
+
+import java.util.List;
 
 public class FightEndEventListener {
     private FightTurnPastListener fightTurnPastListener;
@@ -28,9 +30,14 @@ public class FightEndEventListener {
         if (fightEndEvent.isPlayerWin()) {
             System.out.println();
             System.out.println("恭喜你在战斗中获得了胜利.如果战斗有奖励而且你背包空间够,你会获得奖励");
-            for (Thing thing : fightEndEvent.getFight().getFighterList()) {
-                if (thing instanceof LivingThing) {
-                    fightEndEvent.getFight().getRewardList().removeIf(item -> ((LivingThing) thing).getInventory().addItem(item));
+            List<LivingThing> fighters = fightEndEvent.getFight().getFighterList();
+            List<Item> rewards = fightEndEvent.getFight().getRewardList();
+
+            for (LivingThing living : fighters) {
+                if (living != null) {
+                    for (Item item : rewards) {
+                        living.getInventory().addItem(item.copy());
+                    }
                 }
             }
             if (!fightEndEvent.getFight().getRewardList().isEmpty()) {

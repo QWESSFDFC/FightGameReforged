@@ -2,9 +2,9 @@ package cn.gfhnv.game.officialStuff.customEntity.monsters;
 
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entityController.UniversalController;
-import cn.gfhnv.game.entity.skill.Skill;
 import cn.gfhnv.game.officialStuff.customSkill.insectBossSkills.InsectBossSkillSummonEnemy;
 import cn.gfhnv.game.officialStuff.customSkill.universalSkill.CommonAttack;
+import cn.gfhnv.game.skill.Skill;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -23,7 +23,6 @@ public class InsectBoss extends LivingThing {
         this.setMass(BigDecimal.valueOf(1250));
         this.getInventory().addSlot(63);
     }
-
 
 
     @Override

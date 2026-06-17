@@ -1,8 +1,8 @@
 package cn.gfhnv.game.officialStuff.customSkill.actorLiXiaoYanSkills;
 
 import cn.gfhnv.game.entity.LivingThing;
-import cn.gfhnv.game.entity.skill.Skill;
 import cn.gfhnv.game.officialStuff.customEntity.players.ActorLiXiaoYan;
+import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.mana.Mana;
@@ -20,6 +20,7 @@ public class PyrohemicPumping extends Skill {
 
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
+        boolean enhanced = false;
         if (user instanceof ActorLiXiaoYan) {
             ((ActorLiXiaoYan) user).setIgnition(((ActorLiXiaoYan) user).getIgnition() + 2);
         }
@@ -44,12 +45,16 @@ public class PyrohemicPumping extends Skill {
             if (user instanceof ActorLiXiaoYan) {
                 if (((ActorLiXiaoYan) user).getIgnition() >= 8)
                     setExtraDamage((long) (this.getExtraDamage() + user.getHpMax() * 0.05));
+                enhanced = true;
             }
             user.makeDamage(livingThing, this);
         }
         if (user instanceof ActorLiXiaoYan) {
             if (((ActorLiXiaoYan) user).getIgnition() < 8) return;
             ((ActorLiXiaoYan) user).setIgnition(((ActorLiXiaoYan) user).getIgnition() - 1);
+        }
+        if (enhanced) {
+            setExtraDamage((long) (this.getExtraDamage() - user.getHpMax() * 0.05));
         }
     }
 }

@@ -2,18 +2,24 @@ package cn.gfhnv.game.entityController;
 
 import cn.gfhnv.game.GameMain;
 import cn.gfhnv.game.entity.LivingThing;
-import cn.gfhnv.game.entity.Player;
-import cn.gfhnv.game.entity.skill.Skill;
+import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.fight.Fight;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class PlayerController extends UniversalController {
     public PlayerController(List<Skill> skills, LivingThing owner) {
         super(skills, owner);
     }
-    public PlayerController(PlayerController playerController,LivingThing owner) {super(playerController,owner);}
+
+    public PlayerController(PlayerController playerController, LivingThing owner) {
+        super(playerController, owner);
+    }
+
     @Override
     public void act(Fight fight) {
         String input;

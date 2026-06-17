@@ -3,10 +3,10 @@ package cn.gfhnv.game.officialStuff.customEntity.players;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entity.Player;
 import cn.gfhnv.game.entityController.PlayerController;
-import cn.gfhnv.game.entity.skill.Skill;
 import cn.gfhnv.game.officialStuff.customSkill.universalSkill.CommonAttack;
 import cn.gfhnv.game.officialStuff.customSkill.universalSkill.GunShoot;
 import cn.gfhnv.game.officialStuff.customSkill.universalSkill.RestorationHealthSkill;
+import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
 
 import java.math.BigDecimal;
@@ -25,7 +25,6 @@ public class PlayerOne extends Player {
         skills.add(new CommonAttack(0, 1, 0, 1));
         this.setController(new PlayerController(skills, this));
     }
-
 
 
     @Override

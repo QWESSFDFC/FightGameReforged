@@ -2,13 +2,14 @@ package cn.gfhnv.game.event;
 
 import cn.gfhnv.game.damage.Damage;
 import cn.gfhnv.game.entity.LivingThing;
-import cn.gfhnv.game.entity.skill.Skill;
+import cn.gfhnv.game.skill.Skill;
 
 public class DamageEvent extends Event {
     private final Damage damage;
     private final LivingThing attacker;
     private final LivingThing attackedEntity;
     private final Skill skill;
+
     public DamageEvent(LivingThing attacker, LivingThing attackedEntity, Skill skill) {
         this.attacker = attacker;
         this.attackedEntity = attackedEntity;

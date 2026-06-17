@@ -25,6 +25,10 @@ public class Effect {
         this.id = id;
     }
 
+    public Effect copy() {
+        return new Effect(this);
+    }
+
     @Override
     public String toString() {
         return "Effect{" +

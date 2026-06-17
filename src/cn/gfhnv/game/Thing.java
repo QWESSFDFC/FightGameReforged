@@ -19,12 +19,8 @@ public class Thing {
     private Velocity velocity = new Velocity(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
     private Acceleration acceleration = new Acceleration(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
     private Position position = new Position(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
-   private List<Tag> tags = new ArrayList<>();
-   public Thing facSetTag(Tag tag) {
-       if (this.tags.contains(tag)) {return this;}
-       this.tags.add(tag);
-       return this;
-   }
+    private List<Tag> tags = new ArrayList<>();
+
     public Thing(BigDecimal mass) {
         this.mass = mass;
         this.uuid = UUID.randomUUID().toString();
@@ -32,6 +28,14 @@ public class Thing {
 
     public Thing() {
         this.uuid = UUID.randomUUID().toString();
+    }
+
+    public Thing facSetTag(Tag tag) {
+        if (this.tags.contains(tag)) {
+            return this;
+        }
+        this.tags.add(tag);
+        return this;
     }
 
     public String getUUID() {

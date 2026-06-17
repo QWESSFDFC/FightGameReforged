@@ -3,11 +3,11 @@ package cn.gfhnv.game.entity;
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entityController.PlayerController;
 import cn.gfhnv.game.entityController.UniversalController;
-import cn.gfhnv.game.entity.skill.Skill;
 import cn.gfhnv.game.event.DamageEvent;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.event.HpLossEvent;
 import cn.gfhnv.game.event.HpRestorationEvent;
+import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.fight.TurnEntry;
@@ -78,7 +78,7 @@ public class LivingThing extends Entity {
         this.participateFight = null;
         this.presentTurn = null;
         if (other.getController() instanceof PlayerController) {
-            this.controller = new PlayerController(other.controller.getSkills(),this);
+            this.controller = new PlayerController(other.controller.getSkills(), this);
         } else {
             this.controller = new UniversalController(other.controller, this);
         }
@@ -469,20 +469,19 @@ public class LivingThing extends Entity {
     }
 
     public void addEffect(Effect effect) {
+        for (int i = 0; i < entityEffectList.size(); i++) {
+            Effect existing = entityEffectList.get(i);
+            if (existing.equals(effect)) {
+                if (existing.getLevel() >= effect.getLevel()) {
+                    existing.setLastTime(existing.getLastTime() + effect.getLastTime());
+                } else {
 
-        if (this.getEntityEffectList().contains(effect)) {
-            for (Effect e : this.entityEffectList) {
-                if (e.equals(effect)) {
-                    if (e.getLevel() >= effect.getLevel()) {
-                        e.setLastTime(effect.getLastTime() + e.getLevel());
-                        return;
-                    }
-                    this.entityEffectList.remove(e);
-                    this.entityEffectList.add(effect);
+                    entityEffectList.set(i, effect);
                 }
+                return;
             }
         }
-        this.entityEffectList.add(effect);
+        entityEffectList.add(effect);
     }
 
     public void removeEffect(Effect ef) {
@@ -567,6 +566,7 @@ public class LivingThing extends Entity {
         setPresentTurn(null);
         setHp((long) getHpMax());
         for (Effect effect : getEntityEffectList()) effect.whenLastTimeEnd(this);
+        this.setEntityEffectList(new ArrayList<>());
         for (Skill skill : getController().getSkills()) skill.setNowCoolDown(0);
         for (Mana mana : getManas()) mana.setAmount(mana.getAmountMax());
     }

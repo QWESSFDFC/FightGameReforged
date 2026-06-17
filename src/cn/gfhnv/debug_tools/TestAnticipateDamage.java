@@ -1,9 +1,9 @@
 package cn.gfhnv.debug_tools;
 
 import cn.gfhnv.game.entity.LivingThing;
-import cn.gfhnv.game.entity.skill.Skill;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.CommonInsect;
 import cn.gfhnv.game.officialStuff.customEntity.players.ActorLiXiaoYan;
+import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.fight.Fight;
 
 import java.util.ArrayList;
@@ -17,7 +17,7 @@ public class TestAnticipateDamage {
             LivingThing monster = new CommonInsect(100L);//这是等级
             monster.setHpMax(2155555);
             monster.setHp(2155555);
-            System.out.println(monster.getHp()+"/"+monster.getHpMax());
+            System.out.println(monster.getHp() + "/" + monster.getHpMax());
             List<LivingThing> players = new ArrayList<>();
             players.add(player);
             List<LivingThing> monsters = new ArrayList<>();

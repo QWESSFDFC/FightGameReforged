@@ -5,7 +5,8 @@ import java.util.Objects;
 public class Tag {
     private final TagTypes tagType;
     private final double priority;
-    private Tag(double priority,TagTypes tagType) {
+
+    private Tag(double priority, TagTypes tagType) {
         this.priority = priority;
         this.tagType = tagType;
     }

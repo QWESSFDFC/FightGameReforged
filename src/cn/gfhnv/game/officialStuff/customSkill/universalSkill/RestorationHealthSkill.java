@@ -1,7 +1,7 @@
 package cn.gfhnv.game.officialStuff.customSkill.universalSkill;
 
 import cn.gfhnv.game.entity.LivingThing;
-import cn.gfhnv.game.entity.skill.Skill;
+import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.mana.Mana;
 
@@ -16,14 +16,16 @@ public class RestorationHealthSkill extends Skill {
         this.setForEnemies(false);
         this.setCoolDown(1);
     }
+
     public RestorationHealthSkill(RestorationHealthSkill restorationHealthSkill) {
         super(restorationHealthSkill);
     }
 
     @Override
     public Skill copy() {
-        return  new RestorationHealthSkill(this);
+        return new RestorationHealthSkill(this);
     }
+
     @Override
     public boolean canUse(Fight fight, LivingThing user, List<LivingThing> enemies) {
         for (Mana mana : user.getManas()) {

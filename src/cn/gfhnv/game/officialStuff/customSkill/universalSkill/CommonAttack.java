@@ -1,8 +1,8 @@
 package cn.gfhnv.game.officialStuff.customSkill.universalSkill;
 
 import cn.gfhnv.game.entity.LivingThing;
-import cn.gfhnv.game.entity.skill.Skill;
 import cn.gfhnv.game.officialStuff.customEffect.universalEffects.DamageEnhanceEffect;
+import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.fight.Fight;
 
 import java.util.List;
@@ -13,15 +13,14 @@ public class CommonAttack extends Skill {
         this.setCoolDown(0);
     }
 
-public CommonAttack(CommonAttack commonAttack){
+    public CommonAttack(CommonAttack commonAttack) {
         super(commonAttack);
-}
+    }
 
     @Override
     public Skill copy() {
         return new CommonAttack(this);
     }
-
 
 
     @Override

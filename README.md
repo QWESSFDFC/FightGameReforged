@@ -4,6 +4,7 @@
 使用方法:直接运行.jar文件.可以自己编译或者下载Release中编译好的.但是Release中版本可能落后一点.
 
 下面是使用AI写的README.md
+
 # FightGameReforged
 
 一个由高中生从零编写的**命令行回合制文字战斗游戏**，纯 Java 实现，基于事件驱动架构，并支持模组加载。
@@ -55,19 +56,25 @@ Below is a README.md written by AI
 
 # FightGameReforged
 
-A **command-line turn-based text battle game** built from scratch by a high school student. Written in pure Java, featuring an event-driven architecture and built-in mod support.
+A **command-line turn-based text battle game** built from scratch by a high school student. Written in pure Java,
+featuring an event-driven architecture and built-in mod support.
 
 ## ✨ Key Features
 
-- **Classic Turn-Based Combat**: Assemble your party, choose enemies and rewards, and manually control each character's skills in tactical battles.
-- **Five-Element System**: Inspired by *Wu Xing*, the game implements elemental resistances and damage bonuses across Metal, Wood, Water, Fire, and Earth.
-- **Event-Driven Architecture**: A custom `EventBus` with `@SubscribeEvent` annotations decouples game logic and simplifies future expansion.
-- **Mod System**: Automatically scans and loads external mods, including on-the-fly compilation of `.java` source files—perfect for adding new creatures, skills, or items.
+- **Classic Turn-Based Combat**: Assemble your party, choose enemies and rewards, and manually control each character's
+  skills in tactical battles.
+- **Five-Element System**: Inspired by *Wu Xing*, the game implements elemental resistances and damage bonuses across
+  Metal, Wood, Water, Fire, and Earth.
+- **Event-Driven Architecture**: A custom `EventBus` with `@SubscribeEvent` annotations decouples game logic and
+  simplifies future expansion.
+- **Mod System**: Automatically scans and loads external mods, including on-the-fly compilation of `.java` source
+  files—perfect for adding new creatures, skills, or items.
 - **MIT Licensed**: Fully open-source. Use, modify, and distribute the code freely.
 
 ## 🚧 Current Status
 
-The project is in **early development**. Core features like the full combat loop and reward system are still being implemented. However, it already serves as a cleanly architected, runnable tech demo that continues to evolve.
+The project is in **early development**. Core features like the full combat loop and reward system are still being
+implemented. However, it already serves as a cleanly architected, runnable tech demo that continues to evolve.
 
 ## 🛠️ Tech Stack
 
@@ -77,16 +84,18 @@ The project is in **early development**. Core features like the full combat loop
 
 ## 🎮 Quick Start
 
-1. Clone the repository  
-2. Open the project in IntelliJ IDEA  
-3. Run the main class `cn.gfhnv.game.GameMain`  
-4. Follow the on-screen prompts to play  
+1. Clone the repository
+2. Open the project in IntelliJ IDEA
+3. Run the main class `cn.gfhnv.game.GameMain`
+4. Follow the on-screen prompts to play
 
-> **Note**: An example mod (`exampleModByGFHNV`) is included under the `mods/` directory—use it as a reference for creating your own content.
+> **Note**: An example mod (`exampleModByGFHNV`) is included under the `mods/` directory—use it as a reference for
+> creating your own content.
 
 ## 🤝 Contributing
 
-Issues and pull requests are warmly welcomed. Feedback, suggestions, or code contributions of any size help move this project forward.
+Issues and pull requests are warmly welcomed. Feedback, suggestions, or code contributions of any size help move this
+project forward.
 
 ---
 **Author**: A high school student passionate about programming and game development

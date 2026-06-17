@@ -2,10 +2,10 @@ package cn.gfhnv.game.system.fight;
 
 import cn.gfhnv.game.annotation.SubscribeEvent;
 import cn.gfhnv.game.entity.LivingThing;
-import cn.gfhnv.game.entity.skill.Skill;
 import cn.gfhnv.game.event.EffectUpdateEvent;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.event.FightPastOneTurnEvent;
+import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.world.World;
 
 public class FightTurnPastListener {
@@ -37,10 +37,13 @@ public class FightTurnPastListener {
                 entity.updateSelf();
             }
         }
+        for (Skill skill : presentTurn.getLivingThing().getController().getSkills()) {
+            skill.setNowCoolDown(Math.max(0, skill.getNowCoolDown() - 1));
+        }
+        presentTurn.getLivingThing().recoverManaEveryTurn();
         System.out.println();
         World.turnTimer++;
         System.out.println("现在是" + presentTurn.getLivingThing().getName() + "的回合");
-        presentTurn.getLivingThing().recoverManaEveryTurn();
         System.out.println("状态:HP:" + presentTurn.getLivingThing().getHp() + "/" + presentTurn.getLivingThing().getHpMax());
         System.out.println("能量");
         System.out.println("金" + presentTurn.getLivingThing().getMetalMana().getAmount() + "/" + presentTurn.getLivingThing().getMetalMana().getAmountMax());
@@ -50,9 +53,6 @@ public class FightTurnPastListener {
         System.out.println("土" + presentTurn.getLivingThing().getDirtMana().getAmount() + "/" + presentTurn.getLivingThing().getDirtMana().getAmountMax());
         presentTurn.getLivingThing().getController().act(fightPastOneTurnEvent.getFight());
         presentTurn.getLivingThing().onActionTaken();
-        for (Skill skill : presentTurn.getLivingThing().getController().getSkills()) {
-            skill.setNowCoolDown(Math.max(0, skill.getNowCoolDown() - 1));
-        }
         Thread.sleep(100);
         EventBus.post(new EffectUpdateEvent(presentTurn.livingThing));
         TurnManager.nextTurn(fightPastOneTurnEvent.getFight());

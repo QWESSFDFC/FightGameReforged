@@ -2,7 +2,7 @@ package cn.gfhnv.game.damage;
 
 import cn.gfhnv.game.entity.Entity;
 import cn.gfhnv.game.entity.LivingThing;
-import cn.gfhnv.game.entity.skill.Skill;
+import cn.gfhnv.game.skill.Skill;
 
 public class Damage {
     private LivingThing attacker;

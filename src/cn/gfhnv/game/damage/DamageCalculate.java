@@ -1,7 +1,7 @@
 package cn.gfhnv.game.damage;
 
 import cn.gfhnv.game.entity.LivingThing;
-import cn.gfhnv.game.entity.skill.Skill;
+import cn.gfhnv.game.skill.Skill;
 
 public class DamageCalculate {
     public static long calculate(LivingThing attacker, LivingThing attackEntity, Skill skill) {
@@ -26,7 +26,6 @@ public class DamageCalculate {
         double criticalRATE = -1;
         long extraDamage = skill.getExtraDamage();
         long attackerExtraDamage = attacker.getExtraDamage();
-        skill.setExtraDamage(0);
         cn.gfhnv.game.system.ElementSort yuanshu = attacker.getElementSort();
         double dfk2 = attackEntity.getDfk();
         double dfkloss = attackEntity.getDefenseLoss();

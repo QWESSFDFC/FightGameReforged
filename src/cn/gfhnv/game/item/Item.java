@@ -1,11 +1,8 @@
 package cn.gfhnv.game.item;
 
 import cn.gfhnv.game.Thing;
-import cn.gfhnv.game.system.thinkingSystem.Tag;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
 
 public class Item extends Thing {
     private String name;
@@ -34,6 +31,9 @@ public class Item extends Thing {
 
     }
 
+    public Item copy() {
+        return new Item(this);
+    }
 
     public Item facSetName(String name) {
         this.setName(name);

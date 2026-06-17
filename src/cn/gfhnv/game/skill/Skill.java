@@ -1,7 +1,5 @@
-package cn.gfhnv.game.entity.skill;
+package cn.gfhnv.game.skill;
 
-import cn.gfhnv.game.Thing;
-import cn.gfhnv.game.entity.Entity;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.event.DamageEvent;
 import cn.gfhnv.game.system.ElementSort;
@@ -25,11 +23,7 @@ public class Skill {
     private Mana consumedMana;
     private long extraDamage = 0;//多倍率时把其他倍率计算的结果加到这里.伤害计算后重置为零
     private List<Tag> tags = new ArrayList<>();
-    public Skill facSetTag(Tag tag) {
-        if (this.tags.contains(tag)) {return this;}
-        this.tags.add(tag);
-        return this;
-    }
+
     public Skill(Skill skill) {
         this.name = skill.getName();
         this.description = skill.getDescription();
@@ -37,10 +31,14 @@ public class Skill {
         this.atkMagnification = skill.getAtkMagnification();
         this.defMagnification = skill.getDefMagnification();
         this.aims = skill.getAims();
+        this.coolDown = skill.getCoolDown();
+        this.nowCoolDown = skill.getNowCoolDown();
+        this.isForEnemies = skill.isForEnemies();
+        this.consumedMana = skill.consumedMana;
+        this.extraDamage = skill.getExtraDamage();
+        this.tags = skill.getTags();
     }
-    public Skill copy(){
-        return new Skill(this);
-    }
+
     public Skill(String name, String description, double hpMagnification, double atkMagnification, double defMagnification, int aims) {
         this.name = name;
         this.description = description;
@@ -48,6 +46,22 @@ public class Skill {
         this.atkMagnification = atkMagnification;
         this.defMagnification = defMagnification;
         this.aims = aims;
+    }
+
+    public Skill facSetTag(Tag tag) {
+        if (this.tags.contains(tag)) {
+            return this;
+        }
+        this.tags.add(tag);
+        return this;
+    }
+
+    public List<Tag> getTags() {
+        return tags;
+    }
+
+    public Skill copy() {
+        return new Skill(this);
     }
 
     public boolean isForEnemies() {
@@ -140,7 +154,6 @@ public class Skill {
     public boolean use(Fight fight, LivingThing user, List<LivingThing> enemies) {
         if (this.canUse(fight, user, enemies)) {
             this.comeToEffect(fight, user, enemies);
-            this.setNowCoolDown(this.getCoolDown() + 1);
             for (Mana mana : user.getManas()) {
                 if (this.getConsumedMana() == null) {
                     break;
@@ -160,6 +173,7 @@ public class Skill {
                     break;
                 }
             }
+            this.setNowCoolDown(this.getCoolDown() + 1);
             return true;
         }
         return false;
@@ -168,7 +182,7 @@ public class Skill {
     public boolean use(Fight fight, LivingThing user) {
         if (this.canUse(fight, user)) {
             this.comeToEffect(fight, user);
-            this.setNowCoolDown(this.getCoolDown() + 1);
+
             for (Mana mana : user.getManas()) {
                 if (this.getConsumedMana() == null) {
                     break;
@@ -188,16 +202,18 @@ public class Skill {
                     break;
                 }
             }
+            this.setNowCoolDown(this.getCoolDown());
             return true;
         }
         return false;
     }
-public long getAnticipatedDamage(LivingThing attackedEntity,LivingThing attacker) {
-    DamageEvent da=new DamageEvent(attacker,attackedEntity,this);
-    long newHp = attackedEntity.getHp() - da.getDamage().getDamageAmount();
-    newHp = attackedEntity.applyDamageModifiers(newHp, da) ;
-    return attackedEntity.getHp()-newHp;
-}
+
+    public long getAnticipatedDamage(LivingThing attackedEntity, LivingThing attacker) {
+        DamageEvent da = new DamageEvent(attacker, attackedEntity, this);
+        long newHp = attackedEntity.getHp() - da.getDamage().getDamageAmount();
+        newHp = attackedEntity.applyDamageModifiers(newHp, da);
+        return attackedEntity.getHp() - newHp;
+    }
 
     public void comeToEffect(Fight fight, LivingThing user) {
     }
