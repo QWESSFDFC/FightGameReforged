@@ -14,6 +14,9 @@ public class TestAnticipateDamage {
         for (Skill skill : new ActorLiXiaoYan(100).getController().getSkills()) {
             System.out.println("技能：" + skill.getName());
             LivingThing player = new ActorLiXiaoYan(100);//这是等级
+            if (player instanceof ActorLiXiaoYan) {
+                ((ActorLiXiaoYan) player).setIgnition(100);
+            }
             LivingThing monster = new CommonInsect(100L);//这是等级
             monster.setHpMax(2155555);
             monster.setHp(2155555);

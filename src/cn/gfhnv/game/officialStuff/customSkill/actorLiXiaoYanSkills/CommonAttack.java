@@ -22,7 +22,7 @@ public class CommonAttack extends cn.gfhnv.game.officialStuff.customSkill.univer
         boolean enhanced = false;
         if (user instanceof ActorLiXiaoYan) {
             if (((ActorLiXiaoYan) user).getIgnition() >= 8)
-                setExtraDamage((long) (this.getExtraDamage() + user.getHpMax() * 0.05));
+                setExtraDamage((long) (this.getExtraDamage() + user.getHpMax() * 0.5));
             enhanced = true;
         }
         super.comeToEffect(fight, user, enemies);
@@ -36,7 +36,7 @@ public class CommonAttack extends cn.gfhnv.game.officialStuff.customSkill.univer
             ((ActorLiXiaoYan) user).setIgnition(((ActorLiXiaoYan) user).getIgnition() - 1);
         }
         if (enhanced) {
-            setExtraDamage((long) (this.getExtraDamage() - user.getHpMax() * 0.05));
+            setExtraDamage((long) (this.getExtraDamage() - user.getHpMax() * 0.5));
         }
     }
 }

@@ -30,21 +30,11 @@ public class PyrohemicPumping extends Skill {
         if (user.getHp() - user.getHp() * 0.2 > 1 && user.getHp() != 1) {
             user.setHp((long) (user.getHp() - user.getHp() * 0.2));
         }
-        if (fight.getEnemiesList().contains(user)) {
-            Random rand = new Random();
-            enemies.add(fight.getFighterList().get(rand.nextInt(fight.getEnemiesList().size())));
-            enemies.add(fight.getFighterList().get(rand.nextInt(fight.getEnemiesList().size())));
-        }
-        if (fight.getFighterList().contains(user)) {
-            Random rand = new Random();
-            enemies.add(fight.getEnemiesList().get(rand.nextInt(fight.getEnemiesList().size())));
-            enemies.add(fight.getEnemiesList().get(rand.nextInt(fight.getEnemiesList().size())));
-        }
         for (LivingThing livingThing : enemies) {
             System.out.print(user.getName() + "攻击了" + livingThing.getName());
             if (user instanceof ActorLiXiaoYan) {
                 if (((ActorLiXiaoYan) user).getIgnition() >= 8)
-                    setExtraDamage((long) (this.getExtraDamage() + user.getHpMax() * 0.05));
+                    setExtraDamage((long) (this.getExtraDamage() + user.getHpMax() * 0.5));
                 enhanced = true;
             }
             user.makeDamage(livingThing, this);
@@ -54,7 +44,7 @@ public class PyrohemicPumping extends Skill {
             ((ActorLiXiaoYan) user).setIgnition(((ActorLiXiaoYan) user).getIgnition() - 1);
         }
         if (enhanced) {
-            setExtraDamage((long) (this.getExtraDamage() - user.getHpMax() * 0.05));
+            setExtraDamage((long) (this.getExtraDamage() - user.getHpMax() * 0.5));
         }
     }
 }
