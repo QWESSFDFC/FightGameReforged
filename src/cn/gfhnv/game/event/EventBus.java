@@ -1,7 +1,6 @@
 package cn.gfhnv.game.event;
 
 import cn.gfhnv.game.annotation.SubscribeEvent;
-import cn.gfhnv.game.system.logSystem.LogWriter;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
@@ -41,14 +40,13 @@ public class EventBus {
 
     public static void post(Event event) {
         Class<?> eventType = event.getClass();
-        LogWriter.writeLog("EventBus.postEvent:" + event.toString());
         List<EventHandler> eventHandlers = handlers.get(eventType);
-        LogWriter.writeLog("handlers:" + handlers.toString());
+
         if (eventHandlers != null) {
             List<EventHandler> copy = new ArrayList<>(eventHandlers);
             for (EventHandler handler : copy) {
                 handler.accept(event);
-                LogWriter.writeLog(handler.toString() + "accepted" + event.toString());
+
             }
         }
     }

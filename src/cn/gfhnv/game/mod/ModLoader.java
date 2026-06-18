@@ -1,6 +1,5 @@
 package cn.gfhnv.game.mod;
 
-import cn.gfhnv.game.system.logSystem.LogWriter;
 import cn.gfhnv.game.utils.JSONHelper;
 import cn.gfhnv.game.world.World;
 import org.json.JSONObject;
@@ -18,17 +17,17 @@ import java.util.List;
 public class ModLoader {
     public static void modLoaderInitialize() {
         System.out.println("正在初始化模组加载器...");
-        LogWriter.writeLog("\"正在初始化模组加载器...\"");
+
         File modDir = new File("./mods");
         if (!modDir.exists()) {
             boolean s = modDir.mkdir();
             System.out.println("mods目录创建: " + (s ? "成功" : "失败"));
-            LogWriter.writeLog("mods目录创建: " + (s ? "成功" : "失败"));
+
         }
         File[] modFiles = modDir.listFiles();
         if (modFiles == null) {
             System.out.println("mods目录为空或无法访问");
-            LogWriter.writeLog("mods目录为空或无法访问");
+
             return;
         }
         for (File modFile : modFiles) {
@@ -37,11 +36,11 @@ public class ModLoader {
                     loadFolderModItself(modFile);
                 } else {
                     System.out.println("跳过不支持的文件: " + modFile.getName());
-                    LogWriter.writeLog("跳过不支持的文件: " + modFile.getName());
+
                 }
             } catch (Exception e) {
                 System.err.println("加载模组失败 [" + modFile.getName() + "]: " + e.getMessage());
-                LogWriter.writeLog("加载模组失败 [" + modFile.getName() + "]: " + e.getMessage());
+
                 e.printStackTrace();
             }
         }
@@ -53,7 +52,7 @@ public class ModLoader {
         File mainJsonFile = new File(modFolder, "main.json");
         if (!mainJsonFile.exists() || !mainJsonFile.isFile()) {
             System.err.println("模组 [" + modFolder.getName() + "] 缺少 main.json，跳过");
-            LogWriter.writeLog("模组 [" + modFolder.getName() + "] 缺少 main.json，跳过");
+
             return;
         }
         try {
@@ -67,13 +66,13 @@ public class ModLoader {
             );
         } catch (Exception e) {
             System.err.println("模组 [" + modFolder.getName() + "] main.json 解析失败: " + e.getMessage());
-            LogWriter.writeLog("模组 [" + modFolder.getName() + "] main.json 解析失败: " + e.getMessage());
+
             return;
         }
         File codeDir = new File(modFolder, "code");
         if (!codeDir.exists() || !codeDir.isDirectory()) {
             System.err.println("模组 [" + modFolder.getName() + "] 缺少 code 目录，跳过");
-            LogWriter.writeLog("模组 [" + modFolder.getName() + "] 缺少 code 目录，跳过");
+
             return;
         }
         List<JavaFileObject> sourceFiles = new ArrayList<>();
@@ -81,7 +80,7 @@ public class ModLoader {
 
         if (sourceFiles.isEmpty()) {
             System.err.println("模组 [" + modFolder.getName() + "] code 目录下没有 .java 文件，跳过");
-            LogWriter.writeLog("模组 [" + modFolder.getName() + "] code 目录下没有 .java 文件，跳过");
+
             return;
         }
         File outputDir = new File(modFolder, "bin");
@@ -90,13 +89,13 @@ public class ModLoader {
         }
         if (!outputDir.mkdirs()) {
             System.err.println("模组 [" + modFolder.getName() + "] 无法创建 bin 目录");
-            LogWriter.writeLog("模组 [" + modFolder.getName() + "] 无法创建 bin 目录");
+
             return;
         }
         boolean compileSuccess = compileJavaFiles(sourceFiles, outputDir);
         if (!compileSuccess) {
             System.err.println("模组 [" + modFolder.getName() + "] 编译失败，跳过加载");
-            LogWriter.writeLog("模组 [" + modFolder.getName() + "] 编译失败，跳过加载");
+
             return;
         }
         try (URLClassLoader classLoader = URLClassLoader.newInstance(
@@ -109,14 +108,14 @@ public class ModLoader {
             if (instance instanceof Mod modInstance) {
                 World.addMod(modInstance);
                 System.out.println("模组 [" + modInfo.getName() + "] 加载成功！");
-                LogWriter.writeLog("模组 [" + modInfo.getName() + "] 加载成功！");
+
             } else {
                 System.err.println("模组主类未继承 Mod: " + modInfo.getMainClass());
-                LogWriter.writeLog("模组主类未继承 Mod: " + modInfo.getMainClass());
+
             }
         } catch (Exception e) {
             System.err.println("模组 [" + modFolder.getName() + "] 实例化主类失败: " + e.getMessage());
-            LogWriter.writeLog("模组 [" + modFolder.getName() + "] 实例化主类失败: " + e.getMessage());
+
             e.printStackTrace();
         }
     }
@@ -137,7 +136,7 @@ public class ModLoader {
                     sources.add(new JavaSourceCode(className, content));
                 } catch (IOException e) {
                     System.err.println("读取源文件失败: " + file.getAbsolutePath());
-                    LogWriter.writeLog("读取源文件失败: " + file.getAbsolutePath());
+
                     e.printStackTrace();
                 }
             }
@@ -148,7 +147,7 @@ public class ModLoader {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         if (compiler == null) {
             System.err.println("无法获取 Java 编译器，请确保在 JDK 环境下运行");
-            LogWriter.writeLog("无法获取 Java 编译器，请确保在 JDK 环境下运行");
+
             return false;
         }
         DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
@@ -174,7 +173,7 @@ public class ModLoader {
         }
         if (!success) {
             System.err.println("编译错误：");
-            LogWriter.writeLog("编译错误：");
+
 
             for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
                 System.err.format("  行 %d, %s: %s%n",

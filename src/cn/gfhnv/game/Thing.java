@@ -5,21 +5,20 @@ import cn.gfhnv.game.system.physics.type.Force;
 import cn.gfhnv.game.system.physics.type.Position;
 import cn.gfhnv.game.system.physics.type.Velocity;
 import cn.gfhnv.game.system.thinkingSystem.Tag;
+import cn.gfhnv.game.system.thinkingSystem.TagType;
+
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 
 public class Thing {
+    private Map<TagType, Tag> tags=new EnumMap<>(TagType.class);
     private final String uuid;
     private BigDecimal mass = new BigDecimal(1);
     private Force force = new Force(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
     private Velocity velocity = new Velocity(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
     private Acceleration acceleration = new Acceleration(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
     private Position position = new Position(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
-    private List<Tag> tags = new ArrayList<>();
 
     public Thing(BigDecimal mass) {
         this.mass = mass;
@@ -30,13 +29,7 @@ public class Thing {
         this.uuid = UUID.randomUUID().toString();
     }
 
-    public Thing facSetTag(Tag tag) {
-        if (this.tags.contains(tag)) {
-            return this;
-        }
-        this.tags.add(tag);
-        return this;
-    }
+
 
     public String getUUID() {
         return uuid;
@@ -131,5 +124,9 @@ public class Thing {
 
     public void setPosition(Position position) {
         this.position = position;
+    }
+
+    public Map<TagType, Tag> getTags() {
+        return tags;
     }
 }

@@ -6,9 +6,13 @@ import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.mana.Mana;
 import cn.gfhnv.game.system.thinkingSystem.Tag;
+import cn.gfhnv.game.system.thinkingSystem.TagType;
+
 
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 
 public class Skill {
     private String name;
@@ -22,7 +26,7 @@ public class Skill {
     private boolean isForEnemies = true;
     private Mana consumedMana;
     private long extraDamage = 0;//多倍率时把其他倍率计算的结果加到这里.伤害计算后重置为零
-    private List<Tag> tags = new ArrayList<>();
+    private Map<TagType, Tag> tags=new EnumMap<>(TagType.class);
 
     public Skill(Skill skill) {
         this.name = skill.getName();
@@ -36,7 +40,7 @@ public class Skill {
         this.isForEnemies = skill.isForEnemies();
         this.consumedMana = skill.consumedMana;
         this.extraDamage = skill.getExtraDamage();
-        this.tags = skill.getTags();
+
     }
 
     public Skill(String name, String description, double hpMagnification, double atkMagnification, double defMagnification, int aims) {
@@ -48,17 +52,6 @@ public class Skill {
         this.aims = aims;
     }
 
-    public Skill facSetTag(Tag tag) {
-        if (this.tags.contains(tag)) {
-            return this;
-        }
-        this.tags.add(tag);
-        return this;
-    }
-
-    public List<Tag> getTags() {
-        return tags;
-    }
 
     public Skill copy() {
         return new Skill(this);
@@ -276,5 +269,9 @@ public class Skill {
 
     public void setExtraDamage(long extraDamage) {
         this.extraDamage = extraDamage;
+    }
+
+    public Map<TagType, Tag> getTags() {
+        return tags;
     }
 }
