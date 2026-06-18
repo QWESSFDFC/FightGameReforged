@@ -3,6 +3,10 @@
 
 使用方法:直接运行.jar文件.可以自己编译或者下载Release中编译好的.但是Release中版本可能落后一点.
 
+
+
+
+
 下面是使用AI写的README.md
 
 
@@ -69,6 +73,9 @@ FightGameReforged
 📁 项目包含2个示例模组 exampleModByGFHNV和abstractLaunchingWords,位于 mods/ 目录下，可作为模组开发参考。
 
 ---
+![运行示意图](./screenshots/图1.PNG)
+![运行示意图](./screenshots/图2.PNG)
+![运行示意图](./screenshots/图3.PNG)
 
 📁 项目结构
 
@@ -197,6 +204,9 @@ Option 2: Compile and run from source
 📁 The project includes two example mods, exampleModByGFHNV and abstractLaunchingWords, located in the mods/ directory, which can serve as references for mod development.
 
 ---
+![运行示意图](./screenshots/图1.PNG)
+![运行示意图](./screenshots/图2.PNG)
+![运行示意图](./screenshots/图3.PNG)
 
 📁 Project Structure
 
