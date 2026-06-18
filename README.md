@@ -74,8 +74,7 @@ FightGameReforged
 
 ---
 ![运行示意图](./screenshots/图1.PNG)
-![运行示意图](./screenshots/图2.PNG)
-![运行示意图](./screenshots/图3.PNG)
+
 
 📁 项目结构
 
@@ -205,8 +204,7 @@ Option 2: Compile and run from source
 
 ---
 ![运行示意图](./screenshots/图1.PNG)
-![运行示意图](./screenshots/图2.PNG)
-![运行示意图](./screenshots/图3.PNG)
+
 
 📁 Project Structure
 
