@@ -158,7 +158,7 @@ The author is a high school student passionate about programming and game develo
 · Five‑element system: incorporates Metal, Wood, Water, Fire, and Earth elements, with corresponding resistance and damage bonus mechanics.
 · Event‑driven architecture: decouples game logic via a custom EventBus and @SubscribeEvent annotations, enhancing extensibility.
 · Built‑in mod system: automatically scans and loads external mods, supports dynamic compilation of .java source files, facilitating the addition of new creatures, skills, and items.
-· Utility AI controller: non‑player characters make decisions based on a Tag weight system — each entity has its own Tag weights (reflecting personality), combined with real‑time context (HP, etc.) to compute action scores and select the optimal behaviour.
+· Utility AI controller: non‑player characters make decisions based on a Tag weight system — each entity has its own Tag weights (reflecting personality), combined with real‑time context (HP, etc.) to compute action scores and select the optimal behavior.
 · MIT open‑source license: code is fully open, free to use, modify, and distribute.
 
 ---
@@ -223,11 +223,11 @@ There may be additional folders not listed here.
 
 🧠 About the AI Decision System (ThinkingController)
 
-The behaviour of non‑player entities is controlled by ThinkingController, whose core mechanism is based on Utility AI:
+The behavior of non‑player entities is controlled by ThinkingController, whose core mechanism is based on Utility AI:
 
 · Each entity has its own Tag weight table (e.g., attack, defend, heal, restore mana, amplify damage, etc.), reflecting its personality.
 · Each turn, the controller reads the entity's current Tag weights and combines them with real‑time situational factors (HP percentage, mana, enemy distance, element counter, etc.) to compute a final score for every possible action.
-· The system automatically selects the action with the highest score, enabling intelligent and varied NPC behaviour.
+· The system automatically selects the action with the highest score, enabling intelligent and varied NPC behavior.
 
 Advantages of this design:
 
