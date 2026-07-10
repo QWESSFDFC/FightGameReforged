@@ -129,7 +129,7 @@ FightGameReforged/
 作者：一名热爱编程与游戏开发的高中生 | 项目始于 2025 年 9 月 1 日
 
 
-
+English
 This is a game written in Java. For now, it's text‑only, and I guess it's mostly playable? Use and modify the code however you like. I'm a high school student, so I don't have much time. I update it occasionally. I wrote this project just for fun, and uploading it to GitHub was purely because I had nothing better to do. It doesn't use any Java game engine — I just write my own stuff for my own amusement.
 
 **Pull Requests are not accepted at this time.** If you have ideas for improvement, please fork the repository and modify it for your own use. I just want to write a little something and enjoy myself.
