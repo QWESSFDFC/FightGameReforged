@@ -9,8 +9,8 @@ public class mainClass extends cn.gfhnv.game.mod.Mod {
 
     @Override
     public void invokeWhenLoaded() {
-      System.out.println("原神牛逼！");  
-      System.out.println("我是终将升起的烈阳！");
-      System.out.println("Isolation!");
+        System.out.println("原神牛逼！");
+        System.out.println("我是终将升起的烈阳！");
+        System.out.println("Isolation!");
     }
 }

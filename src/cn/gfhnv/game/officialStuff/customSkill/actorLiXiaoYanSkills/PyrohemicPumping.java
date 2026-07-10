@@ -8,7 +8,6 @@ import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.mana.Mana;
 
 import java.util.List;
-import java.util.Random;
 
 public class PyrohemicPumping extends Skill {
 

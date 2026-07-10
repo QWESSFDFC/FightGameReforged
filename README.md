@@ -3,10 +3,6 @@
 
 使用方法:直接运行.jar文件.可以自己编译或者下载Release中编译好的.但是Release中版本可能落后一点.
 
-
-
-
-
 下面是使用AI写的README.md
 
 
@@ -22,7 +18,8 @@ FightGameReforged
 
 这是一个基于 Java 的命令行回合制战斗游戏。玩家可以组建队伍、选择敌人、手动操控角色释放技能，在文字界面中体验策略对战的乐趣。
 
-项目采用事件驱动架构，通过自定义 EventBus 和 @SubscribeEvent 注解解耦游戏逻辑，为后续扩展打下基础。同时内置了模组系统，支持动态编译 .java 源码并加载外部模组，方便添加新生物、技能与物品。
+项目采用事件驱动架构，通过自定义 EventBus 和 @SubscribeEvent 注解解耦游戏逻辑，为后续扩展打下基础。同时内置了模组系统，支持动态编译
+.java 源码并加载外部模组，方便添加新生物、技能与物品。
 
 作者是一名热爱编程与游戏开发的高中生，写这个项目纯粹为了图一乐。代码随便用，随便改，欢迎 fork 和提交 PR。
 
@@ -74,7 +71,6 @@ FightGameReforged
 
 ---
 ![运行示意图](./screenshots/图1.PNG)
-
 
 📁 项目结构
 
@@ -134,9 +130,13 @@ FightGameReforged/
 作者：一名热爱编程与游戏开发的高中生 | 项目始于 2025 年 9 月 1 日
 
 English:
-This is a game written in Java. For now, it's text‑only, and I guess it's mostly playable? Use and modify the code however you like. I'm a high school student, so I don't have much time. I update it occasionally. I wrote this project just for fun, and uploading it to GitHub was purely because I had nothing better to do. It doesn't use any Java game engine — I just write my own stuff for my own amusement.......
+This is a game written in Java. For now, it's text‑only, and I guess it's mostly playable? Use and modify the code
+however you like. I'm a high school student, so I don't have much time. I update it occasionally. I wrote this project
+just for fun, and uploading it to GitHub was purely because I had nothing better to do. It doesn't use any Java game
+engine — I just write my own stuff for my own amusement.......
 
-How to run: directly execute the .jar file. You can compile it yourself or download the pre‑built version from Releases. However, the Release version may lag slightly behind.
+How to run: directly execute the .jar file. You can compile it yourself or download the pre‑built version from Releases.
+However, the Release version may lag slightly behind.
 
 Below is the README.md written with the help of AI.
 
@@ -144,27 +144,38 @@ Below is the README.md written with the help of AI.
 
 FightGameReforged
 
-A command‑line turn‑based text battle game written from scratch by a high school student — pure Java implementation, event‑driven architecture, with mod loading support.
+A command‑line turn‑based text battle game written from scratch by a high school student — pure Java implementation,
+event‑driven architecture, with mod loading support.
 
 ---
 
 📖 Project Overview
 
-This is a Java‑based command‑line turn‑based battle game. Players can form a team, choose enemies, manually control characters to cast skills, and experience the fun of strategic combat in a text interface.
+This is a Java‑based command‑line turn‑based battle game. Players can form a team, choose enemies, manually control
+characters to cast skills, and experience the fun of strategic combat in a text interface.
 
-The project adopts an event‑driven architecture, decoupling game logic through a custom EventBus and @SubscribeEvent annotations, laying a foundation for future expansions. It also includes a built‑in mod system that supports dynamic compilation of .java source files and loading of external mods, making it easy to add new creatures, skills, and items.
+The project adopts an event‑driven architecture, decoupling game logic through a custom EventBus and @SubscribeEvent
+annotations, laying a foundation for future expansions. It also includes a built‑in mod system that supports dynamic
+compilation of .java source files and loading of external mods, making it easy to add new creatures, skills, and items.
 
-The author is a high school student passionate about programming and game development. This project was written purely for fun. The code is free to use and modify — feel free to fork and submit PRs.
+The author is a high school student passionate about programming and game development. This project was written purely
+for fun. The code is free to use and modify — feel free to fork and submit PRs.
 
 ---
 
 ✨ Core Features
 
-· Classic turn‑based combat: freely build your team, choose enemies and rewards, and manually control each character's skill usage.
-· Five‑element system: incorporates Metal, Wood, Water, Fire, and Earth elements, with corresponding resistance and damage bonus mechanics.
-· Event‑driven architecture: decouples game logic via a custom EventBus and @SubscribeEvent annotations, enhancing extensibility.
-· Built‑in mod system: automatically scans and loads external mods, supports dynamic compilation of .java source files, facilitating the addition of new creatures, skills, and items.
-· Utility AI controller: non‑player characters make decisions based on a Tag weight system — each entity has its own Tag weights (reflecting personality), combined with real‑time context (HP, etc.) to compute action scores and select the optimal behavior.
+· Classic turn‑based combat: freely build your team, choose enemies and rewards, and manually control each character's
+skill usage.
+· Five‑element system: incorporates Metal, Wood, Water, Fire, and Earth elements, with corresponding resistance and
+damage bonus mechanics.
+· Event‑driven architecture: decouples game logic via a custom EventBus and @SubscribeEvent annotations, enhancing
+extensibility.
+· Built‑in mod system: automatically scans and loads external mods, supports dynamic compilation of .java source files,
+facilitating the addition of new creatures, skills, and items.
+· Utility AI controller: non‑player characters make decisions based on a Tag weight system — each entity has its own Tag
+weights (reflecting personality), combined with real‑time context (HP, etc.) to compute action scores and select the
+optimal behavior.
 · MIT open‑source license: code is fully open, free to use, modify, and distribute.
 
 ---
@@ -200,11 +211,11 @@ Option 2: Compile and run from source
 3. Run the main class: cn.gfhnv.game.GameStarter.
 4. Follow the command‑line prompts to start the game.
 
-📁 The project includes two example mods, exampleModByGFHNV and abstractLaunchingWords, located in the mods/ directory, which can serve as references for mod development.
+📁 The project includes two example mods, exampleModByGFHNV and abstractLaunchingWords, located in the mods/ directory,
+which can serve as references for mod development.
 
 ---
 ![运行示意图](./screenshots/图1.PNG)
-
 
 📁 Project Structure
 
@@ -233,13 +244,16 @@ There may be additional folders not listed here.
 
 The behavior of non‑player entities is controlled by ThinkingController, whose core mechanism is based on Utility AI:
 
-· Each entity has its own Tag weight table (e.g., attack, defend, heal, restore mana, amplify damage, etc.), reflecting its personality.
-· Each turn, the controller reads the entity's current Tag weights and combines them with real‑time situational factors (HP percentage, mana, enemy distance, element counter, etc.) to compute a final score for every possible action.
+· Each entity has its own Tag weight table (e.g., attack, defend, heal, restore mana, amplify damage, etc.), reflecting
+its personality.
+· Each turn, the controller reads the entity's current Tag weights and combines them with real‑time situational
+factors (HP percentage, mana, enemy distance, element counter, etc.) to compute a final score for every possible action.
 · The system automatically selects the action with the highest score, enabling intelligent and varied NPC behavior.
 
 Advantages of this design:
 
-· Decoupling: Tag weights are separated from action logic; adding a new action only requires adding the corresponding Tag and score calculation.
+· Decoupling: Tag weights are separated from action logic; adding a new action only requires adding the corresponding
+Tag and score calculation.
 · Debuggability: The decision process can be printed as logs, making it easy to identify why an AI behaves unexpectedly.
 · Extensibility: Supports advanced features like "mood index", temporary modifiers, random perturbations, etc.
 
@@ -247,7 +261,8 @@ Advantages of this design:
 
 🤝 Contributions and Feedback
 
-Issues and Pull Requests are welcome. Any form of feedback, suggestions, or code contributions will help make this project better.
+Issues and Pull Requests are welcome. Any form of feedback, suggestions, or code contributions will help make this
+project better.
 
 · Report bugs: please include reproduction steps and error logs.
 · Suggest improvements: new features, balance tweaks, UI enhancements, etc.

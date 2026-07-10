@@ -7,13 +7,15 @@ import cn.gfhnv.game.system.physics.type.Velocity;
 import cn.gfhnv.game.system.thinkingSystem.Tag;
 import cn.gfhnv.game.system.thinkingSystem.TagType;
 
-
 import java.math.BigDecimal;
-import java.util.*;
+import java.util.EnumMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
 
 public class Thing {
-    private Map<TagType, Tag> tags=new EnumMap<>(TagType.class);
     private final String uuid;
+    private Map<TagType, Tag> tags = new EnumMap<>(TagType.class);
     private BigDecimal mass = new BigDecimal(1);
     private Force force = new Force(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
     private Velocity velocity = new Velocity(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
@@ -28,7 +30,6 @@ public class Thing {
     public Thing() {
         this.uuid = UUID.randomUUID().toString();
     }
-
 
 
     public String getUUID() {

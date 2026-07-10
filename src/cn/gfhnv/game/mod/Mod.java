@@ -11,23 +11,12 @@ import java.util.Objects;
 
 public abstract class Mod {
     private final String MOD_ID;
-    private List<Class<?>> modClasses =new ArrayList<>();
+    private List<Class<?>> modClasses = new ArrayList<>();
     private ModInformation modInformation;
     private List<Entity> entityList = new ArrayList<>();//模组各个内容先在invokeWhenLoaded方法中添加到模组的各个List中.不要弄错了List类型
     private List<Item> items = new ArrayList<>();
     private List<Effect> effects = new ArrayList<>();
-    public void addModClass(Class<?> clazz) {
-        modClasses.add(clazz);
-    }
-    public Class<?> getClassByName(String name){
-        for (Class<?> clazz : modClasses){
-            if(clazz.getName().equals(name)){
-                return clazz;
-            }
-        }
-        System.out.println(modInformation.getName()+"没有"+name);
-        return null;
-    }
+
     public Mod(String modID) {
         this.MOD_ID = modID;
     }
@@ -36,6 +25,20 @@ public abstract class Mod {
         this.MOD_ID = MOD_ID;
         this.modInformation = modInformation;
     }//请模组加载时把模组内容在invokeWhenLoaded方法中添加到模组的各个List中.不要学officialStuff
+
+    public void addModClass(Class<?> clazz) {
+        modClasses.add(clazz);
+    }
+
+    public Class<?> getClassByName(String name) {
+        for (Class<?> clazz : modClasses) {
+            if (clazz.getName().equals(name)) {
+                return clazz;
+            }
+        }
+        System.out.println(modInformation.getName() + "没有" + name);
+        return null;
+    }
 
     public ModInformation getModInformation() {
         return modInformation;

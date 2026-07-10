@@ -8,8 +8,6 @@ import cn.gfhnv.game.system.mana.Mana;
 import cn.gfhnv.game.system.thinkingSystem.Tag;
 import cn.gfhnv.game.system.thinkingSystem.TagType;
 
-
-import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -26,7 +24,7 @@ public class Skill {
     private boolean isForEnemies = true;
     private Mana consumedMana;
     private long extraDamage = 0;//多倍率时把其他倍率计算的结果加到这里.伤害计算后重置为零
-    private Map<TagType, Tag> tags=new EnumMap<>(TagType.class);
+    private Map<TagType, Tag> tags = new EnumMap<>(TagType.class);
 
     public Skill(Skill skill) {
         this.name = skill.getName();

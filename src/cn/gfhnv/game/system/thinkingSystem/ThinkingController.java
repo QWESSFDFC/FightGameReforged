@@ -39,32 +39,34 @@ public class ThinkingController extends UniversalController {
             super.act(fight);
             return;
         }
-        double attackWeight =1;
+        double attackWeight = 1;
         double defenseWeight = 0;
         double healthWeight = 0;
         double manaRestorationWeight = 0;
         double damageEnhanceWeight = 0;
-        double hpPercent = getOwner().getHp()/getOwner().getHpMax();
+        double hpPercent = getOwner().getHp() / getOwner().getHpMax();
         double anticipatedDamage = 0;
 
         List<Skill> skills = new ArrayList<>();
         for (Skill skill : getOwner().getController().getSkills()) {
-            if (skill.canUse(fight, getOwner()) && skill.canUse(fight, getOwner(), null)){
+            if (skill.canUse(fight, getOwner()) && skill.canUse(fight, getOwner(), null)) {
                 skills.add(skill);
             }
         }
-        attackWeight=getWeight(TagType.ATTACK);
-        defenseWeight=getWeight(TagType.DEFEND);
-        healthWeight=getWeight(TagType.HEAL);
-        manaRestorationWeight=getWeight(TagType.RESTORATION_MANA);
-        damageEnhanceWeight=getWeight(TagType.DAMAGE_ENHANCE);
+        attackWeight = getWeight(TagType.ATTACK);
+        defenseWeight = getWeight(TagType.DEFEND);
+        healthWeight = getWeight(TagType.HEAL);
+        manaRestorationWeight = getWeight(TagType.RESTORATION_MANA);
+        damageEnhanceWeight = getWeight(TagType.DAMAGE_ENHANCE);
         System.out.printf(this.getOwner().getName() + "正在思考");
         //无法思考采用默认控制器
-        System.out.println(getOwner().getName()+"无法思考");
+        System.out.println(getOwner().getName() + "无法思考");
         super.act(fight);
     }
-    private double getWeight(TagType tagType) {if (!getOwner().getTags().containsKey(tagType)) return 0;
-    else return getOwner().getTags().get(tagType).getWeight();
+
+    private double getWeight(TagType tagType) {
+        if (!getOwner().getTags().containsKey(tagType)) return 0;
+        else return getOwner().getTags().get(tagType).getWeight();
     }
 }
 
