@@ -3,7 +3,7 @@ package cn.gfhnv.game.officialStuff;
 import cn.gfhnv.game.mod.Mod;
 import cn.gfhnv.game.officialStuff.customEffect.universalEffects.DamageEnhanceEffect;
 import cn.gfhnv.game.officialStuff.customEffect.universalEffects.HealthRestoreEffect;
-import cn.gfhnv.game.officialStuff.customEffect.universalEffects.actorLiXiaoYanEffects.MemorizedHp;
+import cn.gfhnv.game.officialStuff.customEffect.actorLiXiaoYanEffects.MemorizedHp;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.CommonInsect;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.InsectBoss;
 import cn.gfhnv.game.officialStuff.customEntity.players.ActorLiXiaoYan;

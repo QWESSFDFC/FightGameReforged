@@ -3,7 +3,7 @@ package cn.gfhnv.game.officialStuff.customEvent.LiXiaoYanEvents;
 import cn.gfhnv.game.annotation.SubscribeEvent;
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.event.DamageEvent;
-import cn.gfhnv.game.officialStuff.customEffect.universalEffects.actorLiXiaoYanEffects.MemorizedHp;
+import cn.gfhnv.game.officialStuff.customEffect.actorLiXiaoYanEffects.MemorizedHp;
 import cn.gfhnv.game.officialStuff.customEntity.players.ActorLiXiaoYan;
 
 public class DamageEventListener {

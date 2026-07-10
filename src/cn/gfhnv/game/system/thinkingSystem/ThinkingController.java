@@ -5,7 +5,7 @@ import cn.gfhnv.game.entityController.UniversalController;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.fight.Fight;
 
-import javax.swing.text.html.HTML;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,7 +28,7 @@ public class ThinkingController extends UniversalController {
      * 如果血量健康就使用可以加伤害的物品或技能(如果有)------>使用物品的系统没做呢.预计会做
      * 以自身tag和技能/物品tag判断  结合自身各个tag优先级判断
      * 再比较物品加的数值高低和持续时间
-     * 比较(数值*0.6+时间*0.4)
+     *算权重,比较
      * 选高的那个
      *
      * */

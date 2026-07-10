@@ -2,7 +2,7 @@ package cn.gfhnv.game.officialStuff.customSkill.actorLiXiaoYanSkills;
 
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.event.EventBus;
-import cn.gfhnv.game.officialStuff.customEffect.universalEffects.actorLiXiaoYanEffects.MemorizedHp;
+import cn.gfhnv.game.officialStuff.customEffect.actorLiXiaoYanEffects.MemorizedHp;
 import cn.gfhnv.game.officialStuff.customEntity.players.ActorLiXiaoYan;
 import cn.gfhnv.game.officialStuff.customEvent.LiXiaoYanEvents.DamageEventListener;
 import cn.gfhnv.game.skill.Skill;

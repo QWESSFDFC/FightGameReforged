@@ -1,4 +1,4 @@
-package cn.gfhnv.game.officialStuff.customEffect.universalEffects.actorLiXiaoYanEffects;
+package cn.gfhnv.game.officialStuff.customEffect.actorLiXiaoYanEffects;
 
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.LivingThing;

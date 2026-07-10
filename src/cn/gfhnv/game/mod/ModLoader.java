@@ -11,6 +11,7 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -45,9 +46,8 @@ public class ModLoader {
             }
         }
     }
-
     private static void loadFolderModItself(File modFolder) {
-
+        // 1. 解析 main.json
         ModInformation modInfo = null;
         File mainJsonFile = new File(modFolder, "main.json");
         if (!mainJsonFile.exists() || !mainJsonFile.isFile()) {
@@ -69,53 +69,82 @@ public class ModLoader {
 
             return;
         }
+
+        // 2. 检查 code 目录
         File codeDir = new File(modFolder, "code");
         if (!codeDir.exists() || !codeDir.isDirectory()) {
             System.err.println("模组 [" + modFolder.getName() + "] 缺少 code 目录，跳过");
-
             return;
         }
+
+        // 3. 收集源码文件
         List<JavaFileObject> sourceFiles = new ArrayList<>();
         collectJavaFiles(codeDir, sourceFiles, "");
-
         if (sourceFiles.isEmpty()) {
             System.err.println("模组 [" + modFolder.getName() + "] code 目录下没有 .java 文件，跳过");
-
             return;
         }
+
+        // 4. 准备输出目录 bin
         File outputDir = new File(modFolder, "bin");
         if (outputDir.exists()) {
             deleteDirectory(outputDir);
         }
         if (!outputDir.mkdirs()) {
             System.err.println("模组 [" + modFolder.getName() + "] 无法创建 bin 目录");
-
             return;
         }
+
+        // 5. 编译源码（增加诊断输出）
         boolean compileSuccess = compileJavaFiles(sourceFiles, outputDir);
         if (!compileSuccess) {
             System.err.println("模组 [" + modFolder.getName() + "] 编译失败，跳过加载");
-
             return;
         }
+
+        // 6. 使用 URLClassLoader 加载类（使用 try-with-resources，但会在块内完成所有加载）
         try (URLClassLoader classLoader = URLClassLoader.newInstance(
                 new URL[]{outputDir.toURI().toURL()},
                 Thread.currentThread().getContextClassLoader()
         )) {
+            // 6.1 加载主类并实例化
             Class<?> mainClass = Class.forName(modInfo.getMainClass(), true, classLoader);
             Object instance = mainClass.getConstructor(ModInformation.class)
                     .newInstance(modInfo);
-            if (instance instanceof Mod modInstance) {
-                World.addMod(modInstance);
-                System.out.println("模组 [" + modInfo.getName() + "] 加载成功！");
-
-            } else {
+            if (!(instance instanceof Mod modInstance)) {
                 System.err.println("模组主类未继承 Mod: " + modInfo.getMainClass());
-
+                return;
             }
-        } catch (Exception e) {
-            System.err.println("模组 [" + modFolder.getName() + "] 实例化主类失败: " + e.getMessage());
 
+            // 6.2 【核心】预加载 bin 目录下所有其他类，存入 modInstance 的 modClasses 列表
+            String mainClassName = modInfo.getMainClass(); // 主类全限定名
+            Path binPath = outputDir.toPath();
+            Files.walk(binPath)
+                    .filter(Files::isRegularFile)
+                    .filter(p -> p.toString().endsWith(".class"))
+                    .forEach(p -> {
+                        // 将路径转换为全限定类名
+                        String relativePath = binPath.relativize(p).toString();
+                        String className = relativePath.replace(File.separatorChar, '.')
+                                .replace(".class", "");
+                        // 跳过主类本身（模组类的 class 属性不应该有模组类本身）
+                        if (className.equals(mainClassName)) {
+                            return;
+                        }
+                        try {
+                            Class<?> clazz = Class.forName(className, true, classLoader);
+                            modInstance.addModClass(clazz);
+                            System.out.println("预加载类: " + className);
+                        } catch (ClassNotFoundException e) {
+                            System.err.println("预加载类失败: " + className + " - " + e.getMessage());
+                        }
+                    });
+
+            // 6.3 将模组添加到世界
+            World.addMod(modInstance);
+            System.out.println("模组 [" + modInfo.getName() + "] 加载成功！");
+        } catch (Exception e) {
+            System.err.println("模组 [" + modFolder.getName() + "] 加载失败: " + e.getMessage());
             e.printStackTrace();
         }
     }
