@@ -11,7 +11,7 @@ import java.util.Objects;
 
 public abstract class Mod {
     private final String MOD_ID;
-    private List<Class<?>> modClasses = new ArrayList<>();
+    private List<Class<?>> modClasses = new ArrayList<>();//模组加载时模组的其他类自动添加到这个里面,防止被gc回收
     private ModInformation modInformation;
     private List<Entity> entityList = new ArrayList<>();//模组各个内容先在invokeWhenLoaded方法中添加到模组的各个List中.不要弄错了List类型
     private List<Item> items = new ArrayList<>();
