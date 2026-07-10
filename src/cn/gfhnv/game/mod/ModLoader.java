@@ -134,7 +134,6 @@ public class ModLoader {
                         try {
                             Class<?> clazz = Class.forName(className, true, classLoader);
                             modInstance.addModClass(clazz);
-                            System.out.println("预加载类: " + className);
                         } catch (ClassNotFoundException e) {
                             System.err.println("预加载类失败: " + className + " - " + e.getMessage());
                         }
