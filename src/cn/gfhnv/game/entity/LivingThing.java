@@ -3,6 +3,7 @@ package cn.gfhnv.game.entity;
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entityController.PlayerController;
 import cn.gfhnv.game.entityController.UniversalController;
+import cn.gfhnv.game.system.thinkingSystem.ThinkingController;
 import cn.gfhnv.game.event.DamageEvent;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.event.HpLossEvent;
@@ -79,6 +80,8 @@ public class LivingThing extends Entity {
         this.presentTurn = null;
         if (other.getController() instanceof PlayerController) {
             this.controller = new PlayerController(other.controller.getSkills(), this);
+        } else if (other.getController() instanceof ThinkingController) {
+            this.controller = new ThinkingController(other.controller.getSkills(), this);
         } else {
             this.controller = new UniversalController(other.controller, this);
         }
@@ -560,6 +563,90 @@ public class LivingThing extends Entity {
 
     public LivingThing copy() {
         return new LivingThing(this);
+    }
+
+
+    public LivingThing facSetLevel(long level) {
+        this.setLevel(level);
+        return this;
+    }
+
+
+    public LivingThing facSetName(String name) {
+        this.setName(name);
+        return this;
+    }
+
+
+    public LivingThing facSetId(String id) {
+        this.setId(id);
+        return this;
+    }
+
+
+    public LivingThing facSetHpGrowNumber(double hpGrowNumber) {
+        this.setHpGrowNumber(hpGrowNumber);
+        return this;
+    }
+
+
+    public LivingThing facSetAtkGrowNumber(double atkGrowNumber) {
+        this.setAtkGrowNumber(atkGrowNumber);
+        return this;
+    }
+
+
+    public LivingThing facSetDfkGrowNumber(double dfkGrowNumber) {
+        this.setDfkGrowNumber(dfkGrowNumber);
+        return this;
+    }
+
+
+    public Entity facSetElementSort(ElementSort elementSort) {
+       this.setElementSort(elementSort);
+        return this;
+    }
+
+
+    public LivingThing facSetMetalManaGrowNumber(double metalManaGrowNumber) {
+      this.setMetalManaGrowNumber(metalManaGrowNumber);
+      return this;
+    }
+
+
+    public LivingThing facSetWoodManaGrowNumber(double woodManaGrowNumber) {
+       this.setWoodManaGrowNumber(woodManaGrowNumber);
+       return this;
+    }
+
+
+    public LivingThing facSetWaterManaGrowNumber(double waterManaGrowNumber) {
+       this.setWaterManaGrowNumber(waterManaGrowNumber);
+       return this;
+    }
+
+
+    public LivingThing facSetFireManaGrowNumber(double fireManaGrowNumber) {
+        this.setFireManaGrowNumber(fireManaGrowNumber);
+        return this;
+    }
+
+
+    public LivingThing facSetDirtManaGrowNumber(double dirtManaGrowNumber) {
+        this.setDirtManaGrowNumber(dirtManaGrowNumber);
+        return this;
+    }
+
+
+    public LivingThing facSetType(String type) {
+        this.setType(type);
+        return this;
+    }
+
+
+    public LivingThing facSetManas(List<Mana> manas) {
+        this.setManas(manas);
+        return this;
     }
 
     public void whenFightEnds() {

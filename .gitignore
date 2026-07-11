@@ -30,3 +30,7 @@ build-input/
 .DS_Store
 /logs/
 /lib/
+.env
+*.secret
+*.vault
+*.key
