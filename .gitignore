@@ -44,3 +44,4 @@ build-input/
 *.secret
 *.vault
 *.key
+/.idea/
