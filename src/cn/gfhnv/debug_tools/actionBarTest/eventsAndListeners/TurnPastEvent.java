@@ -12,7 +12,6 @@ public class TurnPastEvent extends Event {
     }
 
 
-
     public Fight getFight() {
         return fight;
     }

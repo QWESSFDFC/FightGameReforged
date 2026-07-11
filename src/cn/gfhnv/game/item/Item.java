@@ -15,9 +15,7 @@ public class Item extends Thing {
         this.description = description;
 
     }
-       public void comeToEffect(LivingThing target){
 
-       }
     public Item(Item item) {
         this.name = item.getName();
         this.description = item.getDescription();
@@ -31,6 +29,10 @@ public class Item extends Thing {
     }
 
     public Item() {
+
+    }
+
+    public void comeToEffect(LivingThing target) {
 
     }
 

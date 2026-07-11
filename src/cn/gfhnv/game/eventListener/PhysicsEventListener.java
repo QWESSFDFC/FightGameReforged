@@ -1,4 +1,4 @@
-package cn.gfhnv.game.event.eventListener;
+package cn.gfhnv.game.eventListener;
 
 import cn.gfhnv.game.Thing;
 import cn.gfhnv.game.annotation.SubscribeEvent;

@@ -3,6 +3,7 @@ package cn.gfhnv.game.system.fight;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.item.Item;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -36,6 +37,16 @@ public class Fight {
 
     public void setAllEntities(List<LivingThing> allEntities) {
         this.allEntities = allEntities;
+    }
+
+    public void addFighter(LivingThing fighter) {
+        fighterList.add(fighter);
+        TurnManager.getTurns().add(new TurnEntry(fighter, BigDecimal.valueOf(10000 / fighter.getSpeed()), TurnManager.getPresentTime()));
+    }
+
+    public void addEnemy(LivingThing e) {
+        enemiesList.add(e);
+        TurnManager.getTurns().add(new TurnEntry(e, BigDecimal.valueOf(10000 / e.getSpeed()), TurnManager.getPresentTime()));
     }
 
     public List<LivingThing> getEnemiesList() {

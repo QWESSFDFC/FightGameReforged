@@ -10,6 +10,12 @@ public class TurnEntry {
     private BigDecimal startTime;
     private BigDecimal needTime;
 
+    public TurnEntry(LivingThing livingThing, BigDecimal needTime, BigDecimal startTime) {
+        this.livingThing = livingThing;
+        this.needTime = needTime;
+        this.startTime = startTime;
+    }
+
     public BigDecimal getStartTime() {
         return startTime;
     }
@@ -25,14 +31,6 @@ public class TurnEntry {
     public void setNeedTime(BigDecimal needTime) {
         this.needTime = needTime;
     }
-
-    public TurnEntry(LivingThing livingThing, BigDecimal needTime, BigDecimal startTime) {
-        this.livingThing = livingThing;
-        this.needTime = needTime;
-        this.startTime = startTime;
-    }
-
-
 
     public LivingThing getLivingThing() {
         return livingThing;

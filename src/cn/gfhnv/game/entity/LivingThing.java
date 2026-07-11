@@ -359,7 +359,6 @@ public class LivingThing extends Entity {
     }
 
 
-
     public double getHpMagnification() {
         return hpMagnification;
     }
@@ -600,26 +599,26 @@ public class LivingThing extends Entity {
 
 
     public Entity facSetElementSort(ElementSort elementSort) {
-       this.setElementSort(elementSort);
+        this.setElementSort(elementSort);
         return this;
     }
 
 
     public LivingThing facSetMetalManaGrowNumber(double metalManaGrowNumber) {
-      this.setMetalManaGrowNumber(metalManaGrowNumber);
-      return this;
+        this.setMetalManaGrowNumber(metalManaGrowNumber);
+        return this;
     }
 
 
     public LivingThing facSetWoodManaGrowNumber(double woodManaGrowNumber) {
-       this.setWoodManaGrowNumber(woodManaGrowNumber);
-       return this;
+        this.setWoodManaGrowNumber(woodManaGrowNumber);
+        return this;
     }
 
 
     public LivingThing facSetWaterManaGrowNumber(double waterManaGrowNumber) {
-       this.setWaterManaGrowNumber(waterManaGrowNumber);
-       return this;
+        this.setWaterManaGrowNumber(waterManaGrowNumber);
+        return this;
     }
 
 
