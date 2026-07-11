@@ -1,6 +1,7 @@
 package cn.gfhnv.game.item;
 
 import cn.gfhnv.game.Thing;
+import cn.gfhnv.game.entity.LivingThing;
 
 import java.math.BigDecimal;
 
@@ -14,7 +15,9 @@ public class Item extends Thing {
         this.description = description;
 
     }
+       public void comeToEffect(LivingThing target){
 
+       }
     public Item(Item item) {
         this.name = item.getName();
         this.description = item.getDescription();
