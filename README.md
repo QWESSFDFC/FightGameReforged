@@ -42,7 +42,7 @@ FightGameReforged
 项目 说明
 语言 Java (JDK 25+)
 构建工具 IntelliJ IDEA（原生）
-核心依赖 无外部依赖（纯 Java 标准库）
+核心依赖 org.json
 
 ---
 
@@ -174,7 +174,7 @@ The author is a high school student passionate about programming and game develo
 |---------------|-------------------------------------|
 | Language      | Java (JDK 25+)                      |
 | Build tool    | IntelliJ IDEA (native)              |
-| Dependencies  | None (pure Java standard library)   |
+| Dependencies  | org.json   |
 
 ---
 
