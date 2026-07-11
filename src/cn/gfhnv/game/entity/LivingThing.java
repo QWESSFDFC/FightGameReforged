@@ -3,7 +3,6 @@ package cn.gfhnv.game.entity;
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entityController.PlayerController;
 import cn.gfhnv.game.entityController.UniversalController;
-import cn.gfhnv.game.system.thinkingSystem.ThinkingController;
 import cn.gfhnv.game.event.DamageEvent;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.event.HpLossEvent;
@@ -13,11 +12,10 @@ import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.fight.TurnEntry;
 import cn.gfhnv.game.system.mana.Mana;
+import cn.gfhnv.game.system.thinkingSystem.ThinkingController;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import static cn.gfhnv.game.system.fight.TurnManager.actionQueue;
 
 public class LivingThing extends Entity {
     public long extraDamage = 0;
@@ -360,12 +358,7 @@ public class LivingThing extends Entity {
         this.presentTurn = presentTurn;
     }
 
-    public void onActionTaken() {
-        double nextTime = this.getPresentTurn().getoValue() + 1000.0 / this.getSpeed();
-        TurnEntry nextEntry = new TurnEntry(nextTime, this);
-        this.setPresentTurn(nextEntry);
-        actionQueue.offer(nextEntry);
-    }
+
 
     public double getHpMagnification() {
         return hpMagnification;

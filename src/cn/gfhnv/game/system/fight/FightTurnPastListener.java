@@ -1,5 +1,6 @@
 package cn.gfhnv.game.system.fight;
 
+
 import cn.gfhnv.game.annotation.SubscribeEvent;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.event.EffectUpdateEvent;
@@ -7,6 +8,8 @@ import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.event.FightPastOneTurnEvent;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.world.World;
+
+import java.math.BigDecimal;
 
 public class FightTurnPastListener {
     private TurnEntry presentTurn;
@@ -23,7 +26,10 @@ public class FightTurnPastListener {
             EventBus.post(new FightEndEvent(true, fightPastOneTurnEvent.getFight()));
             return;
         }
-        presentTurn = TurnManager.actionQueue.take();
+        TurnManager.sort();
+        presentTurn = TurnManager.getTurns().getFirst();
+        TurnManager.getTurns().remove(presentTurn);
+        TurnManager.setPresentTime(presentTurn.getNeedTime().add(presentTurn.getStartTime()));
         if (presentTurn.getLivingThing() == null) {
             TurnManager.nextTurn(fightPastOneTurnEvent.getFight());
             return;
@@ -52,9 +58,10 @@ public class FightTurnPastListener {
         System.out.println("火" + presentTurn.getLivingThing().getFireMana().getAmount() + "/" + presentTurn.getLivingThing().getFireMana().getAmountMax());
         System.out.println("土" + presentTurn.getLivingThing().getDirtMana().getAmount() + "/" + presentTurn.getLivingThing().getDirtMana().getAmountMax());
         presentTurn.getLivingThing().getController().act(fightPastOneTurnEvent.getFight());
-        presentTurn.getLivingThing().onActionTaken();
+        TurnEntry turn=new TurnEntry(presentTurn.getLivingThing(),  BigDecimal.valueOf(10000/presentTurn.getLivingThing().getSpeed()),TurnManager.getPresentTime());
+       TurnManager.getTurns().add(turn);
         Thread.sleep(100);
-        EventBus.post(new EffectUpdateEvent(presentTurn.livingThing));
+        EventBus.post(new EffectUpdateEvent(presentTurn.getLivingThing()));
         TurnManager.nextTurn(fightPastOneTurnEvent.getFight());
     }
 }

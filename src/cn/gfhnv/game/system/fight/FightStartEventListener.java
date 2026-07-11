@@ -12,9 +12,8 @@ public class FightStartEventListener {
         FightTurnPastListener listener = new FightTurnPastListener();
         EventBus.register(listener);
         EventBus.register(new FightEndEventListener(listener));
-        TurnManager.initialQueue(event.getFight().getAllEntities());
+        TurnManager.init(event.getFight());
         EventBus.post(new FightPastOneTurnEvent(event.getFight()));
-
 
     }
 }
