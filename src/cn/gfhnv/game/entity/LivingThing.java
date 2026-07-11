@@ -458,10 +458,12 @@ public class LivingThing extends Entity {
                     }
                     target.entityEffectList.remove(e);
                     target.entityEffectList.add(effect);
+                    effect.initialEffect(target);
                 }
             }
         }
         target.entityEffectList.add(effect);
+        effect.initialEffect(target);
     }
 
     public void addEffect(Effect effect) {
@@ -473,11 +475,13 @@ public class LivingThing extends Entity {
                 } else {
 
                     entityEffectList.set(i, effect);
+                    effect.initialEffect(this);
                 }
                 return;
             }
         }
         entityEffectList.add(effect);
+        effect.initialEffect(this);
     }
 
     public void removeEffect(Effect ef) {

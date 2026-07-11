@@ -1,9 +1,11 @@
-package cn.gfhnv.game.system.fight;
+package cn.gfhnv.game.event.eventListener;
 
 import cn.gfhnv.game.annotation.SubscribeEvent;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.item.Item;
+import cn.gfhnv.game.system.fight.FightEndEvent;
+import cn.gfhnv.game.system.fight.TurnManager;
 import cn.gfhnv.game.world.World;
 
 import java.util.List;

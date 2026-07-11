@@ -11,7 +11,7 @@ import cn.gfhnv.game.item.Item;
 import cn.gfhnv.game.mod.ModLoader;
 import cn.gfhnv.game.officialStuff.OfficialGameContent;
 import cn.gfhnv.game.system.fight.Fight;
-import cn.gfhnv.game.system.fight.FightStartEventListener;
+import cn.gfhnv.game.event.eventListener.FightStartEventListener;
 import cn.gfhnv.game.system.logSystem.LogWriter;
 import cn.gfhnv.game.world.World;
 

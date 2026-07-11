@@ -1,9 +1,10 @@
-package cn.gfhnv.game.system.fight;
+package cn.gfhnv.game.event.eventListener;
 
 import cn.gfhnv.game.annotation.SubscribeEvent;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.event.FightPastOneTurnEvent;
 import cn.gfhnv.game.event.FightStartEvent;
+import cn.gfhnv.game.system.fight.TurnManager;
 
 
 public class FightStartEventListener {

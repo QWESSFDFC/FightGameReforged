@@ -14,7 +14,9 @@ public class Effect {
         this.level = level;
         this.lastTime = lastTime;
     }
-
+       public void initialEffect(LivingThing livingThing){//获得效果时执行.默认执行生效方法.如果需要,可以重写.可能导致效果生效次数多一次
+        this.comeIntoEffect(livingThing);
+       }
     public Effect(Effect effect) {
         this.id = effect.id;
         this.level = effect.level;
