@@ -17,7 +17,7 @@ public class FightEndEventListener {
 
     @SubscribeEvent
     public void worldTurnEventListener(FightEndEvent fightEndEvent) {
-        TurnManager.actionQueue.clear();
+        TurnManager.getTurns().clear();
         for (LivingThing entity : fightEndEvent.getFight().getAllEntities()) {
             if (entity != null) {
                 entity.whenFightEnds();

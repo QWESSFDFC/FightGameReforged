@@ -7,13 +7,10 @@ import cn.gfhnv.game.event.FightPastOneTurnEvent;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Queue;
+
 import java.util.concurrent.PriorityBlockingQueue;
 
 public class TurnManager {
-    public static PriorityBlockingQueue<TurnEntry> actionQueue = new PriorityBlockingQueue<>();
-    private static long pastTimes;
-
 
     private static BigDecimal presentTime;
     private static List<TurnEntry> turns=new ArrayList<>();
@@ -100,7 +97,5 @@ public class TurnManager {
         if (t==null){return;}
         t.setNeedTime(t.getNeedTime().add(amount));
     }
-    public static Queue<TurnEntry> getActionQueue() {
-        return actionQueue;
-    }
+
 }
