@@ -1,0 +1,54 @@
+plugins {
+    id 'java'
+    id 'com.gradleup.shadow' version '8.3.0'
+}
+
+group = 'cn.gfhnv'
+version = '1.2.1'
+
+// 使用 java 块来指定版本，而不是直接写 sourceCompatibility = ...
+java {
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src']  // 直接指向你现有的 src 文件夹
+        }
+    }
+}
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+// 2. 强制所有 Java 运行任务（执行 main 方法）使用 UTF-8
+tasks.withType(JavaExec) {
+    // 强制 JVM 使用 UTF-8
+    jvmArgs '-Dfile.encoding=UTF-8'
+    // 强制 Gradle 的 JavaExec 任务直接使用系统的标准输出，防止它在内部转码
+    standardOutput = System.out
+    errorOutput = System.err
+}
+repositories {
+    maven { url 'https://maven.aliyun.com/repository/public' }
+    maven { url 'https://maven.aliyun.com/repository/google' }
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.json:json:20240303'
+}
+
+jar {
+    manifest {
+        attributes(
+                'Main-Class': 'cn.gfhnv.game.GameStarter'
+        )
+    }
+}
+
+shadowJar {
+    mergeServiceFiles()
+    archiveFileName.set("FightGameReforged-${version}.jar")
+}
