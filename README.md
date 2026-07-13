@@ -2,6 +2,7 @@
 这是一个使用java编写的游戏.目前只有文字,大概能正常玩了?代码随便用,随便改.我是高中生,没时间.偶尔更新.编写此项目只是为了图一乐,发到Github上纯粹是闲的没事.目前没有使用java的相关游戏引擎,只是自己写东西,自娱自乐.......
 暂不接受 Pull Request。如果你有改进想法，请 fork 本仓库后自行修改，自由使用。我只想自己写点东西玩玩.
 使用方法:直接运行.jar文件.可以自己编译或者下载Release中编译好的.但是Release中版本可能落后一点.
+我使用了AI(DeepSeek)写了部分代码.
 
 下面是使用AI写的README.md
 
@@ -135,7 +136,7 @@ This is a game written in Java. For now, it's text‑only, and I guess it's most
 **Pull Requests are not accepted at this time.** If you have ideas for improvement, please fork the repository and modify it for your own use. I just want to write a little something and enjoy myself.
 
 How to run: directly execute the .jar file. You can compile it yourself or download the pre‑built version from Releases. However, the Release version may lag slightly behind.
-
+I used AI(DeepSeek) to write some codes.
 Below is the README.md written with the help of AI.
 
 ---
