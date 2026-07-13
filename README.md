@@ -41,7 +41,7 @@ FightGameReforged
 
 项目 说明
 语言 Java (JDK 25+)
-构建工具 IntelliJ IDEA（原生）
+构建工具 Gradle
 核心依赖 org.json
 
 ---
@@ -95,7 +95,7 @@ FightGameReforged/
 ```
 
 ---
-
+没写完 
 🧠 关于 AI 决策系统（ThinkingController）
 
 非玩家实体的行为由 ThinkingController 控制，其核心机制基于 效用型 AI（Utility AI）：
@@ -170,11 +170,11 @@ The author is a high school student passionate about programming and game develo
 
 ## 🛠️ Tech Stack
 
-| Item          | Description                         |
-|---------------|-------------------------------------|
-| Language      | Java (JDK 25+)                      |
-| Build tool    | IntelliJ IDEA (native)              |
-| Dependencies  | org.json   |
+| Item          | Description    |
+|---------------|----------------|
+| Language      | Java (JDK 25+) |
+| Build tool    | Gradle         |
+| Dependencies  | org.json       |
 
 ---
 
@@ -230,7 +230,7 @@ There may be additional folders not listed here.
 ```
 
 ---
-
+Unfinished
 ## 🧠 About the AI Decision System (ThinkingController)
 
 The behavior of non‑player entities is controlled by `ThinkingController`, whose core mechanism is based on **Utility AI**:
