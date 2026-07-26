@@ -1,7 +1,7 @@
 package cn.gfhnv.game.mod;
 
 public class ModInformation {
-    private String name;
+    private String name;//注意.这不是模组id
     private String author;
     private String description;
     private String mainClass;

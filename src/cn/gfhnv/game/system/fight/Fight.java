@@ -4,6 +4,7 @@ import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.item.Item;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -41,12 +42,14 @@ public class Fight {
 
     public void addFighter(LivingThing fighter) {
         fighterList.add(fighter);
-        TurnManager.getTurns().add(new TurnEntry(fighter, BigDecimal.valueOf(10000 / fighter.getSpeed()), TurnManager.getPresentTime()));
+        TurnManager.getTurns().add(new TurnEntry(fighter, BigDecimal.valueOf(10000)
+                .divide(BigDecimal.valueOf(fighter.getSpeed()), 10, RoundingMode.HALF_UP), TurnManager.getPresentTime()));
     }
 
     public void addEnemy(LivingThing e) {
         enemiesList.add(e);
-        TurnManager.getTurns().add(new TurnEntry(e, BigDecimal.valueOf(10000 / e.getSpeed()), TurnManager.getPresentTime()));
+        TurnManager.getTurns().add(new TurnEntry(e, BigDecimal.valueOf(10000)
+                .divide(BigDecimal.valueOf(e.getSpeed()), 10, RoundingMode.HALF_UP), TurnManager.getPresentTime()));
     }
 
     public List<LivingThing> getEnemiesList() {

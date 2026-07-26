@@ -6,6 +6,12 @@ public class Slot {
     private final long slotNumber;
     private Item containedItem;
 
+
+    public Slot(Slot slot) {
+        slotNumber = slot.getSlotNumber();
+        setContainedItem(slot.getContainedItem().copy());
+    }
+
     public Slot(Item containedItem, long slotNumber) {
         this.containedItem = containedItem;
         this.slotNumber = slotNumber;
@@ -15,6 +21,9 @@ public class Slot {
         slotNumber = 0;
     }
 
+    public Slot copy() {
+        return new Slot(this);
+    }
 
     public Item getContainedItem() {
         return containedItem;

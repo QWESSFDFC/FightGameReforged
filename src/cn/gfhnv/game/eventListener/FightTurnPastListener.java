@@ -13,6 +13,7 @@ import cn.gfhnv.game.system.fight.TurnManager;
 import cn.gfhnv.game.world.World;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 public class FightTurnPastListener {
     private TurnEntry presentTurn;
@@ -62,7 +63,8 @@ public class FightTurnPastListener {
         System.out.println("火" + presentTurn.getLivingThing().getFireMana().getAmount() + "/" + presentTurn.getLivingThing().getFireMana().getAmountMax());
         System.out.println("土" + presentTurn.getLivingThing().getDirtMana().getAmount() + "/" + presentTurn.getLivingThing().getDirtMana().getAmountMax());
         presentTurn.getLivingThing().getController().act(fightPastOneTurnEvent.getFight());
-        TurnEntry turn = new TurnEntry(presentTurn.getLivingThing(), BigDecimal.valueOf(10000 / presentTurn.getLivingThing().getSpeed()), TurnManager.getPresentTime());
+        TurnEntry turn = new TurnEntry(presentTurn.getLivingThing(), BigDecimal.valueOf(10000)
+                .divide(BigDecimal.valueOf(presentTurn.getLivingThing().getSpeed()), 10, RoundingMode.HALF_UP), TurnManager.getPresentTime());
         TurnManager.getTurns().add(turn);
         Thread.sleep(100);
         EventBus.post(new EffectUpdateEvent(presentTurn.getLivingThing()));

@@ -13,6 +13,7 @@ public class UniversalController {
     private List<Skill> skills = new ArrayList<>();
     private LivingThing owner;
 
+    //不会使用物品.懒得写.
     public UniversalController(UniversalController universalController, LivingThing owner) {
         this.owner = owner;
         for (Skill skill : universalController.skills) {
@@ -85,5 +86,10 @@ public class UniversalController {
         Collections.shuffle(candidates, rand);
         List<LivingThing> targets = candidates.subList(0, aimCount);
         selectedSkill.use(fight, getOwner(), targets);
+    }
+
+    public void useItem(Fight fight) {
+
+
     }
 }

@@ -88,6 +88,7 @@ public class LivingThing extends Entity {
                 this.getManas().add(new Mana(mana));
             }
         }
+        this.setInventory(other.getInventory().copy());
     }
 
     public LivingThing(String name, String id, double fireResistance, double waterResistance, double metalResistance, double woodResistance, double dirtResistance, long speed, long l, String type, double hp, double atk, double dfk, ElementSort yu, double hpMagnification, double atkMagnification, double dfkMagnification) {
@@ -348,10 +349,6 @@ public class LivingThing extends Entity {
 
     public void setController(UniversalController controller) {
         this.controller = controller;
-    }
-
-    public TurnEntry getPresentTurn() {
-        return presentTurn;
     }
 
     public void setPresentTurn(TurnEntry presentTurn) {

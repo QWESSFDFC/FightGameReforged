@@ -2,6 +2,8 @@ package cn.gfhnv.game.entityController;
 
 import cn.gfhnv.game.GameMain;
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.inventory.Slot;
+import cn.gfhnv.game.item.Item;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.fight.Fight;
 
@@ -30,6 +32,21 @@ public class PlayerController extends UniversalController {
         if (!fight.getFighterList().contains(getOwner())) {
             return;
         }
+        boolean hasItem = false;
+        for (Slot slot : this.getOwner().getInventory().getSlots()) {
+            if (slot.getContainedItem() != null) {
+                hasItem = true;
+                break;
+            }
+        }
+        if (hasItem) {
+            System.out.println("是否使用物品?(yes/no)");
+            input = GameMain.SCANNER.nextLine();
+            if (input.equals("yes")) {
+                this.useItem(fight);
+            }
+        }
+
         System.out.println(getOwner().getName() + "有以下技能，输入前方数字使用：");
         Skill[] skills = getSkills().toArray(new Skill[0]);
         for (int i = 0; i < skills.length; i++) {
@@ -99,5 +116,47 @@ public class PlayerController extends UniversalController {
             }
         }
         selectedSkill.use(fight, getOwner(), new ArrayList<>(attacking));
+    }
+
+    @Override
+    public void useItem(Fight fight) {
+        if (this.getOwner() == null) {
+            return;
+        }
+        LivingThing user = this.getOwner();
+        List<Item> itemList = new ArrayList<>();
+        for (Slot slot : getOwner().getInventory().getSlots()) {
+            Item item = slot.getContainedItem();
+            if (item != null) {
+                itemList.add(item);
+            }
+        }
+        if (itemList.isEmpty()) {
+            return;
+        }
+        Item[] items = new Item[itemList.size()];
+        System.out.println(user.getName() + "的背包");
+        int i = 0;
+        for (Item item : itemList) {
+            items[i] = item;
+            System.out.println(i + " " + item.getName());
+            i++;
+
+        }
+        System.out.println("输入需要使用的物品.一回合只能使用一次物品,使用物品不会占有释放技能的回合");
+        int input;
+        Item usedItem;
+        while (true) {
+            try {
+                input = GameMain.SCANNER.nextInt();
+                usedItem = items[input];
+                System.out.println(user.getName() + "使用了" + usedItem.getName());
+                break;
+            } catch (Exception e) {
+                System.out.println("输入错误请重试");
+            }
+        }
+        usedItem.comeToEffect(user, fight);//如果物品需要选择目标,自己写.
+        user.getInventory().removeItem(usedItem);
     }
 }

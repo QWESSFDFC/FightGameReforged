@@ -45,3 +45,4 @@ build-input/
 *.vault
 *.key
 /.idea/
+/mods/*/bin/

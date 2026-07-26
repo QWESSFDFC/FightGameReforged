@@ -5,7 +5,9 @@ import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.event.FightPastOneTurnEvent;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 
@@ -20,24 +22,13 @@ public class TurnManager {
     }
 
     public static void sort() {
-        turns.sort(((o1, o2) -> {
-            if (o1.getNeedTime().add(o1.getStartTime()).compareTo(o2.getStartTime().add(o2.getNeedTime())) < 0) {
-                return -1;
-            }
-            if (o1.getNeedTime().add(o1.getStartTime()).compareTo(o2.getStartTime().add(o2.getNeedTime())) == 0) {
-                if (o1.getLivingThing().getSpeed() > o2.getLivingThing().getSpeed()) {
-                    return 1;
-                }
-                if (o1.getLivingThing().getSpeed() < o2.getLivingThing().getSpeed()) {
-                    return -1;
-                }
-                return 0;
-            }
-            if (o1.getNeedTime().add(o1.getStartTime()).compareTo(o2.getStartTime().add(o2.getNeedTime())) > 0) {
-                return 1;
-            }
-            return 0;
-        }));
+        if (turns == null || turns.isEmpty()) {
+            return;
+        }
+        turns.sort(Comparator
+                .comparing((TurnEntry t) -> t.getStartTime().add(t.getNeedTime()))
+                .thenComparing(t -> t.getLivingThing().getSpeed(), Comparator.reverseOrder())
+        );
     }
 
     public static void init(Fight fight) {
@@ -52,7 +43,8 @@ public class TurnManager {
             return;
         }
         for (LivingThing livingThing : canActEntity) {
-            turns.add(new TurnEntry(livingThing, BigDecimal.valueOf(10000 / livingThing.getSpeed()), TurnManager.getPresentTime()));
+            turns.add(new TurnEntry(livingThing, BigDecimal.valueOf(10000)
+                    .divide(BigDecimal.valueOf(livingThing.getSpeed()), 10, RoundingMode.HALF_UP), TurnManager.getPresentTime()));
         }
         if (turns.isEmpty()) {
             return;
