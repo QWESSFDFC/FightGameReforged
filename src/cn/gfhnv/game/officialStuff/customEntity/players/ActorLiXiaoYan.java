@@ -31,7 +31,7 @@ public class ActorLiXiaoYan extends LivingThing {
     }
 
     public ActorLiXiaoYan(long l) {
-        super("李晓焰", "actor_li_xiao_yan", 0.4, 0.0, 0.0, 0.0, 0.0, 120, l, "player", 58, 22, 3, ElementSort.FIRE, 30, 0, 5);
+        super("李晓焰", "actorLiXiaoYan", 0.4, 0.0, 0.0, 0.0, 0.0, 120, l, "player", 58, 22, 3, ElementSort.FIRE, 30, 0, 5);
         this.setMass(BigDecimal.valueOf(60));
         this.setDescription("这是李晓焰.");
         this.getInventory().addSlot(63);

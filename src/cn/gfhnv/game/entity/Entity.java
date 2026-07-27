@@ -4,11 +4,11 @@ import cn.gfhnv.game.Thing;
 import cn.gfhnv.game.inventory.Inventory;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.mana.Mana;
+import cn.gfhnv.game.system.thinkingSystem.Tag;
+import cn.gfhnv.game.system.thinkingSystem.TagType;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 public class Entity extends Thing {
     private long level;
@@ -47,6 +47,13 @@ public class Entity extends Thing {
                 this.manas.add(new Mana(mana));
             }
         }
+        if (entity.getTags().isEmpty()) {
+            Map<TagType, Tag> newMap = new EnumMap<>(TagType.class);
+            for (Map.Entry<TagType, Tag> entry : entity.getTags().entrySet()) {
+                newMap.put(entry.getKey(), entry.getValue().copy());
+            }
+            this.setTags(newMap);
+        }
     }
 
     public Entity() {
@@ -54,6 +61,7 @@ public class Entity extends Thing {
     }
 
     public Entity(String name, String id, long l, ElementSort h) {
+        super(new BigDecimal(1));
         this.name = name;
         this.id = id;
         this.level = l;

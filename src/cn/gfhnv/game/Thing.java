@@ -25,12 +25,12 @@ public class Thing {
     public Thing(BigDecimal mass) {
         this.mass = mass;
         this.uuid = UUID.randomUUID().toString();
+
     }
 
     public Thing() {
         this.uuid = UUID.randomUUID().toString();
     }
-
 
     public String getUUID() {
         return uuid;
@@ -61,7 +61,6 @@ public class Thing {
         return this;
     }
 
-
     public Acceleration getAcceleration() {
         return acceleration;
     }
@@ -69,7 +68,6 @@ public class Thing {
     public void setAcceleration(Acceleration acceleration) {
         this.acceleration = acceleration;
     }
-
 
     @Override
     public String toString() {
@@ -87,12 +85,12 @@ public class Thing {
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
         Thing thing = (Thing) o;
-        return Objects.equals(getMass(), thing.getMass()) && Objects.equals(getForce(), thing.getForce()) && Objects.equals(getVelocity(), thing.getVelocity()) && Objects.equals(getAcceleration(), thing.getAcceleration()) && Objects.equals(getPosition(), thing.getPosition()) && Objects.equals(uuid, thing.uuid);
+        return Objects.equals(uuid, thing.uuid);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getMass(), getForce(), getVelocity(), getAcceleration(), getPosition(), uuid);
+        return Objects.hashCode(uuid);
     }
 
     public Velocity getVelocity() {
@@ -129,5 +127,9 @@ public class Thing {
 
     public Map<TagType, Tag> getTags() {
         return tags;
+    }
+
+    public void setTags(Map<TagType, Tag> tags) {
+        this.tags = tags;
     }
 }

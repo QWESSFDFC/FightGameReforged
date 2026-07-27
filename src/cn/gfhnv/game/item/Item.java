@@ -3,8 +3,12 @@ package cn.gfhnv.game.item;
 import cn.gfhnv.game.Thing;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.system.fight.Fight;
+import cn.gfhnv.game.system.thinkingSystem.Tag;
+import cn.gfhnv.game.system.thinkingSystem.TagType;
 
 import java.math.BigDecimal;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.Objects;
 
 public class Item extends Thing {
@@ -22,6 +26,13 @@ public class Item extends Thing {
     public Item(Item item) {
         this.name = item.getName();
         this.description = item.getDescription();
+        if (item.getTags().isEmpty()) {
+            Map<TagType, Tag> newMap = new EnumMap<>(TagType.class);
+            for (Map.Entry<TagType, Tag> entry : item.getTags().entrySet()) {
+                newMap.put(entry.getKey(), entry.getValue().copy());
+            }
+            this.setTags(newMap);
+        }
 
     }
 

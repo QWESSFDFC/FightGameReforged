@@ -29,7 +29,7 @@ public class ThinkingController extends UniversalController {
      * 以自身tag和技能/物品tag判断  结合自身各个tag优先级判断
      * 再比较物品加的数值高低和持续时间
      *算权重,比较,选高的那个
-     *
+     *一定有攻击的
      * */
     @Override
     public void act(Fight fight) {
@@ -38,8 +38,8 @@ public class ThinkingController extends UniversalController {
             super.act(fight);
             return;
         }
-        double attackWeight = 1;
-        double defenseWeight = 0;
+        double attackWeight = 1;//
+        double defenseWeight = 0;//
         double healthWeight = 0;
         double manaRestorationWeight = 0;
         double damageEnhanceWeight = 0;
@@ -53,7 +53,7 @@ public class ThinkingController extends UniversalController {
             }
         }
         attackWeight = getWeight(TagType.ATTACK);
-        defenseWeight = getWeight(TagType.DEFEND);
+        defenseWeight = getWeight(TagType.DEFENCE);
         healthWeight = getWeight(TagType.HEAL);
         manaRestorationWeight = getWeight(TagType.RESTORATION_MANA);
         damageEnhanceWeight = getWeight(TagType.DAMAGE_ENHANCE);

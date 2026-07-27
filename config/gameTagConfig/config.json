@@ -1,0 +1,26 @@
+{
+  "insectBoss": {
+    "attack": 2,
+    "heal": 1,
+    "defence": 1
+  },
+  "commonInsect": {
+    "attack": 1,
+    "heal": 0,
+    "defence": 0
+  },
+  "playerOne":{
+    "attack": 2,
+    "heal": 1,
+    "defence": 1,
+    "restoration_mana": 1,
+    "damage_enhance": 1
+  },
+  "actorLiXiaoYan":{
+    "attack": 2,
+    "heal": 1,
+    "defence": 1,
+    "restoration_mana": 1,
+    "damage_enhance": 1
+  }
+}

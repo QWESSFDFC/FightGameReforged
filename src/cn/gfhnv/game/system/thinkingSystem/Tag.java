@@ -14,4 +14,8 @@ public class Tag {
     public void setWeight(double weight) {
         this.weight = weight;
     }
+
+    public Tag copy() {
+        return new Tag(this.weight);
+    }
 }

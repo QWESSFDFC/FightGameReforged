@@ -12,10 +12,14 @@ import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.fight.TurnEntry;
 import cn.gfhnv.game.system.mana.Mana;
+import cn.gfhnv.game.system.thinkingSystem.Tag;
+import cn.gfhnv.game.system.thinkingSystem.TagType;
 import cn.gfhnv.game.system.thinkingSystem.ThinkingController;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 
 public class LivingThing extends Entity {
     public long extraDamage = 0;
@@ -89,6 +93,13 @@ public class LivingThing extends Entity {
             }
         }
         this.setInventory(other.getInventory().copy());
+        if (other.getTags().isEmpty()) {
+            Map<TagType, Tag> newMap = new EnumMap<>(TagType.class);
+            for (Map.Entry<TagType, Tag> entry : other.getTags().entrySet()) {
+                newMap.put(entry.getKey(), entry.getValue().copy());
+            }
+            this.setTags(newMap);
+        }
     }
 
     public LivingThing(String name, String id, double fireResistance, double waterResistance, double metalResistance, double woodResistance, double dirtResistance, long speed, long l, String type, double hp, double atk, double dfk, ElementSort yu, double hpMagnification, double atkMagnification, double dfkMagnification) {
