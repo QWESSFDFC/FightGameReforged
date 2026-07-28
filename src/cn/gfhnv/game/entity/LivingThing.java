@@ -29,7 +29,7 @@ public class LivingThing extends Entity {
     private double getCriticalRATE;
     private boolean Alive = true;
     private List<Effect> entityEffectList = new ArrayList<>();
-    private double chuantong = 0;
+    private double penetration = 0;
     private double damageAbsorbedPercent = 0;
     private long hp, dfk, speed, afk;
     private double enhance;//全属性
@@ -76,7 +76,7 @@ public class LivingThing extends Entity {
         this.criticalDMG = other.criticalDMG;
         this.getCriticalRATE = other.getCriticalRATE;
         this.entityEffectList = new ArrayList<>(other.entityEffectList);
-        this.chuantong = other.chuantong;
+        this.penetration = other.penetration;
         this.damageAbsorbedPercent = other.damageAbsorbedPercent;
         this.participateFight = null;
         this.presentTurn = null;
@@ -302,7 +302,7 @@ public class LivingThing extends Entity {
     }
 
     public LivingThing facSetChuantong(double chuantong) {
-        this.chuantong = chuantong;
+        this.penetration = chuantong;
         return this;
     }
 
@@ -503,12 +503,12 @@ public class LivingThing extends Entity {
         this.damageAbsorbedPercent = damageAbsorbedPercent;
     }
 
-    public double getChuantong() {
-        return chuantong;
+    public double getPenetration() {
+        return penetration;
     }
 
-    public void setChuantong(double chuantong) {
-        this.chuantong = chuantong;
+    public void setPenetration(double penetration) {
+        this.penetration = penetration;
     }
 
     public double getHpMax() {
@@ -738,7 +738,7 @@ public class LivingThing extends Entity {
                 ", getCriticalRATE=" + getCriticalRATE +
                 ", Alive=" + Alive +
                 ", entityEffectList=" + entityEffectList +
-                ", chuantong=" + chuantong +
+                ", chuantong=" + penetration +
                 ", damageAbsorbedPercent=" + damageAbsorbedPercent +
                 ", hp=" + hp +
                 ", dfk=" + dfk +

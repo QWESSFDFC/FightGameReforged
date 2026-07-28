@@ -23,14 +23,6 @@ public class Thing {
     private Position position = new Position(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
     private String id;
 
-    public String getId() {
-        return id;
-    }
-
-    public void setId(String id) {
-        this.id = id;
-    }
-
     public Thing(BigDecimal mass) {
         this.mass = mass;
         this.uuid = UUID.randomUUID().toString();
@@ -39,6 +31,14 @@ public class Thing {
 
     public Thing() {
         this.uuid = UUID.randomUUID().toString();
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
     }
 
     public String getUUID() {

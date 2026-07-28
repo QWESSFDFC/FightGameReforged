@@ -70,7 +70,7 @@ public class Entity extends Thing {
     public Entity(String name, String id, long l, ElementSort h, BigDecimal bigDecimal) {
         super(bigDecimal);
         this.name = name;
-     this.setId(id);
+        this.setId(id);
         this.level = l;
         this.elementSort = h;
         switch (this.getElementSort()) {
@@ -484,7 +484,6 @@ public class Entity extends Thing {
         }
         this.initialMana();
     }
-
 
 
     public Inventory getInventory() {

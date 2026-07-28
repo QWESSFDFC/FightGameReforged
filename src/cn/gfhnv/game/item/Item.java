@@ -17,7 +17,7 @@ public class Item extends Thing {
     private boolean isForEnemies = false;
     private int stackNumber = 1;
 
-    public Item(String name, String description,String id) {
+    public Item(String name, String description, String id) {
         this.name = name;
         this.setId(id);
         this.description = description;
@@ -38,7 +38,7 @@ public class Item extends Thing {
 
     }
 
-    public Item(String name, String description, BigDecimal bigDecimal,String id) {
+    public Item(String name, String description, BigDecimal bigDecimal, String id) {
         super(bigDecimal);
         this.setId(id);
         this.name = name;

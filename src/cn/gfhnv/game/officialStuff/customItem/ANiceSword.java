@@ -7,7 +7,7 @@ import cn.gfhnv.game.system.fight.Fight;
 
 public class ANiceSword extends Item {
     public ANiceSword() {
-        super("一把剑", "使用后增加伤害1回合","aNiceSword");
+        super("一把剑", "使用后增加伤害1回合", "aNiceSword");
     }
 
     @Override

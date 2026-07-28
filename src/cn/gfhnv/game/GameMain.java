@@ -16,7 +16,6 @@ import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.logSystem.LogWriter;
 import cn.gfhnv.game.world.World;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
