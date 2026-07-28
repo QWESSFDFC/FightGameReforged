@@ -16,7 +16,7 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
 
-public class ConfigLoader {//只加载游戏本身设置(目前只有tag设置存在config.json中).模组的自己写加载方法,
+public class ConfigLoader {//只加载游戏本身设置(目前只有tag(实体和物品)设置存在TagConfig.json中).模组的自己写加载方法,建议模组配置文件放在config/模组id(或者其他的尽量唯一的名字)下面
     private static final File TAG_CONFIG_FILE = new File("./config/gameConfig/TagConfig.json");
     private static Map<String,Map<TagType, Tag>> tagsMap = new HashMap<>();
 
