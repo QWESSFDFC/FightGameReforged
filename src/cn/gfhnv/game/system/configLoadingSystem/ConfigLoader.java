@@ -66,7 +66,7 @@ public class ConfigLoader {//只加载游戏本身设置(目前只有tag设置�
       tagsMap.put(id, map);
     }
     if (World.getEntityList().isEmpty()) System.out.println("没有实体");
-    if (World.getEntityList().isEmpty())return;
+    if (World.getEntityList().isEmpty())return;//没有实体,游戏无法进行
     for (Entity entity : World.getEntityList()) {
         if (tagsMap.containsKey(entity.getId())) {
             entity.setTags(tagsMap.get(entity.getId()));
@@ -74,7 +74,7 @@ public class ConfigLoader {//只加载游戏本身设置(目前只有tag设置�
         }
     }
     if (World.getItemList().isEmpty()) System.out.println("没有物品");
-    if (World.getItemList().isEmpty())return;
+    if (World.getItemList().isEmpty())return;//有没有物品无所谓
     for (Item item:World.getItemList()) {
         if (tagsMap.containsKey(item.getId())) {
             item.setTags(tagsMap.get(item.getId()));
