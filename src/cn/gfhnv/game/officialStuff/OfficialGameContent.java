@@ -12,7 +12,7 @@ import cn.gfhnv.game.officialStuff.customItem.ANiceSword;
 
 public class OfficialGameContent extends Mod {
     public OfficialGameContent() {//请模组加载时把模组内容在invokeWhenLoaded方法中添加到模组的各个List中.不要学这个
-        super("game_official_content:", new OfficialModInformation());
+        super("game_official_content", new OfficialModInformation());
         this.addItem(new ANiceSword());
         this.addEntity(new PlayerOne(125));
         this.addEffect(new DamageEnhanceEffect());

@@ -1,6 +1,7 @@
 package cn.gfhnv.game.event;
 
 import cn.gfhnv.game.annotation.SubscribeEvent;
+import cn.gfhnv.game.system.logSystem.LogWriter;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
@@ -20,10 +21,12 @@ public class EventBus {
             if (method.isAnnotationPresent(SubscribeEvent.class)) {
                 Parameter[] params = method.getParameters();
                 if (params.length != 1) {
+                    LogWriter.writeLog("Event handler method must have exactly one parameter: " + method);
                     throw new IllegalArgumentException("Event handler method must have exactly one parameter: " + method);
                 }
                 Class<?> eventType = params[0].getType();
                 if (!Event.class.isAssignableFrom(eventType)) {
+                    LogWriter.writeLog("Event handler parameter must be a subtype of Event: " + method);
                     throw new IllegalArgumentException("Event handler parameter must be a subtype of Event: " + method);
                 }
                 EventHandler handler = new EventHandler(listener, method);
@@ -73,7 +76,9 @@ public class EventBus {
             try {
                 method.invoke(listener, event);
             } catch (Exception e) {
+                LogWriter.writeLog(e.getMessage());
                 throw new RuntimeException("Failed to invoke event handler on " + listener, e);
+
             }
         }
 

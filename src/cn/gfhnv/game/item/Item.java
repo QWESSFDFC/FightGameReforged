@@ -17,8 +17,9 @@ public class Item extends Thing {
     private boolean isForEnemies = false;
     private int stackNumber = 1;
 
-    public Item(String name, String description) {
+    public Item(String name, String description,String id) {
         this.name = name;
+        this.setId(id);
         this.description = description;
 
     }
@@ -26,6 +27,7 @@ public class Item extends Thing {
     public Item(Item item) {
         this.name = item.getName();
         this.description = item.getDescription();
+        this.setId(item.getId());
         if (item.getTags().isEmpty()) {
             Map<TagType, Tag> newMap = new EnumMap<>(TagType.class);
             for (Map.Entry<TagType, Tag> entry : item.getTags().entrySet()) {
@@ -36,8 +38,9 @@ public class Item extends Thing {
 
     }
 
-    public Item(String name, String description, BigDecimal bigDecimal) {
+    public Item(String name, String description, BigDecimal bigDecimal,String id) {
         super(bigDecimal);
+        this.setId(id);
         this.name = name;
         this.description = description;
     }

@@ -66,6 +66,8 @@ public abstract class Mod {
 
     public void addItem(Item item) {
         items.add(item);
+        if (MOD_ID==null) return;
+        item.setId(this.MOD_ID + ":" + item.getId());
     }
 
     public void removeItem(Item item) {
@@ -74,6 +76,9 @@ public abstract class Mod {
 
     public void addEntity(Entity entity) {
         entityList.add(entity);
+        if (MOD_ID==null) return;
+        entity.setId(this.MOD_ID + ":" + entity.getId());
+
     }
 
     public void removeEntity(Entity entity) {
@@ -82,6 +87,8 @@ public abstract class Mod {
 
     public void addEffect(Effect effect) {
         effects.add(effect);
+        if (MOD_ID==null) return;
+        effect.setId(MOD_ID + ":" + effect.getId());
     }
 
     public void removeEffect(Effect effect) {

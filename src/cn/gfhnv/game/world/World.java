@@ -14,10 +14,10 @@ import java.util.List;
 public class World {
     public static int turnTimer = 0;
     private static List<Mod> modList = new ArrayList<>();
-    private static List<Effect> effectList = new ArrayList<>();
+    private static List<Effect> effectList = new ArrayList<>();//效果注册表
     private static List<Thing> things = new ArrayList<>();
-    private static List<Entity> entityList = new ArrayList<>();
-    private static List<Item> itemList = new ArrayList<>();
+    private static List<Entity> entityList = new ArrayList<>();//实体注册表
+    private static List<Item> itemList = new ArrayList<>();//物品注册表
 
     public static void addEffect(Effect effect) {
         effectList.add(effect);

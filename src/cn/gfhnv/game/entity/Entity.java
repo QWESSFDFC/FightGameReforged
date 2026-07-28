@@ -13,7 +13,6 @@ import java.util.*;
 public class Entity extends Thing {
     private long level;
     private String name;
-    private String id;
     private double hpGrowNumber;
     private double atkGrowNumber;
     private double dfkGrowNumber;
@@ -31,7 +30,7 @@ public class Entity extends Thing {
 
         this.level = entity.level;
         this.name = entity.name;
-        this.id = entity.id;
+        this.setId(entity.getId());
         this.hpGrowNumber = entity.hpGrowNumber;
         this.atkGrowNumber = entity.atkGrowNumber;
         this.dfkGrowNumber = entity.dfkGrowNumber;
@@ -63,7 +62,7 @@ public class Entity extends Thing {
     public Entity(String name, String id, long l, ElementSort h) {
         super(new BigDecimal(1));
         this.name = name;
-        this.id = id;
+        this.setId(id);
         this.level = l;
         this.elementSort = h;
     }
@@ -71,7 +70,7 @@ public class Entity extends Thing {
     public Entity(String name, String id, long l, ElementSort h, BigDecimal bigDecimal) {
         super(bigDecimal);
         this.name = name;
-        this.id = id;
+     this.setId(id);
         this.level = l;
         this.elementSort = h;
         switch (this.getElementSort()) {
@@ -406,7 +405,7 @@ public class Entity extends Thing {
                 "UUID=" + getUUID() +
                 ", level=" + level +
                 ", name='" + name + '\'' +
-                ", id='" + id + '\'' +
+                ", id='" + getId() + '\'' +
                 ", hpGrowNumber=" + hpGrowNumber +
                 ", atkGrowNumber=" + atkGrowNumber +
                 ", dfkGrowNumber=" + dfkGrowNumber +
@@ -486,13 +485,7 @@ public class Entity extends Thing {
         this.initialMana();
     }
 
-    public String getId() {
-        return id;
-    }
 
-    public void setId(String id) {
-        this.id = id;
-    }
 
     public Inventory getInventory() {
         return inventory;

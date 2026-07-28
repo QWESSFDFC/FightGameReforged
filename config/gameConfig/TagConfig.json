@@ -1,26 +1,29 @@
 {
-  "insectBoss": {
+  "game_official_content:insectBoss": {
     "attack": 2,
     "heal": 1,
     "defence": 1
   },
-  "commonInsect": {
+  "game_official_content:commonInsect": {
     "attack": 1,
     "heal": 0,
     "defence": 0
   },
-  "playerOne":{
+  "game_official_content:playerOne":{
     "attack": 2,
     "heal": 1,
     "defence": 1,
     "restoration_mana": 1,
     "damage_enhance": 1
   },
-  "actorLiXiaoYan":{
+  "game_official_content:actorLiXiaoYan":{
     "attack": 2,
     "heal": 1,
     "defence": 1,
     "restoration_mana": 1,
     "damage_enhance": 1
+  },
+  "game_official_content:aNiceSword": {
+    "damage_enhance": 2
   }
 }

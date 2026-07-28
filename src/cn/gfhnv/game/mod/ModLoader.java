@@ -17,7 +17,7 @@ import java.util.List;
 
 public class ModLoader {
     public static void modLoaderInitialize() {
-        System.out.println("正在初始化模组加载器...");
+        System.out.println("正在初始化模组加载器并加载模组");
 
         File modDir = new File("./mods");
         if (!modDir.exists()) {

@@ -11,10 +11,12 @@ import cn.gfhnv.game.eventListener.PhysicsEventListener;
 import cn.gfhnv.game.item.Item;
 import cn.gfhnv.game.mod.ModLoader;
 import cn.gfhnv.game.officialStuff.OfficialGameContent;
+import cn.gfhnv.game.system.configLoadingSystem.ConfigLoader;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.logSystem.LogWriter;
 import cn.gfhnv.game.world.World;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
@@ -34,6 +36,12 @@ public class GameMain {
         EventBus.register(new PhysicsEventListener());
         EventBus.register(new FightStartEventListener());
         EventBus.post(new GameStartEvent());
+        try {
+            System.out.println("加载配置中");
+            ConfigLoader.loadConfig();
+        } catch (Exception e) {
+            LogWriter.writeLog(e.getMessage());
+        }
     }
 
     public static void main(String[] args) {

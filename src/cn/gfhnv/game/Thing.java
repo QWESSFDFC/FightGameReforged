@@ -21,6 +21,15 @@ public class Thing {
     private Velocity velocity = new Velocity(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
     private Acceleration acceleration = new Acceleration(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
     private Position position = new Position(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
+    private String id;
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
 
     public Thing(BigDecimal mass) {
         this.mass = mass;
