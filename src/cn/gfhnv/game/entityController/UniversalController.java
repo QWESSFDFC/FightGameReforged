@@ -1,7 +1,9 @@
 package cn.gfhnv.game.entityController;
 
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.interfaces.ISpecialAction;
 import cn.gfhnv.game.skill.Skill;
+import cn.gfhnv.game.system.fight.ActionSignal;
 import cn.gfhnv.game.system.fight.Fight;
 
 import java.util.ArrayList;
@@ -12,6 +14,24 @@ import java.util.Random;
 public class UniversalController {
     private List<Skill> skills = new ArrayList<>();
     private LivingThing owner;
+    private ISpecialAction specialAction;
+private ActionSignal actionSignal=ActionSignal.NORMAL;
+
+    public ActionSignal getActionSignal() {
+        return actionSignal;
+    }
+
+    public void setActionSignal(ActionSignal actionSignal) {
+        this.actionSignal = actionSignal;
+    }
+
+    public ISpecialAction getSpecialAction() {
+        return specialAction;
+    }
+
+    public void setSpecialAction(ISpecialAction specialAction) {
+        this.specialAction = specialAction;
+    }
 
     //不会使用物品.懒得写.
     public UniversalController(UniversalController universalController, LivingThing owner) {

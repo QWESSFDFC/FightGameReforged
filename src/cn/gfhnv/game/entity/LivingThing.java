@@ -9,6 +9,7 @@ import cn.gfhnv.game.event.HpLossEvent;
 import cn.gfhnv.game.event.HpRestorationEvent;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
+import cn.gfhnv.game.system.fight.ActionSignal;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.fight.TurnEntry;
 import cn.gfhnv.game.system.mana.Mana;
@@ -521,6 +522,8 @@ public class LivingThing extends Entity {
 
     public boolean isAlive() {
         if (getHp() <= 0) {
+                this.getController().setActionSignal(ActionSignal.NORMAL);
+                this.getController().setSpecialAction(null);
             Alive = false;
         }
         if (getHp() > 0) {

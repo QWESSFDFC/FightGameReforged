@@ -29,6 +29,12 @@ public class ConfigLoader {//只加载游戏本身设置(目前只有tag(实体�
             "    \"heal\": 0,\n" +
             "    \"defence\": 0\n" +
             "  },\n" +
+            "  \"game_official_content:iceInsect\": {\n" +
+            "    \"attack\": 1,\n" +
+            "    \"heal\": 0,\n" +
+            "    \"defence\": 0,\n" +
+            "    \"control_enemies\": 9\n" +
+            "  },\n" +
             "  \"game_official_content:playerOne\":{\n" +
             "    \"attack\": 2,\n" +
             "    \"heal\": 1,\n" +

@@ -9,6 +9,12 @@
     "heal": 0,
     "defence": 0
   },
+  "game_official_content:iceInsect": {
+    "attack": 1,
+    "heal": 0,
+    "defence": 0,
+    "control_enemies": 9
+  },
   "game_official_content:playerOne":{
     "attack": 2,
     "heal": 1,

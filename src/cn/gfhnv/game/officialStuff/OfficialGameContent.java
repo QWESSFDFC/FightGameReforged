@@ -3,8 +3,10 @@ package cn.gfhnv.game.officialStuff;
 import cn.gfhnv.game.mod.Mod;
 import cn.gfhnv.game.officialStuff.customEffect.actorLiXiaoYanEffects.MemorizedHp;
 import cn.gfhnv.game.officialStuff.customEffect.universalEffects.DamageEnhanceEffect;
+import cn.gfhnv.game.officialStuff.customEffect.universalEffects.Frozen;
 import cn.gfhnv.game.officialStuff.customEffect.universalEffects.HealthRestoreEffect;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.CommonInsect;
+import cn.gfhnv.game.officialStuff.customEntity.monsters.IceInsect;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.InsectBoss;
 import cn.gfhnv.game.officialStuff.customEntity.players.ActorLiXiaoYan;
 import cn.gfhnv.game.officialStuff.customEntity.players.PlayerOne;
@@ -21,6 +23,8 @@ public class OfficialGameContent extends Mod {
         this.addEntity(new InsectBoss(150));
         this.addEntity(new CommonInsect(150L));
         this.addEffect(new HealthRestoreEffect());
+        this.addEffect(new Frozen());
+        this.addEntity(new IceInsect(150));
         System.out.println("游戏自带内容加载完成");
 
     }
