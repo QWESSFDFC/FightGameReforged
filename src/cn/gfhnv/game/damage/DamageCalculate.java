@@ -14,9 +14,9 @@ public class DamageCalculate {
         penetration = attacker.getPenetration();
         double damageAbsorbed = targetEntity.getDamageAbsorbedPercent();
         double enhance = attacker.getEnhance();
-        double attack = attacker.getAfk();
+        double attack = attacker.getAttack();
         double hp = attacker.getHp();
-        double attackerDefence = attacker.getDfk();
+        double attackerDefence = attacker.getDefence();
         double individualMultipleArea = attacker.getIndividualMultipleArea();
         double hpMagnification = skill.getHpMagnification();
         double atkMagnification = skill.getAtkMagnification();
@@ -25,28 +25,33 @@ public class DamageCalculate {
         long extraDamage = skill.getExtraDamage();
         long attackerExtraDamage = attacker.getExtraDamage();
         cn.gfhnv.game.system.ElementSort elementSort = attacker.getElementSort();
-        double targetDefence = targetEntity.getDfk();
+        double targetDefence = targetEntity.getDefence();
         double defenseLoss = targetEntity.getDefenseLoss();
         switch (elementSort) {
             case DIRT -> {
                 resistance = targetEntity.getDirtResistance();
                 enhance += attacker.getDirtDamageEnhance();
+                penetration += attacker.getDirtPenetration();
             }
             case FIRE -> {
                 resistance = targetEntity.getFireResistance();
                 enhance += attacker.getFireDamageEnhance();
+                penetration += attacker.getFirePenetration();
             }
             case WOOD -> {
                 resistance = targetEntity.getWoodResistance();
                 enhance += attacker.getWoodDamageEnhance();
+                penetration += attacker.getWoodPenetration();
             }
             case METAL -> {
                 resistance = targetEntity.getMetalResistance();
                 enhance += attacker.getMetalDamageEnhance();
+                penetration += attacker.getMetalPenetration();
             }
             case WATER -> {
                 resistance = targetEntity.getWaterResistance();
                 enhance += attacker.getWaterDamageEnhance();
+                penetration += attacker.getWaterPenetration();
             }
             default -> {
                 resistance = 0;

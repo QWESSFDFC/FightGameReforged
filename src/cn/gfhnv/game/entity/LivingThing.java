@@ -17,22 +17,27 @@ import cn.gfhnv.game.system.thinkingSystem.Tag;
 import cn.gfhnv.game.system.thinkingSystem.TagType;
 import cn.gfhnv.game.system.thinkingSystem.ThinkingController;
 
-import java.util.ArrayList;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class LivingThing extends Entity {
     public long extraDamage = 0;
-    private double fireResistance, waterResistance, metalResistance, woodResistance, dirtResistance, hpMax;
-    private double hpMagnification, atkMagnification, dfkMagnification;
-    private double criticalDMG;
-    private double getCriticalRATE;
+    private double fireResistance, waterResistance, metalResistance, woodResistance, dirtResistance, hpMax, hpMagnification, atkMagnification, dfkMagnification, criticalDMG, getCriticalRATE;
+    private long hp, defence, speed, attack;
     private boolean Alive = true;
     private List<Effect> entityEffectList = new ArrayList<>();
-    private double penetration = 0;
+    private double penetration = 0;//全属性穿透
+    private double metalPenetration, woodPenetration, waterPenetration, firePenetration, dirtPenetration;
     private double damageAbsorbedPercent = 0;
-    private long hp, dfk, speed, afk;
+    private double hpGrowNumber;
+    private double atkGrowNumber;
+    private double dfkGrowNumber;
+    private ElementSort elementSort;
+    private double metalManaGrowNumber;
+    private double woodManaGrowNumber;
+    private double waterManaGrowNumber;
+    private double fireManaGrowNumber;
+    private double dirtManaGrowNumber;
+    private List<Mana> manas = new ArrayList<>();//一个实体可以拥有多个Mana
     private double enhance;//全属性
     private double metalDamageEnhance, woodDamageEnhance, waterDamageEnhance, fireDamageEnhance, dirtDamageEnhance;
     private double defenseLoss;
@@ -42,12 +47,14 @@ public class LivingThing extends Entity {
     private String description;
     private double individualMultipleArea = 1;
 
+
     public LivingThing() {
 
     }
 
+
     public LivingThing(LivingThing other) {
-        super(other.getName(), other.getId(), other.getLevel(), other.getElementSort());
+        super(other.getName(), other.getId(), other.getLevel());
         this.fireResistance = other.fireResistance;
         this.waterResistance = other.waterResistance;
         this.metalResistance = other.metalResistance;
@@ -71,8 +78,8 @@ public class LivingThing extends Entity {
         this.setFireManaGrowNumber(other.getFireManaGrowNumber());
         this.setDirtManaGrowNumber(other.getDirtManaGrowNumber());
         this.hp = other.hp;
-        this.dfk = other.dfk;
-        this.afk = other.afk;
+        this.defence = other.defence;
+        this.attack = other.attack;
         this.hpMax = other.hpMax;
         this.criticalDMG = other.criticalDMG;
         this.getCriticalRATE = other.getCriticalRATE;
@@ -103,11 +110,13 @@ public class LivingThing extends Entity {
         }
     }
 
-    public LivingThing(String name, String id, double fireResistance, double waterResistance, double metalResistance, double woodResistance, double dirtResistance, long speed, long l, String type, double hp, double atk, double dfk, ElementSort yu, double hpMagnification, double atkMagnification, double dfkMagnification) {
-        super(name, id, l, yu);
+
+    public LivingThing(String name, String id, double fireResistance, double waterResistance, double metalResistance, double woodResistance, double dirtResistance, long speed, long l, String type, double hp, double atk, double defence, ElementSort yu, double hpMagnification, double atkMagnification, double dfkMagnification) {
+        super(name, id, l);
+        this.elementSort = yu;
         this.setHpGrowNumber(hp);
         this.setAtkGrowNumber(atk);
-        this.setDfkGrowNumber(dfk);
+        this.setDfkGrowNumber(defence);
         this.fireResistance = fireResistance;
         this.waterResistance = waterResistance;
         this.metalResistance = metalResistance;
@@ -122,8 +131,8 @@ public class LivingThing extends Entity {
         this.defenseLoss = 0;
         this.enhance = 0;
         this.hp = (long) ((l - 1) * getHpGrowNumber() + 200);
-        this.dfk = (long) ((l - 1) * getDfkGrowNumber() + 200);
-        this.afk = (long) (110 + getAtkGrowNumber() * (l - 1));
+        this.defence = (long) ((l - 1) * getDfkGrowNumber() + 200);
+        this.attack = (long) (110 + getAtkGrowNumber() * (l - 1));
         this.hpMax = this.hp;
         switch (this.getElementSort()) {
             case METAL -> {
@@ -165,13 +174,250 @@ public class LivingThing extends Entity {
         this.initialMana();
     }
 
+
     public LivingThing(String name, String id, long l, ElementSort u) {
-        super(name, id, l, u);
+        super(name, id, l);
+        this.elementSort = u;
     }
+
 
     public LivingThing(long speed) {
         this.speed = speed;
 
+    }
+
+    public double getMetalPenetration() {
+        return metalPenetration;
+    }
+
+    public void setMetalPenetration(double metalPenetration) {
+        this.metalPenetration = metalPenetration;
+    }
+
+    public Mana getMana(ElementSort elementSortNeeded) {
+        for (Mana mana : this.manas) {
+            if (mana.getElementSort().equals(elementSortNeeded)) return mana;
+        }
+        return null;
+    }
+
+    public void initialMana() {
+        this.manas = new ArrayList<>();
+        switch (this.getElementSort()) {
+            case METAL -> {
+                manas.add(new Mana(this.metalManaGrowNumber * (this.getLevel() - 1) + 200, ElementSort.METAL));
+                manas.add(new Mana(this.woodManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.WOOD));
+                manas.add(new Mana(this.waterManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.WATER));
+                manas.add(new Mana(this.fireManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.FIRE));
+                manas.add(new Mana(this.dirtManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.DIRT));
+            }
+            case WOOD -> {
+                manas.add(new Mana(this.metalManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.METAL));
+                manas.add(new Mana(this.woodManaGrowNumber * (this.getLevel() - 1) + 200, ElementSort.WOOD));
+                manas.add(new Mana(this.waterManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.WATER));
+                manas.add(new Mana(this.fireManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.FIRE));
+                manas.add(new Mana(this.dirtManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.DIRT));
+            }
+            case WATER -> {
+                manas.add(new Mana(this.metalManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.METAL));
+                manas.add(new Mana(this.woodManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.WOOD));
+                manas.add(new Mana(this.waterManaGrowNumber * (this.getLevel() - 1) + 200, ElementSort.WATER));
+                manas.add(new Mana(this.fireManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.FIRE));
+                manas.add(new Mana(this.dirtManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.DIRT));
+            }
+            case FIRE -> {
+                manas.add(new Mana(this.metalManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.METAL));
+                manas.add(new Mana(this.woodManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.WOOD));
+                manas.add(new Mana(this.waterManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.WATER));
+                manas.add(new Mana(this.fireManaGrowNumber * (this.getLevel() - 1) + 200, ElementSort.FIRE));
+                manas.add(new Mana(this.dirtManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.DIRT));
+            }
+            case DIRT -> {
+                manas.add(new Mana(this.metalManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.METAL));
+                manas.add(new Mana(this.woodManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.WOOD));
+                manas.add(new Mana(this.waterManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.WATER));
+                manas.add(new Mana(this.fireManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.FIRE));
+                manas.add(new Mana(this.dirtManaGrowNumber * (this.getLevel() - 1) + 200, ElementSort.DIRT));
+            }
+        }
+
+    }
+
+    public void recoverManaEveryTurn() {
+        for (Mana mana : manas) {
+            if (mana.getElementSort().equals(ElementSort.METAL)) {
+                mana.setAmount(mana.getAmount() + this.getLevel() / 100.00 * this.getMetalManaGrowNumber() + 100);
+            }
+            if (this.getElementSort().equals(ElementSort.METAL)) {
+                mana.setAmount(mana.getAmount() + this.getLevel());
+            }
+            if (mana.getElementSort().equals(ElementSort.WOOD)) {
+                mana.setAmount(mana.getAmount() + this.getLevel() / 100.00 * this.getWoodManaGrowNumber() + 100);
+            }
+            if (this.getElementSort().equals(ElementSort.WOOD)) {
+                mana.setAmount(mana.getAmount() + this.getLevel());
+            }
+            if (mana.getElementSort().equals(ElementSort.WATER)) {
+                mana.setAmount(mana.getAmount() + this.getLevel() / 100.00 * this.getWaterManaGrowNumber() + 100);
+            }
+            if (this.getElementSort().equals(ElementSort.WATER)) {
+                mana.setAmount(mana.getAmount() + this.getLevel());
+            }
+            if (mana.getElementSort().equals(ElementSort.FIRE)) {
+                mana.setAmount(mana.getAmount() + this.getLevel() / 100.00 * this.getFireManaGrowNumber() + 100);
+            }
+            if (this.getElementSort().equals(ElementSort.FIRE)) {
+                mana.setAmount(mana.getAmount() + this.getLevel());
+            }
+            if (mana.getElementSort().equals(ElementSort.DIRT)) {
+                mana.setAmount(mana.getAmount() + this.getLevel() / 100.00 * this.getDirtManaGrowNumber() + 100);
+            }
+            if (this.getElementSort().equals(ElementSort.DIRT)) {
+                mana.setAmount(mana.getAmount() + this.getLevel());
+            }
+        }
+
+
+    }
+
+    public List<Mana> getManas() {
+        return manas;
+    }
+
+    public void setManas(List<Mana> manas) {
+        this.manas = manas;
+    }
+
+    public double getHpGrowNumber() {
+        return hpGrowNumber;
+    }
+
+    public void setHpGrowNumber(double hpGrowNumber) {
+        this.hpGrowNumber = hpGrowNumber;
+    }
+
+    public double getAtkGrowNumber() {
+        return atkGrowNumber;
+    }
+
+    public void setAtkGrowNumber(double atkGrowNumber) {
+        this.atkGrowNumber = atkGrowNumber;
+    }
+
+    public double getDfkGrowNumber() {
+        return dfkGrowNumber;
+    }
+
+    public void setDfkGrowNumber(double dfkGrowNumber) {
+        this.dfkGrowNumber = dfkGrowNumber;
+    }
+
+    public ElementSort getElementSort() {
+        return elementSort;
+    }
+
+    public void setElementSort(ElementSort elementSort) {
+        this.elementSort = elementSort;
+    }
+
+    public double getMetalManaGrowNumber() {
+        return metalManaGrowNumber;
+    }
+
+    public void setMetalManaGrowNumber(double metalManaGrowNumber) {
+        this.metalManaGrowNumber = metalManaGrowNumber;
+    }
+
+    public double getWoodManaGrowNumber() {
+        return woodManaGrowNumber;
+    }
+
+    public void setWoodManaGrowNumber(double woodManaGrowNumber) {
+        this.woodManaGrowNumber = woodManaGrowNumber;
+    }
+
+    public double getWaterManaGrowNumber() {
+        return waterManaGrowNumber;
+    }
+
+    public void setWaterManaGrowNumber(double waterManaGrowNumber) {
+        this.waterManaGrowNumber = waterManaGrowNumber;
+    }
+
+    public double getFireManaGrowNumber() {
+        return fireManaGrowNumber;
+    }
+
+    public void setFireManaGrowNumber(double fireManaGrowNumber) {
+        this.fireManaGrowNumber = fireManaGrowNumber;
+    }
+
+    public double getDirtManaGrowNumber() {
+        return dirtManaGrowNumber;
+    }
+
+    public void setDirtManaGrowNumber(double dirtManaGrowNumber) {
+        this.dirtManaGrowNumber = dirtManaGrowNumber;
+    }
+
+    public double getDirtPenetration() {
+        return dirtPenetration;
+    }
+
+    public void setDirtPenetration(double dirtPenetration) {
+        this.dirtPenetration = dirtPenetration;
+    }
+
+    public TurnEntry getPresentTurn() {
+        return presentTurn;
+    }
+
+    public void setPresentTurn(TurnEntry presentTurn) {
+        this.presentTurn = presentTurn;
+    }
+
+    public double getFirePenetration() {
+        return firePenetration;
+    }
+
+    public void setFirePenetration(double firePenetration) {
+        this.firePenetration = firePenetration;
+    }
+
+    public double getWaterPenetration() {
+        return waterPenetration;
+    }
+
+    public void setWaterPenetration(double waterPenetration) {
+        this.waterPenetration = waterPenetration;
+    }
+
+    public double getWoodPenetration() {
+        return woodPenetration;
+    }
+
+    public void setWoodPenetration(double woodPenetration) {
+        this.woodPenetration = woodPenetration;
+    }
+
+    public Mana getMetalMana() {
+        return this.getMana(ElementSort.METAL);
+    }
+
+    public Mana getWoodMana() {
+        return this.getMana(ElementSort.WOOD);
+    }
+
+    public Mana getWaterMana() {
+        return this.getMana(ElementSort.WATER);
+    }
+
+    public Mana getFireMana() {
+        return this.getMana(ElementSort.FIRE);
+    }
+
+    public Mana getDirtMana() {
+        return this.getMana(ElementSort.DIRT);
     }
 
     public double getMetalDamageEnhance() {
@@ -318,7 +564,7 @@ public class LivingThing extends Entity {
     }
 
     public LivingThing facSetDfk(long dfk) {
-        this.dfk = dfk;
+        this.defence = dfk;
         return this;
     }
 
@@ -328,7 +574,7 @@ public class LivingThing extends Entity {
     }
 
     public LivingThing facSetAfk(long afk) {
-        this.afk = afk;
+        this.attack = afk;
         return this;
     }
 
@@ -362,11 +608,6 @@ public class LivingThing extends Entity {
     public void setController(UniversalController controller) {
         this.controller = controller;
     }
-
-    public void setPresentTurn(TurnEntry presentTurn) {
-        this.presentTurn = presentTurn;
-    }
-
 
     public double getHpMagnification() {
         return hpMagnification;
@@ -522,8 +763,8 @@ public class LivingThing extends Entity {
 
     public boolean isAlive() {
         if (getHp() <= 0) {
-                this.getController().setActionSignal(ActionSignal.NORMAL);
-                this.getController().setSpecialAction(null);
+            this.getController().setActionSignal(ActionSignal.NORMAL);
+            this.getController().setSpecialAction(null);
             Alive = false;
         }
         if (getHp() > 0) {
@@ -553,12 +794,12 @@ public class LivingThing extends Entity {
     }
 
 
-    public long getAfk() {
-        return afk;
+    public long getAttack() {
+        return attack;
     }
 
-    public void setAfk(long afk) {
-        this.afk = afk;
+    public void setAttack(long attack) {
+        this.attack = attack;
     }
 
     public void getDamage(DamageEvent da) {
@@ -692,12 +933,12 @@ public class LivingThing extends Entity {
         this.speed = speed;
     }
 
-    public long getDfk() {
-        return dfk;
+    public long getDefence() {
+        return defence;
     }
 
-    public void setDfk(long dfk) {
-        this.dfk = dfk;
+    public void setDefence(long defence) {
+        this.defence = defence;
     }
 
     public long getHp() {
@@ -715,6 +956,19 @@ public class LivingThing extends Entity {
         if (this.hp < 0) {
             this.hp = 0;
         }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        if (!super.equals(o)) return false;
+        LivingThing that = (LivingThing) o;
+        return getExtraDamage() == that.getExtraDamage() && Double.compare(getFireResistance(), that.getFireResistance()) == 0 && Double.compare(getWaterResistance(), that.getWaterResistance()) == 0 && Double.compare(getMetalResistance(), that.getMetalResistance()) == 0 && Double.compare(getWoodResistance(), that.getWoodResistance()) == 0 && Double.compare(getDirtResistance(), that.getDirtResistance()) == 0 && Double.compare(getHpMax(), that.getHpMax()) == 0 && Double.compare(getHpMagnification(), that.getHpMagnification()) == 0 && Double.compare(getAtkMagnification(), that.getAtkMagnification()) == 0 && Double.compare(getDfkMagnification(), that.getDfkMagnification()) == 0 && Double.compare(getCriticalDMG(), that.getCriticalDMG()) == 0 && Double.compare(getGetCriticalRATE(), that.getGetCriticalRATE()) == 0 && getHp() == that.getHp() && getDefence() == that.getDefence() && getSpeed() == that.getSpeed() && getAttack() == that.getAttack() && isAlive() == that.isAlive() && Double.compare(getPenetration(), that.getPenetration()) == 0 && Double.compare(getMetalPenetration(), that.getMetalPenetration()) == 0 && Double.compare(getWoodPenetration(), that.getWoodPenetration()) == 0 && Double.compare(getWaterPenetration(), that.getWaterPenetration()) == 0 && Double.compare(getFirePenetration(), that.getFirePenetration()) == 0 && Double.compare(getDirtPenetration(), that.getDirtPenetration()) == 0 && Double.compare(getDamageAbsorbedPercent(), that.getDamageAbsorbedPercent()) == 0 && Double.compare(getHpGrowNumber(), that.getHpGrowNumber()) == 0 && Double.compare(getAtkGrowNumber(), that.getAtkGrowNumber()) == 0 && Double.compare(getDfkGrowNumber(), that.getDfkGrowNumber()) == 0 && Double.compare(getMetalManaGrowNumber(), that.getMetalManaGrowNumber()) == 0 && Double.compare(getWoodManaGrowNumber(), that.getWoodManaGrowNumber()) == 0 && Double.compare(getWaterManaGrowNumber(), that.getWaterManaGrowNumber()) == 0 && Double.compare(getFireManaGrowNumber(), that.getFireManaGrowNumber()) == 0 && Double.compare(getDirtManaGrowNumber(), that.getDirtManaGrowNumber()) == 0 && Double.compare(getEnhance(), that.getEnhance()) == 0 && Double.compare(getMetalDamageEnhance(), that.getMetalDamageEnhance()) == 0 && Double.compare(getWoodDamageEnhance(), that.getWoodDamageEnhance()) == 0 && Double.compare(getWaterDamageEnhance(), that.getWaterDamageEnhance()) == 0 && Double.compare(getFireDamageEnhance(), that.getFireDamageEnhance()) == 0 && Double.compare(getDirtDamageEnhance(), that.getDirtDamageEnhance()) == 0 && Double.compare(getDefenseLoss(), that.getDefenseLoss()) == 0 && Double.compare(getIndividualMultipleArea(), that.getIndividualMultipleArea()) == 0 && Objects.equals(getEntityEffectList(), that.getEntityEffectList()) && getElementSort() == that.getElementSort() && Objects.equals(getManas(), that.getManas()) && Objects.equals(getParticipateFight(), that.getParticipateFight()) && Objects.equals(getPresentTurn(), that.getPresentTurn()) && Objects.equals(getController(), that.getController()) && Objects.equals(getDescription(), that.getDescription());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), getExtraDamage(), getFireResistance(), getWaterResistance(), getMetalResistance(), getWoodResistance(), getDirtResistance(), getHpMax(), getHpMagnification(), getAtkMagnification(), getDfkMagnification(), getCriticalDMG(), getGetCriticalRATE(), getHp(), getDefence(), getSpeed(), getAttack(), isAlive(), getEntityEffectList(), getPenetration(), getMetalPenetration(), getWoodPenetration(), getWaterPenetration(), getFirePenetration(), getDirtPenetration(), getDamageAbsorbedPercent(), getHpGrowNumber(), getAtkGrowNumber(), getDfkGrowNumber(), getElementSort(), getMetalManaGrowNumber(), getWoodManaGrowNumber(), getWaterManaGrowNumber(), getFireManaGrowNumber(), getDirtManaGrowNumber(), getManas(), getEnhance(), getMetalDamageEnhance(), getWoodDamageEnhance(), getWaterDamageEnhance(), getFireDamageEnhance(), getDirtDamageEnhance(), getDefenseLoss(), getParticipateFight(), getPresentTurn(), getController(), getDescription(), getIndividualMultipleArea());
     }
 
     public double getCriticalDMG() {
@@ -744,9 +998,9 @@ public class LivingThing extends Entity {
                 ", chuantong=" + penetration +
                 ", damageAbsorbedPercent=" + damageAbsorbedPercent +
                 ", hp=" + hp +
-                ", dfk=" + dfk +
+                ", dfk=" + defence +
                 ", speed=" + speed +
-                ", afk=" + afk +
+                ", afk=" + attack +
                 ", enhance=" + enhance +
                 ", defenseLoss=" + defenseLoss +
                 ", participateFight=" + participateFight +

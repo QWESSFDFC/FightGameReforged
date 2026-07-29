@@ -26,14 +26,14 @@ public class DefenseEnhanceEffect extends Effect {
     @Override
     public void comeIntoEffect(LivingThing thing) {
         if (!isOn) {
-            thing.setDfk((long) (thing.getDfk() * (1 + enhanceN)));
+            thing.setDefence((long) (thing.getDefence() * (1 + enhanceN)));
         }
         isOn = true;
     }
 
     @Override
     public void whenLastTimeEnd(LivingThing thing) {
-        thing.setDfk((long) (thing.getDfk() * (1 - enhanceN)));
+        thing.setDefence((long) (thing.getDefence() * (1 - enhanceN)));
         isOn = false;
     }
 }

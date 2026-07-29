@@ -10,7 +10,7 @@ import cn.gfhnv.game.system.mana.Mana;
 import java.util.List;
 
 public class Freeze extends Skill {
-    public Freeze(){
+    public Freeze() {
         super("冰冻", "冰冻目标1回合", 0, 7.5, 0, 2);
         this.setCoolDown(2);
         this.setConsumedMana(new Mana(10, ElementSort.WATER));
@@ -23,9 +23,9 @@ public class Freeze extends Skill {
 
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
-        System.out.println(user.getName()+"冰冻了"+enemies.get(0).getName());
-        if (enemies.size()==2) System.out.printf(user.getName()+"冰冻了"+enemies.get(1).getName());
-        for (LivingThing livingThing:enemies){
+        System.out.println(user.getName() + "冰冻了" + enemies.get(0).getName());
+        if (enemies.size() == 2) System.out.printf(user.getName() + "冰冻了" + enemies.get(1).getName());
+        for (LivingThing livingThing : enemies) {
             livingThing.addEffect(new Frozen());
         }
     }

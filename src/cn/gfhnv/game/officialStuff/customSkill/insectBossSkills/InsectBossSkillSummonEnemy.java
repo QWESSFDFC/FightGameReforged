@@ -27,8 +27,10 @@ public class InsectBossSkillSummonEnemy extends Skill {
     public void comeToEffect(Fight fight, LivingThing user) {
         System.out.println("Boss分裂了");
         user.addEffect(new HealthRestoreEffect(2, 1));
-        LivingThing t=new IceInsect(user.getLevel());
-        if (Math.random()>=0.5) {t=new CommonInsect(user.getLevel());}
+        LivingThing t = new IceInsect(user.getLevel());
+        if (Math.random() >= 0.5) {
+            t = new CommonInsect(user.getLevel());
+        }
         if (fight.getEnemiesList().contains(user)) {
             fight.addEnemy(t);
             return;

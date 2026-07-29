@@ -7,6 +7,6 @@ import cn.gfhnv.game.system.fight.Fight;
 public class SkipTurn implements ISpecialAction {
     @Override
     public void execute(Fight fight, LivingThing user) {
-        System.out.printf(user.getName()+"跳过回合");
+        System.out.printf(user.getName() + "跳过回合");
     }
 }

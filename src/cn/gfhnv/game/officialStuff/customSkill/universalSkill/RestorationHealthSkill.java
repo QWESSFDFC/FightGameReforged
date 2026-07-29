@@ -42,7 +42,7 @@ public class RestorationHealthSkill extends Skill {
 
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
-        long restoredHP = (long) (user.getHp() * this.getHpMagnification() + user.getDfk() * this.getDefMagnification() + user.getAfk() * this.getAtkMagnification());
+        long restoredHP = (long) (user.getHp() * this.getHpMagnification() + user.getDefence() * this.getDefMagnification() + user.getAttack() * this.getAtkMagnification());
         for (LivingThing e : enemies) {
             e.setHp(e.getHp() + restoredHP);
             System.out.println(user.getName() + "为" + e.getName() + "恢复了" + restoredHP + "点生命值");

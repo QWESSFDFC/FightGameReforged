@@ -63,8 +63,11 @@ public class FightTurnPastListener {
         System.out.println("水" + presentTurn.getLivingThing().getWaterMana().getAmount() + "/" + presentTurn.getLivingThing().getWaterMana().getAmountMax());
         System.out.println("火" + presentTurn.getLivingThing().getFireMana().getAmount() + "/" + presentTurn.getLivingThing().getFireMana().getAmountMax());
         System.out.println("土" + presentTurn.getLivingThing().getDirtMana().getAmount() + "/" + presentTurn.getLivingThing().getDirtMana().getAmountMax());
-        if (presentTurn.getLivingThing().getController().getActionSignal().equals(ActionSignal.NORMAL)) { presentTurn.getLivingThing().getController().act(fightPastOneTurnEvent.getFight());}
-        else if (presentTurn.getLivingThing().getController().getActionSignal().equals(ActionSignal.SPECIAL_ACTION)){presentTurn.getLivingThing().getController().getSpecialAction().execute(fightPastOneTurnEvent.getFight(),presentTurn.getLivingThing());}
+        if (presentTurn.getLivingThing().getController().getActionSignal().equals(ActionSignal.NORMAL)) {
+            presentTurn.getLivingThing().getController().act(fightPastOneTurnEvent.getFight());
+        } else if (presentTurn.getLivingThing().getController().getActionSignal().equals(ActionSignal.SPECIAL_ACTION)) {
+            presentTurn.getLivingThing().getController().getSpecialAction().execute(fightPastOneTurnEvent.getFight(), presentTurn.getLivingThing());
+        }
         TurnEntry turn = new TurnEntry(presentTurn.getLivingThing(), BigDecimal.valueOf(10000)
                 .divide(BigDecimal.valueOf(presentTurn.getLivingThing().getSpeed()), 10, RoundingMode.HALF_UP), TurnManager.getPresentTime());
         TurnManager.getTurns().add(turn);
