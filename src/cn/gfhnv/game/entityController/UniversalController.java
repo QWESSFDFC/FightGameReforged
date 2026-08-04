@@ -1,6 +1,8 @@
 package cn.gfhnv.game.entityController;
 
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.event.EventBus;
+import cn.gfhnv.game.event.SelectTargetEvent;
 import cn.gfhnv.game.interfaces.ISpecialAction;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.fight.ActionSignal;
@@ -106,6 +108,7 @@ public class UniversalController {
         Collections.shuffle(candidates, rand);
         List<LivingThing> targets = candidates.subList(0, aimCount);
         selectedSkill.use(fight, getOwner(), targets);
+        EventBus.post(new SelectTargetEvent(getOwner(),targets));
     }
 
     public void useItem(Fight fight) {

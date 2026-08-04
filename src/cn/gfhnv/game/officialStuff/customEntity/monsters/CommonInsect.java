@@ -12,7 +12,7 @@ import java.util.List;
 public class CommonInsect extends LivingThing {
 
     public CommonInsect(Long l) {
-        super("普通虫子", "commonInsect", 0.0, 0.1, 0.95, 0.5, 0.8, 90, l, "insect", 30, 5, 9, ElementSort.METAL, 4, 0.5, 2);
+        super("普通虫子", "commonInsect", 0.0, 0.1, 0.95, 0.5, 0.8, 90, l, "insect", 30, 5, 9, ElementSort.METAL);
         List<Skill> skills = new ArrayList<>();
         this.setDescription("这是普通虫子.只有普通攻击");
         skills.add(new CommonAttack(0, 0.3, 0, 1));

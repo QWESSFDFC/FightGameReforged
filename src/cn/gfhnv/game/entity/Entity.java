@@ -55,18 +55,7 @@ public class Entity extends Thing {
 
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (o == null || getClass() != o.getClass()) return false;
-        if (!super.equals(o)) return false;
-        Entity entity = (Entity) o;
-        return Objects.equals(getName(), entity.getName()) && Objects.equals(getType(), entity.getType());
-    }
 
-    @Override
-    public int hashCode() {
-        return Objects.hash(super.hashCode(), getName(), getType());
-    }
 
     public Entity facSetLevel(long level) {
         this.setLevel(level);

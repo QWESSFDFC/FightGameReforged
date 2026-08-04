@@ -8,6 +8,11 @@ public class Effect {
     private String id;
     private int level;//效果等级
     private int lastTime;//seconds
+  private boolean isInfinity=false;
+
+    public void setInfinity(boolean infinity) {
+        isInfinity = infinity;
+    }
 
     public Effect(String id, int level, int lastTime) {
         this.id = id;
@@ -102,8 +107,11 @@ public class Effect {
     }
 
     public void comeIntoEffect(LivingThing thing) {
-        System.out.printf("这里写效果具体内容........请重写这个方法.回合更新时此方法会被调用");
+        System.out.println("这里写效果具体内容........请重写这个方法.回合更新时此方法会被调用");
     }
 
 
+    public boolean isInfinity() {
+        return isInfinity;
+    }
 }

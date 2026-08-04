@@ -7,6 +7,7 @@ import cn.gfhnv.game.event.DamageEvent;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.event.HpLossEvent;
 import cn.gfhnv.game.event.HpRestorationEvent;
+import cn.gfhnv.game.interfaces.IShowSpecialMes;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.ActionSignal;
@@ -21,7 +22,17 @@ import java.util.*;
 
 public class LivingThing extends Entity {
     public long extraDamage = 0;
-    private double fireResistance, waterResistance, metalResistance, woodResistance, dirtResistance, hpMax, hpMagnification, atkMagnification, dfkMagnification, criticalDMG, getCriticalRATE;
+    private IShowSpecialMes showSpecialMes;
+
+    public IShowSpecialMes getShowSpecialMes() {
+        return showSpecialMes;
+    }
+
+    public void setShowSpecialMes(IShowSpecialMes showSpecialMes) {
+        this.showSpecialMes = showSpecialMes;
+    }
+
+    private double fireResistance, waterResistance, metalResistance, woodResistance, dirtResistance, hpMax, criticalDMG, getCriticalRATE;
     private long hp, defence, speed, attack;
     private boolean Alive = true;
     private List<Effect> entityEffectList = new ArrayList<>();
@@ -62,9 +73,6 @@ public class LivingThing extends Entity {
         this.dirtResistance = other.dirtResistance;
         this.description = other.description;
         this.speed = other.speed;
-        this.hpMagnification = other.hpMagnification;
-        this.atkMagnification = other.atkMagnification;
-        this.dfkMagnification = other.dfkMagnification;
         this.setType(other.getType());
         this.Alive = other.Alive;
         this.defenseLoss = other.defenseLoss;
@@ -111,7 +119,7 @@ public class LivingThing extends Entity {
     }
 
 
-    public LivingThing(String name, String id, double fireResistance, double waterResistance, double metalResistance, double woodResistance, double dirtResistance, long speed, long l, String type, double hp, double atk, double defence, ElementSort yu, double hpMagnification, double atkMagnification, double dfkMagnification) {
+    public LivingThing(String name, String id, double fireResistance, double waterResistance, double metalResistance, double woodResistance, double dirtResistance, long speed, long l, String type, double hp, double atk, double defence, ElementSort yu) {
         super(name, id, l);
         this.elementSort = yu;
         this.setHpGrowNumber(hp);
@@ -121,9 +129,6 @@ public class LivingThing extends Entity {
         this.waterResistance = waterResistance;
         this.metalResistance = metalResistance;
         this.woodResistance = woodResistance;
-        this.hpMagnification = hpMagnification;
-        this.atkMagnification = atkMagnification;
-        this.dfkMagnification = dfkMagnification;
         this.dirtResistance = dirtResistance;
         this.setType(type);
         Alive = true;
@@ -518,20 +523,7 @@ public class LivingThing extends Entity {
         return this;
     }
 
-    public LivingThing facSetHpMagnification(double hpMagnification) {
-        this.hpMagnification = hpMagnification;
-        return this;
-    }
 
-    public LivingThing facSetAtkMagnification(double atkMagnification) {
-        this.atkMagnification = atkMagnification;
-        return this;
-    }
-
-    public LivingThing facSetDfkMagnification(double dfkMagnification) {
-        this.dfkMagnification = dfkMagnification;
-        return this;
-    }
 
     public LivingThing facSetCriticalDMG(double criticalDMG) {
         this.criticalDMG = criticalDMG;
@@ -609,29 +601,6 @@ public class LivingThing extends Entity {
         this.controller = controller;
     }
 
-    public double getHpMagnification() {
-        return hpMagnification;
-    }
-
-    public void setHpMagnification(double hpMagnification) {
-        this.hpMagnification = hpMagnification;
-    }
-
-    public double getAtkMagnification() {
-        return atkMagnification;
-    }
-
-    public void setAtkMagnification(double atkMagnification) {
-        this.atkMagnification = atkMagnification;
-    }
-
-    public double getDfkMagnification() {
-        return dfkMagnification;
-    }
-
-    public void setDfkMagnification(double dfkMagnification) {
-        this.dfkMagnification = dfkMagnification;
-    }
 
     public double getFireResistance() {
         return fireResistance;
@@ -765,6 +734,7 @@ public class LivingThing extends Entity {
         if (getHp() <= 0) {
             this.getController().setActionSignal(ActionSignal.NORMAL);
             this.getController().setSpecialAction(null);
+            this.whenFightEnds();
             Alive = false;
         }
         if (getHp() > 0) {
@@ -890,7 +860,8 @@ public class LivingThing extends Entity {
         this.setType(type);
         return this;
     }
-
+    public void showSpecialStatus(){}
+    public void whenFightStart(Fight fight){}
 
     public LivingThing facSetManas(List<Mana> manas) {
         this.setManas(manas);
@@ -958,18 +929,7 @@ public class LivingThing extends Entity {
         }
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (o == null || getClass() != o.getClass()) return false;
-        if (!super.equals(o)) return false;
-        LivingThing that = (LivingThing) o;
-        return getExtraDamage() == that.getExtraDamage() && Double.compare(getFireResistance(), that.getFireResistance()) == 0 && Double.compare(getWaterResistance(), that.getWaterResistance()) == 0 && Double.compare(getMetalResistance(), that.getMetalResistance()) == 0 && Double.compare(getWoodResistance(), that.getWoodResistance()) == 0 && Double.compare(getDirtResistance(), that.getDirtResistance()) == 0 && Double.compare(getHpMax(), that.getHpMax()) == 0 && Double.compare(getHpMagnification(), that.getHpMagnification()) == 0 && Double.compare(getAtkMagnification(), that.getAtkMagnification()) == 0 && Double.compare(getDfkMagnification(), that.getDfkMagnification()) == 0 && Double.compare(getCriticalDMG(), that.getCriticalDMG()) == 0 && Double.compare(getGetCriticalRATE(), that.getGetCriticalRATE()) == 0 && getHp() == that.getHp() && getDefence() == that.getDefence() && getSpeed() == that.getSpeed() && getAttack() == that.getAttack() && isAlive() == that.isAlive() && Double.compare(getPenetration(), that.getPenetration()) == 0 && Double.compare(getMetalPenetration(), that.getMetalPenetration()) == 0 && Double.compare(getWoodPenetration(), that.getWoodPenetration()) == 0 && Double.compare(getWaterPenetration(), that.getWaterPenetration()) == 0 && Double.compare(getFirePenetration(), that.getFirePenetration()) == 0 && Double.compare(getDirtPenetration(), that.getDirtPenetration()) == 0 && Double.compare(getDamageAbsorbedPercent(), that.getDamageAbsorbedPercent()) == 0 && Double.compare(getHpGrowNumber(), that.getHpGrowNumber()) == 0 && Double.compare(getAtkGrowNumber(), that.getAtkGrowNumber()) == 0 && Double.compare(getDfkGrowNumber(), that.getDfkGrowNumber()) == 0 && Double.compare(getMetalManaGrowNumber(), that.getMetalManaGrowNumber()) == 0 && Double.compare(getWoodManaGrowNumber(), that.getWoodManaGrowNumber()) == 0 && Double.compare(getWaterManaGrowNumber(), that.getWaterManaGrowNumber()) == 0 && Double.compare(getFireManaGrowNumber(), that.getFireManaGrowNumber()) == 0 && Double.compare(getDirtManaGrowNumber(), that.getDirtManaGrowNumber()) == 0 && Double.compare(getEnhance(), that.getEnhance()) == 0 && Double.compare(getMetalDamageEnhance(), that.getMetalDamageEnhance()) == 0 && Double.compare(getWoodDamageEnhance(), that.getWoodDamageEnhance()) == 0 && Double.compare(getWaterDamageEnhance(), that.getWaterDamageEnhance()) == 0 && Double.compare(getFireDamageEnhance(), that.getFireDamageEnhance()) == 0 && Double.compare(getDirtDamageEnhance(), that.getDirtDamageEnhance()) == 0 && Double.compare(getDefenseLoss(), that.getDefenseLoss()) == 0 && Double.compare(getIndividualMultipleArea(), that.getIndividualMultipleArea()) == 0 && Objects.equals(getEntityEffectList(), that.getEntityEffectList()) && getElementSort() == that.getElementSort() && Objects.equals(getManas(), that.getManas()) && Objects.equals(getParticipateFight(), that.getParticipateFight()) && Objects.equals(getPresentTurn(), that.getPresentTurn()) && Objects.equals(getController(), that.getController()) && Objects.equals(getDescription(), that.getDescription());
-    }
 
-    @Override
-    public int hashCode() {
-        return Objects.hash(super.hashCode(), getExtraDamage(), getFireResistance(), getWaterResistance(), getMetalResistance(), getWoodResistance(), getDirtResistance(), getHpMax(), getHpMagnification(), getAtkMagnification(), getDfkMagnification(), getCriticalDMG(), getGetCriticalRATE(), getHp(), getDefence(), getSpeed(), getAttack(), isAlive(), getEntityEffectList(), getPenetration(), getMetalPenetration(), getWoodPenetration(), getWaterPenetration(), getFirePenetration(), getDirtPenetration(), getDamageAbsorbedPercent(), getHpGrowNumber(), getAtkGrowNumber(), getDfkGrowNumber(), getElementSort(), getMetalManaGrowNumber(), getWoodManaGrowNumber(), getWaterManaGrowNumber(), getFireManaGrowNumber(), getDirtManaGrowNumber(), getManas(), getEnhance(), getMetalDamageEnhance(), getWoodDamageEnhance(), getWaterDamageEnhance(), getFireDamageEnhance(), getDirtDamageEnhance(), getDefenseLoss(), getParticipateFight(), getPresentTurn(), getController(), getDescription(), getIndividualMultipleArea());
-    }
 
     public double getCriticalDMG() {
         return criticalDMG;
@@ -979,35 +939,6 @@ public class LivingThing extends Entity {
         this.criticalDMG = criticalDMG;
     }
 
-    @Override
-    public String toString() {
-        return "LivingThing{" +
-                "fireResistance=" + fireResistance +
-                ", waterResistance=" + waterResistance +
-                ", metalResistance=" + metalResistance +
-                ", woodResistance=" + woodResistance +
-                ", dirtResistance=" + dirtResistance +
-                ", hpMax=" + hpMax +
-                ", hpMagnification=" + hpMagnification +
-                ", atkMagnification=" + atkMagnification +
-                ", dfkMagnification=" + dfkMagnification +
-                ", criticalDMG=" + criticalDMG +
-                ", getCriticalRATE=" + getCriticalRATE +
-                ", Alive=" + Alive +
-                ", entityEffectList=" + entityEffectList +
-                ", chuantong=" + penetration +
-                ", damageAbsorbedPercent=" + damageAbsorbedPercent +
-                ", hp=" + hp +
-                ", dfk=" + defence +
-                ", speed=" + speed +
-                ", afk=" + attack +
-                ", enhance=" + enhance +
-                ", defenseLoss=" + defenseLoss +
-                ", participateFight=" + participateFight +
-                ", presentTurn=" + presentTurn +
-                ", controller=" + controller +
-                ", description='" + description + '\'' +
-                '}';
-    }
+
 
 }

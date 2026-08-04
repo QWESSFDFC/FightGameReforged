@@ -2,6 +2,8 @@ package cn.gfhnv.game.entityController;
 
 import cn.gfhnv.game.GameMain;
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.event.EventBus;
+import cn.gfhnv.game.event.SelectTargetEvent;
 import cn.gfhnv.game.inventory.Slot;
 import cn.gfhnv.game.item.Item;
 import cn.gfhnv.game.skill.Skill;
@@ -116,6 +118,7 @@ public class PlayerController extends UniversalController {
             }
         }
         selectedSkill.use(fight, getOwner(), new ArrayList<>(attacking));
+        EventBus.post(new SelectTargetEvent(getOwner(),new ArrayList<>(attacking)));
     }
 
     @Override

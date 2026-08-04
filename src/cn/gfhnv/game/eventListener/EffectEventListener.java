@@ -16,6 +16,10 @@ public class EffectEventListener {
         Iterator<Effect> iterator = effectList.iterator();
         while (iterator.hasNext()) {
             Effect ef = iterator.next();
+            if (ef.isInfinity()) {
+                ef.comeIntoEffect(thing);
+                return;
+            }
             if (ef.getLastTime() <= 0) {
                 ef.whenLastTimeEnd(thing);
                 iterator.remove();

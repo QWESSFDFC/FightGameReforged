@@ -9,6 +9,7 @@ import cn.gfhnv.game.officialStuff.customEntity.monsters.CommonInsect;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.IceInsect;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.InsectBoss;
 import cn.gfhnv.game.officialStuff.customEntity.players.ActorLiXiaoYan;
+import cn.gfhnv.game.officialStuff.customEntity.players.Phainon;
 import cn.gfhnv.game.officialStuff.customEntity.players.PlayerOne;
 import cn.gfhnv.game.officialStuff.customItem.ANiceSword;
 
@@ -25,6 +26,7 @@ public class OfficialGameContent extends Mod {
         this.addEffect(new HealthRestoreEffect());
         this.addEffect(new Frozen());
         this.addEntity(new IceInsect(150));
+        this.addEntity(new Phainon(125));
         System.out.println("游戏自带内容加载完成");
 
     }
