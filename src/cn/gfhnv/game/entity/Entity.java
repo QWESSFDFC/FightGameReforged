@@ -141,8 +141,9 @@ public class Entity extends Thing {
             this.transToLivingTing().setDefence((long) ((level - 1) * this.transToLivingTing().getDfkGrowNumber() + 200));
             this.transToLivingTing().setAttack((long) (110 + this.transToLivingTing().getAtkGrowNumber() * (level - 1)));
             ((LivingThing) this).setHpMax(this.transToLivingTing().getHp());
+            this.transToLivingTing().initialMana();
         }
-        this.transToLivingTing().initialMana();
+
     }
 
 
