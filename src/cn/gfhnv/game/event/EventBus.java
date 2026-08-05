@@ -21,16 +21,27 @@ public class EventBus {
             if (method.isAnnotationPresent(SubscribeEvent.class)) {
                 Parameter[] params = method.getParameters();
                 if (params.length != 1) {
-                    LogWriter.writeLog("Event handler method must have exactly one parameter: " + method);
-                    throw new IllegalArgumentException("Event handler method must have exactly one parameter: " + method);
+                    LogWriter.writeLog("只能有且只有一个参数:" + method);
+                    throw new IllegalArgumentException("只能有且只有一个参数:" + method);
                 }
                 Class<?> eventType = params[0].getType();
                 if (!Event.class.isAssignableFrom(eventType)) {
-                    LogWriter.writeLog("Event handler parameter must be a subtype of Event: " + method);
-                    throw new IllegalArgumentException("Event handler parameter must be a subtype of Event: " + method);
+                    LogWriter.writeLog("参数只能是event或者其子类:" + method);
+                    throw new IllegalArgumentException("参数只能是event或者其子类:" + method);
                 }
-                EventHandler handler = new EventHandler(listener, method);
-                handlers.computeIfAbsent(eventType, k -> new ArrayList<>()).add(handler);
+
+                SubscribeEvent annotation = method.getAnnotation(SubscribeEvent.class);
+                int priority = annotation.priority();
+
+                EventHandler handler = new EventHandler(listener, method, priority);
+
+                // 按优先级升序插入列表（数字越小越优先）
+                List<EventHandler> list = handlers.computeIfAbsent(eventType, k -> new ArrayList<>());
+                int index = 0;
+                while (index < list.size() && list.get(index).priority <= priority) {
+                    index++;
+                }
+                list.add(index, handler);
             }
         }
     }
@@ -42,14 +53,13 @@ public class EventBus {
     }
 
     public static void post(Event event) {
+        if (event.isCanceled()) return;
         Class<?> eventType = event.getClass();
         List<EventHandler> eventHandlers = handlers.get(eventType);
-
         if (eventHandlers != null) {
             List<EventHandler> copy = new ArrayList<>(eventHandlers);
             for (EventHandler handler : copy) {
                 handler.accept(event);
-
             }
         }
     }
@@ -65,20 +75,22 @@ public class EventBus {
     private static class EventHandler implements Consumer<Event> {
         final Object listener;
         final Method method;
+        final int priority;
 
-        EventHandler(Object listener, Method method) {
+        EventHandler(Object listener, Method method, int priority) {
             this.listener = listener;
             this.method = method;
+            this.priority = priority;
         }
 
         @Override
         public void accept(Event event) {
+            if (event.isCanceled()) return;
             try {
                 method.invoke(listener, event);
             } catch (Exception e) {
                 LogWriter.writeLog(e.getMessage());
                 throw new RuntimeException("Failed to invoke event handler on " + listener, e);
-
             }
         }
 

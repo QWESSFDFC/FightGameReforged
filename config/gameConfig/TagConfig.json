@@ -31,5 +31,11 @@
   },
   "game_official_content:aNiceSword": {
     "damage_enhance": 2
-  }
+  },"game_official_content:phainon": {
+  "attack": 5,
+  "heal": 0,
+  "defence": 0,
+  "restoration_mana": 2,
+  "damage_enhance": 3
+}
 }

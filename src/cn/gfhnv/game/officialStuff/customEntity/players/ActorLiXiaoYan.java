@@ -4,6 +4,7 @@ import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entityController.PlayerController;
 import cn.gfhnv.game.event.DamageEvent;
+import cn.gfhnv.game.interfaces.IShowSpecialMes;
 import cn.gfhnv.game.officialStuff.customEffect.actorLiXiaoYanEffects.MemorizedHp;
 import cn.gfhnv.game.officialStuff.customSkill.actorLiXiaoYanSkills.CommonAttack;
 import cn.gfhnv.game.officialStuff.customSkill.actorLiXiaoYanSkills.PyrohemicPumping;
@@ -42,6 +43,11 @@ public class ActorLiXiaoYan extends LivingThing {
         this.setController(new PlayerController(skills, this));
         this.setIndividualMultipleArea(1.0 + 0.04 * ignition);
         this.lastIgnition = ignition;
+        this.setShowSpecialMes(user -> {
+            if (user instanceof ActorLiXiaoYan){
+                System.out.println("燃点层数:"+getIgnition()+"/上限:"+ignitionMax);
+            }
+        });
     }
 
     @Override
