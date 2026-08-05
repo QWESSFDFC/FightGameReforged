@@ -6,6 +6,7 @@ import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.event.EffectUpdateEvent;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.event.FightPastOneTurnEvent;
+import cn.gfhnv.game.interfaces.ISpecialAction;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.fight.ActionSignal;
 import cn.gfhnv.game.system.fight.FightEndEvent;
@@ -15,14 +16,34 @@ import cn.gfhnv.game.world.World;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.List;
 
 public class FightTurnPastListener {
+    private static List<LivingThing> theDeath = new ArrayList<>();
     private TurnEntry presentTurn;
+
+    public TurnEntry getPresentTurn() {
+        return presentTurn;
+    }
 
     @SubscribeEvent
     public void fightTurnPastOne(FightPastOneTurnEvent fightPastOneTurnEvent) throws InterruptedException {
-        fightPastOneTurnEvent.getFight().getFighterList().removeIf(livingThing -> !livingThing.isAlive());
-        fightPastOneTurnEvent.getFight().getEnemiesList().removeIf(livingThing -> !livingThing.isAlive());
+
+        fightPastOneTurnEvent.getFight().getFighterList().removeIf(livingThing -> {
+            if (!livingThing.isAlive()) {
+                theDeath.add(livingThing);
+                return true;
+            }
+            return false;
+        });
+        fightPastOneTurnEvent.getFight().getEnemiesList().removeIf(livingThing -> {
+            if (!livingThing.isAlive()) {
+                theDeath.add(livingThing);
+                return true;
+            }
+            return false;
+        });
         TurnManager.removeTheDeath();
         if (fightPastOneTurnEvent.getFight().getFighterList().isEmpty()) {
             EventBus.post(new FightEndEvent(false, fightPastOneTurnEvent.getFight()));
@@ -63,19 +84,31 @@ public class FightTurnPastListener {
         System.out.println("水" + presentTurn.getLivingThing().getWaterMana().getAmount() + "/" + presentTurn.getLivingThing().getWaterMana().getAmountMax());
         System.out.println("火" + presentTurn.getLivingThing().getFireMana().getAmount() + "/" + presentTurn.getLivingThing().getFireMana().getAmountMax());
         System.out.println("土" + presentTurn.getLivingThing().getDirtMana().getAmount() + "/" + presentTurn.getLivingThing().getDirtMana().getAmountMax());
-       if (presentTurn.getLivingThing().getShowSpecialMes()!=null) {presentTurn.getLivingThing().getShowSpecialMes().show(presentTurn.getLivingThing()); }
-       if (presentTurn.getLivingThing().getController().getActionSignal().equals(ActionSignal.NORMAL)) {
+        if (presentTurn.getLivingThing().getShowSpecialMes() != null) {
+            presentTurn.getLivingThing().getShowSpecialMes().show(presentTurn.getLivingThing());
+        }
+        if (presentTurn.getiSpecialActionList().isEmpty()) {
+            for (ISpecialAction iSpecialAction : presentTurn.getiSpecialActionList()) {
+                iSpecialAction.execute(fightPastOneTurnEvent.getFight(), presentTurn.getLivingThing());
+            }
+        }
+        if (presentTurn.getLivingThing().getController().getActionSignal().equals(ActionSignal.NORMAL)) {
             presentTurn.getLivingThing().getController().act(fightPastOneTurnEvent.getFight());
         } else if (presentTurn.getLivingThing().getController().getActionSignal().equals(ActionSignal.SPECIAL_ACTION)) {
             presentTurn.getLivingThing().getController().getSpecialAction().execute(fightPastOneTurnEvent.getFight(), presentTurn.getLivingThing());
         }
-       if (presentTurn.getLivingThing().getController().getActionSignal()!=ActionSignal.WITHOUT_NEW_TURN){
-           TurnEntry turn = new TurnEntry(presentTurn.getLivingThing(), BigDecimal.valueOf(10000)
-                   .divide(BigDecimal.valueOf(presentTurn.getLivingThing().getSpeed()), 10, RoundingMode.HALF_UP), TurnManager.getPresentTime());
-           TurnManager.getTurns().add(turn);
-       }
+        if (presentTurn.getLivingThing().getController().getActionSignal() != ActionSignal.WITHOUT_NEW_TURN) {
+            TurnEntry turn = new TurnEntry(presentTurn.getLivingThing(), BigDecimal.valueOf(10000).divide(BigDecimal.valueOf(presentTurn.getLivingThing().getSpeed()), 10, RoundingMode.HALF_UP), TurnManager.getPresentTime());
+            TurnManager.getTurns().add(turn);
+        } else {
+            presentTurn.getLivingThing().getController().act(fightPastOneTurnEvent.getFight());
+        }
 
-        EventBus.post(new EffectUpdateEvent(presentTurn.getLivingThing()));
+        EventBus.post(new EffectUpdateEvent(presentTurn.getLivingThing(), presentTurn));
         TurnManager.nextTurn(fightPastOneTurnEvent.getFight());
+        for (LivingThing dead : theDeath) {
+            dead.whenFightEnds();
+        }
+        theDeath.clear();
     }
 }

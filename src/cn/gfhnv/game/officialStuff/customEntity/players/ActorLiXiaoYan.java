@@ -4,7 +4,7 @@ import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entityController.PlayerController;
 import cn.gfhnv.game.event.DamageEvent;
-import cn.gfhnv.game.interfaces.IShowSpecialMes;
+import cn.gfhnv.game.interfaces.IModifyDamage;
 import cn.gfhnv.game.officialStuff.customEffect.actorLiXiaoYanEffects.MemorizedHp;
 import cn.gfhnv.game.officialStuff.customSkill.actorLiXiaoYanSkills.CommonAttack;
 import cn.gfhnv.game.officialStuff.customSkill.actorLiXiaoYanSkills.PyrohemicPumping;
@@ -43,11 +43,34 @@ public class ActorLiXiaoYan extends LivingThing {
         this.setController(new PlayerController(skills, this));
         this.setIndividualMultipleArea(1.0 + 0.04 * ignition);
         this.lastIgnition = ignition;
-        this.setShowSpecialMes(user -> {
-            if (user instanceof ActorLiXiaoYan){
-                System.out.println("燃点层数:"+getIgnition()+"/上限:"+ignitionMax);
+        this.setModifyDamage(new IModifyDamage() {
+            @Override
+            public long damageModify(long newHp, DamageEvent da) {
+                long correctedHp = newHp;
+                if (da.getAttackedEntity() instanceof ActorLiXiaoYan) {
+                    if (((ActorLiXiaoYan) da.getAttackedEntity()).hasMemorizedHpEffect() && ((ActorLiXiaoYan) da.getAttackedEntity()).getMemorizedRate() > 0) {
+                        long minHp = (long) (((ActorLiXiaoYan) da.getAttackedEntity()).getHpMax() * ((ActorLiXiaoYan) da.getAttackedEntity()).getMemorizedRate());
+                        if (correctedHp < minHp) {
+                            correctedHp = minHp;
+                        }
+                    }
+                    if (((ActorLiXiaoYan) da.getAttackedEntity()).getIgnition() >= 10 && correctedHp <= 0) {
+                        correctedHp = (long) (getHpMax() * 0.3);
+                        ((ActorLiXiaoYan) da.getAttackedEntity()).setIgnition(ignition - 10);
+                    }
+                }
+                return correctedHp;
             }
         });
+        this.setShowSpecialMes(user -> {
+            if (user instanceof ActorLiXiaoYan) {
+                System.out.println("燃点层数:" + getIgnition() + "/上限:" + ignitionMax);
+            }
+        });
+    }
+
+    public int getLastIgnition() {
+        return lastIgnition;
     }
 
     @Override
@@ -59,7 +82,6 @@ public class ActorLiXiaoYan extends LivingThing {
     public void whenFightEnds() {
         super.whenFightEnds();
         this.setIgnition(3);
-        super.whenFightEnds();
     }
 
     public int getIgnition() {
@@ -101,22 +123,6 @@ public class ActorLiXiaoYan extends LivingThing {
             setIndividualMultipleArea(getIndividualMultipleArea() + 0.04 * ignition - 0.04 * lastIgnition);
             lastIgnition = ignition;
         }
-    }
-
-    @Override
-    public long applyDamageModifiers(long newHp, DamageEvent da) {
-        long correctedHp = newHp;
-        if (hasMemorizedHpEffect() && memorizedRate > 0) {
-            long minHp = (long) (getHpMax() * memorizedRate);
-            if (correctedHp < minHp) {
-                correctedHp = minHp;
-            }
-        }
-        if (ignition >= 10 && correctedHp <= 0) {
-            correctedHp = (long) (getHpMax() * 0.3);
-            setIgnition(ignition - 10);
-        }
-        return correctedHp;
     }
 
 

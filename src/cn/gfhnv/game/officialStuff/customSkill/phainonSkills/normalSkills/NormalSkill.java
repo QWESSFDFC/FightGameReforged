@@ -19,14 +19,14 @@ public class NormalSkill extends Skill {
 
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
-        if (user instanceof Phainon){
-            ((Phainon) user).setPyroheart(Math.min(((Phainon) user).getPyroheart_max() ,((Phainon) user).getPyroheart()+2));
-            System.out.println(user.getName()+"获得了两个火种");
+        if (user instanceof Phainon) {
+            ((Phainon) user).setCoreflame(Math.min(((Phainon) user).getCoreflame_max(), ((Phainon) user).getCoreflame() + 2));
+            System.out.println(user.getName() + "获得了两个火种");
         }
-       for (LivingThing livingThing:enemies){
-           System.out.print(user.getName() + "攻击了" + livingThing.getName());
-           user.makeDamage(livingThing,this);
+        for (LivingThing livingThing : enemies) {
+            System.out.print(user.getName() + "攻击了" + livingThing.getName());
+            user.makeDamage(livingThing, this);
 
-       }
+        }
     }
 }

@@ -3,7 +3,6 @@ package cn.gfhnv.game.officialStuff.customEntity.players;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entity.Player;
 import cn.gfhnv.game.entityController.PlayerController;
-import cn.gfhnv.game.event.Event;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.officialStuff.customEvent.phainonEvents.AwakenEndEvent;
 import cn.gfhnv.game.officialStuff.customEvent.phainonEvents.SelectEventListener;
@@ -20,64 +19,79 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Phainon extends Player {
-   private boolean isListenerRegister=false;
-   private int pyroheart =0;
-   private int pyroheart_max =15;
-   private int ruin=0;
+    private final SelectEventListener selectEventListener = new SelectEventListener();
+    private boolean isListenerRegister = false;
+    private int coreflame = 0;
+    private int coreflame_max = 15;
+    private int scourge = 0;
+    private int scourge_max = 7;
+    private boolean isAwaken = false;
+    private List<Skill> skills;
 
-    public int getRuin_max() {
-        return ruin_max;
+    public Phainon(long l) {
+        super("白厄", "phainon", 0.7, 0, 0, 0, 0, 120, l, "player", 29, 40, 25, ElementSort.FIRE);
+        List<Skill> skillList = new ArrayList<>();
+        skillList.add(new CommonAttack(0.0, 1.0, 0.0, 1));
+        skillList.getFirst().setName("普通攻击:逐火救世,行则将至");
+        skillList.add(new cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.UltimateAttack());
+        this.setMass(BigDecimal.valueOf(60));
+        this.setDescription("这是白厄.");
+        skillList.add(new NormalSkill());
+        this.getInventory().addSlot(63);
+        this.setController(new PlayerController(skillList, this));
+        this.skills = skillList;
+        this.setShowSpecialMes(user -> {
+            if (user instanceof Phainon) {
+                System.out.println("当前火种数量:" + ((Phainon) user).getCoreflame());
+            }
+        });
+
     }
 
-    public void setRuin_max(int ruin_max) {
-        this.ruin_max = ruin_max;
+    public int getScourge_max() {
+        return scourge_max;
+    }
+
+    public void setScourge_max(int scourge_max) {
+        this.scourge_max = scourge_max;
+    }
+
+    public int getScourge() {
+        return scourge;
+    }
+
+    public void setScourge(int scourge) {
+        this.scourge = scourge;
+    }
+
+    public List<Skill> getSkills() {
+        return skills;
     }
 
     public void setSkills(List<Skill> skills) {
         this.skills = skills;
     }
 
-    public int getRuin() {
-        return ruin;
-    }
-
-    public void setRuin(int ruin) {
-        this.ruin = ruin;
-    }
-
-    private int ruin_max=7;
-  private boolean isAwaken=false;
-  private List<Skill> skills;
-
-    public List<Skill> getSkills() {
-        return skills;
-    }
-
-    public void setAwaken(boolean awaken) {
-        isAwaken = awaken;
-    }
-
     public SelectEventListener getSelectEventListener() {
         return selectEventListener;
     }
 
-    public int getPyroheart() {
-        return pyroheart;
+    public int getCoreflame() {
+        return coreflame;
     }
 
-    public void setPyroheart(int pyroheart) {
-        this.pyroheart = pyroheart;
+    public void setCoreflame(int coreflame) {
+        this.coreflame = coreflame;
     }
 
-    public int getPyroheart_max() {
-        return pyroheart_max;
+    public int getCoreflame_max() {
+        return coreflame_max;
     }
 
-    public void setPyroheart_max(int pyroheart_max) {
-        this.pyroheart_max = pyroheart_max;
+    public void setCoreflame_max(int coreflame_max) {
+        this.coreflame_max = coreflame_max;
     }
 
-    private final SelectEventListener selectEventListener=new SelectEventListener();
     public boolean isListenerRegister() {
         return isListenerRegister;
     }
@@ -89,16 +103,16 @@ public class Phainon extends Player {
     @Override
     public void whenFightEnds() {
         super.whenFightEnds();
-        if (this.isAwaken){
+        if (this.isAwaken) {
             EventBus.post(new AwakenEndEvent(this));
         }
-        this.isListenerRegister=false;
-        this.isAwaken=false;
+        this.isListenerRegister = false;
+        this.isAwaken = false;
         EventBus.unregister(this.selectEventListener);
         this.setShowSpecialMes(null);
         this.getController().setActionSignal(ActionSignal.NORMAL);
-        for (Skill skill:getController().getSkills()){
-            if (skill instanceof cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.UltimateAttack){
+        for (Skill skill : getController().getSkills()) {
+            if (skill instanceof cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.UltimateAttack) {
                 EventBus.unregister(((UltimateAttack) skill).getAwakeEndListener());
                 break;
             }
@@ -109,32 +123,12 @@ public class Phainon extends Player {
     public void whenFightStart(Fight fight) {
         super.whenFightStart(fight);
         EventBus.register(this.selectEventListener);
-        this.isListenerRegister=true;
+        this.isListenerRegister = true;
     }
 
     @Override
     public void updateSelf() {
         super.updateSelf();
-
-    }
-
-    public Phainon(long l) {
-        super("白厄", "phainon", 0.7, 0, 0, 0,0, 120, l, "player", 29, 40, 25, ElementSort.FIRE);
-        List<Skill> skillList=new ArrayList<>();
-        skillList.add(new CommonAttack(0.0,1.0,0.0,1));
-        skillList.getFirst().setName("普通攻击:逐火救世,行则将至");
-        skillList.add(new cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.UltimateAttack());
-        this.setMass(BigDecimal.valueOf(60));
-        this.setDescription("这是白厄.");
-        skillList.add(new NormalSkill());
-        this.getInventory().addSlot(63);
-        this.setController(new PlayerController(skillList, this));
-        this.skills=skillList;
-        this.setShowSpecialMes(user -> {
-            if (user instanceof Phainon){
-                System.out.println("当前火种数量:"+((Phainon) user).getPyroheart());
-            }
-        });
 
     }
 
@@ -145,5 +139,9 @@ public class Phainon extends Player {
 
     public boolean isAwaken() {
         return isAwaken;
+    }
+
+    public void setAwaken(boolean awaken) {
+        isAwaken = awaken;
     }
 }

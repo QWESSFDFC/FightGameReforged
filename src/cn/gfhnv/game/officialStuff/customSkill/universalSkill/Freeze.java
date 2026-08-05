@@ -26,7 +26,7 @@ public class Freeze extends Skill {
         System.out.println(user.getName() + "冰冻了" + enemies.get(0).getName());
         if (enemies.size() == 2) System.out.printf(user.getName() + "冰冻了" + enemies.get(1).getName());
         for (LivingThing livingThing : enemies) {
-            livingThing.addEffect(new Frozen());
+            livingThing.addEffect(new Frozen().setOrigin(user.getUUID()));
         }
     }
 }

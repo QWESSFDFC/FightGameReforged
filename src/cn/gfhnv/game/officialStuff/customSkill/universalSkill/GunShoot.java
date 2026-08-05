@@ -25,7 +25,7 @@ public class GunShoot extends Skill {
 
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
-        user.addEffect(new DamageEnhanceEffect(2, 1));
+        user.addEffect(new DamageEnhanceEffect(2, 1).setOrigin("gunShoot"));
         for (LivingThing livingThing : enemies) {
             System.out.print(user.getName() + "攻击了" + livingThing.getName());
             user.makeDamage(livingThing, this);

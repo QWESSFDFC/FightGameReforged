@@ -202,7 +202,7 @@ public class Skill {
     public long getAnticipatedDamage(LivingThing attackedEntity, LivingThing attacker) {
         DamageEvent da = new DamageEvent(attacker, attackedEntity, this);
         long newHp = attackedEntity.getHp() - da.getDamage().getDamageAmount();
-        newHp = attackedEntity.applyDamageModifiers(newHp, da);
+        newHp = attackedEntity.getModifyDamage().damageModify(newHp, da);
         return attackedEntity.getHp() - newHp;
     }
 

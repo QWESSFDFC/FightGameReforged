@@ -57,9 +57,11 @@ public class UniversalController {
     }
 
     public void setSkills(List<Skill> skills) {
+        List<Skill> skills1 = new ArrayList<>();
         for (Skill skill : skills) {
-            skills.add(skill.copy());
+            skills1.add(skill.copy());
         }
+        this.skills = skills1;
     }
 
     public LivingThing getOwner() {
@@ -104,11 +106,16 @@ public class UniversalController {
                 candidates = new ArrayList<>(fight.getFighterList());
             }
         }
-        int aimCount = Math.min(selectedSkill.getAims(), candidates.size());
-        Collections.shuffle(candidates, rand);
-        List<LivingThing> targets = candidates.subList(0, aimCount);
+        List<LivingThing> targets;
+        if (selectedSkill.getAims() == -1) {
+            targets = new ArrayList<>(candidates);
+        } else {
+            int aimCount = Math.min(selectedSkill.getAims(), candidates.size());
+            Collections.shuffle(candidates, rand);
+            targets = candidates.subList(0, aimCount);
+        }
         selectedSkill.use(fight, getOwner(), targets);
-        EventBus.post(new SelectTargetEvent(getOwner(),targets));
+        EventBus.post(new SelectTargetEvent(getOwner(), targets, fight));
     }
 
     public void useItem(Fight fight) {

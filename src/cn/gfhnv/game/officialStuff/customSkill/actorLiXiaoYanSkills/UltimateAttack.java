@@ -45,7 +45,7 @@ public class UltimateAttack extends Skill {
         MemorizedHp memorizedHp = new MemorizedHp();
         memorizedHp.setLiXiaoYanEventListener(new DamageEventListener());
         EventBus.register(memorizedHp.getLiXiaoYanEventListener());
-        user.addEffect(memorizedHp);
+        user.addEffect(memorizedHp.setOrigin("self"));
         System.out.printf("生命值锁定生效中");
         if (user instanceof ActorLiXiaoYan) {
             ((ActorLiXiaoYan) user).setIgnition(((ActorLiXiaoYan) user).getIgnition() + 1);

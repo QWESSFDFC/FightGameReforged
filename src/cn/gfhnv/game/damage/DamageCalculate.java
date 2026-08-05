@@ -1,11 +1,17 @@
 package cn.gfhnv.game.damage;
 
+import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.event.CalculateDamageEndEvent;
+import cn.gfhnv.game.event.CalculateDamageGetStatusEvent;
+import cn.gfhnv.game.event.EventBus;
+import cn.gfhnv.game.officialStuff.customEffect.universalEffects.IgnoreDefenceEffect;
 import cn.gfhnv.game.skill.Skill;
 
 public class DamageCalculate {
 
     public static long calculate(LivingThing attacker, LivingThing targetEntity, Skill skill) {
+        EventBus.post(new CalculateDamageGetStatusEvent(attacker, targetEntity));
         double criticalRate = attacker.getGetCriticalRATE();
         double criticalDamageEnhance = 1;
         if (Math.random() <= criticalRate) criticalDamageEnhance += attacker.getCriticalDMG();
@@ -25,8 +31,18 @@ public class DamageCalculate {
         long extraDamage = skill.getExtraDamage();
         long attackerExtraDamage = attacker.getExtraDamage();
         cn.gfhnv.game.system.ElementSort elementSort = attacker.getElementSort();
-        double targetDefence = targetEntity.getDefence();
         double defenseLoss = targetEntity.getDefenseLoss();
+        double lossAmount = 0;
+        if (!attacker.getEntityEffectList().isEmpty()) {
+            for (Effect effect : attacker.getEntityEffectList()) {
+                if (effect instanceof IgnoreDefenceEffect) {
+                    defenseLoss += ((IgnoreDefenceEffect) effect).getPercent();
+                    lossAmount += ((IgnoreDefenceEffect) effect).getAmount();
+                }
+            }
+        }
+        double targetDefence = targetEntity.getDefence() * (1 - defenseLoss) - lossAmount;
+        if (targetDefence <= 0) targetDefence = 0;
         switch (elementSort) {
             case DIRT -> {
                 resistance = targetEntity.getDirtResistance();
@@ -57,7 +73,7 @@ public class DamageCalculate {
                 resistance = 0;
             }
         }
-
-        return (long) (((hp * hpMagnification + atkMagnification * attack + attackerDefence * dfkMagnification + extraDamage + attackerExtraDamage) * (1 + enhance) * (1 - resistance + penetration) * (1 - damageAbsorbed) * ((level * 10 + 200) / (level * 10 + 200 + targetDefence * (1 - defenseLoss)))) * individualMultipleArea * criticalDamageEnhance);
+        EventBus.post(new CalculateDamageEndEvent(attacker, targetEntity));
+        return (long) (((hp * hpMagnification + atkMagnification * attack + attackerDefence * dfkMagnification + extraDamage + attackerExtraDamage) * (1 + enhance) * (1 - resistance + penetration) * (1 - damageAbsorbed) * ((level * 10 + 200) / (level * 10 + 200 + targetDefence))) * individualMultipleArea * criticalDamageEnhance);
     }
 }

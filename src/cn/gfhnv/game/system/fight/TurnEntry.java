@@ -1,19 +1,41 @@
 package cn.gfhnv.game.system.fight;
 
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.interfaces.ISpecialAction;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 
 public class TurnEntry {
     private LivingThing livingThing;
     private BigDecimal startTime;
     private BigDecimal needTime;
+    private List<ISpecialAction> iSpecialActionList = new ArrayList<>();
+    private boolean isExtra = false;
 
     public TurnEntry(LivingThing livingThing, BigDecimal needTime, BigDecimal startTime) {
         this.livingThing = livingThing;
         this.needTime = needTime;
         this.startTime = startTime;
+    }
+
+    public boolean isExtra() {
+        return isExtra;
+    }
+
+    public TurnEntry setExtra(boolean extra) {
+        isExtra = extra;
+        return this;
+    }
+
+    public List<ISpecialAction> getiSpecialActionList() {
+        return iSpecialActionList;
+    }
+
+    public void setiSpecialActionList(List<ISpecialAction> iSpecialActionList) {
+        this.iSpecialActionList = iSpecialActionList;
     }
 
     public BigDecimal getStartTime() {

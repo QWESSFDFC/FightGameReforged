@@ -31,7 +31,7 @@ FightGameReforged
 
 · 经典回合制战斗：玩家自由组建队伍，选择敌人与奖励，手动操控每个角色释放技能。
 · 五行元素体系：引入金、木、水、火、土五种元素，设计了对应的抗性与伤害加成机制。
-· 事件驱动架构：通过自定义 EventBus 和 @SubscribeEvent 注解解耦游戏逻辑，为扩展性打下基础。
+· 事件驱动架构：通过自定义 EventBus 和 @SubscribeEvent(priority=...)或者@SubscribeEvent 注解解耦游戏逻辑，为扩展性打下基础。默认优先级3.数字越小,优先级越高,数字最小是0.
 · 内置模组系统：可自动扫描并加载外部模组，支持动态编译 .java 源码，方便添加新生物、技能与物品。
 · Utility AI 控制器：非玩家角色基于 Tag 权重系统进行决策——每个实体拥有独立的 Tag 权重（体现性格），结合实时情境（血量等）计算行动得分，选出最优行为。
 · MIT 开源许可：代码完全开放，随意使用、修改、分发。
@@ -96,7 +96,7 @@ FightGameReforged/
 ```
 
 ---
-没写完 
+这个功能没写完 
 🧠 关于 AI 决策系统（ThinkingController）
 
 非玩家实体的行为由 ThinkingController 控制，其核心机制基于 效用型 AI（Utility AI）：
@@ -162,7 +162,7 @@ The author is a high school student passionate about programming and game develo
 
 - **Classic turn‑based combat**: freely build your team, choose enemies and rewards, and manually control each character's skill usage.
 - **Five‑element system**: incorporates Metal, Wood, Water, Fire, and Earth elements, with corresponding resistance and damage bonus mechanics.
-- **Event‑driven architecture**: decouples game logic via a custom EventBus and @SubscribeEvent annotations, enhancing extensibility.
+- **Event‑driven architecture**: decouples game logic via a custom EventBus and @SubscribeEvent or @SubscribeEvent(priority=x) annotations, enhancing extensibility.Default priority is 3.The smaller the number is, the higher the priority is, and the smallest number is 0.
 - **Built‑in mod system**: automatically scans and loads external mods, supports dynamic compilation of .java source files, facilitating the addition of new creatures, skills, and items.
 - **Utility AI controller**: non‑player characters make decisions based on a Tag weight system — each entity has its own Tag weights (reflecting personality), combined with real‑time context (HP, etc.) to compute action scores and select the optimal behavior.
 - **MIT open‑source license**: code is fully open, free to use, modify, and distribute.
@@ -231,7 +231,7 @@ There may be additional folders not listed here.
 ```
 
 ---
-Unfinished
+This function is unfinished.
 ## 🧠 About the AI Decision System (ThinkingController)
 
 The behavior of non‑player entities is controlled by `ThinkingController`, whose core mechanism is based on **Utility AI**:

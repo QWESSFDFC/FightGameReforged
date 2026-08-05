@@ -16,7 +16,7 @@ public class EffectEventListener {
         Iterator<Effect> iterator = effectList.iterator();
         while (iterator.hasNext()) {
             Effect ef = iterator.next();
-            if (ef.isInfinity()) {
+            if (ef.isInfinity() || event.getTurnEntry().isExtra()) {
                 ef.comeIntoEffect(thing);
                 return;
             }

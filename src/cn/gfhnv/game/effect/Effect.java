@@ -6,13 +6,10 @@ import java.util.Objects;
 
 public class Effect {
     private String id;
-    private int level;//效果等级
-    private int lastTime;//seconds
-  private boolean isInfinity=false;
-
-    public void setInfinity(boolean infinity) {
-        isInfinity = infinity;
-    }
+    private int level = 1;//效果等级
+    private int lastTime;//turns
+    private boolean isInfinity = false;
+    private String origin = "null";
 
     public Effect(String id, int level, int lastTime) {
         this.id = id;
@@ -35,7 +32,7 @@ public class Effect {
     }
 
     public Effect copy() {
-        return new Effect(this);
+        throw new UnsupportedOperationException("子类必须重写此方法,当前类 :" + this.getClass().getName());
     }
 
     @Override
@@ -58,7 +55,6 @@ public class Effect {
     public void whenLastTimeEnd(LivingThing livingThing) {
     }
 
-
     public Effect facSetId(String id) {
         this.setId(id);
         return this;
@@ -78,12 +74,12 @@ public class Effect {
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
         Effect effect = (Effect) o;
-        return Objects.equals(getId(), effect.getId());
+        return isInfinity() == effect.isInfinity() && Objects.equals(getId(), effect.getId()) && Objects.equals(getOrigin(), effect.getOrigin());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(getId());
+        return Objects.hash(getId(), isInfinity(), getOrigin());
     }
 
     public String getID() {
@@ -110,8 +106,20 @@ public class Effect {
         System.out.println("这里写效果具体内容........请重写这个方法.回合更新时此方法会被调用");
     }
 
-
     public boolean isInfinity() {
         return isInfinity;
+    }
+
+    public void setInfinity(boolean infinity) {
+        isInfinity = infinity;
+    }
+
+    public String getOrigin() {
+        return origin;
+    }
+
+    public Effect setOrigin(String origin) {
+        this.origin = origin;
+        return this;
     }
 }

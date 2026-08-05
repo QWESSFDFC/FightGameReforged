@@ -9,12 +9,23 @@ public class DamageEnhanceEffect extends Effect {
     private double baseNum;
     private double enhanceNum;
 
+    public DamageEnhanceEffect(DamageEnhanceEffect effect) {
+        super(effect.getID());
+        this.setLastTime(effect.getLastTime());
+        this.setLevel(effect.getLevel());
+        this.baseNum = effect.baseNum;
+        this.enhanceN = effect.enhanceN;
+        this.enhanceNum = effect.enhanceNum;
+        this.isOn = effect.isOn;
+    }
+
     public DamageEnhanceEffect() {
         super("damageEnhanceEffect");
         this.isOn = false;
         this.baseNum = 1.0;
         this.enhanceNum = 1.0;
         enhanceN = this.getLevel() * enhanceNum + baseNum;
+        this.setLastTime(1);
     }
 
     public DamageEnhanceEffect(int level, int lastTime) {
@@ -30,6 +41,12 @@ public class DamageEnhanceEffect extends Effect {
         this.baseNum = baseNum;
         this.enhanceNum = enhanceNum;
         enhanceN = this.getLevel() * enhanceNum + baseNum;
+
+    }
+
+    @Override
+    public Effect copy() {
+        return new DamageEnhanceEffect(this);
     }
 
     @Override

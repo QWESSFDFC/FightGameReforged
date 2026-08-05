@@ -7,12 +7,12 @@ import cn.gfhnv.game.officialStuff.customEntity.players.Phainon;
 
 public class SelectEventListener {
     @SubscribeEvent
-    public void listen(SelectTargetEvent event){
-       for (LivingThing livingThing:event.getTargets()){
-           if (livingThing instanceof Phainon){
-               ((Phainon) livingThing).setPyroheart(Math.min(((Phainon) livingThing).getPyroheart_max(), ((Phainon) livingThing).getPyroheart())+1);
-               System.out.println(livingThing.getName()+"获得了一个火种");
-           }
-       }
+    public void listen(SelectTargetEvent event) {
+        for (LivingThing livingThing : event.getTargets()) {
+            if (livingThing instanceof Phainon) {
+                ((Phainon) livingThing).setCoreflame(Math.min(((Phainon) livingThing).getCoreflame_max(), ((Phainon) livingThing).getCoreflame()) + 1);
+                System.out.println(livingThing.getName() + "获得了一个火种");
+            }
+        }
     }
 }

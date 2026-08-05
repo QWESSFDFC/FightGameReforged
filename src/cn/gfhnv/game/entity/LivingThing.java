@@ -7,6 +7,7 @@ import cn.gfhnv.game.event.DamageEvent;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.event.HpLossEvent;
 import cn.gfhnv.game.event.HpRestorationEvent;
+import cn.gfhnv.game.interfaces.IModifyDamage;
 import cn.gfhnv.game.interfaces.IShowSpecialMes;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
@@ -18,20 +19,14 @@ import cn.gfhnv.game.system.thinkingSystem.Tag;
 import cn.gfhnv.game.system.thinkingSystem.TagType;
 import cn.gfhnv.game.system.thinkingSystem.ThinkingController;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
 
 public class LivingThing extends Entity {
     public long extraDamage = 0;
     private IShowSpecialMes showSpecialMes;
-
-    public IShowSpecialMes getShowSpecialMes() {
-        return showSpecialMes;
-    }
-
-    public void setShowSpecialMes(IShowSpecialMes showSpecialMes) {
-        this.showSpecialMes = showSpecialMes;
-    }
-
     private double fireResistance, waterResistance, metalResistance, woodResistance, dirtResistance, hpMax, criticalDMG, getCriticalRATE;
     private long hp, defence, speed, attack;
     private boolean Alive = true;
@@ -57,8 +52,7 @@ public class LivingThing extends Entity {
     private UniversalController controller;
     private String description;
     private double individualMultipleArea = 1;
-
-
+    private IModifyDamage modifyDamage = IModifyDamage.DEFAULT;//这是伤害修正接口
     public LivingThing() {
 
     }
@@ -189,6 +183,14 @@ public class LivingThing extends Entity {
     public LivingThing(long speed) {
         this.speed = speed;
 
+    }
+
+    public IShowSpecialMes getShowSpecialMes() {
+        return showSpecialMes;
+    }
+
+    public void setShowSpecialMes(IShowSpecialMes showSpecialMes) {
+        this.showSpecialMes = showSpecialMes;
     }
 
     public double getMetalPenetration() {
@@ -523,8 +525,6 @@ public class LivingThing extends Entity {
         return this;
     }
 
-
-
     public LivingThing facSetCriticalDMG(double criticalDMG) {
         this.criticalDMG = criticalDMG;
         return this;
@@ -601,7 +601,6 @@ public class LivingThing extends Entity {
         this.controller = controller;
     }
 
-
     public double getFireResistance() {
         return fireResistance;
     }
@@ -667,17 +666,17 @@ public class LivingThing extends Entity {
     }
 
     public void addEffect(LivingThing target, Effect effect) {
-        if (target.getEntityEffectList().contains(effect)) {
-            for (Effect e : target.entityEffectList) {
-                if (e.equals(effect)) {
-                    if (e.getLevel() >= effect.getLevel()) {
-                        e.setLevel(effect.getLevel() + e.getLevel());
-                        return;
-                    }
-                    target.entityEffectList.remove(e);
-                    target.entityEffectList.add(effect);
-                    effect.initialEffect(target);
+        for (int i = 0; i < target.entityEffectList.size(); i++) {
+            Effect existing = target.entityEffectList.get(i);
+            if (existing.equals(effect)) {
+                if (existing.getLevel() >= effect.getLevel()) {
+                    existing.setLastTime(existing.getLastTime() + effect.getLastTime());
+                } else {
+
+                    target.entityEffectList.set(i, effect);
+                    effect.initialEffect(this);
                 }
+                return;
             }
         }
         target.entityEffectList.add(effect);
@@ -734,7 +733,6 @@ public class LivingThing extends Entity {
         if (getHp() <= 0) {
             this.getController().setActionSignal(ActionSignal.NORMAL);
             this.getController().setSpecialAction(null);
-            this.whenFightEnds();
             Alive = false;
         }
         if (getHp() > 0) {
@@ -763,7 +761,6 @@ public class LivingThing extends Entity {
         this.defenseLoss = defenseLoss;
     }
 
-
     public long getAttack() {
         return attack;
     }
@@ -774,7 +771,7 @@ public class LivingThing extends Entity {
 
     public void getDamage(DamageEvent da) {
         long newHp = this.getHp() - da.getDamage().getDamageAmount();
-        newHp = applyDamageModifiers(newHp, da);
+        newHp = modifyDamage.damageModify(newHp, da);
         this.setHp(newHp);
         System.out.print("剩余HP" + this.getHp());
     }
@@ -783,85 +780,76 @@ public class LivingThing extends Entity {
         return new LivingThing(this);
     }
 
-
     public LivingThing facSetLevel(long level) {
         this.setLevel(level);
         return this;
     }
-
 
     public LivingThing facSetName(String name) {
         this.setName(name);
         return this;
     }
 
-
     public LivingThing facSetId(String id) {
         this.setId(id);
         return this;
     }
-
 
     public LivingThing facSetHpGrowNumber(double hpGrowNumber) {
         this.setHpGrowNumber(hpGrowNumber);
         return this;
     }
 
-
     public LivingThing facSetAtkGrowNumber(double atkGrowNumber) {
         this.setAtkGrowNumber(atkGrowNumber);
         return this;
     }
-
 
     public LivingThing facSetDfkGrowNumber(double dfkGrowNumber) {
         this.setDfkGrowNumber(dfkGrowNumber);
         return this;
     }
 
-
     public Entity facSetElementSort(ElementSort elementSort) {
         this.setElementSort(elementSort);
         return this;
     }
-
 
     public LivingThing facSetMetalManaGrowNumber(double metalManaGrowNumber) {
         this.setMetalManaGrowNumber(metalManaGrowNumber);
         return this;
     }
 
-
     public LivingThing facSetWoodManaGrowNumber(double woodManaGrowNumber) {
         this.setWoodManaGrowNumber(woodManaGrowNumber);
         return this;
     }
-
 
     public LivingThing facSetWaterManaGrowNumber(double waterManaGrowNumber) {
         this.setWaterManaGrowNumber(waterManaGrowNumber);
         return this;
     }
 
-
     public LivingThing facSetFireManaGrowNumber(double fireManaGrowNumber) {
         this.setFireManaGrowNumber(fireManaGrowNumber);
         return this;
     }
-
 
     public LivingThing facSetDirtManaGrowNumber(double dirtManaGrowNumber) {
         this.setDirtManaGrowNumber(dirtManaGrowNumber);
         return this;
     }
 
-
     public LivingThing facSetType(String type) {
         this.setType(type);
         return this;
     }
-    public void showSpecialStatus(){}
-    public void whenFightStart(Fight fight){}
+
+    public void showSpecialStatus() {
+    }
+
+    public void whenFightStart(Fight fight) {
+    }
 
     public LivingThing facSetManas(List<Mana> manas) {
         this.setManas(manas);
@@ -875,18 +863,6 @@ public class LivingThing extends Entity {
         this.setEntityEffectList(new ArrayList<>());
         for (Skill skill : getController().getSkills()) skill.setNowCoolDown(0);
         for (Mana mana : getManas()) mana.setAmount(mana.getAmountMax());
-    }
-
-    /**
-     *
-     * 子类可重写此方法，在血量被扣减前进行修正（如锁血、免死等）。
-     *
-     * @param newHp 计算出的新血量（当前血量 - 伤害值）
-     * @param da    伤害事件
-     * @return 修正后的新血量
-     */
-    public long applyDamageModifiers(long newHp, DamageEvent da) {
-        return newHp;
     }
 
     public void makeDamage(LivingThing attacked, Skill skill) {
@@ -929,8 +905,6 @@ public class LivingThing extends Entity {
         }
     }
 
-
-
     public double getCriticalDMG() {
         return criticalDMG;
     }
@@ -939,6 +913,11 @@ public class LivingThing extends Entity {
         this.criticalDMG = criticalDMG;
     }
 
+    public IModifyDamage getModifyDamage() {
+        return modifyDamage;
+    }
 
-
+    public void setModifyDamage(IModifyDamage modifyDamage) {
+        this.modifyDamage = modifyDamage;
+    }
 }

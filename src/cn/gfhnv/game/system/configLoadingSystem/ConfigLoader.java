@@ -51,7 +51,13 @@ public class ConfigLoader {//只加载游戏本身设置(目前只有tag(实体�
             "  },\n" +
             "  \"game_official_content:aNiceSword\": {\n" +
             "    \"damage_enhance\": 2\n" +
-            "  }\n" +
+            "  },\"game_official_content:phainon\": {\n" +
+            "  \"attack\": 5,\n" +
+            "  \"heal\": 0,\n" +
+            "  \"defence\": 0,\n" +
+            "  \"restoration_mana\": 2,\n" +
+            "  \"damage_enhance\": 3\n" +
+            "}\n" +
             "}";
     private static Map<String, Map<TagType, Tag>> tagsMap = new HashMap<>();
 

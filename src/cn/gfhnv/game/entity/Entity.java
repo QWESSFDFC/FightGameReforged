@@ -8,7 +8,6 @@ import cn.gfhnv.game.system.thinkingSystem.TagType;
 import java.math.BigDecimal;
 import java.util.EnumMap;
 import java.util.Map;
-import java.util.Objects;
 
 public class Entity extends Thing {
     private long level;
@@ -54,7 +53,6 @@ public class Entity extends Thing {
 
 
     }
-
 
 
     public Entity facSetLevel(long level) {

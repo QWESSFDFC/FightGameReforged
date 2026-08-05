@@ -13,9 +13,21 @@ public class MemorizedHp extends Effect {
         super("memorizedHp", 1, 3);
     }
 
+    public MemorizedHp(MemorizedHp effect) {
+        super(effect.getID());
+        this.setLastTime(effect.getLastTime());
+        this.setLevel(effect.getLevel());
+        this.liXiaoYanEventListener = new DamageEventListener();
+    }
+
     @Override
     public void comeIntoEffect(LivingThing thing) {
 
+    }
+
+    @Override
+    public Effect copy() {
+        return new MemorizedHp(this);
     }
 
     public DamageEventListener getLiXiaoYanEventListener() {

@@ -11,6 +11,22 @@ public class Frozen extends Effect {
         this.setLastTime(1);
     }
 
+    public Frozen(int lastTime) {
+        super("frozenEffect");
+        this.setLastTime(lastTime);
+    }
+
+    public Frozen(Frozen effect) {
+        super(effect.getID());
+        this.setLastTime(effect.getLastTime());
+        this.setLevel(effect.getLevel());
+    }
+
+    @Override
+    public Effect copy() {
+        return new Frozen(this);
+    }
+
     @Override
     public void comeIntoEffect(LivingThing thing) {
         thing.getController().setActionSignal(ActionSignal.SPECIAL_ACTION);

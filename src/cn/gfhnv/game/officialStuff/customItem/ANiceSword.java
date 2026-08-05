@@ -12,6 +12,6 @@ public class ANiceSword extends Item {
 
     @Override
     public void comeToEffect(LivingThing user, Fight fight) {
-        user.addEffect(new DamageEnhanceEffect(2, 1));
+        user.addEffect(new DamageEnhanceEffect(2, 1).setOrigin(this.getId()));
     }
 }

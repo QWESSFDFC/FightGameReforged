@@ -78,47 +78,50 @@ public class PlayerController extends UniversalController {
         List<LivingThing> availableList = targetIsEnemy
                 ? new ArrayList<>(fight.getEnemiesList())
                 : new ArrayList<>(fight.getFighterList());
+        if (selectedSkill.getAims() == -1) {
+            attacking.addAll(availableList);
+        } else {
+            System.out.println("需要选择 " + selectedSkill.getAims() + " 个不同的目标。输入数字选择，输入 'next' 结束（至少选1个）");
 
-        System.out.println("需要选择 " + selectedSkill.getAims() + " 个不同的目标。输入数字选择，输入 'next' 结束（至少选1个）");
+            while (attacking.size() < selectedSkill.getAims()) {
+                System.out.println("当前可选目标：");
+                for (int i = 0; i < availableList.size(); i++) {
+                    LivingThing t = availableList.get(i);
+                    if (!attacking.contains(t)) {
+                        System.out.println(i + " " + t.getName());
+                    }
+                }
+                System.out.println("已选目标：" + attacking.stream().map(LivingThing::getName).collect(Collectors.joining(", ")));
+                System.out.print("输入索引或 next: ");
 
-        while (attacking.size() < selectedSkill.getAims()) {
-            System.out.println("当前可选目标：");
-            for (int i = 0; i < availableList.size(); i++) {
-                LivingThing t = availableList.get(i);
-                if (!attacking.contains(t)) {
-                    System.out.println(i + " " + t.getName());
+                input = GameMain.SCANNER.nextLine();
+                if (input.equalsIgnoreCase("next")) {
+                    if (attacking.isEmpty()) {
+                        System.out.println("至少选择一个目标才能结束");
+                        continue;
+                    }
+                    break;
                 }
-            }
-            System.out.println("已选目标：" + attacking.stream().map(LivingThing::getName).collect(Collectors.joining(", ")));
-            System.out.print("输入索引或 next: ");
 
-            input = GameMain.SCANNER.nextLine();
-            if (input.equalsIgnoreCase("next")) {
-                if (attacking.isEmpty()) {
-                    System.out.println("至少选择一个目标才能结束");
-                    continue;
+                try {
+                    int idx = Integer.parseInt(input);
+                    if (idx < 0 || idx >= availableList.size()) {
+                        System.out.println("索引超出范围");
+                        continue;
+                    }
+                    LivingThing candidate = availableList.get(idx);
+                    if (attacking.contains(candidate)) {
+                        System.out.println("该目标已被选择，不能重复");
+                        continue;
+                    }
+                    attacking.add(candidate);
+                } catch (NumberFormatException e) {
+                    System.out.println("请输入数字或 'next'");
                 }
-                break;
-            }
-
-            try {
-                int idx = Integer.parseInt(input);
-                if (idx < 0 || idx >= availableList.size()) {
-                    System.out.println("索引超出范围");
-                    continue;
-                }
-                LivingThing candidate = availableList.get(idx);
-                if (attacking.contains(candidate)) {
-                    System.out.println("该目标已被选择，不能重复");
-                    continue;
-                }
-                attacking.add(candidate);
-            } catch (NumberFormatException e) {
-                System.out.println("请输入数字或 'next'");
             }
         }
         selectedSkill.use(fight, getOwner(), new ArrayList<>(attacking));
-        EventBus.post(new SelectTargetEvent(getOwner(),new ArrayList<>(attacking)));
+        EventBus.post(new SelectTargetEvent(getOwner(), new ArrayList<>(attacking), fight));
     }
 
     @Override
