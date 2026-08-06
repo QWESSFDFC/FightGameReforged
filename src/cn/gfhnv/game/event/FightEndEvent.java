@@ -1,6 +1,6 @@
-package cn.gfhnv.game.system.fight;
+package cn.gfhnv.game.event;
 
-import cn.gfhnv.game.event.Event;
+import cn.gfhnv.game.system.fight.Fight;
 
 public class FightEndEvent extends Event {
     private boolean isPlayerWin;

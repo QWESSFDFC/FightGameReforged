@@ -15,7 +15,7 @@ public class FightStartEventListener {
         EventBus.register(listener);
         EventBus.register(new FightEndEventListener(listener));
         TurnManager.init(event.getFight());
-        for (LivingThing livingThing:event.getFight().getAllEntities()) livingThing.whenFightStart(event.getFight());
+        for (LivingThing livingThing : event.getFight().getAllEntities()) livingThing.whenFightStart(event.getFight());
         EventBus.post(new FightPastOneTurnEvent(event.getFight()));
 
     }

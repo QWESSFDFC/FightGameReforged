@@ -4,7 +4,7 @@ import cn.gfhnv.game.annotation.SubscribeEvent;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.item.Item;
-import cn.gfhnv.game.system.fight.FightEndEvent;
+import cn.gfhnv.game.event.FightEndEvent;
 import cn.gfhnv.game.system.fight.TurnManager;
 import cn.gfhnv.game.world.World;
 

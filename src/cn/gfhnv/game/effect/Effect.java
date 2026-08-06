@@ -10,6 +10,15 @@ public class Effect {
     private int lastTime;//turns
     private boolean isInfinity = false;
     private String origin = "null";
+    private boolean negative=false;
+
+    public boolean isNegative() {
+        return negative;
+    }
+
+    public void setNegative(boolean negative) {
+        this.negative = negative;
+    }
 
     public Effect(String id, int level, int lastTime) {
         this.id = id;

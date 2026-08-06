@@ -3,9 +3,13 @@ package cn.gfhnv.game.officialStuff.customEntity.players;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entity.Player;
 import cn.gfhnv.game.entityController.PlayerController;
+import cn.gfhnv.game.event.DamageEvent;
 import cn.gfhnv.game.event.EventBus;
+import cn.gfhnv.game.eventListener.FightTurnPastListener;
+import cn.gfhnv.game.interfaces.IModifyDamage;
 import cn.gfhnv.game.officialStuff.customEvent.phainonEvents.AwakenEndEvent;
 import cn.gfhnv.game.officialStuff.customEvent.phainonEvents.SelectEventListener;
+import cn.gfhnv.game.officialStuff.customSkill.phainonSkills.awakenSkills.LastAttack;
 import cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.NormalSkill;
 import cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.UltimateAttack;
 import cn.gfhnv.game.officialStuff.customSkill.universalSkill.CommonAttack;
@@ -13,6 +17,7 @@ import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.ActionSignal;
 import cn.gfhnv.game.system.fight.Fight;
+import cn.gfhnv.game.system.fight.TurnManager;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -27,6 +32,15 @@ public class Phainon extends Player {
     private int scourge_max = 7;
     private boolean isAwaken = false;
     private List<Skill> skills;
+  private boolean pendingLastAttack=false;
+
+    public boolean isPendingLastAttack() {
+        return pendingLastAttack;
+    }
+
+    public void setPendingLastAttack(boolean pendingLastAttack) {
+        this.pendingLastAttack = pendingLastAttack;
+    }
 
     public Phainon(long l) {
         super("白厄", "phainon", 0.7, 0, 0, 0, 0, 120, l, "player", 29, 40, 25, ElementSort.FIRE);
@@ -40,6 +54,32 @@ public class Phainon extends Player {
         this.getInventory().addSlot(63);
         this.setController(new PlayerController(skillList, this));
         this.skills = skillList;
+        this.setModifyDamage(
+                new IModifyDamage() {
+                    @Override
+                    public long damageModify(long newHp, DamageEvent da) {
+                        if (da.getAttackedEntity() instanceof Phainon){
+                            if (((Phainon) da.getAttackedEntity()).isAwaken&&newHp<=0){
+                                if (((Phainon) da.getAttackedEntity()).isPendingLastAttack()) {return 1;}
+                                newHp=1;
+                                ((Phainon) da.getAttackedEntity()).setPendingLastAttack(true);
+                                FightTurnPastListener.getPresentTurn().getiSpecialActionList().add((fight, user) -> {
+                                   List<LivingThing> availableTargets;
+                                   if (fight.getEnemiesList().contains(user)) availableTargets=new ArrayList<>(fight.getFighterList());
+                                   else {
+                                       availableTargets=new ArrayList<>(fight.getEnemiesList());
+                                   }
+
+                                   if (!availableTargets.isEmpty()) new LastAttack().comeToEffect(fight,user,availableTargets);
+                                });
+
+                            }
+                        }
+                        return newHp;
+                    }
+                }
+
+        );
         this.setShowSpecialMes(user -> {
             if (user instanceof Phainon) {
                 System.out.println("当前火种数量:" + ((Phainon) user).getCoreflame());
@@ -103,13 +143,18 @@ public class Phainon extends Player {
     @Override
     public void whenFightEnds() {
         super.whenFightEnds();
+        pendingLastAttack=false;
         if (this.isAwaken) {
             EventBus.post(new AwakenEndEvent(this));
         }
         this.isListenerRegister = false;
         this.isAwaken = false;
         EventBus.unregister(this.selectEventListener);
-        this.setShowSpecialMes(null);
+        this.setShowSpecialMes(user -> {
+            if (user instanceof Phainon) {
+                System.out.println("当前火种数量:" + ((Phainon) user).getCoreflame());
+            }
+        });
         this.getController().setActionSignal(ActionSignal.NORMAL);
         for (Skill skill : getController().getSkills()) {
             if (skill instanceof cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.UltimateAttack) {

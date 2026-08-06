@@ -14,13 +14,28 @@ public class TurnEntry {
     private BigDecimal needTime;
     private List<ISpecialAction> iSpecialActionList = new ArrayList<>();
     private boolean isExtra = false;
+ private ActionSignal actionSignal;
+
+    public ActionSignal getActionSignal() {
+        return actionSignal;
+    }
+
+    public void setActionSignal(ActionSignal actionSignal) {
+        this.actionSignal = actionSignal;
+    }
 
     public TurnEntry(LivingThing livingThing, BigDecimal needTime, BigDecimal startTime) {
         this.livingThing = livingThing;
         this.needTime = needTime;
         this.startTime = startTime;
+        this.actionSignal=livingThing.getController().getActionSignal();
     }
-
+ public TurnEntry(LivingThing livingThing, BigDecimal needTime, BigDecimal startTime,ActionSignal actionSignal){
+     this.livingThing = livingThing;
+     this.needTime = needTime;
+     this.startTime = startTime;
+     this.actionSignal=actionSignal;
+ }
     public boolean isExtra() {
         return isExtra;
     }

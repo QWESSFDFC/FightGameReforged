@@ -9,7 +9,7 @@ import cn.gfhnv.game.event.FightPastOneTurnEvent;
 import cn.gfhnv.game.interfaces.ISpecialAction;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.fight.ActionSignal;
-import cn.gfhnv.game.system.fight.FightEndEvent;
+import cn.gfhnv.game.event.FightEndEvent;
 import cn.gfhnv.game.system.fight.TurnEntry;
 import cn.gfhnv.game.system.fight.TurnManager;
 import cn.gfhnv.game.world.World;
@@ -21,9 +21,9 @@ import java.util.List;
 
 public class FightTurnPastListener {
     private static List<LivingThing> theDeath = new ArrayList<>();
-    private TurnEntry presentTurn;
+    private static TurnEntry presentTurn;
 
-    public TurnEntry getPresentTurn() {
+    public static TurnEntry getPresentTurn() {
         return presentTurn;
     }
 
@@ -87,23 +87,23 @@ public class FightTurnPastListener {
         if (presentTurn.getLivingThing().getShowSpecialMes() != null) {
             presentTurn.getLivingThing().getShowSpecialMes().show(presentTurn.getLivingThing());
         }
-        if (presentTurn.getiSpecialActionList().isEmpty()) {
+
+        if (presentTurn.getActionSignal().equals(ActionSignal.NORMAL)) {
+            presentTurn.getLivingThing().getController().act(fightPastOneTurnEvent.getFight());
+        } else if (presentTurn.getActionSignal().equals(ActionSignal.SPECIAL_ACTION)) {
+            presentTurn.getLivingThing().getController().getSpecialAction().execute(fightPastOneTurnEvent.getFight(), presentTurn.getLivingThing());
+        }
+        if (presentTurn.getActionSignal() != ActionSignal.WITHOUT_NEW_TURN&&!presentTurn.getActionSignal().equals(ActionSignal.SKIP_WITHOUT_NEW_TURN)) {
+            TurnEntry turn = new TurnEntry(presentTurn.getLivingThing(), BigDecimal.valueOf(10000).divide(BigDecimal.valueOf(presentTurn.getLivingThing().getSpeed()), 10, RoundingMode.HALF_UP), TurnManager.getPresentTime());
+            TurnManager.getTurns().add(turn);
+        } else if (presentTurn.getActionSignal().equals(ActionSignal.WITHOUT_NEW_TURN)){
+            presentTurn.getLivingThing().getController().act(fightPastOneTurnEvent.getFight());
+        }
+        if (!presentTurn.getiSpecialActionList().isEmpty()) {
             for (ISpecialAction iSpecialAction : presentTurn.getiSpecialActionList()) {
                 iSpecialAction.execute(fightPastOneTurnEvent.getFight(), presentTurn.getLivingThing());
             }
         }
-        if (presentTurn.getLivingThing().getController().getActionSignal().equals(ActionSignal.NORMAL)) {
-            presentTurn.getLivingThing().getController().act(fightPastOneTurnEvent.getFight());
-        } else if (presentTurn.getLivingThing().getController().getActionSignal().equals(ActionSignal.SPECIAL_ACTION)) {
-            presentTurn.getLivingThing().getController().getSpecialAction().execute(fightPastOneTurnEvent.getFight(), presentTurn.getLivingThing());
-        }
-        if (presentTurn.getLivingThing().getController().getActionSignal() != ActionSignal.WITHOUT_NEW_TURN) {
-            TurnEntry turn = new TurnEntry(presentTurn.getLivingThing(), BigDecimal.valueOf(10000).divide(BigDecimal.valueOf(presentTurn.getLivingThing().getSpeed()), 10, RoundingMode.HALF_UP), TurnManager.getPresentTime());
-            TurnManager.getTurns().add(turn);
-        } else {
-            presentTurn.getLivingThing().getController().act(fightPastOneTurnEvent.getFight());
-        }
-
         EventBus.post(new EffectUpdateEvent(presentTurn.getLivingThing(), presentTurn));
         TurnManager.nextTurn(fightPastOneTurnEvent.getFight());
         for (LivingThing dead : theDeath) {

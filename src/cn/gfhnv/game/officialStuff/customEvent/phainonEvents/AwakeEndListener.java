@@ -9,6 +9,7 @@ public class AwakeEndListener {
     @SubscribeEvent
     public void end(AwakenEndEvent endEvent) {
         endEvent.getPhainon().setAwaken(false);
+        endEvent.getPhainon().setPendingLastAttack(false);
         endEvent.getPhainon().getController().setActionSignal(ActionSignal.NORMAL);
         endEvent.getPhainon().getController().setSkills(endEvent.getPhainon().getSkills());
         endEvent.getPhainon().setShowSpecialMes(user -> {

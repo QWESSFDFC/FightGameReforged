@@ -9,17 +9,20 @@ public class Frozen extends Effect {
     public Frozen() {
         super("frozenEffect");
         this.setLastTime(1);
+        this.setNegative(true);
     }
 
     public Frozen(int lastTime) {
         super("frozenEffect");
         this.setLastTime(lastTime);
+        this.setNegative(true);
     }
 
     public Frozen(Frozen effect) {
         super(effect.getID());
         this.setLastTime(effect.getLastTime());
         this.setLevel(effect.getLevel());
+        this.setNegative(true);
     }
 
     @Override
