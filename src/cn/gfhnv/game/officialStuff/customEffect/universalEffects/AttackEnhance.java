@@ -39,16 +39,16 @@ public class AttackEnhance extends Effect {
     @Override
     public void comeIntoEffect(LivingThing thing) {
         if (!isOn) {
-            thing.setAttackEnhanceAmount(thing.getAttackEnhanceAmount()+amount);
-            thing.setAttackEnhancePercent(thing.getAttackEnhancePercent()+percent);
+            thing.setAttackEnhanceAmount(thing.getAttackEnhanceAmount() + amount);
+            thing.setAttackEnhancePercent(thing.getAttackEnhancePercent() + percent);
         }
     }
 
     @Override
     public void whenLastTimeEnd(LivingThing thing) {
         isOn = false;
-        thing.setAttackEnhanceAmount(thing.getAttackEnhanceAmount()-amount);
-        thing.setAttackEnhancePercent(thing.getAttackEnhancePercent()-percent);
+        thing.setAttackEnhanceAmount(thing.getAttackEnhanceAmount() - amount);
+        thing.setAttackEnhancePercent(thing.getAttackEnhancePercent() - percent);
     }
 
     @Override

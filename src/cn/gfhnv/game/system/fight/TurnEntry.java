@@ -13,7 +13,22 @@ public class TurnEntry {
     private BigDecimal startTime;
     private BigDecimal needTime;
     private List<ISpecialAction> lastExecuteList = new ArrayList<>();
-    private List<ISpecialAction> firstExecuteList=new ArrayList<>();
+    private List<ISpecialAction> firstExecuteList = new ArrayList<>();
+    private boolean isExtra = false;
+    private ActionSignal actionSignal;
+
+    public TurnEntry(LivingThing livingThing, BigDecimal needTime, BigDecimal startTime) {
+        this.livingThing = livingThing;
+        this.needTime = needTime;
+        this.startTime = startTime;
+        this.actionSignal = livingThing.getController().getActionSignal();
+    }
+    public TurnEntry(LivingThing livingThing, BigDecimal needTime, BigDecimal startTime, ActionSignal actionSignal) {
+        this.livingThing = livingThing;
+        this.needTime = needTime;
+        this.startTime = startTime;
+        this.actionSignal = actionSignal;
+    }
 
     public List<ISpecialAction> getFirstExecuteList() {
         return firstExecuteList;
@@ -23,9 +38,6 @@ public class TurnEntry {
         this.firstExecuteList = firstExecuteList;
     }
 
-    private boolean isExtra = false;
- private ActionSignal actionSignal;
-
     public ActionSignal getActionSignal() {
         return actionSignal;
     }
@@ -34,18 +46,6 @@ public class TurnEntry {
         this.actionSignal = actionSignal;
     }
 
-    public TurnEntry(LivingThing livingThing, BigDecimal needTime, BigDecimal startTime) {
-        this.livingThing = livingThing;
-        this.needTime = needTime;
-        this.startTime = startTime;
-        this.actionSignal=livingThing.getController().getActionSignal();
-    }
- public TurnEntry(LivingThing livingThing, BigDecimal needTime, BigDecimal startTime,ActionSignal actionSignal){
-     this.livingThing = livingThing;
-     this.needTime = needTime;
-     this.startTime = startTime;
-     this.actionSignal=actionSignal;
- }
     public boolean isExtra() {
         return isExtra;
     }
@@ -58,16 +58,19 @@ public class TurnEntry {
     public List<ISpecialAction> getLastExecuteList() {
         return lastExecuteList;
     }
-public TurnEntry addLastSpecialAction(ISpecialAction iSpecialAction){
-        lastExecuteList.add(iSpecialAction);
-        return this;
-}
-public TurnEntry addFirstAction(ISpecialAction iSpecialAction){
-        firstExecuteList.add(iSpecialAction);
-        return this;
-}
+
     public void setLastExecuteList(List<ISpecialAction> lastExecuteList) {
         this.lastExecuteList = lastExecuteList;
+    }
+
+    public TurnEntry addLastSpecialAction(ISpecialAction iSpecialAction) {
+        lastExecuteList.add(iSpecialAction);
+        return this;
+    }
+
+    public TurnEntry addFirstAction(ISpecialAction iSpecialAction) {
+        firstExecuteList.add(iSpecialAction);
+        return this;
     }
 
     public BigDecimal getStartTime() {

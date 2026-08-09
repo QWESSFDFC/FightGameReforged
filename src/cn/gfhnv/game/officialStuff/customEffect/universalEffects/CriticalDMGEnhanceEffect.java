@@ -17,10 +17,11 @@ public class CriticalDMGEnhanceEffect extends Effect {
         this.percent = percent;
         this.setLastTime(lastTime);
     }
+
     public CriticalDMGEnhanceEffect(long amount, int lastTime) {
         super("criticalDMGEnhanceEffect");
         this.getEffectTagsList().add(EffectTags.POSITIVE);
-        this.amount=amount;
+        this.amount = amount;
         this.setLastTime(lastTime);
     }
 
@@ -40,19 +41,20 @@ public class CriticalDMGEnhanceEffect extends Effect {
     public Effect copy() {
         return new CriticalDMGEnhanceEffect(this);
     }
+
     @Override
     public void comeIntoEffect(LivingThing thing) {
         if (!isOn) {
-            thing.setCriticalDMGEnhanceAmount(thing.getCriticalDMGEnhanceAmount()+amount);
-            thing.setCriticalDMGEnhancePercent(thing.getCriticalDMGEnhancePercent()+percent);
+            thing.setCriticalDMGEnhanceAmount(thing.getCriticalDMGEnhanceAmount() + amount);
+            thing.setCriticalDMGEnhancePercent(thing.getCriticalDMGEnhancePercent() + percent);
         }
         isOn = true;
     }
 
     @Override
     public void whenLastTimeEnd(LivingThing thing) {
-        thing.setCriticalDMGEnhanceAmount(thing.getCriticalDMGEnhanceAmount()-amount);
-        thing.setCriticalDMGEnhancePercent(thing.getCriticalDMGEnhancePercent()-percent);
+        thing.setCriticalDMGEnhanceAmount(thing.getCriticalDMGEnhanceAmount() - amount);
+        thing.setCriticalDMGEnhancePercent(thing.getCriticalDMGEnhancePercent() - percent);
         isOn = false;
     }
 }

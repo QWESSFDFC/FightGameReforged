@@ -21,8 +21,8 @@ public class LastAttack extends Skill {
 
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
-        if (user instanceof Phainon){
-            this.setAtkMagnification(getAtkMagnification()*(1-((Phainon) user).getExtraTurns()*0.125));
+        if (user instanceof Phainon) {
+            this.setAtkMagnification(getAtkMagnification() * (1 - ((Phainon) user).getExtraTurns() * 0.125));
         }
 
         for (LivingThing livingThing : enemies) {
@@ -30,9 +30,9 @@ public class LastAttack extends Skill {
             user.makeDamage(livingThing, this);
 
         }
-            for (LivingThing livingThing:fight.getOpponentList(user)){
-                livingThing.addEffect(new SpeedEnhanceEffect(0.15,1).setOrigin(user.getUUID()));
-            }
+        for (LivingThing livingThing : fight.getOpponentList(user)) {
+            livingThing.addEffect(new SpeedEnhanceEffect(0.15, 1).setOrigin(user.getUUID()));
+        }
 
         EventBus.post(new AwakenEndEvent((Phainon) user));
     }

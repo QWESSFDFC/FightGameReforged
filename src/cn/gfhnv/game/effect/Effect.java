@@ -13,23 +13,6 @@ public class Effect {
     private String origin = "null";
     private List<EffectTags> effectTagsList = new ArrayList<>();
 
-    public List<EffectTags> getEffectTagsList() {
-        return effectTagsList;
-    }
-
-    public void setEffectTagsList(List<EffectTags> effectTagsList) {
-        this.effectTagsList = effectTagsList;
-    }
-
-    public boolean isNegative() {
-        return effectTagsList.contains(EffectTags.NEGATIVE);
-    }
-
-    public void setNegative(boolean negative) {
-       if (negative&&!effectTagsList.contains(EffectTags.NEGATIVE)) effectTagsList.add(EffectTags.NEGATIVE);
-       if (!negative&&effectTagsList.contains(EffectTags.NEGATIVE)) effectTagsList.remove(EffectTags.NEGATIVE);
-    }
-
     public Effect(String id, int level, int lastTime) {
         this.id = id;
         this.level = level;
@@ -44,6 +27,23 @@ public class Effect {
 
     public Effect(String id) {
         this.id = id;
+    }
+
+    public List<EffectTags> getEffectTagsList() {
+        return effectTagsList;
+    }
+
+    public void setEffectTagsList(List<EffectTags> effectTagsList) {
+        this.effectTagsList = effectTagsList;
+    }
+
+    public boolean isNegative() {
+        return effectTagsList.contains(EffectTags.NEGATIVE);
+    }
+
+    public void setNegative(boolean negative) {
+        if (negative && !effectTagsList.contains(EffectTags.NEGATIVE)) effectTagsList.add(EffectTags.NEGATIVE);
+        if (!negative && effectTagsList.contains(EffectTags.NEGATIVE)) effectTagsList.remove(EffectTags.NEGATIVE);
     }
 
     public void initialEffect(LivingThing livingThing) {//获得效果时执行.默认执行生效方法.如果需要,可以重写.可能导致效果生效次数多一次

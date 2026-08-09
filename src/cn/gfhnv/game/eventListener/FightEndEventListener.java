@@ -3,8 +3,8 @@ package cn.gfhnv.game.eventListener;
 import cn.gfhnv.game.annotation.SubscribeEvent;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.event.EventBus;
-import cn.gfhnv.game.item.Item;
 import cn.gfhnv.game.event.FightEndEvent;
+import cn.gfhnv.game.item.Item;
 import cn.gfhnv.game.system.fight.TurnManager;
 import cn.gfhnv.game.world.World;
 
@@ -34,7 +34,7 @@ public class FightEndEventListener {
             System.out.println("恭喜你在战斗中获得了胜利.如果战斗有奖励而且你背包空间够,你会获得奖励");
             List<LivingThing> fighters = fightEndEvent.getFight().getFighterList();
             List<Item> rewards = fightEndEvent.getFight().getRewardList();
-            boolean result=true;
+            boolean result = true;
             for (LivingThing living : fighters) {
                 if (rewards.isEmpty()) {
                     System.out.println("没有奖励");
@@ -42,8 +42,8 @@ public class FightEndEventListener {
                 }
                 if (living != null) {
                     for (Item item : rewards) {
-                        if (item==null) continue;
-                        if(!living.getInventory().addItem(item.copy())) result=false;
+                        if (item == null) continue;
+                        if (!living.getInventory().addItem(item.copy())) result = false;
                     }
                 }
             }

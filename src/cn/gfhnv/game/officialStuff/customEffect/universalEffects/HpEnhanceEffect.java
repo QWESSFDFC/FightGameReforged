@@ -12,13 +12,16 @@ public class HpEnhanceEffect extends Effect {
 
     public HpEnhanceEffect(double percent, int lastTime) {
         super("hpEnhanceEffect");
-        this.percent = percent;this.getEffectTagsList().add(EffectTags.POSITIVE);
+        this.percent = percent;
+        this.getEffectTagsList().add(EffectTags.POSITIVE);
         this.setLastTime(lastTime);
     }
+
     public HpEnhanceEffect(long amount, int lastTime) {
         super("hpEnhanceEffect");
-        this.amount=amount;
-        this.setLastTime(lastTime);this.getEffectTagsList().add(EffectTags.POSITIVE);
+        this.amount = amount;
+        this.setLastTime(lastTime);
+        this.getEffectTagsList().add(EffectTags.POSITIVE);
     }
 
     public HpEnhanceEffect(HpEnhanceEffect enhance) {
@@ -36,12 +39,13 @@ public class HpEnhanceEffect extends Effect {
     public Effect copy() {
         return new HpEnhanceEffect(this);
     }
+
     @Override
     public void comeIntoEffect(LivingThing thing) {
         thing.renewHp();
         if (!isOn) {
-            thing.setHpEnhanceAmount(thing.getHpEnhanceAmount()+amount);
-            thing.setHpEnhancePercent(thing.getHpEnhancePercent()+percent);
+            thing.setHpEnhanceAmount(thing.getHpEnhanceAmount() + amount);
+            thing.setHpEnhancePercent(thing.getHpEnhancePercent() + percent);
         }
         isOn = true;
     }
@@ -49,8 +53,8 @@ public class HpEnhanceEffect extends Effect {
     @Override
     public void whenLastTimeEnd(LivingThing thing) {
         thing.renewHp();
-        thing.setHpEnhanceAmount(thing.getHpEnhanceAmount()-amount);
-        thing.setHpEnhancePercent(thing.getHpEnhancePercent()-percent);
+        thing.setHpEnhanceAmount(thing.getHpEnhanceAmount() - amount);
+        thing.setHpEnhancePercent(thing.getHpEnhancePercent() - percent);
         isOn = false;
     }
 }

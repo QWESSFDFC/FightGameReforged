@@ -32,9 +32,9 @@ public class Inventory {
     }
 
     public boolean addItem(Item item) {
-        if (item==null) return false;
+        if (item == null) return false;
         for (Slot slot : slots) {
-            if (slot.getContainedItem()==null) continue;
+            if (slot.getContainedItem() == null) continue;
             if (slot.getContainedItem().equals(item)) {
                 slot.getContainedItem().setStackNumber(Math.max(0, slot.getContainedItem().getStackNumber() + item.getStackNumber()));
                 if (slot.getContainedItem().getStackNumber() == 0) {
@@ -45,7 +45,7 @@ public class Inventory {
 
 
         }
-        for(Slot slot:slots){
+        for (Slot slot : slots) {
             if (slot.getContainedItem() == null) {
                 slot.setContainedItem(item);
                 return true;
@@ -60,9 +60,9 @@ public class Inventory {
     }
 
     public boolean removeItemAll(Item item) {
-        if (item==null) return false;
+        if (item == null) return false;
         for (Slot slot : slots) {
-            if (slot.getContainedItem()==null) continue;
+            if (slot.getContainedItem() == null) continue;
             if (slot.getContainedItem().equals(item)) {
                 slot.setContainedItem(null);
 
@@ -73,9 +73,9 @@ public class Inventory {
     }
 
     public boolean removeItem(Item item) {
-        if (item==null) return false;
+        if (item == null) return false;
         for (Slot slot : slots) {
-            if (slot.getContainedItem()==null) continue;
+            if (slot.getContainedItem() == null) continue;
             if (slot.getContainedItem().equals(item)) {
                 slot.getContainedItem().setStackNumber(Math.max(0, slot.getContainedItem().getStackNumber() - item.getStackNumber()));
 
@@ -92,7 +92,7 @@ public class Inventory {
 
     public void clear() {
         for (Slot slot : slots) {
-            if (slot.getContainedItem()==null) continue;
+            if (slot.getContainedItem() == null) continue;
             slot.getContainedItem().setStackNumber(0);
             slot.setContainedItem(null);
         }
@@ -101,7 +101,7 @@ public class Inventory {
     public void removeItemsAll(List<Item> items) {
         for (Item item : items) {
             for (Slot slot : slots) {
-                if (slot.getContainedItem()==null) continue;
+                if (slot.getContainedItem() == null) continue;
                 if (slot.getContainedItem().equals(item)) {
                     slot.setContainedItem(null);
                 }

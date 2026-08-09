@@ -10,15 +10,15 @@ import cn.gfhnv.game.system.mana.Mana;
 import java.util.List;
 
 public class NormalSkill extends Skill {
-    @Override
-    public Skill copy() {
-        return new NormalSkill();
-    }
-
     public NormalSkill() {
         super("战技:黎明创世,地辟天开", "description", 0, 3, 0, 3);
         this.setCoolDown(0);
         this.setConsumedMana(new Mana(120, ElementSort.FIRE));
+    }
+
+    @Override
+    public Skill copy() {
+        return new NormalSkill();
     }
 
     @Override

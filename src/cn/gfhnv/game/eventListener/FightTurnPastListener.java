@@ -5,11 +5,11 @@ import cn.gfhnv.game.annotation.SubscribeEvent;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.event.EffectUpdateEvent;
 import cn.gfhnv.game.event.EventBus;
+import cn.gfhnv.game.event.FightEndEvent;
 import cn.gfhnv.game.event.FightPastOneTurnEvent;
 import cn.gfhnv.game.interfaces.ISpecialAction;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.fight.ActionSignal;
-import cn.gfhnv.game.event.FightEndEvent;
 import cn.gfhnv.game.system.fight.TurnEntry;
 import cn.gfhnv.game.system.fight.TurnManager;
 import cn.gfhnv.game.world.World;
@@ -99,10 +99,10 @@ public class FightTurnPastListener {
         } else if (presentTurn.getActionSignal().equals(ActionSignal.SPECIAL_ACTION)) {
             presentTurn.getLivingThing().getController().getSpecialAction().execute(fightPastOneTurnEvent.getFight(), presentTurn.getLivingThing());
         }
-        if (presentTurn.getActionSignal() != ActionSignal.WITHOUT_NEW_TURN&&!presentTurn.getActionSignal().equals(ActionSignal.SKIP_WITHOUT_NEW_TURN)) {
+        if (presentTurn.getActionSignal() != ActionSignal.WITHOUT_NEW_TURN && !presentTurn.getActionSignal().equals(ActionSignal.SKIP_WITHOUT_NEW_TURN)) {
             TurnEntry turn = new TurnEntry(presentTurn.getLivingThing(), BigDecimal.valueOf(10000).divide(BigDecimal.valueOf(presentTurn.getLivingThing().getSpeed()), 10, RoundingMode.HALF_UP), TurnManager.getPresentTime());
             TurnManager.getTurns().add(turn);
-        } else if (presentTurn.getActionSignal().equals(ActionSignal.WITHOUT_NEW_TURN)){
+        } else if (presentTurn.getActionSignal().equals(ActionSignal.WITHOUT_NEW_TURN)) {
             presentTurn.getLivingThing().getController().act(fightPastOneTurnEvent.getFight());
         }
         if (!presentTurn.getLastExecuteList().isEmpty()) {

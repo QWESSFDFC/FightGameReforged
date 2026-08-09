@@ -16,9 +16,10 @@ public class CriticalRateEnhanceEffect extends Effect {
         this.setLastTime(lastTime);
         this.getEffectTagsList().add(EffectTags.POSITIVE);
     }
+
     public CriticalRateEnhanceEffect(long amount, int lastTime) {
         super("criticalRateEnhanceEffect");
-        this.amount=amount;
+        this.amount = amount;
         this.getEffectTagsList().add(EffectTags.POSITIVE);
         this.setLastTime(lastTime);
     }
@@ -39,19 +40,20 @@ public class CriticalRateEnhanceEffect extends Effect {
     public Effect copy() {
         return new CriticalRateEnhanceEffect(this);
     }
+
     @Override
     public void comeIntoEffect(LivingThing thing) {
         if (!isOn) {
-            thing.setCriticalRateEnhanceAmount(thing.getCriticalRateEnhanceAmount()+amount);
-            thing.setCriticalRateEnhancePercent(thing.getCriticalRateEnhancePercent()+percent);
+            thing.setCriticalRateEnhanceAmount(thing.getCriticalRateEnhanceAmount() + amount);
+            thing.setCriticalRateEnhancePercent(thing.getCriticalRateEnhancePercent() + percent);
         }
         isOn = true;
     }
 
     @Override
     public void whenLastTimeEnd(LivingThing thing) {
-        thing.setCriticalRateEnhanceAmount(thing.getCriticalRateEnhanceAmount()-amount);
-        thing.setCriticalRateEnhancePercent(thing.getCriticalRateEnhancePercent()-percent);
+        thing.setCriticalRateEnhanceAmount(thing.getCriticalRateEnhanceAmount() - amount);
+        thing.setCriticalRateEnhancePercent(thing.getCriticalRateEnhancePercent() - percent);
         isOn = false;
     }
 

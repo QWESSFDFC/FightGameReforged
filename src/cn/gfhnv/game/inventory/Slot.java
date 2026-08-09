@@ -9,11 +9,19 @@ public class Slot {
     private Item containedItem;
 
 
-
     public Slot(Slot slot) {
         slotNumber = slot.getSlotNumber();
-        if (slot.getContainedItem()==null) return;
+        if (slot.getContainedItem() == null) return;
         setContainedItem(slot.getContainedItem().copy());
+    }
+
+    public Slot(Item containedItem, long slotNumber) {
+        this.containedItem = containedItem;
+        this.slotNumber = slotNumber;
+    }
+
+    public Slot() {
+        slotNumber = 0;
     }
 
     @Override
@@ -26,15 +34,6 @@ public class Slot {
     @Override
     public int hashCode() {
         return Objects.hashCode(getSlotNumber());
-    }
-
-    public Slot(Item containedItem, long slotNumber) {
-        this.containedItem = containedItem;
-        this.slotNumber = slotNumber;
-    }
-
-    public Slot() {
-        slotNumber = 0;
     }
 
     public Slot copy() {

@@ -13,12 +13,14 @@ public class IgnoreDefenceEffect extends Effect {
         super(effect.getID());
         this.setLastTime(effect.getLastTime());
         this.setLevel(effect.getLevel());
-        this.amount = effect.amount;this.getEffectTagsList().add(EffectTags.POSITIVE);
+        this.amount = effect.amount;
+        this.getEffectTagsList().add(EffectTags.POSITIVE);
         this.percent = effect.percent;
     }
 
     public IgnoreDefenceEffect() {
-        super("ignoreDefenceEffect");this.getEffectTagsList().add(EffectTags.POSITIVE);
+        super("ignoreDefenceEffect");
+        this.getEffectTagsList().add(EffectTags.POSITIVE);
 
     }
 

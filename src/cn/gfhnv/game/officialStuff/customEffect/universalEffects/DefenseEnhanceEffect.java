@@ -13,9 +13,9 @@ public class DefenseEnhanceEffect extends Effect {
         super(effect.getID());
         this.setLastTime(effect.getLastTime());
         this.setLevel(effect.getLevel());
-this.amount=effect.amount;
+        this.amount = effect.amount;
         this.getEffectTagsList().add(EffectTags.POSITIVE);
-this.percent=effect.percent;
+        this.percent = effect.percent;
         this.isOn = effect.isOn;
     }
 
@@ -39,16 +39,16 @@ this.percent=effect.percent;
     @Override
     public void comeIntoEffect(LivingThing thing) {
         if (!isOn) {
-   thing.setDefenceEnhanceAmount(thing.getDefenceEnhanceAmount()+amount);
-   thing.setDefenceEnhancePercent(thing.getDefenceEnhancePercent()+percent);
+            thing.setDefenceEnhanceAmount(thing.getDefenceEnhanceAmount() + amount);
+            thing.setDefenceEnhancePercent(thing.getDefenceEnhancePercent() + percent);
         }
         isOn = true;
     }
 
     @Override
     public void whenLastTimeEnd(LivingThing thing) {
-        thing.setDefenceEnhanceAmount(thing.getDefenceEnhanceAmount()-amount);
-        thing.setDefenceEnhancePercent(thing.getDefenceEnhancePercent()-percent);
+        thing.setDefenceEnhanceAmount(thing.getDefenceEnhanceAmount() - amount);
+        thing.setDefenceEnhancePercent(thing.getDefenceEnhancePercent() - percent);
         isOn = false;
     }
 }

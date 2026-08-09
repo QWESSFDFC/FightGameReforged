@@ -27,7 +27,7 @@ public class Item extends Thing {
     public Item(Item item) {
         this.name = item.getName();
         this.description = item.getDescription();
-        this.stackNumber=item.stackNumber;
+        this.stackNumber = item.stackNumber;
         this.setId(item.getId());
         if (!item.getTags().isEmpty()) {
             Map<TagType, Tag> newMap = new EnumMap<>(TagType.class);
