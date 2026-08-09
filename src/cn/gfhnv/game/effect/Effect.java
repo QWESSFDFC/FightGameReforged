@@ -54,12 +54,13 @@ public class Effect {
         throw new UnsupportedOperationException("子类必须重写此方法,当前类 :" + this.getClass().getName());
     }
 
+
     @Override
     public String toString() {
         return "Effect{" +
                 "id='" + id + '\'' +
-                ", level=" + level +
-                ", lastTime=" + lastTime +
+                ", effectTagsList=" + effectTagsList +
+                ", origin='" + origin + '\'' +
                 '}';
     }
 
