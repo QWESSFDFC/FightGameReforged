@@ -84,11 +84,11 @@ public class Phainon extends Player {
         List<Skill> skillList = new ArrayList<>();
         skillList.add(new CommonAttack(0.0, 1.0, 0.0, 1));
         skillList.getFirst().setName("普通攻击:逐火救世,行则将至");
-        skillList.add(new cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.UltimateAttack());
         this.setMass(BigDecimal.valueOf(60));
         this.setDescription("这是白厄.");
         coreflame=15;
         skillList.add(new NormalSkill());
+        skillList.add(new cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.UltimateAttack());
         this.getInventory().addSlot(63);
         this.setController(new PlayerController(skillList, this));
         this.skills = skillList;
@@ -119,8 +119,9 @@ public class Phainon extends Player {
 
         );
         this.setShowSpecialMes(user -> {
-            if (user instanceof Phainon) {
-                System.out.println("当前火种数量:" + ((Phainon) user).getCoreflame());
+            if (user instanceof Phainon phainon) {
+            if (phainon.isAwaken) System.out.println("毁伤数量"+phainon.getScourge()+"|||剩余额外回合数"+phainon.getExtraTurns());
+            else System.out.println("当前火种数"+phainon.getCoreflame());
             }
         });
 
@@ -191,9 +192,10 @@ public class Phainon extends Player {
         this.isListenerRegister = false;
         this.isAwaken = false;
         EventBus.unregister(this.fightStartAndSelectEventListener);
-        this.setShowSpecialMes(user -> {
-            if (user instanceof Phainon) {
-                System.out.println("当前火种数量:" + ((Phainon) user).getCoreflame());
+       this.setShowSpecialMes(user -> {
+            if (user instanceof Phainon phainon) {
+                if (phainon.isAwaken()) System.out.println("毁伤数量"+phainon.getScourge()+"|||剩余额外回合数"+phainon.getExtraTurns());
+                else System.out.println("当前火种数"+phainon.getCoreflame());
             }
         });
         this.getController().setActionSignal(ActionSignal.NORMAL);

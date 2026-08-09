@@ -32,7 +32,9 @@ public class Inventory {
     }
 
     public boolean addItem(Item item) {
+        if (item==null) return false;
         for (Slot slot : slots) {
+            if (slot.getContainedItem()==null) continue;
             if (slot.getContainedItem().equals(item)) {
                 slot.getContainedItem().setStackNumber(Math.max(0, slot.getContainedItem().getStackNumber() + item.getStackNumber()));
                 if (slot.getContainedItem().getStackNumber() == 0) {
@@ -40,11 +42,14 @@ public class Inventory {
                 }
                 return true;
             }
+
+
+        }
+        for(Slot slot:slots){
             if (slot.getContainedItem() == null) {
                 slot.setContainedItem(item);
                 return true;
             }
-
         }
         return false;
     }
@@ -55,6 +60,7 @@ public class Inventory {
     }
 
     public boolean removeItemAll(Item item) {
+        if (item==null) return false;
         for (Slot slot : slots) {
             if (slot.getContainedItem()==null) continue;
             if (slot.getContainedItem().equals(item)) {
@@ -67,6 +73,7 @@ public class Inventory {
     }
 
     public boolean removeItem(Item item) {
+        if (item==null) return false;
         for (Slot slot : slots) {
             if (slot.getContainedItem()==null) continue;
             if (slot.getContainedItem().equals(item)) {

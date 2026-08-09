@@ -1,6 +1,7 @@
 package cn.gfhnv.game.officialStuff.customEffect.universalEffects;
 
 import cn.gfhnv.game.effect.Effect;
+import cn.gfhnv.game.effect.EffectTags;
 import cn.gfhnv.game.entity.LivingThing;
 
 public class DamageEnhanceEffect extends Effect {
@@ -23,6 +24,7 @@ public class DamageEnhanceEffect extends Effect {
         super("damageEnhanceEffect");
         this.isOn = false;
         this.baseNum = 1.0;
+        this.getEffectTagsList().add(EffectTags.POSITIVE);
         this.enhanceNum = 1.0;
         enhanceN = this.getLevel() * enhanceNum + baseNum;
         this.setLastTime(1);
@@ -31,6 +33,7 @@ public class DamageEnhanceEffect extends Effect {
     public DamageEnhanceEffect(int level, int lastTime) {
         super("damageEnhanceEffect", level, lastTime);
         this.isOn = false;
+        this.getEffectTagsList().add(EffectTags.POSITIVE);
         this.baseNum = 1.0;
         this.enhanceNum = 1.0;
         enhanceN = this.getLevel() * enhanceNum + baseNum;
@@ -40,6 +43,7 @@ public class DamageEnhanceEffect extends Effect {
         super(id, level, lastTime);
         this.baseNum = baseNum;
         this.enhanceNum = enhanceNum;
+        this.getEffectTagsList().add(EffectTags.POSITIVE);
         enhanceN = this.getLevel() * enhanceNum + baseNum;
 
     }

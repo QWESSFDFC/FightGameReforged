@@ -2,22 +2,32 @@ package cn.gfhnv.game.effect;
 
 import cn.gfhnv.game.entity.LivingThing;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 public class Effect {
     private String id;
     private int level = 1;//效果等级
     private int lastTime;//turns
-    private boolean isInfinity = false;
     private String origin = "null";
-    private boolean negative=false;
+    private List<EffectTags> effectTagsList = new ArrayList<>();
+
+    public List<EffectTags> getEffectTagsList() {
+        return effectTagsList;
+    }
+
+    public void setEffectTagsList(List<EffectTags> effectTagsList) {
+        this.effectTagsList = effectTagsList;
+    }
 
     public boolean isNegative() {
-        return negative;
+        return effectTagsList.contains(EffectTags.NEGATIVE);
     }
 
     public void setNegative(boolean negative) {
-        this.negative = negative;
+       if (negative&&!effectTagsList.contains(EffectTags.NEGATIVE)) effectTagsList.add(EffectTags.NEGATIVE);
+       if (!negative&&effectTagsList.contains(EffectTags.NEGATIVE)) effectTagsList.remove(EffectTags.NEGATIVE);
     }
 
     public Effect(String id, int level, int lastTime) {
@@ -116,12 +126,9 @@ public class Effect {
     }
 
     public boolean isInfinity() {
-        return isInfinity;
+        return effectTagsList.contains(EffectTags.INFINITE);
     }
 
-    public void setInfinity(boolean infinity) {
-        isInfinity = infinity;
-    }
 
     public String getOrigin() {
         return origin;

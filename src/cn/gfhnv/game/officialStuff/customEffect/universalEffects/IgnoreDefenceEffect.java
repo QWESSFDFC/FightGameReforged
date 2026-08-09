@@ -1,6 +1,7 @@
 package cn.gfhnv.game.officialStuff.customEffect.universalEffects;
 
 import cn.gfhnv.game.effect.Effect;
+import cn.gfhnv.game.effect.EffectTags;
 
 
 public class IgnoreDefenceEffect extends Effect {
@@ -12,12 +13,12 @@ public class IgnoreDefenceEffect extends Effect {
         super(effect.getID());
         this.setLastTime(effect.getLastTime());
         this.setLevel(effect.getLevel());
-        this.amount = effect.amount;
+        this.amount = effect.amount;this.getEffectTagsList().add(EffectTags.POSITIVE);
         this.percent = effect.percent;
     }
 
     public IgnoreDefenceEffect() {
-        super("ignoreDefenceEffect");
+        super("ignoreDefenceEffect");this.getEffectTagsList().add(EffectTags.POSITIVE);
 
     }
 

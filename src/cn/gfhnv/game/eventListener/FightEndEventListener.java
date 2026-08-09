@@ -36,8 +36,13 @@ public class FightEndEventListener {
             List<Item> rewards = fightEndEvent.getFight().getRewardList();
             boolean result=true;
             for (LivingThing living : fighters) {
+                if (rewards.isEmpty()) {
+                    System.out.println("没有奖励");
+                    break;
+                }
                 if (living != null) {
                     for (Item item : rewards) {
+                        if (item==null) continue;
                         if(!living.getInventory().addItem(item.copy())) result=false;
                     }
                 }

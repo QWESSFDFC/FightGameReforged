@@ -1,6 +1,7 @@
 package cn.gfhnv.game.officialStuff.customEffect.universalEffects;
 
 import cn.gfhnv.game.effect.Effect;
+import cn.gfhnv.game.effect.EffectTags;
 import cn.gfhnv.game.entity.LivingThing;
 
 public class HealthRestoreEffect extends Effect {
@@ -9,18 +10,21 @@ public class HealthRestoreEffect extends Effect {
 
     public HealthRestoreEffect(int level, int lastTime) {
         super("healthRestoreEffect", level, lastTime);
+        this.getEffectTagsList().add(EffectTags.POSITIVE);
     }
 
     public HealthRestoreEffect(HealthRestoreEffect effect) {
         super(effect.getID());
         this.setLastTime(effect.getLastTime());
         this.setLevel(effect.getLevel());
+        this.getEffectTagsList().add(EffectTags.POSITIVE);
         this.baseNum = effect.baseNum;
         this.enhanceNum = effect.enhanceNum;
     }
 
     public HealthRestoreEffect() {
         super("healthRestoreEffect");
+        this.getEffectTagsList().add(EffectTags.POSITIVE);
     }
 
     @Override

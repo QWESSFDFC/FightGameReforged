@@ -30,16 +30,15 @@ public class LastAttack extends Skill {
             user.makeDamage(livingThing, this);
 
         }
+            for (LivingThing livingThing:fight.getOpponentList(user)){
+                livingThing.addEffect(new SpeedEnhanceEffect(0.15,1).setOrigin(user.getUUID()));
+            }
 
-        if (fight.getEnemiesList().contains(user)) {
-            for (LivingThing livingThing:fight.getEnemiesList()){
-                livingThing.addEffect(new SpeedEnhanceEffect(0.15,1));
-            }
-        }else {
-            for (LivingThing livingThing:fight.getFighterList()){
-                livingThing.addEffect(new SpeedEnhanceEffect(0.15,1));
-            }
-        }
         EventBus.post(new AwakenEndEvent((Phainon) user));
+    }
+
+    @Override
+    public Skill copy() {
+        return new LastAttack();
     }
 }

@@ -1,6 +1,7 @@
 package cn.gfhnv.game.officialStuff.customEffect.universalEffects;
 
 import cn.gfhnv.game.effect.Effect;
+import cn.gfhnv.game.effect.EffectTags;
 import cn.gfhnv.game.entity.LivingThing;
 
 public class DefenseEnhanceEffect extends Effect {
@@ -13,17 +14,20 @@ public class DefenseEnhanceEffect extends Effect {
         this.setLastTime(effect.getLastTime());
         this.setLevel(effect.getLevel());
 this.amount=effect.amount;
+        this.getEffectTagsList().add(EffectTags.POSITIVE);
 this.percent=effect.percent;
         this.isOn = effect.isOn;
     }
 
     public DefenseEnhanceEffect() {
         super("defenseEnhanceEffect");
+        this.getEffectTagsList().add(EffectTags.POSITIVE);
         this.setLastTime(1);
     }
 
     public DefenseEnhanceEffect(String id, int level, int lastTime) {
         super(id, level, lastTime);
+        this.getEffectTagsList().add(EffectTags.POSITIVE);
 
     }
 

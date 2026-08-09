@@ -1,6 +1,7 @@
 package cn.gfhnv.game.officialStuff.customEffect.universalEffects;
 
 import cn.gfhnv.game.effect.Effect;
+import cn.gfhnv.game.effect.EffectTags;
 import cn.gfhnv.game.entity.LivingThing;
 
 public class CriticalRateEnhanceEffect extends Effect {
@@ -13,10 +14,12 @@ public class CriticalRateEnhanceEffect extends Effect {
         super("criticalRateEnhanceEffect");
         this.percent = percent;
         this.setLastTime(lastTime);
+        this.getEffectTagsList().add(EffectTags.POSITIVE);
     }
     public CriticalRateEnhanceEffect(long amount, int lastTime) {
         super("criticalRateEnhanceEffect");
         this.amount=amount;
+        this.getEffectTagsList().add(EffectTags.POSITIVE);
         this.setLastTime(lastTime);
     }
 
@@ -25,6 +28,7 @@ public class CriticalRateEnhanceEffect extends Effect {
         this.setLastTime(enhance.getLastTime());
         this.setLevel(enhance.getLevel());
         this.setOrigin(enhance.getOrigin());
+        this.getEffectTagsList().add(EffectTags.POSITIVE);
         this.amount = enhance.amount;
         this.percent = enhance.percent;
         this.isOn = enhance.isOn;

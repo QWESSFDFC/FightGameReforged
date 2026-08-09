@@ -23,11 +23,13 @@ public class AwakeEndListener {
         endEvent.getPhainon().setAbsorbDamage(false);
         endEvent.getPhainon().getController().setSkills(endEvent.getPhainon().getSkills());
         endEvent.getPhainon().setShowSpecialMes(user -> {
-            if (user instanceof Phainon) {
-                System.out.println("当前火种数量:" + ((Phainon) user).getCoreflame());
+            if (user instanceof Phainon phainon) {
+                if (phainon.isAwaken()) System.out.println("毁伤数量"+phainon.getScourge()+"|||剩余额外回合数"+phainon.getExtraTurns());
+                else System.out.println("当前火种数"+phainon.getCoreflame());
             }
         });
-       TurnManager.getTurns().add(new TurnEntry(endEvent.getPhainon(), BigDecimal.valueOf(10000)
+
+        TurnManager.getTurns().add(new TurnEntry(endEvent.getPhainon(), BigDecimal.valueOf(10000)
                 .divide(BigDecimal.valueOf(endEvent.getPhainon().getSpeed()), 10, RoundingMode.HALF_UP), TurnManager.getPresentTime()));
         endEvent.getPhainon().setExtraTurns(0);
         endEvent.getPhainon().setScourge(0);

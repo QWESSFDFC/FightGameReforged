@@ -7,6 +7,7 @@ import cn.gfhnv.game.officialStuff.customEntity.players.Phainon;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.fight.Fight;
 
+import java.lang.foreign.MemorySegment;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -51,4 +52,5 @@ public class Counterattack extends Skill {
         this.setAtkMagnification(0.4);
 
     }
+
 }

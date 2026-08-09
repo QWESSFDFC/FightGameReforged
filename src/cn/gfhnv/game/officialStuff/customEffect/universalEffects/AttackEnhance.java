@@ -1,6 +1,7 @@
 package cn.gfhnv.game.officialStuff.customEffect.universalEffects;
 
 import cn.gfhnv.game.effect.Effect;
+import cn.gfhnv.game.effect.EffectTags;
 import cn.gfhnv.game.entity.LivingThing;
 
 public class AttackEnhance extends Effect {
@@ -13,18 +14,21 @@ public class AttackEnhance extends Effect {
         super("attackEnhanceEffect");
         this.percent = percent;
         this.setLastTime(latTime);
+        this.getEffectTagsList().add(EffectTags.POSITIVE);
     }
 
     public AttackEnhance(long amount, int lastTime) {
         super("attackEnhanceEffect");
         this.amount = amount;
         this.setLastTime(lastTime);
+        this.getEffectTagsList().add(EffectTags.POSITIVE);
     }
 
     public AttackEnhance(AttackEnhance attackEnhance) {
         super(attackEnhance.getID());
         this.setLastTime(attackEnhance.getLastTime());
         this.setLevel(attackEnhance.getLevel());
+        this.getEffectTagsList().add(EffectTags.POSITIVE);
         this.setOrigin(attackEnhance.getOrigin());
         this.amount = attackEnhance.amount;
         this.percent = attackEnhance.percent;
