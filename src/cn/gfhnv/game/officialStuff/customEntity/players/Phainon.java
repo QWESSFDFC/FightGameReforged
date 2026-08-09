@@ -1,5 +1,6 @@
 package cn.gfhnv.game.officialStuff.customEntity.players;
 
+import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entity.Player;
 import cn.gfhnv.game.entityController.PlayerController;
@@ -8,7 +9,7 @@ import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.eventListener.FightTurnPastListener;
 import cn.gfhnv.game.interfaces.IModifyDamage;
 import cn.gfhnv.game.officialStuff.customEvent.phainonEvents.AwakenEndEvent;
-import cn.gfhnv.game.officialStuff.customEvent.phainonEvents.SelectEventListener;
+import cn.gfhnv.game.officialStuff.customEvent.phainonEvents.FightStartAndSelectEventListener;
 import cn.gfhnv.game.officialStuff.customSkill.phainonSkills.awakenSkills.LastAttack;
 import cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.NormalSkill;
 import cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.UltimateAttack;
@@ -17,22 +18,58 @@ import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.ActionSignal;
 import cn.gfhnv.game.system.fight.Fight;
-import cn.gfhnv.game.system.fight.TurnManager;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.ListIterator;
 
 public class Phainon extends Player {
-    private final SelectEventListener selectEventListener = new SelectEventListener();
+    private final FightStartAndSelectEventListener fightStartAndSelectEventListener = new FightStartAndSelectEventListener();
     private boolean isListenerRegister = false;
     private int coreflame = 0;
     private int coreflame_max = 15;
+    private int soulscorch;
+
+    public int getSoulscorch() {
+        return soulscorch;
+    }
+
+    public void setSoulscorch(int soulscorch) {
+        this.soulscorch = soulscorch;
+    }
+
     private int scourge = 0;
     private int scourge_max = 7;
     private boolean isAwaken = false;
+    private int extraAbilityTier=0;
+    private int formerExtraAbilityTier=0;
     private List<Skill> skills;
-  private boolean pendingLastAttack=false;
+ private boolean absorbDamage=false;
+
+    public boolean isAbsorbDamage() {
+        return absorbDamage;
+    }
+
+    public void setAbsorbDamage(boolean absorbDamage) {
+        this.absorbDamage = absorbDamage;
+    }
+
+    private boolean pendingLastAttack=false;
+  private int extraTurns=0;
+    public void addScourge(int i){
+        this.setScourge(Math.min(scourge+i,scourge_max));
+    }
+    public void removeScourge(int i){
+        this.setScourge(Math.max(0,scourge-i));
+    }
+    public int getExtraTurns() {
+        return extraTurns;
+    }
+
+    public void setExtraTurns(int extraTurns) {
+        this.extraTurns = extraTurns;
+    }
 
     public boolean isPendingLastAttack() {
         return pendingLastAttack;
@@ -50,6 +87,7 @@ public class Phainon extends Player {
         skillList.add(new cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.UltimateAttack());
         this.setMass(BigDecimal.valueOf(60));
         this.setDescription("这是白厄.");
+        coreflame=15;
         skillList.add(new NormalSkill());
         this.getInventory().addSlot(63);
         this.setController(new PlayerController(skillList, this));
@@ -58,19 +96,19 @@ public class Phainon extends Player {
                 new IModifyDamage() {
                     @Override
                     public long damageModify(long newHp, DamageEvent da) {
-                        if (da.getAttackedEntity() instanceof Phainon){
+                        if (da.getAttackedEntity() instanceof Phainon phainon){
                             if (((Phainon) da.getAttackedEntity()).isAwaken&&newHp<=0){
                                 if (((Phainon) da.getAttackedEntity()).isPendingLastAttack()) {return 1;}
                                 newHp=1;
                                 ((Phainon) da.getAttackedEntity()).setPendingLastAttack(true);
-                                FightTurnPastListener.getPresentTurn().getiSpecialActionList().add((fight, user) -> {
+                                FightTurnPastListener.getPresentTurn().getLastExecuteList().add((fight, user) -> {
                                    List<LivingThing> availableTargets;
-                                   if (fight.getEnemiesList().contains(user)) availableTargets=new ArrayList<>(fight.getFighterList());
+                                   if (fight.getEnemiesList().contains(phainon)) availableTargets=new ArrayList<>(fight.getFighterList());
                                    else {
                                        availableTargets=new ArrayList<>(fight.getEnemiesList());
                                    }
 
-                                   if (!availableTargets.isEmpty()) new LastAttack().comeToEffect(fight,user,availableTargets);
+                                   if (!availableTargets.isEmpty()) new LastAttack().comeToEffect(fight,phainon,availableTargets);
                                 });
 
                             }
@@ -101,7 +139,7 @@ public class Phainon extends Player {
     }
 
     public void setScourge(int scourge) {
-        this.scourge = scourge;
+        this.scourge = Math.min(scourge_max,scourge);
     }
 
     public List<Skill> getSkills() {
@@ -112,8 +150,8 @@ public class Phainon extends Player {
         this.skills = skills;
     }
 
-    public SelectEventListener getSelectEventListener() {
-        return selectEventListener;
+    public FightStartAndSelectEventListener getSelectEventListener() {
+        return fightStartAndSelectEventListener;
     }
 
     public int getCoreflame() {
@@ -121,7 +159,7 @@ public class Phainon extends Player {
     }
 
     public void setCoreflame(int coreflame) {
-        this.coreflame = coreflame;
+        this.coreflame = Math.min(coreflame_max,coreflame);
     }
 
     public int getCoreflame_max() {
@@ -143,13 +181,16 @@ public class Phainon extends Player {
     @Override
     public void whenFightEnds() {
         super.whenFightEnds();
+        extraAbilityTier=0;
+        formerExtraAbilityTier=0;
         pendingLastAttack=false;
+        this.absorbDamage=false;
         if (this.isAwaken) {
             EventBus.post(new AwakenEndEvent(this));
         }
         this.isListenerRegister = false;
         this.isAwaken = false;
-        EventBus.unregister(this.selectEventListener);
+        EventBus.unregister(this.fightStartAndSelectEventListener);
         this.setShowSpecialMes(user -> {
             if (user instanceof Phainon) {
                 System.out.println("当前火种数量:" + ((Phainon) user).getCoreflame());
@@ -167,15 +208,39 @@ public class Phainon extends Player {
     @Override
     public void whenFightStart(Fight fight) {
         super.whenFightStart(fight);
-        EventBus.register(this.selectEventListener);
+        EventBus.register(this.fightStartAndSelectEventListener);
+
         this.isListenerRegister = true;
     }
 
     @Override
     public void updateSelf() {
         super.updateSelf();
+        if (isAwaken){
+            ListIterator<Effect> listedIterator=this.getEntityEffectList().listIterator();
+            while (listedIterator.hasNext()){
+                Effect effect=listedIterator.next();
+                if (effect.isNegative()) {
+                    effect.whenLastTimeEnd(this);
+                    listedIterator.remove();
+                }
+            }
+
+        }
+        this.setAttackEnhancePercent(this.getAttackEnhancePercent()+extraAbilityTier*0.5-formerExtraAbilityTier*0.5);
+        formerExtraAbilityTier=extraAbilityTier;
+
 
     }
+
+    public int getExtraAbilityTier() {
+        return extraAbilityTier;
+    }
+
+    public void setExtraAbilityTier(int extraAbilityTier) {
+        this.extraAbilityTier = extraAbilityTier;
+    }
+
 
     @Override
     public LivingThing copy() {

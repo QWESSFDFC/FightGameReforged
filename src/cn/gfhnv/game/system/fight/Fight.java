@@ -13,7 +13,11 @@ public class Fight {
     private List<Item> rewardList;
     private List<LivingThing> fighterList;
     private List<LivingThing> allEntities = new ArrayList<LivingThing>();
-
+  public List<LivingThing> getOpponentList(LivingThing user){
+      if (getEnemiesList().contains(user)) {
+          return new ArrayList<>(fighterList);
+      }else return new ArrayList<>(enemiesList);
+  }
     public Fight(List<LivingThing> enemiesList, List<Item> rewardList, List<LivingThing> fighterList) {
         this.enemiesList = enemiesList;
         this.rewardList = rewardList;

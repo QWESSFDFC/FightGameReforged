@@ -4,34 +4,27 @@ import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.LivingThing;
 
 public class DefenseEnhanceEffect extends Effect {
-    private double baseNum;
-    private double enhanceNum;
-    private double enhanceN;
+    private double percent = 0;
+    private long amount = 0;
     private boolean isOn = false;
 
     public DefenseEnhanceEffect(DefenseEnhanceEffect effect) {
         super(effect.getID());
         this.setLastTime(effect.getLastTime());
         this.setLevel(effect.getLevel());
-        this.baseNum = effect.baseNum;
-        this.enhanceN = effect.enhanceN;
-        this.enhanceNum = effect.enhanceNum;
+this.amount=effect.amount;
+this.percent=effect.percent;
         this.isOn = effect.isOn;
     }
 
     public DefenseEnhanceEffect() {
         super("defenseEnhanceEffect");
-        baseNum = 1.0;
-        enhanceNum = 1.0;
-        enhanceN = this.getLevel() * enhanceNum + baseNum;
         this.setLastTime(1);
     }
 
     public DefenseEnhanceEffect(String id, int level, int lastTime) {
         super(id, level, lastTime);
-        enhanceNum = 1.0;
-        baseNum = 1.0;
-        enhanceN = this.getLevel() * enhanceNum + baseNum;
+
     }
 
     @Override
@@ -42,14 +35,16 @@ public class DefenseEnhanceEffect extends Effect {
     @Override
     public void comeIntoEffect(LivingThing thing) {
         if (!isOn) {
-            thing.setDefence((long) (thing.getDefence() * (1 + enhanceN)));
+   thing.setDefenceEnhanceAmount(thing.getDefenceEnhanceAmount()+amount);
+   thing.setDefenceEnhancePercent(thing.getDefenceEnhancePercent()+percent);
         }
         isOn = true;
     }
 
     @Override
     public void whenLastTimeEnd(LivingThing thing) {
-        thing.setDefence((long) (thing.getDefence() * (1 - enhanceN)));
+        thing.setDefenceEnhanceAmount(thing.getDefenceEnhanceAmount()-amount);
+        thing.setDefenceEnhancePercent(thing.getDefenceEnhancePercent()-percent);
         isOn = false;
     }
 }

@@ -27,8 +27,8 @@ import java.util.Map;
 public class LivingThing extends Entity {
     public long extraDamage = 0;
     private IShowSpecialMes showSpecialMes;
-    private double fireResistance, waterResistance, metalResistance, woodResistance, dirtResistance, hpMax, criticalDMG, getCriticalRATE;
-    private long hp, defence, speed, attack;
+    private double fireResistance, waterResistance, metalResistance, woodResistance, dirtResistance,  criticalDMG, getCriticalRATE;
+    private long hp, defence, speed, attack,hpMax;
     private boolean Alive = true;
     private List<Effect> entityEffectList = new ArrayList<>();
     private double penetration = 0;//全属性穿透
@@ -43,6 +43,79 @@ public class LivingThing extends Entity {
     private double waterManaGrowNumber;
     private double fireManaGrowNumber;
     private double dirtManaGrowNumber;
+  public void renewHp(){
+      if (this.getHp()>this.getHpMax()){
+          this.setHp(this.getHpMax());
+      }
+  }
+    public double getAttackEnhancePercent() {
+        return attackEnhancePercent;
+    }
+
+    public void setAttackEnhancePercent(double attackEnhancePercent) {
+        this.attackEnhancePercent = attackEnhancePercent;
+    }
+
+    public long getHpEnhanceAmount() {
+        return hpEnhanceAmount;
+    }
+
+    public void setHpEnhanceAmount(long hpEnhanceAmount) {
+        this.hpEnhanceAmount = hpEnhanceAmount;
+        this.renewHp();
+    }
+
+    public double getDefenceEnhancePercent() {
+        return defenceEnhancePercent;
+    }
+
+    public void setDefenceEnhancePercent(double defenceEnhancePercent) {
+        this.defenceEnhancePercent = defenceEnhancePercent;
+    }
+
+    public double getSpeedEnhancePercent() {
+        return speedEnhancePercent;
+    }
+
+    public void setSpeedEnhancePercent(double speedEnhancePercent) {
+        this.speedEnhancePercent = speedEnhancePercent;
+    }
+
+    public double getHpEnhancePercent() {
+        return hpEnhancePercent;
+    }
+
+    public void setHpEnhancePercent(double hpEnhancePercent) {
+        this.hpEnhancePercent = hpEnhancePercent;
+        this.renewHp();
+    }
+
+    public long getAttackEnhanceAmount() {
+        return attackEnhanceAmount;
+    }
+
+    public void setAttackEnhanceAmount(long attackEnhanceAmount) {
+        this.attackEnhanceAmount = attackEnhanceAmount;
+    }
+
+    public long getDefenceEnhanceAmount() {
+        return defenceEnhanceAmount;
+    }
+
+    public void setDefenceEnhanceAmount(long defenceEnhanceAmount) {
+        this.defenceEnhanceAmount = defenceEnhanceAmount;
+    }
+
+    public long getSpeedEnhanceAmount() {
+        return speedEnhanceAmount;
+    }
+
+    public void setSpeedEnhanceAmount(long speedEnhanceAmount) {
+        this.speedEnhanceAmount = speedEnhanceAmount;
+    }
+
+  private double attackEnhancePercent,defenceEnhancePercent,speedEnhancePercent,hpEnhancePercent, criticalDMGEnhancePercent, criticalDMGEnhanceAmount, criticalRateEnhancePercent, criticalRateEnhanceAmount;
+    private long attackEnhanceAmount,defenceEnhanceAmount,speedEnhanceAmount,hpEnhanceAmount;
     private List<Mana> manas = new ArrayList<>();//一个实体可以拥有多个Mana
     private double enhance;//全属性
     private double metalDamageEnhance, woodDamageEnhance, waterDamageEnhance, fireDamageEnhance, dirtDamageEnhance;
@@ -57,6 +130,37 @@ public class LivingThing extends Entity {
 
     }
 
+    public double getCriticalDMGEnhancePercent() {
+        return criticalDMGEnhancePercent;
+    }
+
+    public void setCriticalDMGEnhancePercent(double criticalDMGEnhancePercent) {
+        this.criticalDMGEnhancePercent = criticalDMGEnhancePercent;
+    }
+
+    public double getCriticalRateEnhancePercent() {
+        return criticalRateEnhancePercent;
+    }
+
+    public void setCriticalRateEnhancePercent(double criticalRateEnhancePercent) {
+        this.criticalRateEnhancePercent = criticalRateEnhancePercent;
+    }
+
+    public double getCriticalRateEnhanceAmount() {
+        return criticalRateEnhanceAmount;
+    }
+
+    public void setCriticalRateEnhanceAmount(double criticalRateEnhanceAmount) {
+        this.criticalRateEnhanceAmount = criticalRateEnhanceAmount;
+    }
+
+    public double getCriticalDMGEnhanceAmount() {
+        return criticalDMGEnhanceAmount;
+    }
+
+    public void setCriticalDMGEnhanceAmount(double criticalDMGEnhanceAmount) {
+        this.criticalDMGEnhanceAmount = criticalDMGEnhanceAmount;
+    }
 
     public LivingThing(LivingThing other) {
         super(other.getName(), other.getId(), other.getLevel());
@@ -520,7 +624,7 @@ public class LivingThing extends Entity {
         return this;
     }
 
-    public LivingThing facSetHpMax(double hpMax) {
+    public LivingThing facSetHpMax(long hpMax) {
         this.hpMax = hpMax;
         return this;
     }
@@ -642,7 +746,7 @@ public class LivingThing extends Entity {
     }
 
     public double getGetCriticalRATE() {
-        return getCriticalRATE;
+        return getCriticalRATE*(1+ criticalRateEnhancePercent)+ criticalRateEnhanceAmount;
     }
 
     public void setGetCriticalRATE(double getCriticalRATE) {
@@ -721,11 +825,11 @@ public class LivingThing extends Entity {
         this.penetration = penetration;
     }
 
-    public double getHpMax() {
-        return hpMax;
+    public long getHpMax() {
+        return (long) (hpMax*(1+hpEnhancePercent)+hpEnhanceAmount);
     }
 
-    public void setHpMax(double hpMax) {
+    public void setHpMax(long hpMax) {
         this.hpMax = hpMax;
     }
 
@@ -762,7 +866,7 @@ public class LivingThing extends Entity {
     }
 
     public long getAttack() {
-        return attack;
+        return (long) (attack*(1+attackEnhancePercent)+attackEnhanceAmount);
     }
 
     public void setAttack(long attack) {
@@ -873,7 +977,7 @@ public class LivingThing extends Entity {
     }
 
     public long getSpeed() {
-        return speed;
+        return (long) (speed*(1+speedEnhancePercent)+speedEnhanceAmount);
     }
 
     public void setSpeed(long speed) {
@@ -881,7 +985,7 @@ public class LivingThing extends Entity {
     }
 
     public long getDefence() {
-        return defence;
+        return (long) (defence*(1+defenceEnhancePercent)+defenceEnhanceAmount);
     }
 
     public void setDefence(long defence) {
@@ -906,7 +1010,7 @@ public class LivingThing extends Entity {
     }
 
     public double getCriticalDMG() {
-        return criticalDMG;
+        return criticalDMG*(1+ criticalDMGEnhancePercent)+ criticalDMGEnhancePercent;
     }
 
     public void setCriticalDMG(double criticalDMG) {

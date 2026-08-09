@@ -84,6 +84,12 @@ public class FightTurnPastListener {
         System.out.println("水" + presentTurn.getLivingThing().getWaterMana().getAmount() + "/" + presentTurn.getLivingThing().getWaterMana().getAmountMax());
         System.out.println("火" + presentTurn.getLivingThing().getFireMana().getAmount() + "/" + presentTurn.getLivingThing().getFireMana().getAmountMax());
         System.out.println("土" + presentTurn.getLivingThing().getDirtMana().getAmount() + "/" + presentTurn.getLivingThing().getDirtMana().getAmountMax());
+        if (!presentTurn.getFirstExecuteList().isEmpty()) {
+            for (ISpecialAction iSpecialAction : presentTurn.getFirstExecuteList()) {
+                iSpecialAction.execute(fightPastOneTurnEvent.getFight(), presentTurn.getLivingThing());
+            }
+        }
+        if (!presentTurn.getLivingThing().isAlive()) presentTurn.setActionSignal(ActionSignal.SKIP);
         if (presentTurn.getLivingThing().getShowSpecialMes() != null) {
             presentTurn.getLivingThing().getShowSpecialMes().show(presentTurn.getLivingThing());
         }
@@ -99,8 +105,8 @@ public class FightTurnPastListener {
         } else if (presentTurn.getActionSignal().equals(ActionSignal.WITHOUT_NEW_TURN)){
             presentTurn.getLivingThing().getController().act(fightPastOneTurnEvent.getFight());
         }
-        if (!presentTurn.getiSpecialActionList().isEmpty()) {
-            for (ISpecialAction iSpecialAction : presentTurn.getiSpecialActionList()) {
+        if (!presentTurn.getLastExecuteList().isEmpty()) {
+            for (ISpecialAction iSpecialAction : presentTurn.getLastExecuteList()) {
                 iSpecialAction.execute(fightPastOneTurnEvent.getFight(), presentTurn.getLivingThing());
             }
         }

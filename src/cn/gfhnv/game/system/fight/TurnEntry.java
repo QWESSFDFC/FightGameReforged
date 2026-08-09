@@ -12,7 +12,17 @@ public class TurnEntry {
     private LivingThing livingThing;
     private BigDecimal startTime;
     private BigDecimal needTime;
-    private List<ISpecialAction> iSpecialActionList = new ArrayList<>();
+    private List<ISpecialAction> lastExecuteList = new ArrayList<>();
+    private List<ISpecialAction> firstExecuteList=new ArrayList<>();
+
+    public List<ISpecialAction> getFirstExecuteList() {
+        return firstExecuteList;
+    }
+
+    public void setFirstExecuteList(List<ISpecialAction> firstExecuteList) {
+        this.firstExecuteList = firstExecuteList;
+    }
+
     private boolean isExtra = false;
  private ActionSignal actionSignal;
 
@@ -45,12 +55,19 @@ public class TurnEntry {
         return this;
     }
 
-    public List<ISpecialAction> getiSpecialActionList() {
-        return iSpecialActionList;
+    public List<ISpecialAction> getLastExecuteList() {
+        return lastExecuteList;
     }
-
-    public void setiSpecialActionList(List<ISpecialAction> iSpecialActionList) {
-        this.iSpecialActionList = iSpecialActionList;
+public TurnEntry addLastSpecialAction(ISpecialAction iSpecialAction){
+        lastExecuteList.add(iSpecialAction);
+        return this;
+}
+public TurnEntry addFirstAction(ISpecialAction iSpecialAction){
+        firstExecuteList.add(iSpecialAction);
+        return this;
+}
+    public void setLastExecuteList(List<ISpecialAction> lastExecuteList) {
+        this.lastExecuteList = lastExecuteList;
     }
 
     public BigDecimal getStartTime() {

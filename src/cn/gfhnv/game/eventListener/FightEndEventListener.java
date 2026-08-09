@@ -34,15 +34,15 @@ public class FightEndEventListener {
             System.out.println("恭喜你在战斗中获得了胜利.如果战斗有奖励而且你背包空间够,你会获得奖励");
             List<LivingThing> fighters = fightEndEvent.getFight().getFighterList();
             List<Item> rewards = fightEndEvent.getFight().getRewardList();
-
+            boolean result=true;
             for (LivingThing living : fighters) {
                 if (living != null) {
                     for (Item item : rewards) {
-                        living.getInventory().addItem(item.copy());
+                        if(!living.getInventory().addItem(item.copy())) result=false;
                     }
                 }
             }
-            if (!fightEndEvent.getFight().getRewardList().isEmpty()) {
+            if (!result) {
                 System.out.println("空间不足.部分物品没有存储");
             }
         }

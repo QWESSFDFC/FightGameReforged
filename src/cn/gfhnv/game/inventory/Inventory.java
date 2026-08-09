@@ -33,15 +33,15 @@ public class Inventory {
 
     public boolean addItem(Item item) {
         for (Slot slot : slots) {
-            if (slot.getContainedItem() == null) {
-                slot.setContainedItem(item);
-                return true;
-            }
             if (slot.getContainedItem().equals(item)) {
-                slot.getContainedItem().setStackNumber(Math.max(0, slot.getContainedItem().getStackNumber() - item.getStackNumber()));
+                slot.getContainedItem().setStackNumber(Math.max(0, slot.getContainedItem().getStackNumber() + item.getStackNumber()));
                 if (slot.getContainedItem().getStackNumber() == 0) {
                     slot.setContainedItem(null);
                 }
+                return true;
+            }
+            if (slot.getContainedItem() == null) {
+                slot.setContainedItem(item);
                 return true;
             }
 
@@ -56,6 +56,7 @@ public class Inventory {
 
     public boolean removeItemAll(Item item) {
         for (Slot slot : slots) {
+            if (slot.getContainedItem()==null) continue;
             if (slot.getContainedItem().equals(item)) {
                 slot.setContainedItem(null);
 
@@ -67,6 +68,7 @@ public class Inventory {
 
     public boolean removeItem(Item item) {
         for (Slot slot : slots) {
+            if (slot.getContainedItem()==null) continue;
             if (slot.getContainedItem().equals(item)) {
                 slot.getContainedItem().setStackNumber(Math.max(0, slot.getContainedItem().getStackNumber() - item.getStackNumber()));
 
@@ -83,6 +85,7 @@ public class Inventory {
 
     public void clear() {
         for (Slot slot : slots) {
+            if (slot.getContainedItem()==null) continue;
             slot.getContainedItem().setStackNumber(0);
             slot.setContainedItem(null);
         }
@@ -91,7 +94,8 @@ public class Inventory {
     public void removeItemsAll(List<Item> items) {
         for (Item item : items) {
             for (Slot slot : slots) {
-                if (slot.getContainedItem() == item) {
+                if (slot.getContainedItem()==null) continue;
+                if (slot.getContainedItem().equals(item)) {
                     slot.setContainedItem(null);
                 }
             }
