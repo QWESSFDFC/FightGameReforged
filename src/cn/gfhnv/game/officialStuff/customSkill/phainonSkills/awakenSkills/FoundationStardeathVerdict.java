@@ -28,6 +28,7 @@ public class FoundationStardeathVerdict extends Skill {
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         List<LivingThing> e = new ArrayList<>(enemies);
+        user.setHp((long) (user.getHp() + user.getHpMax() * 0.2));
         ListIterator<Effect> listedIterator = user.getEntityEffectList().listIterator();
         while (listedIterator.hasNext()) {
             Effect effect = listedIterator.next();

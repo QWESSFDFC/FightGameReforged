@@ -22,6 +22,7 @@ public class Counterattack extends Skill {
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         int soulscorch = 0;
+        user.setHp((long) (user.getHp() + user.getHpMax() * 0.2));
         double randomMag = 0.3;
         if (user instanceof Phainon phainon) {
             soulscorch = phainon.getSoulscorch();
