@@ -52,18 +52,18 @@ public class CalamitySoulscorchEdict extends Skill {
             TurnManager.getNextTurnOf(e).setStartTime(TurnManager.getPresentTime());
             TurnManager.getNextTurnOf(e).setNeedTime(BigDecimal.ZERO);
             TurnManager.getNextTurnOf(e).getLastExecuteList().add((fight1, user1) -> {
-                List<LivingThing> opponent=fight1.getOpponentList(user1);
+                List<LivingThing> opponent = fight1.getOpponentList(user1);
 
-                    for (LivingThing livingThing : opponent) {
-                        if (livingThing instanceof Phainon phainon) {
-                            if (phainon.isAwaken()&&phainon.getSoulscorch()>0) {
-                                for (Skill skill : livingThing.getController().getSkills()) {
-                                    if (skill instanceof CalamitySoulscorchEdict calamitySoulscorchEdict&&calamitySoulscorchEdict.willAct.contains(user1)) {
-                                        phainon.setSoulscorch(phainon.getSoulscorch() + 1);
-                                        calamitySoulscorchEdict.getWillAct().remove(user1);
-                                        if (calamitySoulscorchEdict.getWillAct().isEmpty()) {
-                                            new Counterattack().comeToEffect(fight1, livingThing, fight1.getOwnList(user1));
-                                        }
+                for (LivingThing livingThing : opponent) {
+                    if (livingThing instanceof Phainon phainon) {
+                        if (phainon.isAwaken() && phainon.getSoulscorch() > 0) {
+                            for (Skill skill : livingThing.getController().getSkills()) {
+                                if (skill instanceof CalamitySoulscorchEdict calamitySoulscorchEdict && calamitySoulscorchEdict.willAct.contains(user1)) {
+                                    phainon.setSoulscorch(phainon.getSoulscorch() + 1);
+                                    calamitySoulscorchEdict.getWillAct().remove(user1);
+                                    if (calamitySoulscorchEdict.getWillAct().isEmpty()) {
+                                        new Counterattack().comeToEffect(fight1, livingThing, fight1.getOwnList(user1));
+                                    }
 
                                 }
                             }

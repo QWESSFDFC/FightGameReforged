@@ -23,6 +23,7 @@ public class TurnEntry {
         this.startTime = startTime;
         this.actionSignal = livingThing.getController().getActionSignal();
     }
+
     public TurnEntry(LivingThing livingThing, BigDecimal needTime, BigDecimal startTime, ActionSignal actionSignal) {
         this.livingThing = livingThing;
         this.needTime = needTime;

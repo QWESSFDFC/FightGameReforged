@@ -27,11 +27,13 @@ public class Fight {
             return new ArrayList<>(fighterList);
         } else return new ArrayList<>(enemiesList);
     }
-    public List<LivingThing> getOwnList(LivingThing user){
+
+    public List<LivingThing> getOwnList(LivingThing user) {
         if (getEnemiesList().contains(user)) {
             return new ArrayList<>(enemiesList);
         } else return new ArrayList<>(fighterList);
     }
+
     @Override
     public String toString() {
         return "Fight{" +
