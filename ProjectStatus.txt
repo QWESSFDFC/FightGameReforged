@@ -1,0 +1,95 @@
+ 下面的内容由ai生成(2026.8.12)
+
+# FightGameReforged 项目分析报告
+
+## 一、项目概况
+
+一个由高中生从零编写的**命令行回合制文字战斗游戏**，纯 Java 实现，基于 **Gradle + JDK 25** 构建，MIT 开源协议，版本 1.2.1。项目特色是**事件驱动架构 + 动态模组加载系统**。
+
+## 二、技术栈与构建
+
+| 项目 | 说明 |
+|------|------|
+| 语言 | Java 25（`build.gradle` 指定） |
+| 构建 | Gradle + Shadow 插件（打包 fat jar） |
+| 唯一依赖 | org.json（JSON 配置解析） |
+| 入口类 | `cn.gfhnv.game.GameStarter` → `GameMain` |
+
+- 启动流程：`GameStarter`（输出作者信息/写日志）→ `GameMain.gameInitialize()`（注册官方内容、加载模组、注册全局监听器、发布 GameStartEvent、加载 JSON 配置）→ 命令行交互选角色/敌人/奖励 → 发布 `FightStartEvent` 开战。
+
+## 三、核心架构
+
+### 1. 事件驱动系统（最核心设计）
+- **EventBus**：全局静态事件总线，通过反射扫描 `@SubscribeEvent` 注解方法，按 `priority`（数字越小越优先，默认 3）排序注册。
+- **Event** 基类：支持 `isCanceled` 取消机制。
+- 事件类型丰富：`GameStartEvent`、`FightStartEvent`、`FightPastOneTurnEvent`、`FightEndEvent`、`DamageEvent`、`HpLossEvent`、`SelectTargetEvent`、`EffectUpdateEvent`、`CalculateDamageEnd/GetStatusEvent`、`PhysicsStateUpdateEvent`、自定义的 `AwakenEndEvent` 等。
+- 通过事件解耦战斗循环（`FightTurnPastListener`）、开局（`FightStartEventListener`）、结束（`FightEndEventListener`）、模组加载（`GameStartEventListener`）等逻辑。
+
+### 2. 战斗系统（时间抽行动条模型）
+- **Fight**：战斗上下文（敌人/我方/奖励列表，提供 `getOpponentList` / `getOwnList`）。
+- **TurnManager**：基于 `BigDecimal` 的**行动时间轴**，`10000/speed` 作为间隔时间，支持进度条推进（`advanceByPercent`）、延迟（`delayByAmount`）、排序。
+- **TurnEntry**：回合条目，含 `startTime` + `needTime`、`ActionSignal`（NORMAL / SPECIAL_ACTION / WITHOUT_NEW_TURN / SKIP / SKIP_WITHOUT_NEW_TURN）、首/末执行的特殊动作列表（`ISpecialAction`）、额外回合标记。
+- **FightTurnPastListener**（@SubscribeEvent）：每回合核心循环——剔除死者→判定胜负→排序取最近行动者→更新时间→更新实体状态/技能冷却/回蓝→打印状态→执行首动作→控制者 act→安置新回合→执行末动作→发布 `EffectUpdateEvent`→递归触发下一回合。
+
+### 3. 实体系统
+- 继承链：`Thing`（物理属性 mass/force/velocity/acceleration/position + Tag 权重 + UUID）→ `Entity`（level/name/inventory）→ `LivingThing`（HP/攻击/防御/速度/五行抗性/暴击/穿透/五种元素Mana/效果列表/Buff增强量/`IModifyDamage`伤害修正接口/`IShowSpecialMes`特殊状态显示）。
+- 提供大量 `facSetXxx` 链式工厂方法和深拷贝构造。
+- 元素系统（五行）：金木水火土 `ElementSort`，决定成长倾向（主属性 mana 成长 20，其余按相生相克递减）。
+
+### 4. 伤害计算（DamageCalculate）
+公式综合：生命/攻击/防御倍率 × 元素增伤 × (1−抗性+穿透) × (1−伤害吸收) × 等级防御衰减 × 单体倍率 × 暴击倍率。内置 `CalculateDamageGetStatusEvent` / `CalculateDamageEndEvent` 事件钩子供外部修改。
+
+### 5. 技能系统
+- **Skill** 基类：倍率字段、目标数（0=自身、-1=全体、N=选N个）、冷却、消耗元素 Mana、Tag 权重、`canUse`/`use`/`comeToEffect`（重写实现效果）/`getAnticipatedDamage`（AI 预测伤害用）。
+- 技能子类示例：普通攻击（附赠增伤效果）、战技（白厄加火种）、大招（白厄觉醒变身，注入 8 个额外回合 + 反击 + 终末一击）、觉醒技能（死星天裁等）。
+
+### 6. 控制器（AI / 玩家）
+- **UniversalController**：通用随机 AI，随机选可用技能并随机选目标。
+- **PlayerController**：命令行交互——选择是否用物品、选择技能、多目标逐个选择（Set 去重选目标）。
+- **ThinkingController**（Utility AI 雏形，README 标注未写完）：已有 Tag 权重（ATTACK/HEAL/DEFENCE/RESTORATION_MANA/DAMAGE_ENHANCE/CONTROL_ENEMIES）读取框架，但 `act()` 目前实际仍回退到 `super.act()`。
+
+### 7. 效果系统
+- **Effect**：id/等级/持续回合/正负面标签/`comeIntoEffect`（生效）/`whenLastTimeEnd`（结束）。`equals` 按 id + 无限标记 + origin 判定，`copy()` 强制子类实现。
+- 官方效果：攻击/防御/速度/HP增强、暴击率/爆伤增强、增伤、冰冻、无视防御、回血、记忆血量等。
+
+### 8. 模组系统（重点特色）
+- **目录约定**：`mods/<模组名>/main.json` + `code/`（.java 源码）+ 自动生成 `bin/`（编译输出）。
+- **ModLoader**：扫描 mods 目录 → 解析 main.json → JavaCompiler 动态编译全部 .java → 自建 URLClassLoader 加载主类（构造器需接收 `ModInformation`）→ 反射预加载其他类防 GC → `World.addMod()` 注册。
+- **Mod** 抽象基类：管理实体/物品/效果 List（自动加 `MOD_ID:` 前缀 ID）、`invokeWhenLoaded()`（加载时填入内容）、`registerItself()`（注册到 World 注册表）。
+- 模组加载时机：`GameStartEvent` 由 `GameStartEventListener` 统一处理。
+
+### 9. 其他系统
+- **背包/物品**：Slot 格子制，支持堆叠、合并、排序。
+- **配置加载**：`ConfigLoader` 读取 `config/gameConfig/TagConfig.json`，为实体/物品注入 AI Tag 权重（首次运行写默认配置）。
+- **日志**：`LogWriter` 滚动归档 latest.log（超 10MB 归档）。
+- **物理系统**：Vector + Force/Velocity/Acceleration/Position（简单的牛顿力学，供 Thing 用）。
+- **World**：全局注册表（实体/物品/效果/模组/Thing 运行时对象）。
+
+## 四、官方内容（officialStuff）
+
+- **角色**：PlayerOne、ActorLiXiaoYan、**Phainon**——拥有完整"火种→觉醒"机制（大招消耗 12 火种觉醒为卡厄斯兰那，获得 8 个额外回合、毁伤计数器、死星天裁、终末一击等，觉醒后每回合清除自身负面效果）。
+- **怪物**：CommonInsect、IceInsect（冰冻敌人）、InsectBoss（召唤小弟）。
+- **物品**：ANiceSword（好剑）。
+- **技能**：通用（普通攻击、冰冻、枪击、回血）、李逍遥技能组、白厄技能组（普通/战技/大招/觉醒技能）、虫王召唤技能。
+
+## 五、示例模组
+
+`exampleModByGFHNV` 和 `abstractLaunchingWords` 展示了最小模组写法：继承 `Mod`、`main.json` 声明 name/author/mainClass/version、`invokeWhenLoaded()` 中填内容。
+
+## 六、架构评价与注意事项
+
+**优点**：
+1. 事件驱动彻底解耦了战斗、模组、UI，扩展性强。
+2. 时间轴回合制（而非简单轮流）使"加速/延迟/额外回合"机制实现优雅。
+3. 模组"编译即加载"方案对纯 Java 文字游戏实用。
+4. 五行元素 + 五行 Mana 双资源体系有设计深度。
+
+**风险/问题**（仅供参考，非修改要求）：
+1. **递归驱动回合**：`FightTurnPastListener` 通过 `EventBus.post` 递归调用自身，战斗过长可能导致栈溢出（Java 默认栈约 1MB≈数千回合）。
+2. **静态状态泄漏**：`TurnManager`/`EventBus` 大量静态字段，无法并发/多局并发；`World.things` 等运行时数据跨局残留（开局重置靠 `addThing` 追加而非清空）。
+3. 事件取消检查只在本事件开始时检查，不会中断已开始的 handler 链。
+4. `ThinkingController` 决策框架注释丰富但实现未完成（当前所有 NPC 实际走随机 AI）。
+5. 代码存在少量未清理细节：`UniversalController.act` 中 `canUse(fight, owner, null)` 传 null、`LivingThing` 复制构造器 tags 判断条件疑似写反(我刚刚修复)、GameMain 中 `livingThings` 数组与 World 列表不同步的问题等。
+6. 文本界面直接 `System.out`，日志与游戏输出混在一起。
+
+**总体评价**：作为高中生从零手写的项目，事件总线、时间轴回合制、动态模组编译加载三大设计相当扎实，是很好的 Java 学习与游戏原型参考。
