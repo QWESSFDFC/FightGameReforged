@@ -28,6 +28,7 @@ public class FightEndEventListener {
         }
         EventBus.unregister(this);
         EventBus.unregister(fightTurnPastListener);
+        TurnManager.getTurns().clear();
         World.turnTimer = 0;
         if (fightEndEvent.isPlayerWin()) {
             System.out.println();

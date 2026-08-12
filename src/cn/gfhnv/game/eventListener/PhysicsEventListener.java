@@ -6,10 +6,7 @@ import cn.gfhnv.game.event.PhysicsStateUpdateEvent;
 import cn.gfhnv.game.system.physics.Vector;
 import cn.gfhnv.game.system.physics.type.Acceleration;
 import cn.gfhnv.game.system.physics.type.Position;
-import cn.gfhnv.game.system.physics.type.Velocity;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.List;
 
 public class PhysicsEventListener {
@@ -20,13 +17,15 @@ public class PhysicsEventListener {
             return;
         }
         for (Thing thing : things) {
-            if (thing.getMass().equals(BigDecimal.ZERO)) {
-                thing.setMass(BigDecimal.valueOf(0.01));
+            if (thing.getMass() == 0) {
+                thing.setMass(0.01);
             }
-            thing.setAcceleration(new Acceleration(thing.getForce().getxScale().divide(thing.getMass(), RoundingMode.HALF_UP), thing.getForce().getyScale().divide(thing.getMass(), RoundingMode.HALF_UP), thing.getForce().getzScale().divide(thing.getMass(), RoundingMode.HALF_UP)));
-            thing.setVelocity(new Velocity(thing.getVelocity().getxScale().add(thing.getAcceleration().getxScale().multiply(BigDecimal.valueOf(1))), thing.getVelocity().getyScale().add(thing.getAcceleration().getyScale().multiply(BigDecimal.valueOf(1))), thing.getVelocity().getzScale().add(thing.getAcceleration().getzScale().multiply(BigDecimal.valueOf(1)))));
-            Position displacement = new Position(thing.getVelocity().getxScale().multiply(BigDecimal.valueOf(1)), thing.getVelocity().getyScale().multiply(BigDecimal.valueOf(1)), thing.getVelocity().getzScale().multiply(BigDecimal.valueOf(1)));
-            thing.setPosition((Position) Vector.composition(thing.getPosition(), displacement));
+            thing.setAcceleration(new Acceleration(thing.getForce().getX() / thing.getMass(), thing.getForce().getY() / thing.getMass(), thing.getForce().getZ() / thing.getMass()));
+            thing.setVelocity(Vector.composition(thing.getVelocity(), new Vector(thing.getAcceleration().getX(), thing.getAcceleration().getY(), thing.getAcceleration().getZ())));
+            Position displacement = new Position(thing.getVelocity().getX(), thing.getVelocity().getY(), thing.getVelocity().getZ());
+            thing.setPosition(Vector.composition(thing.getPosition(), displacement));
+            thing.setForce(new Vector(0, 0, 0));
+
         }
     }
 }

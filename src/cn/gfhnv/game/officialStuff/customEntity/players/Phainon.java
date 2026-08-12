@@ -19,7 +19,6 @@ import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.ActionSignal;
 import cn.gfhnv.game.system.fight.Fight;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
@@ -45,7 +44,7 @@ public class Phainon extends Player {
         List<Skill> skillList = new ArrayList<>();
         skillList.add(new CommonAttack(0.0, 1.0, 0.0, 1));
         skillList.getFirst().setName("普通攻击:逐火救世,行则将至");
-        this.setMass(BigDecimal.valueOf(60));
+        this.setMass(60);
         this.setDescription("这是白厄.");
         coreflame = 15;
         skillList.add(new NormalSkill());
@@ -188,8 +187,12 @@ public class Phainon extends Player {
     @Override
     public void whenFightEnds() {
         super.whenFightEnds();
+        this.setAttackEnhancePercent(this.getAttackEnhancePercent() - extraAbilityTier * 0.5 + formerExtraAbilityTier * 0.5);
         extraAbilityTier = 0;
         formerExtraAbilityTier = 0;
+        coreflame = 0;
+        scourge = 0;
+        soulscorch = 0;
         pendingLastAttack = false;
         this.absorbDamage = false;
         if (this.isAwaken) {

@@ -9,14 +9,13 @@ import cn.gfhnv.game.officialStuff.customSkill.universalSkill.RestorationHealthS
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
 public class PlayerOne extends Player {
     public PlayerOne(long l) {
         super("玩家一", "playerOne", 0.3, 0.0, 0.0, 0.0, 0.3, 120, l, "player", 36, 29, 5, ElementSort.DIRT);
-        this.setMass(BigDecimal.valueOf(60));
+        this.setMass(60);
         this.setDescription("这是玩家一.");
         this.getInventory().addSlot(63);
         List<Skill> skills = new ArrayList<>();

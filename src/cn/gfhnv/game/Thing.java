@@ -1,5 +1,6 @@
 package cn.gfhnv.game;
 
+import cn.gfhnv.game.system.physics.Vector;
 import cn.gfhnv.game.system.physics.type.Acceleration;
 import cn.gfhnv.game.system.physics.type.Force;
 import cn.gfhnv.game.system.physics.type.Position;
@@ -7,7 +8,6 @@ import cn.gfhnv.game.system.physics.type.Velocity;
 import cn.gfhnv.game.system.thinkingSystem.Tag;
 import cn.gfhnv.game.system.thinkingSystem.TagType;
 
-import java.math.BigDecimal;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
@@ -16,14 +16,14 @@ import java.util.UUID;
 public class Thing {
     private final String uuid;
     private Map<TagType, Tag> tags = new EnumMap<>(TagType.class);
-    private BigDecimal mass = new BigDecimal(1);
-    private Force force = new Force(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
-    private Velocity velocity = new Velocity(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
-    private Acceleration acceleration = new Acceleration(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
-    private Position position = new Position(new BigDecimal(0), new BigDecimal(0), new BigDecimal(0));
+    private double mass = 1;
+    private Force force = new Force(0, 0, 0);
+    private Velocity velocity = new Velocity(0, 0, 0);
+    private Acceleration acceleration = new Acceleration(0, 0, 0);
+    private Position position = new Position(0, 0, 0);
     private String id;
 
-    public Thing(BigDecimal mass) {
+    public Thing(double mass) {
         this.mass = mass;
         this.uuid = UUID.randomUUID().toString();
 
@@ -45,7 +45,7 @@ public class Thing {
         return uuid;
     }
 
-    public Thing facSetMass(BigDecimal mass) {
+    public Thing facSetMass(double mass) {
         this.setMass(mass);
         return this;
     }
@@ -74,8 +74,8 @@ public class Thing {
         return acceleration;
     }
 
-    public void setAcceleration(Acceleration acceleration) {
-        this.acceleration = acceleration;
+    public void setAcceleration(Vector acceleration) {
+        this.acceleration = (Acceleration) acceleration;
     }
 
     @Override
@@ -106,23 +106,23 @@ public class Thing {
         return velocity;
     }
 
-    public void setVelocity(Velocity velocity) {
-        this.velocity = velocity;
+    public void setVelocity(Vector velocity) {
+        this.velocity = (Velocity) velocity;
     }
 
     public Force getForce() {
         return force;
     }
 
-    public void setForce(Force force) {
-        this.force = force;
+    public void setForce(Vector force) {
+        this.force = (Force) force;
     }
 
-    public BigDecimal getMass() {
+    public double getMass() {
         return mass;
     }
 
-    public void setMass(BigDecimal mass) {
+    public void setMass(double mass) {
         this.mass = mass;
     }
 
@@ -130,8 +130,8 @@ public class Thing {
         return position;
     }
 
-    public void setPosition(Position position) {
-        this.position = position;
+    public void setPosition(Vector position) {
+        this.position = (Position) position;
     }
 
     public Map<TagType, Tag> getTags() {

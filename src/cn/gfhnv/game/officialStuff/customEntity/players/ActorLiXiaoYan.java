@@ -12,7 +12,6 @@ import cn.gfhnv.game.officialStuff.customSkill.actorLiXiaoYanSkills.UltimateAtta
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -33,7 +32,7 @@ public class ActorLiXiaoYan extends LivingThing {
 
     public ActorLiXiaoYan(long l) {
         super("李晓焰", "actorLiXiaoYan", 0.4, 0.0, 0.0, 0.0, 0.0, 120, l, "player", 58, 22, 3, ElementSort.FIRE);
-        this.setMass(BigDecimal.valueOf(60));
+        this.setMass(60);
         this.setDescription("这是李晓焰.");
         this.getInventory().addSlot(63);
         List<Skill> skills = new ArrayList<>();

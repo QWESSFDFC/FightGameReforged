@@ -110,11 +110,12 @@ public class FightTurnPastListener {
                 iSpecialAction.execute(fightPastOneTurnEvent.getFight(), presentTurn.getLivingThing());
             }
         }
-        EventBus.post(new EffectUpdateEvent(presentTurn.getLivingThing(), presentTurn));
-        TurnManager.nextTurn(fightPastOneTurnEvent.getFight());
+
         for (LivingThing dead : theDeath) {
             dead.whenFightEnds();
         }
         theDeath.clear();
+        EventBus.post(new EffectUpdateEvent(presentTurn.getLivingThing(), presentTurn));
+        TurnManager.nextTurn(fightPastOneTurnEvent.getFight());
     }
 }

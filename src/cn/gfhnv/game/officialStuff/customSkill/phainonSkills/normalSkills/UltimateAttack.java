@@ -57,6 +57,7 @@ public class UltimateAttack extends Skill {
         user.renewHp();
         user.setHp(user.getHpMax());
         user.setName("卡厄斯兰那");
+        FightTurnPastListener.getPresentTurn().setActionSignal(ActionSignal.SKIP_WITHOUT_NEW_TURN);
         if (user instanceof Phainon) {
             ((Phainon) user).setAwaken(true);
             ((Phainon) user).setCoreflame(((Phainon) user).getCoreflame() - 12);
@@ -74,8 +75,12 @@ public class UltimateAttack extends Skill {
             ((Phainon) user).addScourge(4);
         }
         for (int i = 0; i <= 6; i++) {
+
             TurnManager.getTurns().add(new TurnEntry(user, needTime.multiply(BigDecimal.valueOf(i)), TurnManager.getPresentTime()).setExtra(true).addLastSpecialAction((fight1, user1) -> {
-                if (user1 instanceof Phainon) ((Phainon) user1).setExtraTurns(((Phainon) user1).getExtraTurns() - 1);
+                if (user1 instanceof Phainon phainon) {
+                    phainon.setExtraTurns(phainon.getExtraTurns() - 1);
+
+                }
             }).addFirstAction((fight1, user1) -> {
 
                 if (user1 instanceof Phainon) {
@@ -84,7 +89,7 @@ public class UltimateAttack extends Skill {
                         new Counterattack().comeToEffect(fight1, user1, anticipateEnemies);
                     }
                 }
-            }));
+            }).setActionSignal(ActionSignal.WITHOUT_NEW_TURN));
         }
 
         TurnEntry lastestOne = new TurnEntry(user, needTime.multiply(BigDecimal.valueOf(7)), TurnManager.getPresentTime()).setExtra(true);//8
@@ -110,6 +115,7 @@ public class UltimateAttack extends Skill {
             }
 
         });
+        TurnManager.getTurns().add(lastestOne);
         TurnManager.sort();
     }
 }

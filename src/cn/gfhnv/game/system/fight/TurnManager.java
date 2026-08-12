@@ -59,6 +59,7 @@ public class TurnManager {
 
     public static TurnEntry getNextTurnOf(LivingThing livingThing) {
         TurnEntry a;
+        TurnManager.sort();
         for (TurnEntry turn : turns) {
             a = turn;
             if (a.getLivingThing().equals(livingThing)) {

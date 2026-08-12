@@ -5,7 +5,6 @@ import cn.gfhnv.game.inventory.Inventory;
 import cn.gfhnv.game.system.thinkingSystem.Tag;
 import cn.gfhnv.game.system.thinkingSystem.TagType;
 
-import java.math.BigDecimal;
 import java.util.EnumMap;
 import java.util.Map;
 
@@ -34,19 +33,19 @@ public class Entity extends Thing {
     }
 
     public Entity() {
-        super(new BigDecimal(1));
+        super(1);
     }
 
     public Entity(String name, String id, long l) {
-        super(new BigDecimal(1));
+        super(1);
         this.name = name;
         this.setId(id);
         this.level = l;
 
     }
 
-    public Entity(String name, String id, long l, BigDecimal bigDecimal) {
-        super(bigDecimal);
+    public Entity(String name, String id, long l, double mass) {
+        super(mass);
         this.name = name;
         this.setId(id);
         this.level = l;

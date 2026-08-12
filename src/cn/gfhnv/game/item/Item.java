@@ -6,7 +6,6 @@ import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.thinkingSystem.Tag;
 import cn.gfhnv.game.system.thinkingSystem.TagType;
 
-import java.math.BigDecimal;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
@@ -39,8 +38,8 @@ public class Item extends Thing {
 
     }
 
-    public Item(String name, String description, BigDecimal bigDecimal, String id) {
-        super(bigDecimal);
+    public Item(String name, String description, double mass, String id) {
+        super(mass);
         this.setId(id);
         this.name = name;
         this.description = description;

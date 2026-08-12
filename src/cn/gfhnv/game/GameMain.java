@@ -49,7 +49,7 @@ public class GameMain {
         String input;
         System.out.println("欢迎进入游戏!请你输入你的名字");
         userName = SCANNER.nextLine();
-        LogWriter.writeLog(userName);
+        LogWriter.writeLog("用户名字" + userName);
         System.out.println("好的." + userName + ".这是一款文字战斗游戏马上你可以选择你的角色和你的敌人,甚至是你的奖励");
         startAFight();
         do {

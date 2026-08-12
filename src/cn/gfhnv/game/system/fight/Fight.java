@@ -54,12 +54,14 @@ public class Fight {
 
     public void addFighter(LivingThing fighter) {
         fighterList.add(fighter);
+        allEntities.add(fighter);
         TurnManager.getTurns().add(new TurnEntry(fighter, BigDecimal.valueOf(10000)
                 .divide(BigDecimal.valueOf(fighter.getSpeed()), 10, RoundingMode.HALF_UP), TurnManager.getPresentTime()));
     }
 
     public void addEnemy(LivingThing e) {
         enemiesList.add(e);
+        allEntities.add(e);
         TurnManager.getTurns().add(new TurnEntry(e, BigDecimal.valueOf(10000)
                 .divide(BigDecimal.valueOf(e.getSpeed()), 10, RoundingMode.HALF_UP), TurnManager.getPresentTime()));
     }

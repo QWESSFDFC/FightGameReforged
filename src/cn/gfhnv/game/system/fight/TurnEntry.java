@@ -43,8 +43,9 @@ public class TurnEntry {
         return actionSignal;
     }
 
-    public void setActionSignal(ActionSignal actionSignal) {
+    public TurnEntry setActionSignal(ActionSignal actionSignal) {
         this.actionSignal = actionSignal;
+        return this;
     }
 
     public boolean isExtra() {
@@ -98,4 +99,16 @@ public class TurnEntry {
         this.livingThing = livingThing;
     }
 
+    @Override
+    public String toString() {
+        return "TurnEntry{" +
+                "livingThing=" + livingThing +
+                ", firstExecuteList=" + firstExecuteList +
+                ", startTime=" + startTime +
+                ", needTime=" + needTime +
+                ", lastExecuteList=" + lastExecuteList +
+                ", isExtra=" + isExtra +
+                ", actionSignal=" + actionSignal +
+                '}';
+    }
 }

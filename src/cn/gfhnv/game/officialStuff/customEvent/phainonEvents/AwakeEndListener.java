@@ -33,9 +33,7 @@ public class AwakeEndListener {
         TurnManager.getTurns().add(new TurnEntry(endEvent.getPhainon(), BigDecimal.valueOf(10000)
                 .divide(BigDecimal.valueOf(endEvent.getPhainon().getSpeed()), 10, RoundingMode.HALF_UP), TurnManager.getPresentTime()));
         endEvent.getPhainon().setExtraTurns(0);
-        endEvent.getPhainon().setScourge(0);
         endEvent.getPhainon().setExtraAbilityTier(Math.min(2, endEvent.getPhainon().getExtraAbilityTier() + 1));
-        endEvent.getPhainon().setCoreflame(0);
         endEvent.getPhainon().setSoulscorch(0);
         System.out.println("白厄再次踏上轮回....");
         EventBus.unregister(this);

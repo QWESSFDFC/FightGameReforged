@@ -960,6 +960,8 @@ public class LivingThing extends Entity {
     }
 
     public void whenFightEnds() {
+
+
         setPresentTurn(null);
         setHp((long) getHpMax());
         for (Effect effect : getEntityEffectList()) effect.whenLastTimeEnd(this);
