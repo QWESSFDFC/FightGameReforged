@@ -105,7 +105,7 @@ public class LivingThing extends Entity {
             }
         }
         this.setInventory(other.getInventory().copy());
-        if (other.getTags().isEmpty()) {
+        if (!other.getTags().isEmpty()) {
             Map<TagType, Tag> newMap = new EnumMap<>(TagType.class);
             for (Map.Entry<TagType, Tag> entry : other.getTags().entrySet()) {
                 newMap.put(entry.getKey(), entry.getValue().copy());

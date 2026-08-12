@@ -2,7 +2,7 @@
 这是一个使用java编写的游戏.目前只有文字,大概能正常玩了?代码随便用,随便改.我是高中生,没时间.偶尔更新.编写此项目只是为了图一乐,发到Github上纯粹是闲的没事.目前没有使用java的相关游戏引擎,只是自己写东西,自娱自乐.......
 暂不接受 Pull Request。如果你有改进想法，请 fork 本仓库后自行修改，自由使用。我只想自己写点东西玩玩.
 使用方法:直接运行.jar文件.可以自己编译或者下载Release中编译好的.但是Release中版本可能落后一点.
-我使用了AI(DeepSeek)写了部分代码.
+我使用了AI(DeepSeek)写了部分代码.本项目的Javadoc都是ai写的，而且我没有核对，可能有问题。
 
 下面是使用AI写的README.md
 
@@ -132,6 +132,7 @@ FightGameReforged/
 
 English
 This is a game written in Java. For now, it's text‑only, and I guess it's mostly playable? Use and modify the code however you like. I'm a high school student, so I don't have much time. I update it occasionally. I wrote this project just for fun, and uploading it to GitHub was purely because I had nothing better to do. It doesn't use any Java game engine — I just write my own stuff for my own amusement.
+The Javadoc in this project is all AI-generated, and I haven't reviewed it, so it may contain errors.
 
 **Pull Requests are not accepted at this time.** If you have ideas for improvement, please fork the repository and modify it for your own use. I just want to write a little something and enjoy myself.
 
