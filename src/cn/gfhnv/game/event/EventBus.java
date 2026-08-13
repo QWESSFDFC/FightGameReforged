@@ -11,6 +11,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
+/**
+ * AI写的
+ */
 public class EventBus {
     private static final Map<Class<?>, List<EventHandler>> handlers = new HashMap<>();
 

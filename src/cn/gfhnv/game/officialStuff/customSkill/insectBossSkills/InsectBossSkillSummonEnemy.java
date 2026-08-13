@@ -8,6 +8,8 @@ import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.mana.Mana;
+import cn.gfhnv.game.system.thinkingSystem.Tag;
+import cn.gfhnv.game.system.thinkingSystem.TagType;
 
 public class InsectBossSkillSummonEnemy extends Skill {
 
@@ -15,6 +17,7 @@ public class InsectBossSkillSummonEnemy extends Skill {
         super("分裂", "分裂其他虫子,没有数量上限.冷却10", 0, 0, 0, 0);
         this.setCoolDown(10);
         this.setConsumedMana(new Mana(100, ElementSort.UNIVERSAL));
+        this.getTags().put(TagType.ATTACK, new Tag(5));
     }
 
 

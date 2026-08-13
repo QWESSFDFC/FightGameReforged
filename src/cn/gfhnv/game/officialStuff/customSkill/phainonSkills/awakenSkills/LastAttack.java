@@ -9,6 +9,8 @@ import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.mana.Mana;
+import cn.gfhnv.game.system.thinkingSystem.Tag;
+import cn.gfhnv.game.system.thinkingSystem.TagType;
 
 import java.util.List;
 
@@ -17,6 +19,7 @@ public class LastAttack extends Skill {
         super("最后一击", "最后一击", 0, 9.6, 0, -1);
         this.setConsumedMana(new Mana(0, ElementSort.UNIVERSAL));
         this.setCoolDown(0);
+        this.getTags().put(TagType.ATTACK, new Tag(1));
     }
 
     @Override

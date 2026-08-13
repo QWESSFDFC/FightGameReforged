@@ -7,7 +7,11 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
+/**
+ * AI写的
+ */
 public class LogWriter {
+
     private static final Path LOG_DIR = Paths.get("./logs");
     private static final Path LATEST_LOG = LOG_DIR.resolve("latest.log");
     private static final long MAX_SIZE = 1024 * 1024 * 10;

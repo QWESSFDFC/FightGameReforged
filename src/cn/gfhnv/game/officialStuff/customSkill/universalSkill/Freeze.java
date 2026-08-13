@@ -6,6 +6,8 @@ import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.mana.Mana;
+import cn.gfhnv.game.system.thinkingSystem.Tag;
+import cn.gfhnv.game.system.thinkingSystem.TagType;
 
 import java.util.List;
 
@@ -14,6 +16,7 @@ public class Freeze extends Skill {
         super("冰冻", "冰冻目标1回合", 0, 7.5, 0, 2);
         this.setCoolDown(2);
         this.setConsumedMana(new Mana(10, ElementSort.WATER));
+        this.getTags().put(TagType.ATTACK, new Tag(1));
     }
 
     @Override

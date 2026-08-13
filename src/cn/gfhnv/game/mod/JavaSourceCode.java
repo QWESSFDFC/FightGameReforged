@@ -3,6 +3,9 @@ package cn.gfhnv.game.mod;
 import javax.tools.SimpleJavaFileObject;
 import java.net.URI;
 
+/**
+ * AI写的
+ */
 public class JavaSourceCode extends SimpleJavaFileObject {
     private final String content;
     private final String name;

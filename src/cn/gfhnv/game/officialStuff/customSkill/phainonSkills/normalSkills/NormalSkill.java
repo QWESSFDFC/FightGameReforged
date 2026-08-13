@@ -6,6 +6,8 @@ import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.mana.Mana;
+import cn.gfhnv.game.system.thinkingSystem.Tag;
+import cn.gfhnv.game.system.thinkingSystem.TagType;
 
 import java.util.List;
 
@@ -14,6 +16,7 @@ public class NormalSkill extends Skill {
         super("战技:黎明创世,地辟天开", "description", 0, 3, 0, 3);
         this.setCoolDown(0);
         this.setConsumedMana(new Mana(120, ElementSort.FIRE));
+        this.getTags().put(TagType.ATTACK, new Tag(5));
     }
 
     @Override

@@ -74,7 +74,7 @@ public class ActorLiXiaoYan extends LivingThing {
 
     @Override
     public LivingThing copy() {
-        return new ActorLiXiaoYan(this.getLevel());
+        return new ActorLiXiaoYan(this);
     }
 
     @Override

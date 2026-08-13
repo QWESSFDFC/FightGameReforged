@@ -39,6 +39,60 @@ public class Phainon extends Player {
     private boolean pendingLastAttack = false;
     private int extraTurns = 0;
 
+    public Phainon(Phainon phainon1) {
+        super(phainon1);
+        isAwaken = phainon1.isAwaken;
+        extraAbilityTier = phainon1.extraAbilityTier;
+        formerExtraAbilityTier = phainon1.formerExtraAbilityTier;
+        absorbDamage = phainon1.absorbDamage;
+        extraTurns = phainon1.extraTurns;
+        pendingLastAttack = phainon1.pendingLastAttack;
+        isListenerRegister = phainon1.isListenerRegister;
+        skills = new ArrayList<>(this.getController().getSkills());
+        coreflame_max = phainon1.coreflame_max;
+        soulscorch = phainon1.soulscorch;
+        scourge = phainon1.scourge;
+        scourge_max = phainon1.scourge_max;
+        coreflame = phainon1.coreflame;
+        this.setModifyDamage(
+                new IModifyDamage() {
+                    @Override
+                    public long damageModify(long newHp, DamageEvent da) {
+                        if (da.getAttackedEntity() instanceof Phainon phainon) {
+                            if (((Phainon) da.getAttackedEntity()).isAwaken && newHp <= 0) {
+                                if (((Phainon) da.getAttackedEntity()).isPendingLastAttack()) {
+                                    return 1;
+                                }
+                                newHp = 1;
+                                ((Phainon) da.getAttackedEntity()).setPendingLastAttack(true);
+                                FightTurnPastListener.getPresentTurn().getLastExecuteList().add((fight, user) -> {
+                                    List<LivingThing> availableTargets;
+                                    if (fight.getEnemiesList().contains(phainon))
+                                        availableTargets = new ArrayList<>(fight.getFighterList());
+                                    else {
+                                        availableTargets = new ArrayList<>(fight.getEnemiesList());
+                                    }
+
+                                    if (!availableTargets.isEmpty())
+                                        new LastAttack().comeToEffect(fight, phainon, availableTargets);
+                                });
+
+                            }
+                        }
+                        return newHp;
+                    }
+                }
+
+        );
+        this.setShowSpecialMes(user -> {
+            if (user instanceof Phainon phainon) {
+                if (phainon.isAwaken)
+                    System.out.println("毁伤数量" + phainon.getScourge() + "|||剩余额外回合数" + phainon.getExtraTurns());
+                else System.out.println("当前火种数" + phainon.getCoreflame());
+            }
+        });
+    }
+
     public Phainon(long l) {
         super("白厄", "phainon", 0.7, 0, 0, 0, 0, 120, l, "player", 29, 40, 25, ElementSort.FIRE);
         List<Skill> skillList = new ArrayList<>();
@@ -256,7 +310,7 @@ public class Phainon extends Player {
 
     @Override
     public LivingThing copy() {
-        return new Phainon(this.getLevel());
+        return new Phainon(this);
     }
 
     public boolean isAwaken() {

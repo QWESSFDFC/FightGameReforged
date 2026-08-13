@@ -4,6 +4,8 @@ import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.mana.Mana;
+import cn.gfhnv.game.system.thinkingSystem.Tag;
+import cn.gfhnv.game.system.thinkingSystem.TagType;
 
 import java.util.List;
 
@@ -14,6 +16,7 @@ public class RestorationHealthSkill extends Skill {
         super("生命值恢复", "恢复生命值.1冷却", hpMagnification, atkMagnification, defMagnification, aims);
         this.neededManaScale = neededManaScale;
         this.setForEnemies(false);
+        this.getTags().put(TagType.HEAL, new Tag(1));
         this.setCoolDown(1);
     }
 

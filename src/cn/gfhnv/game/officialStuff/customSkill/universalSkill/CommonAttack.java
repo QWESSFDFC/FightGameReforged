@@ -4,6 +4,8 @@ import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.officialStuff.customEffect.universalEffects.DamageEnhanceEffect;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.fight.Fight;
+import cn.gfhnv.game.system.thinkingSystem.Tag;
+import cn.gfhnv.game.system.thinkingSystem.TagType;
 
 import java.util.List;
 
@@ -11,6 +13,7 @@ public class CommonAttack extends Skill {
     public CommonAttack(double hpMagnification, double atkMagnification, double defMagnification, int aim) {
         super("普通攻击", "最普通的攻击.无发动条件", hpMagnification, atkMagnification, defMagnification, aim);
         this.setCoolDown(0);
+        this.getTags().put(TagType.ATTACK, new Tag(1));
     }
 
     public CommonAttack(CommonAttack commonAttack) {

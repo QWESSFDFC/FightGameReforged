@@ -6,6 +6,8 @@ import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.mana.Mana;
+import cn.gfhnv.game.system.thinkingSystem.Tag;
+import cn.gfhnv.game.system.thinkingSystem.TagType;
 
 import java.util.List;
 
@@ -15,6 +17,7 @@ public class PyrohemicPumping extends Skill {
         super("灼血泵动", "获得 2 层【燃点】。消耗李晓焰 当前生命值 20%（此消耗不会使生命值降至 1 以下）", 2, 0, 0, 1);
         this.setCoolDown(1);
         this.setConsumedMana(new Mana(20, ElementSort.FIRE));
+        this.getTags().put(TagType.ATTACK, new Tag(3));
     }
 
     @Override

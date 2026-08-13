@@ -9,6 +9,8 @@ import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.mana.Mana;
+import cn.gfhnv.game.system.thinkingSystem.Tag;
+import cn.gfhnv.game.system.thinkingSystem.TagType;
 
 import java.util.List;
 
@@ -19,6 +21,7 @@ public class UltimateAttack extends Skill {
                 "在此期间，每受到一次攻击，获得 1 层【燃点】。", 4, 0, 0, 3);
         this.setCoolDown(4);
         this.setConsumedMana(new Mana(300, ElementSort.FIRE));
+        this.getTags().put(TagType.ATTACK, new Tag(5));
     }
 
 

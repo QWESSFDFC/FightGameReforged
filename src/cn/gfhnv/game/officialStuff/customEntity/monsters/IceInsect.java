@@ -21,4 +21,13 @@ public class IceInsect extends LivingThing {//没有冰属性,使用水代替
         skills.add(new Freeze());
         this.setController(new UniversalController(skills, this));
     }
+
+    public IceInsect(IceInsect iceInsect) {
+        super(iceInsect);
+    }
+
+    @Override
+    public LivingThing copy() {
+        return new IceInsect(this);
+    }
 }

@@ -13,6 +13,8 @@ import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.fight.TurnEntry;
 import cn.gfhnv.game.system.fight.TurnManager;
 import cn.gfhnv.game.system.mana.Mana;
+import cn.gfhnv.game.system.thinkingSystem.Tag;
+import cn.gfhnv.game.system.thinkingSystem.TagType;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -27,6 +29,7 @@ public class UltimateAttack extends Skill {
         this.setCoolDown(0);
         this.setConsumedMana(new Mana(0, ElementSort.UNIVERSAL));
         awakeEndListener = new AwakeEndListener();
+        this.getTags().put(TagType.ATTACK, new Tag(10));
     }
 
     public AwakeEndListener getAwakeEndListener() {

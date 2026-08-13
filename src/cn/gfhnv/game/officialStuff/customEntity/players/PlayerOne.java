@@ -13,6 +13,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class PlayerOne extends Player {
+    public PlayerOne(PlayerOne playerOne) {
+        super(playerOne);
+    }
+
     public PlayerOne(long l) {
         super("玩家一", "playerOne", 0.3, 0.0, 0.0, 0.0, 0.3, 120, l, "player", 36, 29, 5, ElementSort.DIRT);
         this.setMass(60);
@@ -28,7 +32,7 @@ public class PlayerOne extends Player {
 
     @Override
     public LivingThing copy() {
-        return new PlayerOne(this.getLevel());
+        return new PlayerOne(this);
     }
 
 }

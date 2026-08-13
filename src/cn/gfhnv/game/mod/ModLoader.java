@@ -15,6 +15,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * AI写的
+ */
 public class ModLoader {
     public static void modLoaderInitialize() {
         System.out.println("正在初始化模组加载器并加载模组");

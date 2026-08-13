@@ -4,6 +4,8 @@ import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.officialStuff.customEntity.players.Phainon;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.fight.Fight;
+import cn.gfhnv.game.system.thinkingSystem.Tag;
+import cn.gfhnv.game.system.thinkingSystem.TagType;
 
 import java.util.Collections;
 import java.util.List;
@@ -12,6 +14,7 @@ public class Counterattack extends Skill {
     public Counterattack() {
         super("灾厄-弑魂焚诏的反击", "灾厄-弑魂焚诏的反击", 0, 0.4, 0, -1);
         this.setCoolDown(0);
+        this.getTags().put(TagType.ATTACK, new Tag(1));
     }
 
     @Override

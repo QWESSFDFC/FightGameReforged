@@ -6,6 +6,8 @@ import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.mana.Mana;
+import cn.gfhnv.game.system.thinkingSystem.Tag;
+import cn.gfhnv.game.system.thinkingSystem.TagType;
 
 import java.util.List;
 
@@ -15,6 +17,7 @@ public class GunShoot extends Skill {
         super("枪射击", "射出多发子弹.伤害基于攻击力.1冷却", 0, 7.5, 0, 2);
         this.setCoolDown(1);
         this.setConsumedMana(new Mana(10, ElementSort.UNIVERSAL));
+        this.getTags().put(TagType.ATTACK, new Tag(5));
     }
 
 

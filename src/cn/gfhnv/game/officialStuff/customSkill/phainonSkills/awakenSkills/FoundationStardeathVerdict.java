@@ -5,6 +5,8 @@ import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.officialStuff.customEntity.players.Phainon;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.fight.Fight;
+import cn.gfhnv.game.system.thinkingSystem.Tag;
+import cn.gfhnv.game.system.thinkingSystem.TagType;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -15,6 +17,7 @@ public class FoundationStardeathVerdict extends Skill {
     public FoundationStardeathVerdict() {
         super("支柱-死星天裁", "解除自身所有负面效果，随后造成最多等同于卡厄斯兰那1170%攻击力的火属性伤害。", 0, 0.45, 0, -1);
         this.setCoolDown(0);
+        this.getTags().put(TagType.ATTACK, new Tag(5));
     }
 
     @Override

@@ -96,7 +96,6 @@ public class GameMain {
                     while (true) {
                         input = SCANNER.nextLine();
                         if (input.equalsIgnoreCase("yes")) {
-
                             World.addThing(selectedLivingThing);
                             System.out.println("输入下一个数字或next");
                             fighters.add(selectedLivingThing);

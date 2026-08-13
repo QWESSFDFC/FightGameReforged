@@ -9,6 +9,9 @@ import java.io.FileReader;
 import java.io.IOException;
 
 public class JSONHelper {
+    /**
+     * AI写的
+     */
     public static JSONObject readJSONFile(File file) throws IOException, JSONException {
         StringBuilder content = new StringBuilder();
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {

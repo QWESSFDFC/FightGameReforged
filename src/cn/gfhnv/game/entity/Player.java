@@ -15,4 +15,9 @@ public class Player extends LivingThing {
     public Player(String name, String id, long l, ElementSort u) {
         super(name, id, l, u);
     }
+
+    @Override
+    public LivingThing copy() {
+        return new Player(this);
+    }
 }

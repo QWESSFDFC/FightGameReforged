@@ -5,6 +5,8 @@ import cn.gfhnv.game.officialStuff.customEntity.players.Phainon;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.fight.TurnManager;
+import cn.gfhnv.game.system.thinkingSystem.Tag;
+import cn.gfhnv.game.system.thinkingSystem.TagType;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -17,6 +19,7 @@ public class CalamitySoulscorchEdict extends Skill {
     public CalamitySoulscorchEdict() {
         super("灾厄-弑魂焚诏", "获得等同于敌方全体数量的【毁伤】和1层【弑魂之炽】，随后使敌方全体立即行动。", 0, 0, 0, -1);
         this.setCoolDown(0);
+        this.getTags().put(TagType.ATTACK, new Tag(1));
     }
 
     public CalamitySoulscorchEdict(CalamitySoulscorchEdict attack) {
