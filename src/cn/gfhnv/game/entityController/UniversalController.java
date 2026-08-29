@@ -3,6 +3,7 @@ package cn.gfhnv.game.entityController;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.event.SelectTargetEvent;
+import cn.gfhnv.game.interfaces.IInitialize;
 import cn.gfhnv.game.interfaces.ISpecialAction;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.fight.ActionSignal;
@@ -18,10 +19,20 @@ public class UniversalController {
     private LivingThing owner;
     private ISpecialAction specialAction;
     private ActionSignal actionSignal = ActionSignal.NORMAL;
+private IInitialize iInitialize=null;
+
+    public IInitialize getiInitialize() {
+        return iInitialize;
+    }
+
+    public void setiInitialize(IInitialize iInitialize) {
+        this.iInitialize = iInitialize;
+    }
 
     //不会使用物品.懒得写.
     public UniversalController(UniversalController universalController, LivingThing owner) {
         this.owner = owner;
+        if (universalController.getiInitialize()!=null) this.setiInitialize(universalController.getiInitialize().copy());
         for (Skill skill : universalController.skills) {
             if (universalController.skills != null) {
                 skills.add(skill.copy());

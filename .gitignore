@@ -46,3 +46,5 @@ build-input/
 *.key
 /.idea/
 /mods/*/bin/
+./ANALYSIS.md
+/ANALYSIS.md

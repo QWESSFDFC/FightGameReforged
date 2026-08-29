@@ -130,6 +130,7 @@ public class LivingThing extends Entity {
         } else {
             this.controller = new UniversalController(other.controller, this);
         }
+        if (this.controller!=null&&this.controller.getiInitialize()!=null) this.controller.getiInitialize().initialize(this.controller);
         if (!other.getManas().isEmpty()) {
             for (Mana mana : other.getManas()) {
                 this.getManas().add(new Mana(mana));
