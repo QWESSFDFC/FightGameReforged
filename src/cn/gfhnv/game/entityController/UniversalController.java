@@ -101,21 +101,11 @@ private IInitialize iInitialize=null;
             selectedSkill.use(fight, owner);
             return;
         }
-        boolean ownerIsEnemy = fight.getEnemiesList().contains(owner);
         boolean targetIsEnemy = selectedSkill.isForEnemies();
         List<LivingThing> candidates;
-        if (ownerIsEnemy) {
-            if (targetIsEnemy) {
-                candidates = new ArrayList<>(fight.getFighterList());
-            } else {
-                candidates = new ArrayList<>(fight.getEnemiesList());
-            }
-        } else {
-            if (targetIsEnemy) {
-                candidates = new ArrayList<>(fight.getEnemiesList());
-            } else {
-                candidates = new ArrayList<>(fight.getFighterList());
-            }
+        if (targetIsEnemy) {candidates=new ArrayList<>(fight.getOpponentList(getOwner()));}
+        else {
+            candidates=new ArrayList<>(fight.getOwnList(getOwner()));
         }
         List<LivingThing> targets;
         if (selectedSkill.getAims() == -1) {
