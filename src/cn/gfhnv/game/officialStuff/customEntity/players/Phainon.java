@@ -25,7 +25,7 @@ import java.util.ListIterator;
 
 public class Phainon extends Player {
     private final FightStartAndSelectEventListener fightStartAndSelectEventListener = new FightStartAndSelectEventListener();
-    private boolean isListenerRegister = false;
+    private static boolean isListenerRegister = false;
     private int coreflame = 0;
     private int coreflame_max = 15;
     private int soulscorch;
@@ -47,7 +47,6 @@ public class Phainon extends Player {
         absorbDamage = phainon1.absorbDamage;
         extraTurns = phainon1.extraTurns;
         pendingLastAttack = phainon1.pendingLastAttack;
-        isListenerRegister = phainon1.isListenerRegister;
         skills = new ArrayList<>(this.getController().getSkills());
         coreflame_max = phainon1.coreflame_max;
         soulscorch = phainon1.soulscorch;
@@ -252,7 +251,7 @@ public class Phainon extends Player {
         if (this.isAwaken) {
             EventBus.post(new AwakenEndEvent(this));
         }
-        this.isListenerRegister = false;
+        isListenerRegister = false;
         this.isAwaken = false;
         EventBus.unregister(this.fightStartAndSelectEventListener);
         this.setShowSpecialMes(user -> {
@@ -274,9 +273,8 @@ public class Phainon extends Player {
     @Override
     public void whenFightStart(Fight fight) {
         super.whenFightStart(fight);
-        EventBus.register(this.fightStartAndSelectEventListener);
-
-        this.isListenerRegister = true;
+        if (!isListenerRegister()) EventBus.register(this.fightStartAndSelectEventListener);
+        isListenerRegister = true;
     }
 
     @Override

@@ -11,7 +11,7 @@ import java.util.List;
 
 public class AwakenCommonAttack extends Skill {
     public AwakenCommonAttack() {
-        super("普通攻击-创生-血棘渡亡", "最普通的攻击.无发动条件.获得2点【毁伤】", 0, 2.5, 0, 3);
+        super("普通攻击-创生-血棘渡亡", "最普通的攻击.无发动条件.获得2点【毁伤】", 0, 3, 0, 3);
         this.setCoolDown(0);
         this.getTags().put(TagType.ATTACK, new Tag(1));
     }
@@ -34,7 +34,7 @@ public class AwakenCommonAttack extends Skill {
             user.makeDamage(livingThing, this);
         }
         if (user instanceof Phainon) {
-            ((Phainon) user).addScourge(2);
+            ((Phainon) user).addScourge(4);
         }
     }
 }

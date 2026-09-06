@@ -12,7 +12,7 @@ public class FightStartAndSelectEventListener {
     public void listen(SelectTargetEvent event) {
         for (LivingThing livingThing : event.getTargets()) {
             if (livingThing instanceof Phainon) {
-                ((Phainon) livingThing).setCoreflame(Math.min(((Phainon) livingThing).getCoreflame_max(), ((Phainon) livingThing).getCoreflame()) + 1);
+                ((Phainon) livingThing).setCoreflame(Math.min(((Phainon) livingThing).getCoreflame_max(), ((Phainon) livingThing).getCoreflame()+1) );
                 System.out.println(livingThing.getName() + "获得了一个火种");
                 if (event.getFight().getFighterList().contains(event.getSelector()) && event.getFight().getFighterList().contains(livingThing)) {
                     livingThing.addEffect(new CriticalDMGEnhanceEffect(0.3, 3).setOrigin(livingThing.getUUID()));

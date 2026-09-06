@@ -16,7 +16,7 @@ import java.util.List;
 
 public class LastAttack extends Skill {
     public LastAttack() {
-        super("最后一击", "最后一击", 0, 9.6, 0, -1);
+        super("最后一击", "最后一击", 0, 13, 0, -1);
         this.setConsumedMana(new Mana(0, ElementSort.UNIVERSAL));
         this.setCoolDown(0);
         this.getTags().put(TagType.ATTACK, new Tag(1));

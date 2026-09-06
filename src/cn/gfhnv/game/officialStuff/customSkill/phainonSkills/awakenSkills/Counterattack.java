@@ -12,7 +12,7 @@ import java.util.List;
 
 public class Counterattack extends Skill {
     public Counterattack() {
-        super("灾厄-弑魂焚诏的反击", "灾厄-弑魂焚诏的反击", 0, 0.4, 0, -1);
+        super("灾厄-弑魂焚诏的反击", "灾厄-弑魂焚诏的反击", 0, 1, 0, -1);
         this.setCoolDown(0);
         this.getTags().put(TagType.ATTACK, new Tag(1));
     }
@@ -47,12 +47,12 @@ public class Counterattack extends Skill {
             user.makeDamage(livingThing, this);
         }
         this.setAtkMagnification(randomMag);
-        for (int i = 0; i <= 3; i++) {
+        for (int i = 0; i <= 5; i++) {
             Collections.shuffle(enemies);
             user.makeDamage(enemies.getFirst(), this);
         }
 
-        this.setAtkMagnification(0.4);
+        this.setAtkMagnification(1);
 
     }
 

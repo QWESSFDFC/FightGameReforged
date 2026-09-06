@@ -17,7 +17,7 @@ public class InsectBoss extends LivingThing {
         List<Skill> skills = new ArrayList<>();
         this.setDescription("这是虫皇.可以普通攻击和分裂出普通虫子,无上限");
         skills.add(new InsectBossSkillSummonEnemy());
-        skills.add(new CommonAttack(0, 0.9, 0, 2));
+        skills.add(new CommonAttack(0, 1, 0, 2));
         this.setController(new UniversalController(skills, this));
         this.setMass(1250);
         this.getInventory().addSlot(63);

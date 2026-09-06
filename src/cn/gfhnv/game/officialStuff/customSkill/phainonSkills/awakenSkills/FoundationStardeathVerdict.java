@@ -43,7 +43,7 @@ public class FoundationStardeathVerdict extends Skill {
         if (user instanceof Phainon phainon) {
             int scourge = Math.min(phainon.getScourge(), 4);//消耗的数量
             phainon.setScourge(phainon.getScourge() - scourge);
-            int attackTimes = 4 * scourge;
+            int attackTimes = 6 * scourge;
 
             for (int i = 1; i <= attackTimes; i++) {
                 e.removeIf(livingThing -> !livingThing.isAlive());
@@ -60,7 +60,7 @@ public class FoundationStardeathVerdict extends Skill {
                 this.setAtkMagnification(0.45);
                 return;
             }
-            this.setAtkMagnification(4.5 / e.size());
+            this.setAtkMagnification((double) 6 / e.size());
             for (LivingThing livingThing : e) {
                 System.out.print(user.getName() + "攻击了" + livingThing.getName());
                 user.makeDamage(livingThing, this);

@@ -31,6 +31,7 @@ public class FixOrderController extends UniversalController {
        }
         Random rand = new Random();
         Skill selectedSkill=skillQueue.poll();
+        if (selectedSkill==null) return;
         if (selectedSkill.getAims() == 0) {
             selectedSkill.use(fight, getOwner());
             return;

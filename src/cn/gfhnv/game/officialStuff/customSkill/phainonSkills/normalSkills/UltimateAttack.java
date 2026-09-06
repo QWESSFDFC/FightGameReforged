@@ -72,7 +72,7 @@ public class UltimateAttack extends Skill {
             EventBus.register(awakeEndListener);
             user.getController().setActionSignal(ActionSignal.WITHOUT_NEW_TURN);
         }
-        BigDecimal needTime = BigDecimal.valueOf(10000).divide(BigDecimal.valueOf(user.getSpeed()).multiply(BigDecimal.valueOf(0.6)), 10, RoundingMode.HALF_UP);
+        BigDecimal needTime = BigDecimal.valueOf(10000).divide(BigDecimal.valueOf(user.getSpeed()), 10, RoundingMode.HALF_UP);
         if (user instanceof Phainon) {
             ((Phainon) user).setExtraTurns(8);
             ((Phainon) user).addScourge(4);
