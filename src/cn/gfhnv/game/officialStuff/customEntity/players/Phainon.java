@@ -30,7 +30,7 @@ public class Phainon extends Player {
     private int coreflame_max = 15;
     private int soulscorch;
     private int scourge = 0;
-    private int scourge_max = 7;
+    private int scourge_max = 8;
     private boolean isAwaken = false;
     private int extraAbilityTier = 0;
     private int formerExtraAbilityTier = 0;
