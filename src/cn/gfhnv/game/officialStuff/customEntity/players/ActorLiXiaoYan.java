@@ -28,6 +28,7 @@ public class ActorLiXiaoYan extends LivingThing {
         this.lastIgnition = other.lastIgnition;
         this.memorizedRate = other.memorizedRate;
         this.setIndividualMultipleArea(other.getIndividualMultipleArea());
+
     }
 
     public ActorLiXiaoYan(long l) {
@@ -54,7 +55,7 @@ public class ActorLiXiaoYan extends LivingThing {
                         }
                     }
                     if (((ActorLiXiaoYan) da.getAttackedEntity()).getIgnition() >= 10 && correctedHp <= 0) {
-                        correctedHp = (long) (getHpMax() * 0.3);
+                        correctedHp = (long) ((da.getAttackedEntity()).getHpMax() * 0.3);
                         ((ActorLiXiaoYan) da.getAttackedEntity()).setIgnition(ignition - 10);
                     }
                 }
@@ -63,7 +64,7 @@ public class ActorLiXiaoYan extends LivingThing {
         });
         this.setShowSpecialMes(user -> {
             if (user instanceof ActorLiXiaoYan) {
-                System.out.println("燃点层数:" + getIgnition() + "/上限:" + ignitionMax);
+                System.out.println("燃点层数:" + ((ActorLiXiaoYan) user).getIgnition() + "/上限:" + ((ActorLiXiaoYan) user).getIgnitionMax());
             }
         });
     }

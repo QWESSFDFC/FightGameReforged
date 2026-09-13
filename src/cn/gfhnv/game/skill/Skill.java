@@ -64,7 +64,18 @@ public class Skill {
         this.isForEnemies = skill.isForEnemies();
         this.consumedMana = skill.consumedMana;
         this.extraDamage = skill.getExtraDamage();
+        if (!skill.getTags().isEmpty()) {
+            Map<TagType, Tag> newMap = new EnumMap<>(TagType.class);
+            for (Map.Entry<TagType, Tag> entry : skill.getTags().entrySet()) {
+                newMap.put(entry.getKey(), entry.getValue().copy());
+            }
+            this.setTags(newMap);
+        }
 
+    }
+
+    public void setTags(Map<TagType, Tag> tags) {
+        this.tags = tags;
     }
 
     /**

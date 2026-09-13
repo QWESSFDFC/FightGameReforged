@@ -97,7 +97,12 @@ public class FightTurnPastListener {
         if (presentTurn.getActionSignal().equals(ActionSignal.NORMAL)) {
             presentTurn.getLivingThing().getController().act(fightPastOneTurnEvent.getFight());
         } else if (presentTurn.getActionSignal().equals(ActionSignal.SPECIAL_ACTION)) {
-            presentTurn.getLivingThing().getController().getSpecialAction().execute(fightPastOneTurnEvent.getFight(), presentTurn.getLivingThing());
+            // 判空:回合条目里的 SPECIAL_ACTION 是创建时的快照,而 specialAction 可能已被效果
+            // (如 Frozen 到期)清掉,直接调用会 NPE 并让整局游戏崩掉
+            ISpecialAction specialAction = presentTurn.getLivingThing().getController().getSpecialAction();
+            if (specialAction != null) {
+                specialAction.execute(fightPastOneTurnEvent.getFight(), presentTurn.getLivingThing());
+            }
         }
         if (presentTurn.getActionSignal() != ActionSignal.WITHOUT_NEW_TURN && !presentTurn.getActionSignal().equals(ActionSignal.SKIP_WITHOUT_NEW_TURN)) {
             TurnEntry turn = new TurnEntry(presentTurn.getLivingThing(), BigDecimal.valueOf(10000).divide(BigDecimal.valueOf(presentTurn.getLivingThing().getSpeed()), 10, RoundingMode.HALF_UP), TurnManager.getPresentTime());

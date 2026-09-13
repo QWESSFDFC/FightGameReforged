@@ -48,3 +48,5 @@ build-input/
 /mods/*/bin/
 ./ANALYSIS.md
 /ANALYSIS.md
+/diff-tmp.txt
+/ANALYSIS-2026-08.md

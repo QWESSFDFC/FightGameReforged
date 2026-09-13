@@ -116,6 +116,8 @@ public class LivingThing extends Entity {
         this.defence = other.defence;
         this.attack = other.attack;
         this.hpMax = other.hpMax;
+        this.setShowSpecialMes(other.getShowSpecialMes());
+        this.setModifyDamage(other.modifyDamage);
         this.criticalDMG = other.criticalDMG;
         this.getCriticalRATE = other.getCriticalRATE;
         this.entityEffectList = new ArrayList<>(other.entityEffectList);
@@ -1810,7 +1812,7 @@ public class LivingThing extends Entity {
      * @return 最终暴击伤害倍率加成
      */
     public double getCriticalDMG() {
-        return criticalDMG * (1 + criticalDMGEnhancePercent) + criticalDMGEnhancePercent;
+        return criticalDMG * (1 + criticalDMGEnhancePercent) + criticalDMGEnhanceAmount;
     }
 
     /**

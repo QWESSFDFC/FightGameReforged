@@ -18,7 +18,7 @@ public class EffectEventListener {
             Effect ef = iterator.next();
             if (ef.isInfinity() || event.getTurnEntry().isExtra()) {
                 ef.comeIntoEffect(thing);
-                return;
+                continue;
             }
             if (ef.getLastTime() <= 0) {
                 ef.whenLastTimeEnd(thing);

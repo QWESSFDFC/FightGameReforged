@@ -7,6 +7,7 @@ import cn.gfhnv.game.system.fight.Fight;
 public class SkipTurn implements ISpecialAction {
     @Override
     public void execute(Fight fight, LivingThing user) {
-        System.out.printf(user.getName() + "跳过回合");
+        // 原来用的 printf + 字符串拼接:名字里含 '%' 会抛 UnknownFormatConversionException,且不会换行
+        System.out.println(user.getName() + "跳过回合");
     }
 }

@@ -12,6 +12,10 @@ import cn.gfhnv.game.system.thinkingSystem.TagType;
 import java.util.List;
 
 public class PyrohemicPumping extends Skill {
+    @Override
+    public Skill copy() {
+        return new PyrohemicPumping();
+    }
 
     public PyrohemicPumping() {
         super("灼血泵动", "获得 2 层【燃点】。消耗李晓焰 当前生命值 20%（此消耗不会使生命值降至 1 以下）", 2, 0, 0, 1);

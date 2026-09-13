@@ -44,7 +44,9 @@ private IInitialize iInitialize=null;
 
     public UniversalController(List<Skill> skills, LivingThing owner) {
         this.owner = owner;
-        this.skills = skills;
+     for (Skill skill:skills){
+         this.skills.add(skill.copy());
+     }
     }
 
     public ActionSignal getActionSignal() {
