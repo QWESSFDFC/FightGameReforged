@@ -56,7 +56,7 @@ public class DamageCalculate {
         double damageAbsorbed = targetEntity.getDamageAbsorbedPercent();
         double enhance = attacker.getEnhance();
         double attack = attacker.getAttack();
-        double hp = attacker.getHp();
+        double hp = attacker.getHpMax();
         double attackerDefence = attacker.getDefence();
         double individualMultipleArea = attacker.getIndividualMultipleArea();
         double hpMagnification = skill.getHpMagnification();
