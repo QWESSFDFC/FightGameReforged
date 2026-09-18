@@ -1552,7 +1552,7 @@ public class LivingThing extends Entity {
      * @return 生物的副本
      */
     public LivingThing copy() {
-        return new LivingThing(this);
+        throw new RuntimeException("请重写此方法..类"+this.getClass().getName());
     }
 
     /**
@@ -1745,6 +1745,7 @@ public class LivingThing extends Entity {
      */
     public void makeDamage(LivingThing attacked, Skill skill) {
         DamageEvent damageEvent = new DamageEvent(this, attacked, skill);
+        EventBus.post(damageEvent);
         System.out.print("造成了" + damageEvent.getDamage().getDamageAmount());
         attacked.getDamage(damageEvent);
 
@@ -1802,7 +1803,7 @@ public class LivingThing extends Entity {
         if (hp > getHp()) {
             EventBus.post(new HpRestorationEvent(hp - getHp(), this));
         }
-        this.hp = (long) Math.min(this.getHpMax(), hp);
+        this.hp = Math.min(this.getHpMax(), hp);
         if (this.hp < 0) {
             this.hp = 0;
         }

@@ -7,8 +7,8 @@ public class HpLossEvent extends Event {
     private LivingThing livingThing;
 
     public HpLossEvent(long lostScale, LivingThing livingThing) {
-        lostScale = lostScale;
-        livingThing = livingThing;
+        this.lostScale = lostScale;
+        this.livingThing = livingThing;
     }
 
     public LivingThing getLivingThing() {

@@ -19,23 +19,30 @@ public class CommonAttack extends cn.gfhnv.game.officialStuff.customSkill.univer
 
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
-        boolean enhanced = false;
-        if (user instanceof ActorLiXiaoYan) {
-            if (((ActorLiXiaoYan) user).getIgnition() >= 8)
-                setExtraDamage((long) (this.getExtraDamage() + user.getHpMax() * 0.5));
-            enhanced = true;
+        // 加算与减算必须用「同一时刻」的燃点判断。
+        // 原来是加算看自增"之前"的燃点(>=8)、减算看自增"之后"的燃点(<8 就 return),
+        // 于是燃点为 7 时(自增到 8 再减回 7)每次普攻净扣 0.5*生命上限,
+        // 而 Skill.extraDamage 全项目没有重置点 → 伤害逐次归零后变负,反而给敌人回血。
+        boolean wasHigh = false;
+        if (user instanceof ActorLiXiaoYan li && li.getIgnition() >= 8) {
+            setExtraDamage((long) (this.getExtraDamage() + user.getHpMax() * 0.5));
+            wasHigh = true;
         }
+
         super.comeToEffect(fight, user, enemies);
+
         long lostHp = (long) (user.getHpMax() - user.getHp());
         user.setHp(user.getHp() + (long) (lostHp * 0.05));
-        if (user instanceof ActorLiXiaoYan) {
-            ((ActorLiXiaoYan) user).setIgnition(((ActorLiXiaoYan) user).getIgnition() + 1);
+        if (user instanceof ActorLiXiaoYan li) {
+            li.setIgnition(li.getIgnition() + 1);
+            // 燃点达到 8 层后不再继续累积(打一次涨一层也扣一层),净变化为 0
+            if (li.getIgnition() >= 8) {
+                li.setIgnition(li.getIgnition() - 1);
+            }
         }
-        if (user instanceof ActorLiXiaoYan) {
-            if (((ActorLiXiaoYan) user).getIgnition() < 8) return;
-            ((ActorLiXiaoYan) user).setIgnition(((ActorLiXiaoYan) user).getIgnition() - 1);
-        }
-        if (enhanced) {
+
+        // 只扣回「确实加过」的那一次;原来用无条件为 true 的 enhanced 标志,漏加也会被扣
+        if (wasHigh) {
             setExtraDamage((long) (this.getExtraDamage() - user.getHpMax() * 0.5));
         }
     }

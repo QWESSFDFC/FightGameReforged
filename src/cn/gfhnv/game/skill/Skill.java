@@ -105,7 +105,7 @@ public class Skill {
      * @return 技能的深拷贝实例
      */
     public Skill copy() {
-        return new Skill(this);
+        throw new RuntimeException("请重写此方法..类"+this.getClass().getName());
     }
 
     /**

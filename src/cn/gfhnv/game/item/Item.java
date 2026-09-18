@@ -149,7 +149,7 @@ public class Item extends Thing {
      * @return 物品的深拷贝实例
      */
     public Item copy() {
-        return new Item(this);
+        throw new RuntimeException("请重写此方法..类"+this.getClass().getName());
     }
 
     public Item facSetName(String name) {

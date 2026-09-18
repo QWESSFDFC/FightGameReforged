@@ -170,7 +170,7 @@ public class GameMain {
                     break;
                 }
                 try {
-                    selectedItem = new Item(items[Integer.parseInt(input)]);
+                    selectedItem = items[Integer.parseInt(input)].copy();
                     System.out.println(selectedItem.getDescription());
                     while (true) {
                         input = SCANNER.nextLine();
