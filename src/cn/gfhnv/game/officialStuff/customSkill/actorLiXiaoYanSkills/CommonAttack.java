@@ -19,10 +19,8 @@ public class CommonAttack extends cn.gfhnv.game.officialStuff.customSkill.univer
 
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
-        // 加算与减算必须用「同一时刻」的燃点判断。
-        // 原来是加算看自增"之前"的燃点(>=8)、减算看自增"之后"的燃点(<8 就 return),
-        // 于是燃点为 7 时(自增到 8 再减回 7)每次普攻净扣 0.5*生命上限,
-        // 而 Skill.extraDamage 全项目没有重置点 → 伤害逐次归零后变负,反而给敌人回血。
+        // 加算与减算必须用「同一时刻」的燃点判断（这里用 wasHigh 快照），
+        // 否则会出现「加过却按未加成扣除」或「没加也扣」的配平错误。
         boolean wasHigh = false;
         if (user instanceof ActorLiXiaoYan li && li.getIgnition() >= 8) {
             setExtraDamage((long) (this.getExtraDamage() + user.getHpMax() * 0.5));
@@ -41,7 +39,7 @@ public class CommonAttack extends cn.gfhnv.game.officialStuff.customSkill.univer
             }
         }
 
-        // 只扣回「确实加过」的那一次;原来用无条件为 true 的 enhanced 标志,漏加也会被扣
+        // 只扣回「确实加过」的那一次（wasHigh 为 true 才扣），保证加算减算严格配对
         if (wasHigh) {
             setExtraDamage((long) (this.getExtraDamage() - user.getHpMax() * 0.5));
         }

@@ -2,7 +2,9 @@
 这是一个使用java编写的游戏.目前只有文字,大概能正常玩了?代码随便用,随便改.我是高中生,没时间.偶尔更新.编写此项目只是为了图一乐,发到Github上纯粹是闲的没事.目前没有使用java的相关游戏引擎,只是自己写东西,自娱自乐.......
 暂不接受 Pull Request。如果你有改进想法，请 fork 本仓库后自行修改，自由使用。我只想自己写点东西玩玩.
 使用方法:直接运行.jar文件.可以自己编译或者下载Release中编译好的.但是Release中版本可能落后一点.
-我使用了AI(DeepSeek)写了部分代码.本项目的Javadoc都是ai写的，而且我没有核对，可能有问题。
+我使用了AI(DeepSeek)写了部分代码.本项目的Javadoc都是ai写的，而且我没有核对，可能有问题.
+其中**命令系统**（`system/command/` 与 `officialStuff/customCommands/`）的代码、Javadoc 与说明文档
+全部由 AI 编写，详见下面的「命令系统」一节与 `project_analyses/COMMAND-SYSTEM-2026-08.md`。
 
 下面是使用AI写的README.md
 
@@ -34,7 +36,54 @@ FightGameReforged
 · 事件驱动架构：通过自定义 EventBus 和 @SubscribeEvent(priority=...)或者@SubscribeEvent 注解解耦游戏逻辑，为扩展性打下基础。默认优先级3.数字越小,优先级越高,数字最小是0.
 · 内置模组系统：可自动扫描并加载外部模组，支持动态编译 .java 源码，方便添加新生物、技能与物品。
 · Utility AI 控制器：非玩家角色基于 Tag 权重系统进行决策——每个实体拥有独立的 Tag 权重（体现性格），结合实时情境（血量等）计算行动得分，选出最优行为。
+· 命令系统（AI 编写，参考《我的世界》Java 版）：输入 `/` 或 `#` 开头的命令即可调试战斗，支持实体选择器、参数类型、错误定位与 Tab 补全建议。
 · MIT 开源许可：代码完全开放，随意使用、修改、分发。
+
+---
+
+⌨️ 命令系统
+
+> 这一部分（含代码与文档）由 AI（DeepSeek）编写，作者未逐条核对。
+
+在游戏原有输入方式**完全不变**的前提下，额外支持以 `/` 或 `#` 开头的命令。例如战斗中轮到你行动时，可以直接输入命令，然后继续正常选择技能。
+
+内置命令：
+
+| 命令 | 说明 |
+|---|---|
+| `/help` 或 `/?` | 列出所有命令 |
+| `/help <命令名>` | 查看某条命令的用法 |
+| `/list [目标]` | 列出当前战斗中的生物状态（HP/攻防速/存活） |
+| `/kill <目标>` | 把目标生命值清零 |
+| `/hurt <目标> <数值>` | 改生命值，正数扣血、负数回血 |
+| `/endfight [win\|lose]` | 强制结束战斗（默认按玩家胜利结算） |
+
+实体选择器（写在需要目标的位置）：
+
+```
+@s                            执行者自己（玩家当前选的角色）
+@p / @n / @r                  最近 / 最远 / 随机 一个生物
+@a / @e                       全部生物（含自己队伍，与 MC 语义一致）
+@e[type=InsectBoss]           按类型筛选（简单类名，不区分大小写）
+@e[name=*虫*]                  按名字筛选（支持 * 通配）
+@e[type=CommonInsect,limit=2,sort=nearest]    可组合：type / name / limit / sort
+```
+
+**⚠️ cmd.exe 里请使用 ASCII 类名**（中文控制台输入会被 Windows 原生层丢掉，实测 `System.in` 与
+`System.console()` 两条路径都拿不到，Java 侧无法修复）。对应关系：
+
+| ASCII 类名 | 生物 | | ASCII 类名 | 生物 |
+|---|---|---|---|---|
+| `PlayerOne` | 玩家一 | | `InsectBoss` | 虫皇 |
+| `ActorLiXiaoYan` | 李晓焰 | | `CommonInsect` | 普通虫子 |
+| `Phainon` | 白厄 | | `IceInsect` | 冰虫子 |
+
+中文名与 id 匹配本身是**实现好且有自测覆盖**的（`@e[name=普通虫子]` 在自测里能选中虫子），
+只是 cmd 送不进来；换 Windows Terminal / IDEA 运行通常可用。
+
+想给自己的模组加命令，看 `project_analyses/COMMAND-SYSTEM-2026-08.md`：
+那里有完整说明、两种注册写法（直接建树 / `@Subcommand` 注解）与踩坑清单。
+一行接入现有代码也只要：`if (CommandManager.process(input)) { continue; }`
 
 ---
 
@@ -88,9 +137,13 @@ FightGameReforged/
 │   ├── inventory/       # 背包系统
 │   ├── item/            # 物品定义
 │   ├── mod/             # 模组加载器
-│   ├── officialStuff/   # 官方内容（预设角色/技能）
+│   ├── officialStuff/   # 官方内容（预设角色/技能/命令）
 |   └── system           #战斗系统,思考系统,log系统,mana,甚至是简单的物理
+│       └── command/     # 命令系统（AI 编写，参考 MC：参数类型/选择器/命令树/调度器）
 ├── mods/                # 外部模组存放目录
+├── project_analyses/    # 分析文档与命令系统说明
+├── test-command-system.ps1      # 命令系统自测脚本（编译 + 运行，55+ 条断言）
+├── 启动游戏-UTF8.bat             # 启动脚本（切 UTF-8 控制台；内容纯 ASCII）
 └── README.md
 可能还有没有列出的文件夹
 ```
@@ -167,6 +220,56 @@ The author is a high school student passionate about programming and game develo
 - **Built‑in mod system**: automatically scans and loads external mods, supports dynamic compilation of .java source files, facilitating the addition of new creatures, skills, and items.
 - **Utility AI controller**: non‑player characters make decisions based on a Tag weight system — each entity has its own Tag weights (reflecting personality), combined with real‑time context (HP, etc.) to compute action scores and select the optimal behavior.
 - **MIT open‑source license**: code is fully open, free to use, modify, and distribute.
+- **Command system** (AI‑written, modelled on Minecraft Java Edition): type a command starting with `/` or `#` to inspect or tweak a fight — entity selectors, typed arguments, located error messages, and tab‑completion suggestions.
+
+---
+
+## ⌨️ Command System
+
+> This section (code and docs) was written by AI (DeepSeek) and has not been reviewed line by line by the author.
+
+The game's original input flow is **unchanged**; commands are simply an extra input form starting with `/` or `#`. During your turn you can run a command and then continue picking skills as usual.
+
+Built‑in commands:
+
+| Command | Description |
+|---|---|
+| `/help` or `/?` | List all commands |
+| `/help <name>` | Show usage of one command |
+| `/list [target]` | List living things in the current fight (HP / atk / def / speed / alive) |
+| `/kill <target>` | Set the target's HP to zero |
+| `/hurt <target> <amount>` | Change HP; positive damages, negative heals |
+| `/endfight [win\|lose]` | Force‑end the fight (defaults to a player win) |
+
+Entity selectors (used wherever a target is expected):
+
+```
+@s                            the executor (the character you picked)
+@p / @n / @r                  nearest / furthest / random one
+@a / @e                       every living thing (includes your own team, same as MC)
+@e[type=InsectBoss]           filter by type (simple class name, case‑insensitive)
+@e[name=*虫*]                  filter by name (supports * wildcards)
+@e[type=CommonInsect,limit=2,sort=nearest]    combinable: type / name / limit / sort
+```
+
+**⚠️ In `cmd.exe`, use ASCII class names.** Chinese console input is dropped by the Windows
+native console layer (verified: both `System.in` and `System.console()` fail to receive it, so it
+cannot be fixed on the Java side). Mapping:
+
+| ASCII class name | Creature | | ASCII class name | Creature |
+|---|---|---|---|---|
+| `PlayerOne` | 玩家一 | | `InsectBoss` | 虫皇 |
+| `ActorLiXiaoYan` | 李晓焰 | | `CommonInsect` | 普通虫子 |
+| `Phainon` | 白厄 | | `IceInsect` | 冰虫子 |
+
+Matching by Chinese name or by id **is implemented and covered by self‑tests**
+(`@e[name=普通虫子]` selects the insect in the test suite) — it is only `cmd.exe` that cannot
+deliver the characters. Windows Terminal or running from an IDE usually works.
+
+To add your own commands, see `project_analyses/COMMAND-SYSTEM-2026-08.md`
+(full guide, two registration styles — plain tree building or `@Subcommand` annotations — and a
+list of pitfalls). Hooking it into existing code takes one line:
+`if (CommandManager.process(input)) { continue; }`
 
 ---
 
@@ -224,9 +327,13 @@ FightGameReforged/
 │   ├── inventory/       # Inventory system
 │   ├── item/            # Item definitions
 │   ├── mod/             # Mod loader
-│   ├── officialStuff/   # Official content (preset characters/skills)
+│   ├── officialStuff/   # Official content (preset characters/skills/commands)
 |   └── system           # Battle system, thinking system, log system, mana, and even simple physics
+│       └── command/     # Command system (AI-written, MC-style: argument types/selectors/tree/dispatcher)
 ├── mods/                # Directory for external mods
+├── project_analyses/    # Analysis docs and the command system guide
+├── test-command-system.ps1      # Command system self-test (compiles + runs, 55+ assertions)
+├── 启动游戏-UTF8.bat             # Launcher (switches console to UTF-8; file content is pure ASCII)
 └── README.md
 There may be additional folders not listed here.
 ```

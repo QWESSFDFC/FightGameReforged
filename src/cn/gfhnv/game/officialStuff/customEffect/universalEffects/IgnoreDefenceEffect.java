@@ -2,6 +2,7 @@ package cn.gfhnv.game.officialStuff.customEffect.universalEffects;
 
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.effect.EffectTags;
+import cn.gfhnv.game.entity.LivingThing;
 
 
 public class IgnoreDefenceEffect extends Effect {
@@ -45,5 +46,8 @@ public class IgnoreDefenceEffect extends Effect {
         this.amount = amount;
     }
 
+    @Override
+    public void comeIntoEffect(LivingThing thing) {
 
+    }
 }

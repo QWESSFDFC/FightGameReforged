@@ -5,6 +5,7 @@ import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.event.FightEndEvent;
 import cn.gfhnv.game.item.Item;
+import cn.gfhnv.game.system.command.CommandManager;
 import cn.gfhnv.game.system.fight.TurnManager;
 import cn.gfhnv.game.world.World;
 
@@ -20,6 +21,11 @@ public class FightEndEventListener {
     @SubscribeEvent
     public void worldTurnEventListener(FightEndEvent fightEndEvent) {
         TurnManager.getTurns().clear();
+        // AI 添加：让回合驱动循环停下来。否则 /endfight 这类「战斗中途结束」的场景里，
+        // 循环会在清理完之后再跑一圈，而 isDriving 仍为 true，下一场战斗的驱动会被它挡掉。
+        fightTurnPastListener.setDriving(false);
+        // AI 添加：把「当前战斗」从命令系统里注销，避免命令继续往已经结束的战斗里找目标
+        CommandManager.clearCurrentFight();
         for (LivingThing entity : fightEndEvent.getFight().getAllEntities()) {
             if (entity != null) {
                 entity.whenFightEnds();

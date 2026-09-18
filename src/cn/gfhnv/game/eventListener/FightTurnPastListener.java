@@ -24,12 +24,11 @@ public class FightTurnPastListener {
     private static TurnEntry presentTurn;
 
     /**
-     * AI修复
      * 是否正在由本监听器驱动回合循环。
      * <p>
-     * 用来切断递归：本监听器自己只发一次 {@link FightPastOneTurnEvent}，
+     * 回合推进由 {@code turnLoop} 循环负责：本监听器只发一次 {@link FightPastOneTurnEvent}，
      * 之后每回合通过 {@code continue turnLoop} 回到循环开头，而不是再 post 一次事件。
-     * 这样<b>栈深度不再随回合数增长</b>（O(回合数) → O(1)），长战斗不会 StackOverflowError。
+     * 因此<b>栈深度不随回合数增长</b>（O(回合数) → O(1)），长战斗不会 StackOverflowError。
      * <p>
      * 若外部（例如模组）另外 post 了 {@link FightPastOneTurnEvent}，在驱动期间会被忽略：
      * 回合推进的责任在循环里，重入会打乱时间轴。
@@ -38,6 +37,26 @@ public class FightTurnPastListener {
 
     public static TurnEntry getPresentTurn() {
         return presentTurn;
+    }
+
+    /**
+     * 设置是否正在驱动回合循环。
+     * <p>
+     * 供 {@link FightEndEventListener} 在战斗结束时叫停循环。
+     * 战斗结束后 {@code isDriving} 必须复位为 {@code false}，
+     * 否则下一场战斗的回合推进会被这里当作「重入」而全部忽略。
+     *
+     * @param driving 是否继续驱动
+     */
+    public void setDriving(boolean driving) {
+        this.isDriving = driving;
+    }
+
+    /**
+     * @return 是否正在驱动回合循环
+     */
+    public boolean isDriving() {
+        return isDriving;
     }
 
     @SubscribeEvent
@@ -52,6 +71,11 @@ public class FightTurnPastListener {
         try {
             turnLoop:
             while (isDriving) {
+                // 战斗可能已被 /endfight 之类的方式结束（GameMain.isInFight() 为 false、时间轴已清空），
+                // 此时立即退出，不再推进回合。
+                if (!cn.gfhnv.game.GameMain.isInFight()) {
+                    break;
+                }
 
                 fightPastOneTurnEvent.getFight().getFighterList().removeIf(livingThing -> {
                     if (!livingThing.isAlive()) {
@@ -86,7 +110,7 @@ public class FightTurnPastListener {
                 TurnManager.getTurns().remove(presentTurn);
                 TurnManager.setPresentTime(presentTurn.getNeedTime().add(presentTurn.getStartTime()));
                 if (presentTurn.getLivingThing() == null) {
-                    continue turnLoop;   // 原来是 nextTurn()+return,现在回到循环开头
+                    continue turnLoop;   // 没有行动者，回到循环开头取下一个回合
                 }
                 if (!presentTurn.getLivingThing().isAlive()) {
                     continue turnLoop;
@@ -147,11 +171,10 @@ public class FightTurnPastListener {
                 }
                 theDeath.clear();
                 EventBus.post(new EffectUpdateEvent(presentTurn.getLivingThing(), presentTurn));
-                // 原来这里是 TurnManager.nextTurn(fight) —— 递归的自己调自己。
-                // 现在什么都不做,直接回到 turnLoop 开头处理下一个回合。
+                // 本回合处理完毕，回到 turnLoop 开头取下一个回合（不再递归 post 事件）
             }
         } finally {
-            // 必须复位:否则一次异常就会让这个监听器实例此后永远拒绝驱动回合
+            // 必须复位：否则一次异常就会让这个监听器实例此后永远拒绝驱动回合
             isDriving = false;
         }
     }

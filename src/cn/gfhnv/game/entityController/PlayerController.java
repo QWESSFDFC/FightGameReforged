@@ -7,6 +7,7 @@ import cn.gfhnv.game.event.SelectTargetEvent;
 import cn.gfhnv.game.inventory.Slot;
 import cn.gfhnv.game.item.Item;
 import cn.gfhnv.game.skill.Skill;
+import cn.gfhnv.game.system.command.CommandManager;
 import cn.gfhnv.game.system.fight.Fight;
 
 import java.util.ArrayList;
@@ -15,6 +16,15 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * 玩家控制器：负责在命令行里询问「用不用物品 / 用哪个技能 / 打谁」。
+ * <p>
+ * <b>由 AI 追加的部分</b>：所有 {@code SCANNER.nextLine()} 都改走 {@link #nextLine()}，
+ * 该方法先判断这一行是不是命令（以 {@code /} 或 {@code #} 开头）：是命令就地执行并继续读下一行，
+ * 不是命令就原样返回。除此之外本类的输入模式<b>没有任何改动</b>。
+ *
+ * @author gfhnv（命令接入部分由 AI 完成）
+ */
 public class PlayerController extends UniversalController {
     public PlayerController(List<Skill> skills, LivingThing owner) {
         super(skills, owner);
@@ -22,6 +32,41 @@ public class PlayerController extends UniversalController {
 
     public PlayerController(PlayerController playerController, LivingThing owner) {
         super(playerController, owner);
+    }
+
+    /**
+     * 读一行输入；命令会被就地执行，然后继续等待真正的输入。
+     * <p>
+     * 与 {@code GameMain.SCANNER.nextLine()} 的调用方式完全等价，只是多了命令拦截；
+     * 把 {@link CommandManager#setEnabled(boolean)} 设为 {@code false} 即可关闭命令拦截。
+     *
+     * @return 一行非命令输入
+     */
+    private static String nextLine() {
+        while (true) {
+            String line = GameMain.SCANNER.nextLine();
+            if (CommandManager.isCommand(line)) {
+                CommandManager.process(line);
+                continue;
+            }
+            return line;
+        }
+    }
+
+    /**
+     * 判断「这场战斗是否已经结束了」。
+     * <p>
+     * {@code /endfight} 之类的命令是在玩家回合内执行的，此时 {@link #act(Fight)}
+     * 正卡在等输入上，它自己不会知道战斗已经结束；若不检查，玩家会被留在
+     * 「已经没有战斗」的技能选择界面里。
+     * <p>
+     * 每个输入点之后都调一次本方法，一旦战斗结束就立刻 {@code return}，
+     * 让回合循环能正常退出、控制权回到主循环。
+     *
+     * @return 战斗是否已经结束（应当立即退出本次行动）
+     */
+    private static boolean fightIsOver() {
+        return !GameMain.isInFight();
     }
 
     @Override
@@ -34,6 +79,9 @@ public class PlayerController extends UniversalController {
         if (!fight.getFighterList().contains(getOwner())) {
             return;
         }
+        if (fightIsOver()) {
+            return;
+        }
         boolean hasItem = false;
         for (Slot slot : this.getOwner().getInventory().getSlots()) {
             if (slot.getContainedItem() != null) {
@@ -43,7 +91,10 @@ public class PlayerController extends UniversalController {
         }
         if (hasItem) {
             System.out.println("是否使用物品?(yes/no)");
-            input = GameMain.SCANNER.nextLine();
+            input = nextLine();
+            if (fightIsOver()) {
+                return;
+            }
             if (input.equals("yes")) {
                 this.useItem(fight);
             }
@@ -56,7 +107,11 @@ public class PlayerController extends UniversalController {
         }
         Skill selectedSkill;
         while (true) {
-            input = GameMain.SCANNER.nextLine();
+            input = nextLine();
+            // 战斗可能已经被 /endfight 结束（命令是在 nextLine() 里执行的）
+            if (fightIsOver()) {
+                return;
+            }
             try {
                 int idx = Integer.parseInt(input);
                 selectedSkill = skills[idx];
@@ -68,6 +123,9 @@ public class PlayerController extends UniversalController {
             } catch (Exception e) {
                 System.out.println("输入错误，请输入技能编号");
             }
+        }
+        if (fightIsOver()) {
+            return;
         }
         if (selectedSkill.getAims() == 0) {
             selectedSkill.use(fight, getOwner());
@@ -94,7 +152,10 @@ public class PlayerController extends UniversalController {
                 System.out.println("已选目标：" + attacking.stream().map(LivingThing::getName).collect(Collectors.joining(", ")));
                 System.out.print("输入索引或 next: ");
 
-                input = GameMain.SCANNER.nextLine();
+                input = nextLine();
+                if (fightIsOver()) {
+                    return;
+                }
                 if (input.equalsIgnoreCase("next")) {
                     if (attacking.isEmpty()) {
                         System.out.println("至少选择一个目标才能结束");
@@ -150,11 +211,16 @@ public class PlayerController extends UniversalController {
 
         }
         System.out.println("输入需要使用的物品.一回合只能使用一次物品,使用物品不会占有释放技能的回合");
-        int input;
         Item usedItem;
         while (true) {
+            // 这里用「先读一整行再解析」而不是 SCANNER.nextInt()：
+            // nextInt() 会把换行符留在缓冲区里，导致随后的 nextLine() 读到一个空行。
+            String line = nextLine();
+            if (fightIsOver()) {
+                return;
+            }
             try {
-                input = GameMain.SCANNER.nextInt();
+                int input = Integer.parseInt(line.trim());
                 usedItem = items[input];
                 System.out.println(user.getName() + "使用了" + usedItem.getName());
                 break;

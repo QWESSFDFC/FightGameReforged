@@ -8,7 +8,6 @@ import cn.gfhnv.game.system.fight.TurnEntry;
 import cn.gfhnv.game.system.fight.TurnManager;
 
 /**
- * AI修复
  * 冰冻效果。持有期间该生物无法行动（轮到它时跳过该回合）。
  * <p>
  * 实现要点（顺序很关键，改动前请先读这里）：

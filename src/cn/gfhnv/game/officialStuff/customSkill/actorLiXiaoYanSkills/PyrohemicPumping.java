@@ -29,9 +29,7 @@ public class PyrohemicPumping extends Skill {
         if (user instanceof ActorLiXiaoYan li) {
             li.setIgnition(li.getIgnition() + 2);
         }
-        // 原来写的是 user.getHp() / user.getHpMax(),那是 long/long 的整数除法,
-        // 结果只可能是 0(不满血时) 或 1(满血时), <= 0.5 因此恒成立,
-        // 配合 extraDamage 没有重置点会逐次 ×1.5 指数膨胀。
+
         if ((double) user.getHp() / user.getHpMax() <= 0.5) {
             this.setExtraDamage((long) (this.getExtraDamage() * 1.5));
         }
@@ -39,8 +37,7 @@ public class PyrohemicPumping extends Skill {
             user.setHp((long) (user.getHp() - user.getHp() * 0.2));
         }
 
-        // 关键修复:加算只能做一次(原来写在循环里,多目标时会加 N 次、却只扣回 1 次),
-        // 并且减算要用与加算同一时刻的燃点判断。
+
         boolean wasHigh = false;
         if (user instanceof ActorLiXiaoYan li && li.getIgnition() >= 8) {
             setExtraDamage((long) (this.getExtraDamage() + user.getHpMax() * 0.5));

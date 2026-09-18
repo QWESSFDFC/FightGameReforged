@@ -2,7 +2,6 @@ package cn.gfhnv.game.officialStuff.customEvent.phainonEvents;
 
 import cn.gfhnv.game.annotation.SubscribeEvent;
 import cn.gfhnv.game.entity.LivingThing;
-import cn.gfhnv.game.event.FightStartEvent;
 import cn.gfhnv.game.event.SelectTargetEvent;
 import cn.gfhnv.game.officialStuff.customEffect.universalEffects.CriticalDMGEnhanceEffect;
 import cn.gfhnv.game.officialStuff.customEntity.players.Phainon;
@@ -24,13 +23,4 @@ public class FightStartAndSelectEventListener {
         }
     }
 
-    @SubscribeEvent
-    public void listen2(FightStartEvent event) {
-        for (LivingThing livingThing : event.getFight().getAllEntities()) {
-            if (livingThing instanceof Phainon) {
-                ((Phainon) livingThing).setExtraAbilityTier(((Phainon) livingThing).getExtraAbilityTier() + 1);
-                ((Phainon) livingThing).setCoreflame(((Phainon) livingThing).getCoreflame() + 1);
-            }
-        }
-    }
 }

@@ -33,7 +33,8 @@ public class Phainon extends Player {
     private int scourge_max = 8;
     private boolean isAwaken = false;
     private int extraAbilityTier = 0;
-    private int formerExtraAbilityTier = 0;
+
+    private int appliedExtraAbilityTier = 0;
     private List<Skill> skills;
     private boolean absorbDamage = false;
     private boolean pendingLastAttack = false;
@@ -43,7 +44,7 @@ public class Phainon extends Player {
         super(phainon1);
         isAwaken = phainon1.isAwaken;
         extraAbilityTier = phainon1.extraAbilityTier;
-        formerExtraAbilityTier = phainon1.formerExtraAbilityTier;
+        appliedExtraAbilityTier = phainon1.appliedExtraAbilityTier;
         absorbDamage = phainon1.absorbDamage;
         extraTurns = phainon1.extraTurns;
         pendingLastAttack = phainon1.pendingLastAttack;
@@ -240,9 +241,10 @@ public class Phainon extends Player {
     @Override
     public void whenFightEnds() {
         super.whenFightEnds();
-        this.setAttackEnhancePercent(this.getAttackEnhancePercent() - extraAbilityTier * 0.5 + formerExtraAbilityTier * 0.5);
+
+        this.setAttackEnhancePercent(this.getAttackEnhancePercent() - appliedExtraAbilityTier * 0.5);
+        appliedExtraAbilityTier = 0;
         extraAbilityTier = 0;
-        formerExtraAbilityTier = 0;
         coreflame = 0;
         scourge = 0;
         soulscorch = 0;
@@ -275,6 +277,9 @@ public class Phainon extends Player {
         super.whenFightStart(fight);
         if (!isListenerRegister()) EventBus.register(this.fightStartAndSelectEventListener);
         isListenerRegister = true;
+
+        this.setExtraAbilityTier(this.getExtraAbilityTier() + 1);
+        this.setCoreflame(this.getCoreflame() + 1);
     }
 
     @Override
@@ -291,8 +296,10 @@ public class Phainon extends Player {
             }
 
         }
-        this.setAttackEnhancePercent(this.getAttackEnhancePercent() + extraAbilityTier * 0.5 - formerExtraAbilityTier * 0.5);
-        formerExtraAbilityTier = extraAbilityTier;
+
+        this.setAttackEnhancePercent(this.getAttackEnhancePercent()
+                + (extraAbilityTier - appliedExtraAbilityTier) * 0.5);
+        appliedExtraAbilityTier = extraAbilityTier;
 
 
     }

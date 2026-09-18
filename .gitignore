@@ -46,9 +46,10 @@ build-input/
 *.key
 /.idea/
 /mods/*/bin/
-./ANALYSIS.md
 /ANALYSIS.md
 /diff-tmp.txt
-/ANALYSIS-2026-08.md
-/STATUS-2026-08-review2.md
-TIP_FOR_LLM.md
+
+
+/out/
+/consoleprobe/
+sources.txt
