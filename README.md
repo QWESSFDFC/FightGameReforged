@@ -7,7 +7,7 @@
 全部由 AI 编写，详见下面的命令系统一节与 `project_analyses/COMMAND-SYSTEM-2026-08.md`。
 思考系统（`system/thinkingSystem/`）也是 AI 写的，其中 `ThinkingControllerAI` 目前还没有任何生物在用，
 实际生效的还是随机行动的 `UniversalController`。
-感觉ai编程太好使了.可以实现自己不会的东西.说起来,这个项目ai代码含量还挺高的.不过我个人感觉无所谓.
+感觉ai编程太好使了!可以实现自己不会的东西.说起来,这个项目ai代码含量还挺高的.不过我个人感觉无所谓.
 下面是使用AI写的README.md
 
 > 📌 说明：下面这一部分（到「许可证」为止）由 AI 通读**当前源码**后重写，
