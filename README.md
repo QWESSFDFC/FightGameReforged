@@ -3,49 +3,71 @@
 暂不接受 Pull Request。如果你有改进想法，请 fork 本仓库后自行修改，自由使用。我只想自己写点东西玩玩.
 使用方法:直接运行.jar文件.可以自己编译或者下载Release中编译好的.但是Release中版本可能落后一点.
 我使用了AI(DeepSeek)写了部分代码.本项目的Javadoc都是ai写的，而且我没有核对，可能有问题.
-其中**命令系统**（`system/command/` 与 `officialStuff/customCommands/`）的代码、Javadoc 与说明文档
-全部由 AI 编写，详见下面的「命令系统」一节与 `project_analyses/COMMAND-SYSTEM-2026-08.md`。
-
+其中命令系统（`system/command/` 与 `officialStuff/customCommands/`）的代码、Javadoc 与说明文档
+全部由 AI 编写，详见下面的命令系统一节与 `project_analyses/COMMAND-SYSTEM-2026-08.md`。
+思考系统（`system/thinkingSystem/`）也是 AI 写的，其中 `ThinkingControllerAI` 目前还没有任何生物在用，
+实际生效的还是随机行动的 `UniversalController`。
+感觉ai编程太好使了.可以实现自己不会的东西.说起来,这个项目ai代码含量还挺高的.不过我个人感觉无所谓.
 下面是使用AI写的README.md
 
+> 📌 说明：下面这一部分（到「许可证」为止）由 AI 通读**当前源码**后重写，
+> 依据是代码本身（v1.2.1，`src/` 下 149 个 .java 文件）。
+> 作者只会偶尔抽空核对，**如有出入请以源码为准**；项目结构一节还可能列漏文件夹。
 
 ---
 
-FightGameReforged
+# FightGameReforged
 
-一个由高中生从零编写的命令行回合制文字战斗游戏 —— 纯 Java 实现，事件驱动架构，支持模组加载。
-
----
-
-📖 项目简介
-
-这是一个基于 Java 的命令行回合制战斗游戏。玩家可以组建队伍、选择敌人、手动操控角色释放技能，在文字界面中体验策略对战的乐趣。
-
-项目采用事件驱动架构，通过自定义 EventBus 和 @SubscribeEvent 注解解耦游戏逻辑，为后续扩展打下基础。同时内置了模组系统，支持动态编译
-.java 源码并加载外部模组，方便添加新生物、技能与物品。
-
-作者是一名热爱编程与游戏开发的高中生，写这个项目纯粹为了图一乐。代码随便用，随便改，欢迎 fork.
-暂不接受 Pull Request。如果你有改进想法，请 fork 本仓库后自行修改，自由使用。
+一个由高中生从零编写的**命令行回合制文字战斗游戏** —— 纯 Java 实现，事件驱动架构，时间轴回合制，支持动态编译加载模组。
 
 ---
 
-✨ 核心特色
+## 📖 项目简介
 
-· 经典回合制战斗：玩家自由组建队伍，选择敌人与奖励，手动操控每个角色释放技能。
-· 五行元素体系：引入金、木、水、火、土五种元素，设计了对应的抗性与伤害加成机制。
-· 事件驱动架构：通过自定义 EventBus 和 @SubscribeEvent(priority=...)或者@SubscribeEvent 注解解耦游戏逻辑，为扩展性打下基础。默认优先级3.数字越小,优先级越高,数字最小是0.
-· 内置模组系统：可自动扫描并加载外部模组，支持动态编译 .java 源码，方便添加新生物、技能与物品。
-· Utility AI 控制器：非玩家角色基于 Tag 权重系统进行决策——每个实体拥有独立的 Tag 权重（体现性格），结合实时情境（血量等）计算行动得分，选出最优行为。
-· 命令系统（AI 编写，参考《我的世界》Java 版）：输入 `/` 或 `#` 开头的命令即可调试战斗，支持实体选择器、参数类型、错误定位与 Tab 补全建议。
-· MIT 开源许可：代码完全开放，随意使用、修改、分发。
+这是一个基于 Java 的命令行回合制战斗游戏。玩家可以组建队伍、选择敌人与奖励，手动操控角色释放技能，在文字界面中体验策略对战的乐趣。
+
+项目采用事件驱动架构，通过自定义 `EventBus` 和 `@SubscribeEvent` 注解解耦游戏逻辑；回合推进不是简单的"你一下我一下"，而是基于速度的行动时间轴（`TurnManager`），所以"加速、延迟、额外回合"这类机制实现起来很自然。同时内置模组系统，支持在运行时用 `javax.tools.JavaCompiler` 动态编译 `mods/` 下的 `.java` 源码并加载外部模组，方便添加新生物、技能与物品。
+
+作者是一名热爱编程与游戏开发的高中生，写这个项目纯粹为了图一乐。代码随便用，随便改，欢迎 fork。暂不接受 Pull Request。
 
 ---
 
-⌨️ 命令系统
+## ✨ 核心特色
+
+- **经典回合制战斗**：玩家自由组建队伍、挑选敌人与奖励，手动操控每个角色释放技能。
+- **时间轴行动条**：`TurnManager` 用 `BigDecimal` 以 `10000 / 速度` 作为行动间隔，靠"推进 / 延迟"实现加速减速与额外回合，而不是固定轮流。
+- **五行元素体系**：金、木、水、火、土（`ElementSort`），每个生物有对应的元素抗性、增伤与穿透，同时五种元素各自是一份独立的 Mana 资源。（注意：**没有"相生相克"的循环克制表**，伤害只看「攻击者自身元素」对应的那一条抗性；抗性可以是负数，负抗性就是弱点。）
+- **事件驱动架构**：自定义 `EventBus` + `@SubscribeEvent(priority = ...)` 注解，通过反射注册监听器。（默认优先级 `3`，数字越小越优先，最小 `0`；事件支持 `cancel`。）
+- **内置模组系统**：自动扫描 `mods/` 目录，解析 `main.json`，动态编译 `code/` 下的源码并加载，方便添加新生物、技能与物品。
+- **Utility AI 控制器**：`ThinkingControllerAI` 基于 Tag 权重系统做决策——每个实体拥有独立的 Tag 权重（体现性格），结合实时情境（血量、蓝量、负面效果、预测伤害等）计算每个行为的得分，选出最优解。**注意：目前还没有任何生物实际使用它**，官方怪物走的仍是随机 AI。
+- **命令系统**（AI 编写，参考《我的世界》Java 版）：输入以 `/` 或 `#` 开头的命令即可调试战斗，支持实体选择器、参数类型、错误定位与 Tab 补全建议。
+- **MIT 开源许可**：代码完全开放，随意使用、修改、分发。
+
+---
+
+## 🎮 怎么玩
+
+1. 启动后先输入你的名字。
+2. 依次**选角色 → 选敌人 → 选奖励**，三个环节都是同一套操作：
+   - 输入列表里**名字前面的数字**选中一项，会打印它的介绍；
+   - 输入 `yes` 加入队伍 / 加入敌方 / 加入奖励，输入 `no` 返回上一步；
+   - 输入 `next` 进入下一个环节，输入 `quit` 直接退出游戏。
+   （角色和敌人可以选任意多个，选够之后会自动进入下一环节。）
+3. 战斗开始后，轮到你的角色行动时：
+   - 先问 `是否使用物品?(yes/no)`，用物品**不占用**本回合释放技能的机会；
+   - 然后列出可用技能，**输入技能前面的数字**使用，同时会显示剩余冷却；
+   - 需要选目标时输入目标前的数字，多目标就反复输入，最后输入 `next` 结束选择（至少选 1 个，不能重复选同一个）。
+4. 一局打完会问 `要不要再玩一局?`，输入 `yes` 继续、`no` 退出。
+
+任何时候都可以直接敲命令（见下一节），命令和上面的普通输入互不干扰。
+
+---
+
+## ⌨️ 命令系统
 
 > 这一部分（含代码与文档）由 AI（DeepSeek）编写，作者未逐条核对。
 
-在游戏原有输入方式**完全不变**的前提下，额外支持以 `/` 或 `#` 开头的命令。例如战斗中轮到你行动时，可以直接输入命令，然后继续正常选择技能。
+在游戏原有输入方式**完全不变**的前提下，额外支持以 `/` 或 `#` 开头的命令（两个前缀等价）。例如战斗中轮到你行动时，可以直接输入命令，然后继续正常选择技能。
 
 内置命令：
 
@@ -87,86 +109,288 @@ FightGameReforged
 
 ---
 
-🛠️ 技术栈
+## 🛠️ 技术栈
 
-项目 说明
-语言 Java (JDK 25+)
-构建工具 Gradle
-核心依赖 org.json
+| 项目 | 说明 |
+|---|---|
+| 语言 | Java（JDK 25） |
+| 构建工具 | Gradle（`com.gradleup.shadow` 8.3.0 打 fat jar） |
+| 唯一依赖 | `org.json:json:20240303` |
+| 版本 | 1.2.1 |
+| 程序入口 | `cn.gfhnv.game.GameStarter` → `cn.gfhnv.game.GameMain.main` |
+| 游戏引擎 | 没有，全部手写（事件总线、时间轴、物理、命令系统都是自制的） |
+
+编译时统一使用 UTF-8（`build.gradle` 里对 `JavaCompile` 和 `JavaExec` 都做了设置），因为项目里有大量中文文本。
 
 ---
 
-🚀 快速开始
+## 🚀 快速开始
 
-方式一：直接运行 JAR（推荐）
+### 方式一：直接运行 JAR（推荐）
 
-1. 前往 Releases 下载最新 .jar 文件
+1. 前往 Releases 下载最新 `.jar` 文件。
 2. 在终端中执行：
+
    ```bash
    java -jar FightGameReforged.jar
    ```
 
+   或者在本仓库根目录用启动脚本（会先 `chcp 65001` 切到 UTF-8 控制台，并在 `build\libs\` 下自动找 jar）：
+
+   ```bat
+   启动游戏-UTF8.bat
+   ```
+
 ⚠️ Release 中的版本可能略落后于主分支，如需最新特性请参考方式二。
 
-方式二：从源码编译运行
+### 方式二：从源码编译运行
 
-1. 克隆仓库：
-   ```bash
-   git clone https://github.com/QWESSFDFC/FightGameReforged.git
-   ```
-2. 使用 IntelliJ IDEA 打开项目
-3. 运行主类：cn.gfhnv.game.GameStarter
-4. 按照命令行提示开始游戏
+```bash
+git clone https://github.com/QWESSFDFC/FightGameReforged.git
+cd FightGameReforged
+gradle shadowJar            # 产物：build/libs/FightGameReforged-1.2.1.jar
+java -Dfile.encoding=UTF-8 -jar build/libs/FightGameReforged-1.2.1.jar
+```
 
-📁 项目包含2个示例模组 exampleModByGFHNV和abstractLaunchingWords,位于 mods/ 目录下，可作为模组开发参考。
+也可以直接用 IntelliJ IDEA 打开项目，运行主类 `cn.gfhnv.game.GameStarter`。
+模组功能需要 **JDK**（而不是只装 JRE）才能动态编译 `.java` 源码。
+
+### 方式三：免安装的 Windows exe（jpackage，非官方发布方式）
+
+作者本地用 `jpackage` 打过一份带运行时镜像的 app-image：
+
+```bat
+build-output\FightGameReforged\FightGameReforged.exe
+```
+
+对应的打包命令在 `build-output\build.bat` 里（输入目录 `build-input\`，主 jar 为 `FightGameReforged.jar`）。
+`build-output/` 与 `build-input/` 都在 `.gitignore` 里，属于本地产物，仓库中不一定有。
+
+### 自带一份示例模组
+
+📁 `mods/` 下有两个可以直接参考的示例模组：
+
+- `exampleModByGFHNV` —— 最小模组骨架（`Mod` 子类 + 调用另一个类的方法）；
+- `abstractLaunchingWords` —— 只重写 `invokeWhenLoaded()` 打印几行"抽象启动词"。
 
 ---
+
+## 🧱 写一个自己的模组（怎么用模组系统）
+
+模组就是 `mods/` 下的一个文件夹，结构固定：
+
+```
+mods/我的模组/
+├── main.json                 # 模组信息（必须有）
+├── code/                     # 你的 .java 源码，包名要和目录层级对上
+│   └── com/example/mymod/mainClass.java
+└── bin/                      # 编译输出，游戏会自动生成/覆盖，别手改
+```
+
+`main.json` 五个字段**都必须有**（`mainClass` 要写完整包名，且**不包含** `code` 这一层）：
+
+```json
+{
+  "name": "我的模组",
+  "author": "你",
+  "description": "描述",
+  "mainClass": "com.example.mymod.mainClass",
+  "version": "1.0"
+}
+```
+
+主类必须继承 `cn.gfhnv.game.mod.Mod`，并且提供一个**接收 `ModInformation` 的构造器**：
+
+```java
+package com.example.mymod;
+
+import cn.gfhnv.game.mod.Mod;
+import cn.gfhnv.game.mod.ModInformation;
+
+public class mainClass extends Mod {
+    public mainClass(ModInformation modInfo) {
+        super("myModId", modInfo);          // 第一个参数是模组 ID，会作为内容 ID 的前缀
+    }
+
+    @Override
+    public void invokeWhenLoaded() {
+        // 在这里把内容加进模组自己的 List，不要像官方内容那样在构造器里直接注册
+        // addEntity(...) / addItem(...) / addEffect(...)
+        // 想加命令：CommandManager.register(new MyCommand());
+    }
+}
+```
+
+加载流程：`ModLoader` 扫描 `mods/` → 读 `main.json` → 用 `javax.tools.JavaCompiler`
+把 `code/` 下所有 `.java` **编译到 `bin/`（每次加载都会先删掉重建）** → 用 `URLClassLoader`
+加载主类并实例化 → 加入 `World` → 收到 `GameStartEvent` 时调用 `invokeWhenLoaded()` 与 `registerItself()`。
+
+几个注意点：
+
+- **必须用 JDK 运行**（`ToolProvider.getSystemJavaCompiler()` 返回 `null` 时会提示"请确保在 JDK 环境下运行"）；
+- 内容 ID 会自动加上 `<模组ID>:` 前缀（例如 `myModId:mySword`），避免和别的内容撞名；
+- 模组内容是在**每次开一局之前**就注册进全局注册表的，改完源码重启游戏即可生效，没有热重载；
+- 某个模组编译失败只会打印错误并跳过它，不会影响其它模组和游戏本体。
+
+**写模组最容易踩的坑**：
+
+- **`copy()` 必须重写**。`LivingThing` / `Skill` / `Item` 的基类 `copy()` 是
+  `throw new RuntimeException("请重写此方法..类" + ...)`，官方子类全都重写了；
+  你的实体/技能/物品子类忘了重写，一进战斗就会炸（开局选人是靠 `copy()` 生成实例的）。
+- **自定义控制器会被"降级"**。`LivingThing` 的复制构造器只认 `PlayerController` 和
+  `ThinkingControllerAI`，其它一律按 `UniversalController` 重建——
+  所以 `FixOrderController` 这类自定义控制器复制后会变成随机控制器。
+- **别指望给父类事件注册监听器**。`EventBus` 是精确类匹配，`@SubscribeEvent` 也只扫本类方法（见下方"各个系统都在哪"）。
+
+---
+
 ![运行示意图](./screenshots/图1.PNG)
 
-📁 项目结构
+---
+
+## 📁 项目结构
 
 ```
 FightGameReforged/
-├── src/cn/gfhnv/game/
-│   ├── annotation/      # 自定义注解（如 @SubscribeEvent）
-│   ├── damage/          # 伤害计算与元素克制系统
-│   ├── effect/          # 战斗效果（Buff/Debuff）
-│   ├── entity/          # 实体（角色、怪物）
-│   ├── entityController/# 控制器（不含 Utility AI 决策系统）
-│   ├── event/           # 事件总线与事件定义
-│   ├── inventory/       # 背包系统
-│   ├── item/            # 物品定义
-│   ├── mod/             # 模组加载器
-│   ├── officialStuff/   # 官方内容（预设角色/技能/命令）
-|   └── system           #战斗系统,思考系统,log系统,mana,甚至是简单的物理
-│       └── command/     # 命令系统（AI 编写，参考 MC：参数类型/选择器/命令树/调度器）
-├── mods/                # 外部模组存放目录
-├── project_analyses/    # 分析文档与命令系统说明
-├── test-command-system.ps1      # 命令系统自测脚本（编译 + 运行，55+ 条断言）
+├── src/cn/gfhnv/
+│   ├── game/
+│   │   ├── GameStarter.java      # 程序入口（打印作者信息 + 写日志）
+│   │   ├── GameMain.java         # 主流程：读名字 / 选角色敌人奖励 / 开战 / 再玩一局
+│   │   ├── Thing.java            # 最底层基类（物理属性 + Tag 权重 + UUID）
+│   │   ├── annotation/           # 自定义注解（@SubscribeEvent，默认优先级 3）
+│   │   ├── damage/               # 伤害计算与元素抗性/穿透（DamageCalculate 一站式公式）
+│   │   ├── effect/               # 战斗效果基类（Buff / Debuff）
+│   │   ├── entity/               # Entity / LivingThing（1843 行的核心大杂烩）/ Player
+│   │   ├── entityController/     # 控制器：PlayerController（玩家）/ UniversalController（随机）/ FixOrderController
+│   │   ├── event/                # 事件总线与事件定义（EventBus + 各 XxxEvent）
+│   │   ├── eventListener/        # 监听器：开局 / 开战 / 回合推进 / 结束 / 效果 / 物理
+│   │   ├── interfaces/           # IModifyDamage、IShowSpecialMes、ISpecialAction、IInitialize
+│   │   ├── inventory/            # 背包与格子（Slot，支持堆叠合并）
+│   │   ├── item/                 # 物品基类
+│   │   ├── mod/                  # 模组加载器（ModLoader / Mod / ModInformation / JavaSourceCode）
+│   │   ├── officialStuff/        # 官方内容：6 个生物、15 个技能、11 个效果、1 件物品、官方命令
+│   │   ├── skill/                # 技能基类（倍率 / 目标数 / 冷却 / 消耗 Mana / Tag）
+│   │   ├── system/               # 各类子系统（详见下方）
+│   │   │   ├── command/          # 命令系统（AI 编写：参数类型 / 选择器 / 命令树 / 调度器 / 补全）
+│   │   │   ├── configLoadingSystem/  # 读取 config/gameConfig/*.json，给实体注入 AI Tag 权重
+│   │   │   ├── fight/            # Fight / TurnManager（时间轴）/ TurnEntry / ActionSignal
+│   │   │   ├── logSystem/        # LogWriter（日志滚动归档）
+│   │   │   ├── mana/             # 五行 Mana 资源
+│   │   │   ├── physics/          # 手写的简单牛顿力学（Vector + Force/Velocity/Acceleration/Position）
+│   │   │   ├── thinkingSystem/   # Tag / TagType / ThinkingController / ThinkingControllerAI（Utility AI）
+│   │   │   ├── ElementSort.java  # 金木水火土（+ UNIVERSAL）
+│   │   │   └── useItemSystem/    # 空包（"使用物品"的系统还没做，预留位置）
+│   │   ├── utils/                # JSONHelper（org.json 薄封装）
+│   │   └── world/                # World：全局注册表（实体/物品/效果/模组/运行时对象）
+│   └── debug_tools/              # 调试与自测程序（不需要玩就能跑：命令系统自测、预期伤害试算、行动条实验）
+├── mods/                # 外部模组目录（两个示例模组；各模组的 bin/ 是编译产物）
+├── config/gameConfig/   # TagConfig.json（AI Tag 权重）/ PropertyConfig.json
+├── project_analyses/    # 分析文档与命令系统说明（含历史轮次报告）
+├── screenshots/         # 运行截图
+├── out/                 # javac/gradle 的临时输出（自测脚本用它）
+├── test-command-system.ps1      # 命令系统自测脚本（编译 + 运行，42 条断言）
 ├── 启动游戏-UTF8.bat             # 启动脚本（切 UTF-8 控制台；内容纯 ASCII）
+├── build.gradle / gradle.properties
 └── README.md
 可能还有没有列出的文件夹
 ```
 
 ---
-这个功能没写完 
-🧠 关于 AI 决策系统（ThinkingController）
 
-非玩家实体的行为由 ThinkingController 控制，其核心机制基于 效用型 AI（Utility AI）：
+## 🧩 各个系统都在哪
 
-· 每个实体拥有独立的 Tag 权重表（如攻击、防御、治疗、回蓝、增伤等），体现其性格。
-· 每回合控制器会读取实体当前的 Tag 权重，并结合实时情境因子（血量百分比、蓝量、敌人距离、元素克制等）计算每个行动的最终得分。
-· 系统自动选出得分最高的行动执行，实现智能且风格各异的 NPC 行为。
+| 想改什么 | 去看哪里 |
+|---|---|
+| 战斗回合怎么推进 | `eventListener/FightTurnPastListener.java`、`system/fight/TurnManager.java` |
+| 伤害公式与元素抗性 | `damage/DamageCalculate.java`（公式写在类注释里） |
+| 角色/怪物/技能/物品 | `officialStuff/` 下对应的 `customXxx/` 子包 |
+| 事件有哪些、谁在监听 | `event/`、`eventListener/` |
+| 加载外部模组 | `mod/ModLoader.java`、`mod/Mod.java` |
+| 命令怎么写 | `system/command/`、`officialStuff/customCommands/`、`project_analyses/COMMAND-SYSTEM-2026-08.md` |
+| AI 怎么做决策 | `system/thinkingSystem/`、`config/gameConfig/TagConfig.json` |
+| 想给项目做体检 | `project_analyses/`（最上面几份是历史轮次，注意看文档开头的时效说明） |
 
-这种设计的优势在于：
+**写监听器前请先知道 EventBus 的三个特点**（踩坑预警）：
 
-· 解耦：Tag 权重与行动逻辑分离，新增行为只需添加对应 Tag 和分数计算。
-· 可调试：决策过程可打印为日志，方便定位 AI 行为异常的原因。
-· 可扩展：支持“心情指数”、临时修正、随机扰动等进阶玩法。
+- **精确类匹配**：`EventBus.post()` 是按 `event.getClass()` 查表的，注册父类事件的监听器**收不到子类事件**；
+- **不扫描父类方法**：注册时用的是 `getDeclaredMethods()`，所以监听器**不支持继承**（写在父类里的 `@SubscribeEvent` 不会生效）；
+- 优先级默认 `3`、数字越小越先执行，同优先级按注册顺序；`Event.setCanceled(true)` 之后当前和后续监听器都会被跳过。
+- 顺带一提：目前全项目 10 处 `@SubscribeEvent` **全都没写 priority**（都是默认值），所以"优先级"暂时还没有实际使用案例。
+
+### 回合是怎么走的（简版）
+
+`FightStartEvent` → `FightTurnPastListener` 进入 `turnLoop` 循环：
+
+```
+剔除死者 → 判定胜负（任一方空则发 FightEndEvent 并退出）
+  → 按「开始时间 + 需要时间」排序，取出最近要行动的那个
+  → 推进当前时间 → 全员 updateSelf() / 技能冷却 -1 / 回蓝
+  → 打印状态 → 执行首动作 → 控制器 act() → 安置新回合 → 执行末动作
+  → 发布 EffectUpdateEvent → 回到循环开头
+```
+
+栈深度**不随回合数增长**（是循环而非递归），所以长战斗不会爆栈。
+
+整场战斗是**同步**跑完的：`GameMain.startAFight()` 发出 `FightStartEvent` 之后，
+控制权就交给了这个循环，一直打到分出胜负才返回主菜单（所以战斗命令才有机会"插队"进输入流程）。
+
+供外部（例如模组）改回合节奏的钩子：`ActionSignal`（NORMAL / SPECIAL_ACTION / WITHOUT_NEW_TURN / SKIP / SKIP_WITHOUT_NEW_TURN）与 `TurnManager` 的 `advanceByPercent` / `delayByAmount` 等。
 
 ---
 
-🤝 贡献与反馈
+## 🧠 关于 AI 决策系统（`thinkingSystem`）
+
+> ⚠️ 现状要先说清楚：**官方生物目前一个都没用上 Utility AI**。
+> `PlayerOne`、`ActorLiXiaoYan`、`Phainon` 用 `PlayerController`（玩家手操），
+> `CommonInsect`、`IceInsect`、`InsectBoss` 用 `UniversalController`（随机选技能 + 随机选目标）。
+> `ThinkingController` 是没写完的半成品（算完一堆权重后依旧直接 `super.act()`）；
+> 真正写完的是 AI 写的 `ThinkingControllerAI`，但还没接到任何生物身上。
+
+`ThinkingControllerAI` 的设计思路（AI 写的，作者未逐条核对）：
+
+1. 没有 Tag 或没有可用技能 → 回退到父类的随机行动；
+2. 读取实体自己的 Tag 权重（`ATTACK` / `DEFENCE` / `HEAL` / `RESTORATION_MANA` / `DAMAGE_ENHANCE`），这些权重来自 `config/gameConfig/TagConfig.json`，体现"性格"；
+3. 结合实时情境动态修正权重：
+   - 预测到自己下回合会被秒杀 → 治疗权重 ×10、防御 ×5；
+   - 血量 >60% 且敌人 ≥2 → 攻击权重 ×1.5；
+   - 总蓝量 <30% → 回蓝权重 ×3；
+   - 身上有负面效果 → 防御权重 ×2；
+4. 选出权重最高的策略 Tag，再从可用技能里挑出属于该 Tag 的技能；
+5. 对"技能 × 目标"组合逐个打分（`evaluateAction`）：基础分 = Tag 权重，再按目标残血程度、能否击杀、是否已有增伤 Buff、蓝耗等加减分，取最高分的组合执行。
+
+这种设计的优势在于：
+
+- **解耦**：Tag 权重与行动逻辑分离，新增行为只要加 Tag 和分数计算。
+- **可扩展**：支持"心情指数"、临时修正、随机扰动等进阶玩法。
+- **好调试**：决策过程可以打印成日志，方便定位"它为什么这么打"。
+
+想让它真正生效，把生物构造器里的 `new UniversalController(...)` 换成
+`new ThinkingControllerAI(...)`（并在 `TagConfig.json` 里给它配上 Tag）即可。
+注意在此之前，`TagConfig.json` 里的权重对实际玩法**没有任何影响**。
+
+### 一些"写好了但还没接上线"的东西
+
+| 东西 | 现状 |
+|---|---|
+| `ThinkingControllerAI` | Utility AI 已实现，但没有任何生物在用（见上） |
+| `ThinkingController` | 没写完，`act()` 算完权重后直接 `super.act()`，等同死代码 |
+| `FixOrderController` | 按预设 `Queue<Skill>` 顺序出招的控制器，没有任何生物在用；而且它**不被复制构造器识别**，`copy()` 后会降级成随机控制器 |
+| `system/useItemSystem/` | 空包；实际的物品使用逻辑写在 `PlayerController.useItem()` 里，`UniversalController.useItem()` 是空方法 |
+| 物理系统（`system/physics/`） | 数据结构齐全，但 `PhysicsStateUpdateEvent` 全项目从未被 post，`PhysicsEventListener` 因此从不触发 |
+| `ActEvent` | 既没有发布方，也没有监听器 |
+| `TurnManager.nextTurn()` | 只 post 一个 `FightPastOneTurnEvent`，没有任何调用方（推进由回合循环自己 `continue`） |
+| 暴击系统 | 没有任何实体设置基础暴击率 → `Math.random() <= 0`，**实际永远不会暴击** |
+| 5 个效果类 | `AttackEnhance`、`IgnoreDefenceEffect`、`CriticalRateEnhanceEffect`、`DefenseEnhanceEffect`、`HpEnhanceEffect` 从未被实例化 |
+
+### 顺手发现的小毛病（不影响玩，但改的时候别踩）
+
+- `Skill.use()` 两个重载设冷却的方式不一致：三参版是 `coolDown + 1`，两参版是 `coolDown`，同一个技能走哪条路结果会差 1 回合。
+- `debug_tools/TestAnticipateDamage` 的入口写成了 `static void main()`（缺 `public` 和 `String[] args`），**不能用 `java` 直接跑**；其它几个调试类没有这个问题。
+- 如果出现"双方都还有人、但时间轴排不出回合"的情况，回合循环会兜底 `break`——**不发 `FightEndEvent`**，此时 `fightInProgress` 仍为 `true`、本场监听器也没注销，再开一局理论上会有两个回合监听器同时在场。（代码注释自称"宁可少打一个回合也不要崩"。）
+
+---
+
+## 🤝 贡献与反馈
 
 报告 Bug / 提出建议：欢迎提交 Issue，我会尽量抽空查看，但可能无法及时响应或修复（毕竟学业繁忙,学校太不做人了）。
 
@@ -174,201 +398,10 @@ FightGameReforged/
 
 ---
 
-📄 许可证
+## 📄 许可证
 
 本项目采用 MIT License 开源协议，代码完全开放，随意使用、修改、分发。
 
 ---
 
 作者：一名热爱编程与游戏开发的高中生 | 项目始于 2025 年 9 月 1 日
-
-
-English
-This is a game written in Java. For now, it's text‑only, and I guess it's mostly playable? Use and modify the code however you like. I'm a high school student, so I don't have much time. I update it occasionally. I wrote this project just for fun, and uploading it to GitHub was purely because I had nothing better to do. It doesn't use any Java game engine — I just write my own stuff for my own amusement.
-The Javadoc in this project is all AI-generated, and I haven't reviewed it, so it may contain errors.
-
-**Pull Requests are not accepted at this time.** If you have ideas for improvement, please fork the repository and modify it for your own use. I just want to write a little something and enjoy myself.
-
-How to run: directly execute the .jar file. You can compile it yourself or download the pre‑built version from Releases. However, the Release version may lag slightly behind.
-I used AI(DeepSeek) to write some codes.
-Below is the README.md written with the help of AI.
-
----
-
-# FightGameReforged
-
-A command‑line turn‑based text battle game written from scratch by a high school student — pure Java implementation, event‑driven architecture, with mod loading support.
-
----
-
-## 📖 Project Overview
-
-This is a Java‑based command‑line turn‑based battle game. Players can form a team, choose enemies, manually control characters to cast skills, and experience the fun of strategic combat in a text interface.
-
-The project adopts an event‑driven architecture, decoupling game logic through a custom EventBus and @SubscribeEvent annotations, laying a foundation for future expansions. It also includes a built‑in mod system that supports dynamic compilation of .java source files and loading of external mods, making it easy to add new creatures, skills, and items.
-
-The author is a high school student passionate about programming and game development. This project was written purely for fun. The code is free to use and modify — you are welcome to fork it.  
-**Pull Requests are not accepted.** If you have improvements, please fork the repository and modify it for your own use.
-
----
-
-## ✨ Core Features
-
-- **Classic turn‑based combat**: freely build your team, choose enemies and rewards, and manually control each character's skill usage.
-- **Five‑element system**: incorporates Metal, Wood, Water, Fire, and Earth elements, with corresponding resistance and damage bonus mechanics.
-- **Event‑driven architecture**: decouples game logic via a custom EventBus and @SubscribeEvent or @SubscribeEvent(priority=x) annotations, enhancing extensibility.Default priority is 3.The smaller the number is, the higher the priority is, and the smallest number is 0.
-- **Built‑in mod system**: automatically scans and loads external mods, supports dynamic compilation of .java source files, facilitating the addition of new creatures, skills, and items.
-- **Utility AI controller**: non‑player characters make decisions based on a Tag weight system — each entity has its own Tag weights (reflecting personality), combined with real‑time context (HP, etc.) to compute action scores and select the optimal behavior.
-- **MIT open‑source license**: code is fully open, free to use, modify, and distribute.
-- **Command system** (AI‑written, modelled on Minecraft Java Edition): type a command starting with `/` or `#` to inspect or tweak a fight — entity selectors, typed arguments, located error messages, and tab‑completion suggestions.
-
----
-
-## ⌨️ Command System
-
-> This section (code and docs) was written by AI (DeepSeek) and has not been reviewed line by line by the author.
-
-The game's original input flow is **unchanged**; commands are simply an extra input form starting with `/` or `#`. During your turn you can run a command and then continue picking skills as usual.
-
-Built‑in commands:
-
-| Command | Description |
-|---|---|
-| `/help` or `/?` | List all commands |
-| `/help <name>` | Show usage of one command |
-| `/list [target]` | List living things in the current fight (HP / atk / def / speed / alive) |
-| `/kill <target>` | Set the target's HP to zero |
-| `/hurt <target> <amount>` | Change HP; positive damages, negative heals |
-| `/endfight [win\|lose]` | Force‑end the fight (defaults to a player win) |
-
-Entity selectors (used wherever a target is expected):
-
-```
-@s                            the executor (the character you picked)
-@p / @n / @r                  nearest / furthest / random one
-@a / @e                       every living thing (includes your own team, same as MC)
-@e[type=InsectBoss]           filter by type (simple class name, case‑insensitive)
-@e[name=*虫*]                  filter by name (supports * wildcards)
-@e[type=CommonInsect,limit=2,sort=nearest]    combinable: type / name / limit / sort
-```
-
-**⚠️ In `cmd.exe`, use ASCII class names.** Chinese console input is dropped by the Windows
-native console layer (verified: both `System.in` and `System.console()` fail to receive it, so it
-cannot be fixed on the Java side). Mapping:
-
-| ASCII class name | Creature | | ASCII class name | Creature |
-|---|---|---|---|---|
-| `PlayerOne` | 玩家一 | | `InsectBoss` | 虫皇 |
-| `ActorLiXiaoYan` | 李晓焰 | | `CommonInsect` | 普通虫子 |
-| `Phainon` | 白厄 | | `IceInsect` | 冰虫子 |
-
-Matching by Chinese name or by id **is implemented and covered by self‑tests**
-(`@e[name=普通虫子]` selects the insect in the test suite) — it is only `cmd.exe` that cannot
-deliver the characters. Windows Terminal or running from an IDE usually works.
-
-To add your own commands, see `project_analyses/COMMAND-SYSTEM-2026-08.md`
-(full guide, two registration styles — plain tree building or `@Subcommand` annotations — and a
-list of pitfalls). Hooking it into existing code takes one line:
-`if (CommandManager.process(input)) { continue; }`
-
----
-
-## 🛠️ Tech Stack
-
-| Item          | Description    |
-|---------------|----------------|
-| Language      | Java (JDK 25+) |
-| Build tool    | Gradle         |
-| Dependencies  | org.json       |
-
----
-
-## 🚀 Quick Start
-
-### Option 1: Run the JAR directly (recommended)
-
-1. Go to [Releases](https://github.com/QWESSFDFC/FightGameReforged/releases) and download the latest `.jar` file.
-2. Execute in your terminal:
-   ```bash
-   java -jar FightGameReforged.jar
-   ```
-
-⚠️ The Release version may be slightly behind the main branch. For the latest features, refer to Option 2.
-
-### Option 2: Compile and run from source
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/QWESSFDFC/FightGameReforged.git
-   ```
-2. Open the project with IntelliJ IDEA.
-3. Run the main class: `cn.gfhnv.game.GameStarter`.
-4. Follow the command‑line prompts to start the game.
-
-📁 The project includes two example mods, `exampleModByGFHNV` and `abstractLaunchingWords`, located in the `mods/` directory, which can serve as references for mod development.
-
----
-
-![Screenshot](./screenshots/图1.PNG)
-
----
-
-## 📁 Project Structure
-
-```
-FightGameReforged/
-├── src/cn/gfhnv/game/
-│   ├── annotation/      # Custom annotations (e.g., @SubscribeEvent)
-│   ├── damage/          # Damage calculation and element counter system
-│   ├── effect/          # Battle effects (Buffs/Debuffs)
-│   ├── entity/          # Entities (characters, monsters)
-│   ├── entityController/# Controllers (excluding Utility AI decision system)
-│   ├── event/           # Event bus and event definitions
-│   ├── inventory/       # Inventory system
-│   ├── item/            # Item definitions
-│   ├── mod/             # Mod loader
-│   ├── officialStuff/   # Official content (preset characters/skills/commands)
-|   └── system           # Battle system, thinking system, log system, mana, and even simple physics
-│       └── command/     # Command system (AI-written, MC-style: argument types/selectors/tree/dispatcher)
-├── mods/                # Directory for external mods
-├── project_analyses/    # Analysis docs and the command system guide
-├── test-command-system.ps1      # Command system self-test (compiles + runs, 55+ assertions)
-├── 启动游戏-UTF8.bat             # Launcher (switches console to UTF-8; file content is pure ASCII)
-└── README.md
-There may be additional folders not listed here.
-```
-
----
-This function is unfinished.
-## 🧠 About the AI Decision System (ThinkingController)
-
-The behavior of non‑player entities is controlled by `ThinkingController`, whose core mechanism is based on **Utility AI**:
-
-- Each entity has its own Tag weight table (e.g., attack, defend, heal, restore mana, amplify damage, etc.), reflecting its personality.
-- Each turn, the controller reads the entity's current Tag weights and combines them with real‑time situational factors (HP percentage, mana, enemy distance, element counter, etc.) to compute a final score for every possible action.
-- The system automatically selects the action with the highest score, enabling intelligent and varied NPC behavior.
-
-**Advantages of this design:**
-
-- **Decoupling**: Tag weights are separated from action logic; adding a new action only requires adding the corresponding Tag and score calculation.
-- **Debuggability**: The decision process can be printed as logs, making it easy to identify why an AI behaves unexpectedly.
-- **Extensibility**: Supports advanced features like "mood index", temporary modifiers, random perturbations, etc.
-
----
-
-## 🤝 Feedback & Communication
-
-- **Bug reports / Suggestions**: Welcome to open an Issue. I will try to read them when I have time, but I may not respond quickly or fix everything (school keeps me very busy – it's brutal).
-- **Code contributions**: **Pull Requests are not accepted.** If you have improvements, please fork the repository and modify it for your own use.
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License. The code is fully open, free to use, modify, and distribute.
-
----
-
-**Author**: a high school student passionate about programming and game development | Project started on September 1, 2025
-
-
