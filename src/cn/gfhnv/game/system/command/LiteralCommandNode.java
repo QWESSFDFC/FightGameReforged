@@ -33,6 +33,11 @@ public class LiteralCommandNode extends CommandNode {
         return literal;
     }
 
+    @Override
+    public boolean isLiteralNode() {
+        return true;
+    }
+
     /**
      * @return 字面量文本
      */

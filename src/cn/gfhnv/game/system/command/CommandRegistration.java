@@ -131,11 +131,11 @@ public abstract class CommandRegistration extends Command {
             bindExecutor(root, method.getAnnotation(Subcommand.class).value(), method);
         }
 
-        if (root.getChildNames().isEmpty() && !hasExecutor(root)) {
+        if (root.childNames().isEmpty() && !hasExecutor(root)) {
             LogWriter.writeLog("命令 " + getName() + " 没有任何 @Subcommand 方法");
         }
-        // 树已经搭完，最后一次性 build 成节点
-        return root.build();
+        // 根节点本身就是可挂载的节点，直接返回
+        return root;
     }
 
     /**
@@ -148,8 +148,8 @@ public abstract class CommandRegistration extends Command {
         if (builder.isExecutable()) {
             return true;
         }
-        for (ArgumentBuilder child : builder.getChildBuilders()) {
-            if (hasExecutor(child)) {
+        for (CommandNode child : builder.getChildren()) {
+            if (child instanceof ArgumentBuilder childBuilder && hasExecutor(childBuilder)) {
                 return true;
             }
         }
@@ -215,8 +215,7 @@ public abstract class CommandRegistration extends Command {
 
     /**
      * 调用一个构建方法。方法自己会用 {@code builder.literal(...)/argument(...)} 往树上挂分支，
-     * 因此这里不需要再做合并 —— 这正是不再需要 {@code mergeInto} 的原因
-     * （旧的「构建器互持子树、事后合并」设计就是丢层的根源）。
+     * 因此这里不需要再做合并。
      *
      * @param method   构建方法
      * @param target   调用目标（静态方法传 {@code null}）
@@ -311,18 +310,19 @@ public abstract class CommandRegistration extends Command {
     /**
      * 命令构建器：用于 {@link Subcommand} 方法的参数与返回值。
      * <p>
-     * 它继承 {@link LiteralCommandBuilder}（默认建成字面量节点），
-     * 同时支持「变成参数节点」——因为 {@code @Subcommand} 的构建方法经常写成
-     * {@code builder.argument("目标", ...)}，那条分支需要的是参数节点。
-     * 判定规则很简单：<b>有参数类型就是参数节点，没有就是字面量节点</b>。
-     * <p>
-     * {@code .argument(...)}、{@code .literal(...)}、{@code .then(...)}、
-     * {@code .executes(...)}、{@code .requires(...)}、{@code .redirect(...)} 全部可用，
-     * 且都用协变返回类型保持链式调用的类型。
+     * 它就是 {@link ArgumentBuilder}，只是把链式方法的返回类型收窄成 {@code CommandBuilder}，
+     * 让注解式命令的构建方法写起来类型更明确：
+     * <pre>{@code
+     * @Subcommand("add")
+     * public CommandBuilder add(CommandBuilder builder) {
+     *     return builder.argument("数量", IntegerArgumentType.integer(1, 99));
+     * }
+     * }</pre>
+     * 节点类型由「有没有参数类型」决定：有就是参数节点，没有就是字面量节点。
      *
      * @author AI（DeepSeek）生成
      */
-    public static class CommandBuilder extends LiteralCommandBuilder {
+    public static class CommandBuilder extends ArgumentBuilder {
 
         /**
          * 构造一个<b>字面量</b>分支构建器。
@@ -368,26 +368,30 @@ public abstract class CommandRegistration extends Command {
         }
 
         /**
-         * 建一个下级字面量分支（自动挂到本构建器上）。
+         * 建一个下级字面量分支（自动挂到本节点上）。
          *
          * @param literal 字面量文本
-         * @return 构建器
+         * @return 新分支
          */
         @Override
         public CommandBuilder literal(String literal) {
-            return addChildBuilder(new CommandBuilder(literal));
+            CommandBuilder child = new CommandBuilder(literal);
+            addChild(child);
+            return child;
         }
 
         /**
-         * 建一个参数分支（自动挂到本构建器上）。
+         * 建一个下级参数分支（自动挂到本节点上）。
          *
          * @param argumentName 参数名
          * @param argumentType 参数类型
-         * @return 构建器
+         * @return 新分支
          */
         @Override
         public CommandBuilder argument(String argumentName, ArgumentType<?> argumentType) {
-            return addChildBuilder(new CommandBuilder(argumentName, argumentType));
+            CommandBuilder child = new CommandBuilder(argumentName, argumentType);
+            addChild(child);
+            return child;
         }
     }
 }

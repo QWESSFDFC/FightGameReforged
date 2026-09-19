@@ -12,6 +12,8 @@ public class IgnoreDefenceEffect extends Effect {
 
     public IgnoreDefenceEffect(IgnoreDefenceEffect effect) {
         super(effect.getID());
+        // 副本也是同一种效果，UNIVERSAL 标签要一起复制，否则副本 isUniversal() 会变成 false
+        this.getEffectTagsList().add(EffectTags.UNIVERSAL);
         this.setLastTime(effect.getLastTime());
         this.setLevel(effect.getLevel());
         this.amount = effect.amount;
@@ -21,8 +23,21 @@ public class IgnoreDefenceEffect extends Effect {
 
     public IgnoreDefenceEffect() {
         super("ignoreDefenceEffect");
+        this.getEffectTagsList().add(EffectTags.UNIVERSAL);
         this.getEffectTagsList().add(EffectTags.POSITIVE);
 
+    }
+
+    /**
+     * 构造一个指定等级与持续回合的忽略防御效果。
+     *
+     * @param level    效果等级
+     * @param lastTime 持续回合数
+     */
+    public IgnoreDefenceEffect(int level, int lastTime) {
+        super("ignoreDefenceEffect", level, lastTime);
+        this.getEffectTagsList().add(EffectTags.UNIVERSAL);
+        this.getEffectTagsList().add(EffectTags.POSITIVE);
     }
 
     public double getPercent() {
@@ -50,4 +65,5 @@ public class IgnoreDefenceEffect extends Effect {
     public void comeIntoEffect(LivingThing thing) {
 
     }
+
 }

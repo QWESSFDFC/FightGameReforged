@@ -2,6 +2,7 @@ package cn.gfhnv.game.officialStuff.customCommands;
 
 import cn.gfhnv.game.entity.Entity;
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.system.command.ArgumentBuilder;
 import cn.gfhnv.game.system.command.Command;
 import cn.gfhnv.game.system.command.CommandNode;
 import cn.gfhnv.game.system.command.EntityArgumentType;
@@ -52,17 +53,17 @@ public class ListCommand extends Command {
         });
 
         // 分支二：list <目标>
-        root.addChild(argument("目标", EntityArgumentType.entities())
-                .executes((context, source) -> {
-                    List<Entity> entities = context.getEntities("目标");
-                    EntitySelector selector = context.getArgument("目标", EntitySelector.class);
-                    source.sendMessage("选择器 " + selector.getRawText() + " 选中了 " + entities.size() + " 个实体：");
-                    for (Entity entity : entities) {
-                        source.sendMessage("  " + describeOne(entity));
-                    }
-                    return entities.size();
-                })
-                .build());
+        ArgumentBuilder target = ArgumentBuilder.argumentBuilder("目标", EntityArgumentType.entities());
+        target.executes((context, source) -> {
+            List<Entity> entities = context.getEntities("目标");
+            EntitySelector selector = context.getArgument("目标", EntitySelector.class);
+            source.sendMessage("选择器 " + selector.getRawText() + " 选中了 " + entities.size() + " 个实体：");
+            for (Entity entity : entities) {
+                source.sendMessage("  " + describeOne(entity));
+            }
+            return entities.size();
+        });
+        root.addChild(target);
 
         return root;
     }

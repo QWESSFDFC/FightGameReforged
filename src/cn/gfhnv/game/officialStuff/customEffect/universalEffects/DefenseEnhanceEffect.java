@@ -11,6 +11,8 @@ public class DefenseEnhanceEffect extends Effect {
 
     public DefenseEnhanceEffect(DefenseEnhanceEffect effect) {
         super(effect.getID());
+        // 副本也是同一种效果，UNIVERSAL 标签要一起复制，否则副本 isUniversal() 会变成 false
+        this.getEffectTagsList().add(EffectTags.UNIVERSAL);
         this.setLastTime(effect.getLastTime());
         this.setLevel(effect.getLevel());
         this.amount = effect.amount;
@@ -21,14 +23,29 @@ public class DefenseEnhanceEffect extends Effect {
 
     public DefenseEnhanceEffect() {
         super("defenseEnhanceEffect");
+        this.getEffectTagsList().add(EffectTags.UNIVERSAL);
         this.getEffectTagsList().add(EffectTags.POSITIVE);
         this.setLastTime(1);
     }
 
     public DefenseEnhanceEffect(String id, int level, int lastTime) {
         super(id, level, lastTime);
+        // 与其它「新建实例」构造器保持一致：本类效果是通用的，标签要跟上
+        this.getEffectTagsList().add(EffectTags.UNIVERSAL);
         this.getEffectTagsList().add(EffectTags.POSITIVE);
 
+    }
+
+    /**
+     * 构造一个指定等级与持续回合的防御增强效果（数量与百分比由 setter 另行设置）。
+     *
+     * @param level    效果等级
+     * @param lastTime 持续回合数
+     */
+    public DefenseEnhanceEffect(int level, int lastTime) {
+        super("defenseEnhanceEffect", level, lastTime);
+        this.getEffectTagsList().add(EffectTags.UNIVERSAL);
+        this.getEffectTagsList().add(EffectTags.POSITIVE);
     }
 
     @Override
@@ -51,4 +68,5 @@ public class DefenseEnhanceEffect extends Effect {
         thing.setDefenceEnhancePercent(thing.getDefenceEnhancePercent() - percent);
         isOn = false;
     }
+
 }

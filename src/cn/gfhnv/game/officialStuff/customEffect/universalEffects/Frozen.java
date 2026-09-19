@@ -1,6 +1,7 @@
 package cn.gfhnv.game.officialStuff.customEffect.universalEffects;
 
 import cn.gfhnv.game.effect.Effect;
+import cn.gfhnv.game.effect.EffectTags;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.officialStuff.customAction.SkipTurn;
 import cn.gfhnv.game.system.fight.ActionSignal;
@@ -29,18 +30,22 @@ import cn.gfhnv.game.system.fight.TurnManager;
 public class Frozen extends Effect {
     public Frozen() {
         super("frozenEffect");
+        this.getEffectTagsList().add(EffectTags.UNIVERSAL);
         this.setLastTime(1);
         this.setNegative(true);
     }
 
     public Frozen(int lastTime) {
         super("frozenEffect");
+        this.getEffectTagsList().add(EffectTags.UNIVERSAL);
         this.setLastTime(lastTime);
         this.setNegative(true);
     }
 
     public Frozen(Frozen effect) {
         super(effect.getID());
+        // 副本也是同一种效果，UNIVERSAL 标签要一起复制，否则副本 isUniversal() 会变成 false
+        this.getEffectTagsList().add(EffectTags.UNIVERSAL);
         this.setLastTime(effect.getLastTime());
         this.setLevel(effect.getLevel());
         this.setNegative(true);
@@ -50,6 +55,7 @@ public class Frozen extends Effect {
     public Effect copy() {
         return new Frozen(this);
     }
+
 
     /**
      * 获得效果的那一刻就布置好"跳过"。必须在这里做，不能只靠 {@link #comeIntoEffect}。
@@ -61,6 +67,7 @@ public class Frozen extends Effect {
         applyFrozen(thing);
         System.out.println(thing.getName() + "被冰冻");
     }
+
 
     /**
      * 该生物每个回合结束时重新确认一次"下一步要跳过"。
@@ -75,6 +82,7 @@ public class Frozen extends Effect {
         applyFrozen(thing);
         System.out.println(thing.getName() + "冰冻中");
     }
+
 
     /**
      * 布置跳过动作：把该生物下一条待执行的回合条目标记为 {@link ActionSignal#SPECIAL_ACTION}，
@@ -93,6 +101,7 @@ public class Frozen extends Effect {
         }
     }
 
+
     /**
      * 冰冻结束：只把控制器的行动信号复位。
      * <p>
@@ -108,4 +117,5 @@ public class Frozen extends Effect {
             livingThing.getController().setActionSignal(ActionSignal.NORMAL);
         }
     }
+
 }

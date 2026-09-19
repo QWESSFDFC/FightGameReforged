@@ -1,6 +1,7 @@
 package cn.gfhnv.game.officialStuff.customCommands;
 
 import cn.gfhnv.game.GameMain;
+import cn.gfhnv.game.system.command.ArgumentBuilder;
 import cn.gfhnv.game.system.command.Command;
 import cn.gfhnv.game.system.command.CommandManager;
 import cn.gfhnv.game.system.command.CommandNode;
@@ -55,21 +56,21 @@ public class EndFightCommand extends Command {
         root.setExecutor((context, source) -> finishFight(true, source));
 
         // 分支二：endfight <结果> —— 可以指定按胜利还是失败结算
-        root.addChild(argument("结果", StringArgumentType.word())
-                .executes((context, source) -> {
-                    String result = context.getString("结果", null);
-                    if (result == null) {
-                        return finishFight(true, source);
-                    }
-                    boolean win = switch (result.toLowerCase()) {
-                        case "win", "胜利", "yes", "true" -> true;
-                        case "lose", "failure", "失败", "no", "false" -> false;
-                        default -> throw CommandSyntaxException.create(
-                                "「" + result + "」不是合法的结果，只能填 win 或 lose（也接受 胜利/失败）");
-                    };
-                    return finishFight(win, source);
-                })
-                .build());
+        ArgumentBuilder result = ArgumentBuilder.argumentBuilder("结果", StringArgumentType.word());
+        result.executes((context, source) -> {
+            String text = context.getString("结果", null);
+            if (text == null) {
+                return finishFight(true, source);
+            }
+            boolean win = switch (text.toLowerCase()) {
+                case "win", "胜利", "yes", "true" -> true;
+                case "lose", "failure", "失败", "no", "false" -> false;
+                default -> throw CommandSyntaxException.create(
+                        "「" + text + "」不是合法的结果，只能填 win 或 lose（也接受 胜利/失败）");
+            };
+            return finishFight(win, source);
+        });
+        root.addChild(result);
 
         return root;
     }

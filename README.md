@@ -78,7 +78,28 @@
 | `/list [目标]` | 列出当前战斗中的生物状态（HP/攻防速/存活） |
 | `/kill <目标>` | 把目标生命值清零 |
 | `/hurt <目标> <数值>` | 改生命值，正数扣血、负数回血 |
+| `/effect <目标> list` | 列出目标身上的效果（等级/剩余回合/正面负面） |
+| `/effect <目标> add <效果> [等级] [持续回合]` | 加效果，效果模板取自效果注册表 |
+| `/effect <目标> add <效果>(参数,…)` | 按构造函数参数新建效果实例，如 `AttackEnhance(0.2,3)` |
+| `/effect <目标> remove <效果>\|all` | 移除某个效果，`all` 清空 |
 | `/endfight [win\|lose]` | 强制结束战斗（默认按玩家胜利结算） |
+
+效果名可以写注册表里的 **id** 或**类名**（大小写不敏感）：`frozen`、`frozenEffect`、
+`damageEnhanceEffect`、`CriticalDMGEnhanceEffect(1,5)`。
+角色专属/机制性效果（没有 `EffectTags.UNIVERSAL` 标签）**不能**用 `/effect` 施加，
+写错名字时会报错并列出当前所有可用的通用效果。
+
+括号里的数字含义由**参数个数**决定，不会有第二种解释：
+
+```
+/effect @s add AttackEnhance(0.2,3)     2 个参数 = 只给百分比 → 3 回合内攻击 +20%
+/effect @s add AttackEnhance(0,2,3)     3 个参数 = 百分比,固定值,回合 → 3 回合内攻击 +2 点
+/effect @s add AttackEnhance(0.5,3,3)   3 回合内攻击 +50% 且 +3 点
+/effect @s add CriticalDMGEnhanceEffect(1,5)   暴击伤害 +100%（1.0 = 100%）
+```
+
+同一组数字如果能同时匹配两个构造函数，命令会**直接报错并列出候选**，不会替你猜；
+每次添加的回显里也会写出实际用了哪个构造函数。
 
 实体选择器（写在需要目标的位置）：
 
@@ -288,7 +309,7 @@ FightGameReforged/
 ├── project_analyses/    # 分析文档与命令系统说明（含历史轮次报告）
 ├── screenshots/         # 运行截图
 ├── out/                 # javac/gradle 的临时输出（自测脚本用它）
-├── test-command-system.ps1      # 命令系统自测脚本（编译 + 运行，42 条断言）
+├── test-command-system.ps1      # 命令系统自测脚本（编译整个 src + 跑 90 多条断言）
 ├── 启动游戏-UTF8.bat             # 启动脚本（切 UTF-8 控制台；内容纯 ASCII）
 ├── build.gradle / gradle.properties
 └── README.md

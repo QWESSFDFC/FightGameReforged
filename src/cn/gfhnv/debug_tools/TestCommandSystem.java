@@ -170,6 +170,13 @@ public class TestCommandSystem {
     private static void testRegistrationAndExecution() {
         section("命令注册与执行");
 
+        // 效果注册表：真实游戏里由 GameMain 把 OfficialGameContent 加进 World、
+        // 再在 GameStartEvent 后 registerItself() 写进 World.getEffectList()。
+        // 自测不启动游戏，所以这里手动走一遍同样的流程（放在 initialize() 之前，
+        // 这样注册命令时打出的「可用效果」日志里就已经有内容了）。
+        // 只需要效果表被填满：选择器用的是 World.getThings()（运行时对象），不受这些模板影响。
+        new cn.gfhnv.game.officialStuff.OfficialGameContent().registerItself();
+
         // 只初始化命令系统（不调用 GameMain.gameInitialize()，避免加载模组与配置）
         CommandManager.initialize();
         check("已注册 kill", CommandManager.getRegisteredCommandNames().contains("kill"));
@@ -301,8 +308,179 @@ public class TestCommandSystem {
             fail("类型/名字筛选解析失败：" + e.getMessage());
         }
 
+        // ---- 效果命令：/effect <目标> add|remove|list ----
+        check("已注册 effect", CommandManager.getRegisteredCommandNames().contains("effect"));
+        run("effect @s add frozen", true);
+        check("冰冻效果已挂上", hasEffect(hero, "frozenEffect"));
+        run("effect @s add damageEnhanceEffect 2 5", true);
+        check("增伤效果已挂上", hasEffect(hero, "damageEnhanceEffect"));
+        check("增伤效果等级为 2", effectLevelOf(hero, "damageEnhanceEffect") == 2);
+        run("effect @s list", true);
+        run("effect @s remove frozenEffect", true);
+        check("冰冻效果已移除", !hasEffect(hero, "frozenEffect"));
+        run("effect @s remove all", true);
+        check("清空后身上没有效果", hero.getEntityEffectList().isEmpty());
+
+        // 角色专属 / 不存在的效果都必须被拒绝
+        run("effect @s add memorizedHp", false);
+        check("角色专属效果没有被挂上", !hasEffect(hero, "memorizedHp"));
+        run("effect @s add noSuchEffect", false);
+        run("effect @s add", false);
+        run("effect @s remove", false);
+        run("effect @s bad", false);
+
+        // 构造函数参数语法：效果名(参数,...)
+        run("effect @s add CriticalDMGEnhanceEffect(1,5)", true);
+        check("按构造函数参数创建成功", hasEffect(hero, "criticalDMGEnhanceEffect"));
+        run("effect @s add frozen(2)", true);
+        check("单参数构造函数（frozen(2)）可用", hasEffect(hero, "frozenEffect"));
+        run("effect @s remove all", true);
+        run("effect @s add frozen(1,2,3)", false);
+        run("effect @s add frozen(abc)", false);
+        run("effect @s add frozen(1", false);
+
+        // ---- 数字的单位：2 个参数一定是百分比，固定值必须写满 3 个参数 ----
+        run("effect @s remove all", true);
+        long fixedBefore = hero.getAttackEnhanceAmount();
+        double percentBefore = hero.getAttackEnhancePercent();
+
+        run("effect @s add AttackEnhance(1,2)", true);
+        check("AttackEnhance(1,2) 的 1 是百分比（percent +1.0）",
+                Math.abs(hero.getAttackEnhancePercent() - (percentBefore + 1.0)) < 1e-9);
+        check("AttackEnhance(1,2) 不会动固定值", hero.getAttackEnhanceAmount() == fixedBefore);
+        run("effect @s remove all", true);
+        check("remove all 会把改过的属性一起还回去",
+                hero.getAttackEnhanceAmount() == fixedBefore
+                        && Math.abs(hero.getAttackEnhancePercent() - percentBefore) < 1e-9);
+
+        run("effect @s add AttackEnhance(0,2,2)", true);
+        check("AttackEnhance(0,2,2) 的 2 是固定值（amount +2）",
+                hero.getAttackEnhanceAmount() == fixedBefore + 2);
+        check("AttackEnhance(0,2,2) 不会动百分比",
+                Math.abs(hero.getAttackEnhancePercent() - percentBefore) < 1e-9);
+        run("effect @s remove all", true);
+
+        run("effect @s add AttackEnhance(0.5,3,2)", true);
+        check("AttackEnhance(0.5,3,2) 两个数值都生效",
+                Math.abs(hero.getAttackEnhancePercent() - (percentBefore + 0.5)) < 1e-9
+                        && hero.getAttackEnhanceAmount() == fixedBefore + 3);
+        run("effect @s remove all", true);
+
+        // 守护：5 个「百分比 / 固定值」效果都只允许有 1 个双参数 + 1 个三参数构造函数
+        Class<?>[] percentStyle = {
+                cn.gfhnv.game.officialStuff.customEffect.universalEffects.AttackEnhance.class,
+                cn.gfhnv.game.officialStuff.customEffect.universalEffects.HpEnhanceEffect.class,
+                cn.gfhnv.game.officialStuff.customEffect.universalEffects.SpeedEnhanceEffect.class,
+                cn.gfhnv.game.officialStuff.customEffect.universalEffects.CriticalRateEnhanceEffect.class,
+                cn.gfhnv.game.officialStuff.customEffect.universalEffects.CriticalDMGEnhanceEffect.class
+        };
+        StringBuilder confused = new StringBuilder();
+        for (Class<?> type : percentStyle) {
+            int two = countConstructors(type, 2);
+            int three = countConstructors(type, 3);
+            if (two != 1 || three != 1) {
+                if (confused.length() > 0) {
+                    confused.append('、');
+                }
+                confused.append(type.getSimpleName()).append("(2参数=").append(two)
+                        .append(",3参数=").append(three).append(')');
+            }
+        }
+        check("5 个效果各只有 1 个双参数 + 1 个三参数构造函数"
+                        + (confused.length() == 0 ? "" : "（异常：" + confused + "）"),
+                confused.length() == 0);
+
+        // isUniversal 判定基于标签（与 isInfinity 一致）
+        check("通用效果带 UNIVERSAL 标签",
+                templateOf("frozenEffect") != null && templateOf("frozenEffect").isUniversal()
+                        && templateOf("frozenEffect").getEffectTagsList()
+                        .contains(cn.gfhnv.game.effect.EffectTags.UNIVERSAL));
+        check("角色专属效果不带 UNIVERSAL 标签",
+                templateOf("memorizedHp") != null && !templateOf("memorizedHp").isUniversal());
+
+        // 复制出来的副本必须还是通用的：实体复制走的是 effect.copy()，
+        // 拷贝构造器漏掉 UNIVERSAL 的话，副本在运行时会被当成「非通用」。
+        int universalCount = 0;
+        StringBuilder lostTag = new StringBuilder();
+        for (cn.gfhnv.game.effect.Effect template : cn.gfhnv.game.world.World.getEffectList()) {
+            if (template == null || !template.isUniversal()) {
+                continue;
+            }
+            universalCount++;
+            if (!template.copy().isUniversal()) {
+                if (lostTag.length() > 0) {
+                    lostTag.append("、");
+                }
+                lostTag.append(template.getClass().getSimpleName());
+            }
+        }
+        check("通用效果共 10 种（实际 " + universalCount + " 种）", universalCount == 10);
+        check("每种通用效果的 copy() 副本都保留 UNIVERSAL 标签"
+                        + (lostTag.length() == 0 ? "" : "（丢失：" + lostTag + "）"),
+                universalCount > 0 && lostTag.length() == 0);
+        check("副本的 id 与模板一致",
+                templateOf("frozenEffect") != null
+                        && templateOf("frozenEffect").copy().getID()
+                        .equalsIgnoreCase(templateOf("frozenEffect").getID()));
+
         CommandManager.clearCurrentFight();
         CommandSource.setCurrentFight(null);
+    }
+
+    /**
+     * 判断生物身上是否有指定 id 的效果。
+     *
+     * @param livingThing 生物
+     * @param effectId    效果 id
+     * @return 是否存在
+     */
+    private static boolean hasEffect(LivingThing livingThing, String effectId) {
+        for (cn.gfhnv.game.effect.Effect effect : livingThing.getEntityEffectList()) {
+            if (effectId.equalsIgnoreCase(effect.getID())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 取生物身上指定 id 的效果等级。
+     *
+     * @param livingThing 生物
+     * @param effectId    效果 id
+     * @return 等级；不存在返回 -1
+     */
+    private static int effectLevelOf(LivingThing livingThing, String effectId) {
+        for (cn.gfhnv.game.effect.Effect effect : livingThing.getEntityEffectList()) {
+            if (effectId.equalsIgnoreCase(effect.getID())) {
+                return effect.getLevel();
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * 从效果注册表里取指定 id 的模板。
+     *
+     * @param effectId 效果 id
+     * @return 模板；找不到返回 {@code null}
+     */
+    private static cn.gfhnv.game.effect.Effect templateOf(String effectId) {
+        for (cn.gfhnv.game.effect.Effect effect : cn.gfhnv.game.world.World.getEffectList()) {
+            if (effect == null) {
+                continue;
+            }
+            String id = effect.getID() == null ? "" : effect.getID();
+            // 注册进 World 的 id 带模组前缀（game_official_content:frozenEffect），
+            // 所以除了全等，还要按「冒号后的后半段」与简单类名各匹配一次。
+            int colon = id.indexOf(':');
+            String shortId = colon >= 0 && colon + 1 < id.length() ? id.substring(colon + 1) : id;
+            if (effectId.equalsIgnoreCase(id) || effectId.equalsIgnoreCase(shortId)
+                    || effectId.equalsIgnoreCase(effect.getClass().getSimpleName())) {
+                return effect;
+            }
+        }
+        return null;
     }
 
     /**
@@ -336,15 +514,16 @@ public class TestCommandSystem {
         cn.gfhnv.game.system.command.CommandDispatcher.setDebugParsing(true);
         try {
             // 最小复现：test <甲> <乙>
-            // 关键：树是「从根往下」建的 —— 子节点是在父构建器的 build() 里才被挂上去的，
-            // 所以要 build 根构建器（也就是 argument("甲", ...) 的返回值），而不是最内层的那个。
+            // 关键：一层一个变量 —— argumentBuilder(...) 建出「甲」，
+            // 再对它调 .argument("乙") 就把「乙」挂到「甲」下（返回值是新建出来的子节点）。
             cn.gfhnv.game.system.command.ArgumentBuilder child =
                     cn.gfhnv.game.system.command.ArgumentBuilder.argumentBuilder(
                             "甲", cn.gfhnv.game.system.command.WordArgumentType.word());
             cn.gfhnv.game.system.command.ArgumentBuilder grand =
                     child.argument("乙", cn.gfhnv.game.system.command.IntegerArgumentType.integer());
 
-            cn.gfhnv.game.system.command.CommandNode rootNode = child.build();
+            // 构建器本身就是节点，直接当作树的根来检查
+            cn.gfhnv.game.system.command.CommandNode rootNode = child;
             System.out.println("      最小复现的完整树（从根往下）：");
             dumpTree(rootNode, 6);
 
@@ -353,7 +532,8 @@ public class TestCommandSystem {
             check("构建器：甲节点下应挂着「乙」", inner != null);
             check("构建器：乙节点的父节点应是「甲」",
                     inner != null && inner.getParent() != null && "甲".equals(inner.getParent().getName()));
-            check("构建器：乙的构建器已产出节点（build 幂等检查）", grand != null);
+            check("构建器：链式结果的类型就是节点", rootNode instanceof cn.gfhnv.game.system.command.ArgumentBuilder);
+            check("构建器：乙分支也已建出（不是懒加载）", grand != null && grand == inner);
 
             // 断言：官方 hurt 命令的树必须是 hurt → 目标 → 数值
             cn.gfhnv.game.system.command.CommandNode hurtNode =
@@ -364,6 +544,29 @@ public class TestCommandSystem {
                     hurtNode == null ? null : hurtNode.getChild("目标");
             check("官方命令：「目标」下应挂着「数值」",
                     targetNode != null && targetNode.getChildrenNames().contains("数值"));
+
+            // 断言：官方 effect 命令的树必须是 effect → 目标 → add/remove/list
+            cn.gfhnv.game.system.command.CommandNode effectNode =
+                    CommandManager.getDispatcher().getCommandNode("effect");
+            check("官方命令：effect 下应挂着「目标」",
+                    effectNode != null && effectNode.getChildrenNames().contains("目标"));
+            cn.gfhnv.game.system.command.CommandNode effectTarget =
+                    effectNode == null ? null : effectNode.getChild("目标");
+            check("官方命令：effect 的「目标」下应挂着 add、remove、list",
+                    effectTarget != null
+                            && effectTarget.getChild("add") != null
+                            && effectTarget.getChild("remove") != null
+                            && effectTarget.getChild("list") != null);
+            check("官方命令：effect 的「目标/list」应可执行",
+                    effectTarget != null && effectTarget.getChild("list") != null
+                            && effectTarget.getChild("list").isExecutable());
+            check("官方命令：effect 的「目标/add」下应挂着「效果」",
+                    effectTarget != null && effectTarget.getChild("add") != null
+                            && effectTarget.getChild("add").getChild("效果") != null);
+            check("官方命令：effect 的「效果」下应挂着「等级」",
+                    effectTarget != null && effectTarget.getChild("add") != null
+                            && effectTarget.getChild("add").getChild("效果") != null
+                            && effectTarget.getChild("add").getChild("效果").getChild("等级") != null);
         } catch (Exception e) {
             System.out.println("      构建器诊断异常：" + e);
         } finally {
@@ -414,6 +617,27 @@ public class TestCommandSystem {
         } finally {
             cn.gfhnv.game.system.command.CommandDispatcher.setDebugParsing(false);
         }
+    }
+
+    /**
+     * 数一个类里「参数个数为 count」的公共构造函数有几个。
+     * <p>
+     * 用来守护「同一个数字不会同时匹配两个构造函数」这条约定：
+     * 通用效果里的百分比 / 固定值已经合并成 {@code (double percent, long amount, int lastTime)}，
+     * 所以这类效果应当只有 1 个双参数构造器（只给百分比）和 1 个三参数构造器（百分比 + 固定值）。
+     *
+     * @param type  类
+     * @param count 参数个数
+     * @return 个数
+     */
+    private static int countConstructors(Class<?> type, int count) {
+        int found = 0;
+        for (java.lang.reflect.Constructor<?> constructor : type.getConstructors()) {
+            if (constructor.getParameterCount() == count) {
+                found++;
+            }
+        }
+        return found;
     }
 
     /**

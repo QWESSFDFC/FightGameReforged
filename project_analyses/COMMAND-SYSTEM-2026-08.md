@@ -12,7 +12,7 @@
 ### 新增/重写的文件
 
 ```
-src/cn/gfhnv/game/system/command/          ← 命令框架（17 个类）
+src/cn/gfhnv/game/system/command/          ← 命令框架
 ├── ArgumentType.java            参数类型接口（@FunctionalInterface，可写 lambda）
 ├── LiteralArgumentType.java     字面量
 ├── WordArgumentType.java        单词
@@ -25,11 +25,11 @@ src/cn/gfhnv/game/system/command/          ← 命令框架（17 个类）
 ├── EntitySelector.java          选择器语法与求解（@s @p @r @a @e @n + [type=…,name=…,limit=…,sort=…]）
 ├── StringReader.java            带光标的输入读取器
 ├── CommandSyntaxException.java  带定位的语法异常（<--[HERE]）
-├── CommandNode.java             节点基类 + CommandExecutor 函数式接口
+├── CommandNode.java             节点基类 + CommandExecutor 函数式接口（含 isLiteralNode() 能力判定）
 ├── LiteralCommandNode.java      字面量节点
 ├── ArgumentCommandNode.java     参数节点
-├── ArgumentBuilder.java         链式建树（参数构建器）
-├── LiteralCommandBuilder.java   链式建树（字面量构建器）
+├── ArgumentBuilder.java         构建器，同时也是节点（字面量/参数分支都用它建）
+├── CommandParseHelper.java      三个数值类型共用的解析小工具（包内）
 ├── Command.java                 命令基类
 ├── CommandRegistration.java     注解式注册（@Subcommand）+ CommandBuilder
 ├── CommandDispatcher.java       注册表 + 递归下降解析 + 补全建议
@@ -44,10 +44,11 @@ src/cn/gfhnv/game/system/command/          ← 命令框架（17 个类）
 └── Subcommand.java              @Subcommand 注解
 
 src/cn/gfhnv/game/officialStuff/customCommands/   ← 官方命令
-├── OfficialCommands.java        统一注册
-├── KillCommand.java             /kill   重写（原先是空实现 + 一调用就抛异常）
+├── OfficialCommands.java        统一注册（并把注册表里可用的效果打进日志）
+├── KillCommand.java             /kill   重写
 ├── ListCommand.java             /list
 ├── HurtCommand.java             /hurt
+├── EffectCommand.java           /effect 加/移除/查看效果（从效果注册表取模板）
 ├── EndFightCommand.java         /endfight
 └── HelpCommand.java             /help 与 /?
 
@@ -120,8 +121,35 @@ CommandManager.describeState();                  // 当前状态（调试）
 | `/list <目标>` | 只列出选择器选中的实体 |
 | `/kill <目标>` | 把目标生命值清零 |
 | `/hurt <目标> <数值>` | 改生命值，正数扣血、负数回血 |
+| `/effect <目标> list` | 列出目标身上的效果（id、等级、剩余回合、正面/负面） |
+| `/effect <目标> add <效果> [等级] [持续回合]` | 从效果注册表取模板并施加到目标身上 |
+| `/effect <目标> add <效果>(参数,…)` | 用指定的构造函数参数新建效果实例，例如 `CriticalDMGEnhanceEffect(1,5)` |
+| `/effect <目标> remove <效果>` | 按 id 移除目标身上的该效果 |
+| `/effect <目标> remove all` | 清空目标身上的全部效果（`*` 同义） |
 | `/endfight` | 强制结束战斗（默认按玩家胜利结算，会发奖励） |
 | `/endfight lose` | 强制结束战斗并按失败结算 |
+
+**`/effect` 的效果名**：效果注册表（`World.getEffectList()`）里的 **id** 或**简单类名**，
+大小写不敏感，两种写法都可以：
+`frozen`（类名 `Frozen`）、`frozenEffect`（它的 id）、`damageEnhanceEffect`、
+`CriticalDMGEnhanceEffect(1,5)`。写错时会报错并列出当前所有可用的通用效果。
+**角色专属/机制性效果不能通过命令施加**——判定用的是效果自身的标签
+（`EffectTags.UNIVERSAL`，`Effect.isUniversal()`），没有这个标签就拒绝，
+所以「官方内容里那些只属于某个角色的效果」不会被 `/effect` 挂到别人身上。
+`OfficialCommands` 在注册时会把这个可用列表打进日志（`latest.log`），方便对名字。
+
+**括号里数字的含义＝构造函数的参数个数**（不会有第二种解释）：
+
+```
+/effect @s add AttackEnhance(0.2,3)      2 个参数 = 只给百分比 → 3 回合内攻击 +20%
+/effect @s add AttackEnhance(0,2,3)      3 个参数 = 百分比,固定值,回合 → 3 回合内攻击 +2 点
+/effect @s add AttackEnhance(0.5,3,3)    3 回合内攻击 +50% 且 +3 点
+/effect @s add CriticalDMGEnhanceEffect(1,5)    暴击伤害 +100%（1.0 = 100%）
+```
+
+同一组数字如果能同时匹配两个构造函数，命令会**直接报错并列出候选**，不会替你猜；
+每次添加的回显里也会写出实际用了哪个构造函数（例如
+`已对 1 个目标添加效果 attackEnhanceEffect（按构造函数 AttackEnhance(double,int) 创建 (0.2, 3)）`）。
 
 **实体选择器**（写在需要目标的位置）：
 
@@ -143,6 +171,11 @@ CommandManager.describeState();                  // 当前状态（调试）
 /hurt @s 100
 /hurt @p -50
 /list @e[type=Phainon]
+/effect @s add frozen
+/effect @s add DamageEnhanceEffect 2 5
+/effect @s add CriticalDMGEnhanceEffect(1,5)
+/effect @s remove frozenEffect
+/effect @s list
 /endfight lose
 ```
 
@@ -249,7 +282,7 @@ System.console() = 可用       console.charset() = UTF-8   isTerminal = true
 中文名/id 匹配本身**实现好了且有自测覆盖**（自测里 `@e[name=普通虫子]` 能选中虫子），
 只是 cmd 送不进来；换 Windows Terminal / IDEA 运行通常可用。
 
-1. **选人/选敌人/选奖励阶段**——输入 `/help`，应当列出 6 条命令（含 `?`）且**不会**被当成「输入错误」。
+1. **选人/选敌人/选奖励阶段**——输入 `/help`，应当列出 7 行命令（`kill / list / hurt / effect / endfight / help / ?`）且**不会**被当成「输入错误」。
 2. 选一个角色加入队伍后输入 `/list`，应当看到这个角色的名字与 HP。
 3. 战斗开始时输入 `/list`，应当列出双方所有生物。
 4. 轮到你行动时（提示「输入前方数字使用」）输入 `/hurt @s 100`，应当掉血；然后再输入技能编号，流程应当继续正常。
@@ -261,14 +294,23 @@ System.console() = 可用       console.charset() = UTF-8   isTerminal = true
    > 第二局回合正常推进，第二局里用 `/kill @e[type=InsectBoss]` 击杀也能正常结算 —— 三条都通过。
    > 唯一的小瑕疵：`/endfight` 后要多按一次回车（见上面「踩过的坑」里的说明，不影响功能）。
 6. 输入 `/kill @e[type=CommonInsect]` 杀死敌方小怪，战斗应当正常判定胜负。
-7. 故意写错，确认报错信息带定位与用法：
+7. **效果命令**（战斗中，随便哪个阶段有 `@s` 能选中自己就行）：
+   - `/effect @s add frozen` → 提示「已对 1 个目标添加效果 frozenEffect...」
+   - `/effect @s list` → 能看到 `frozenEffect 等级 1 剩余 N 回合`
+   - `/effect @s add CriticalDMGEnhanceEffect(1,5)` → 按构造函数参数创建（这条专门验证「参数从括号里传」）
+   - `/effect @s add AttackEnhance(0,2,3)` → 3 个参数 = 百分比,固定值,回合（验证合并后的构造函数）
+   - `/effect @s remove all` 之后再 `/effect @s list`：确认攻击力等加成已经还回去了（不是只清了列表）
+   - `/effect @s add memorizedHp` → 应当被拒绝并列出可用效果（角色专属效果没有 `UNIVERSAL` 标签）
+   - `/effect @s remove all` → 提示清空了 N 个效果；再 `/effect @s list` 应当说「身上没有任何效果」
+8. 故意写错，确认报错信息带定位与用法：
    - `/nosuch` → `未知的命令：nosuch。你是不是想输入：...`
    - `/kill` → `命令不完整：/kill <目标>`
    - `/kill @e[bad=1]` → `未知的筛选键「bad」...`
    - `/hurt @s abc` → `「abc」不是一个合法的长整数: ...<--[HERE]`
-8. 输入普通文本 `yes` / `no` / `next` / `数字`，确认一切与改动前一样。
+   - `/effect @s add frozen(1` → `构造函数参数没有用右括号闭合：frozen(1`
+9. 输入普通文本 `yes` / `no` / `next` / `数字`，确认一切与改动前一样。
 
-### 已经踩过的坑
+## 五、已经踩过的坑
 
 - **★ `/endfight` 必须能被「正在等输入」的玩家侧感知到**（唯一的集成级 bug，实测踩到）：
   `/endfight` 多半是在**玩家回合内**执行的，而此时 `PlayerController.act()` 正卡在
@@ -289,25 +331,44 @@ System.console() = 可用       console.charset() = UTF-8   isTerminal = true
   那一次多余的空输入随后被循环消费掉时才触发 `fightIsOver()` 退出。
   功能上没有影响（不会卡死、不会错乱），要修就得给每个 `nextLine()`
   加一个「本行是结束战斗的命令」的返回机制，改动面大于收益，故保持现状。
-- **★ 建树铁律：`build()` 必须作用在「要挂上去的那一层」上**
-  （多级参数命令唯一出过错的地方，`/hurt <目标> <数值>` 因此丢掉了整层「目标」）：
-  节点是在**父构建器的 `build()` 里**才被挂到父节点上的，所以下面两种写法差别巨大：
+- **★ 建树铁律：一层一个变量，最后只把最外层交给 `addChild`**
+  （多级命令唯一出过错的地方，`/hurt <目标> <数值>` 与整个 `/effect` 都因此丢过层）：
+  `literal(...)` / `argument(...)` 返回的是**新建出来的那个子节点**（建树时就已经挂好），
+  所以把长链直接当 `addChild` 的参数，挂上去的其实是**最内层**：
   ```java
-  // ❌ 错：build 的是「数值」那一层，root 收到的是「数值」节点 → 「目标」整层消失
-  root.addChild(argument("目标", ...).argument("数值", ...).executes(...).build());
+  // ❌ 错：挂上去的是「数值」那一层 → 「目标」整层不在树里
+  ArgumentBuilder target = ArgumentBuilder.argumentBuilder("目标", ...).argument("数值", ...);
+  root.addChild(target);
 
-  // ✅ 对：先搭出「数值」，再 build「目标」那一层
-  ArgumentBuilder target = argument("目标", ...);
-  target.argument("数值", ...).executes(...);
-  root.addChild(target.build());
+  // ✅ 对：外层留住变量，内层从外层长出来
+  ArgumentBuilder target = ArgumentBuilder.argumentBuilder("目标", ...);
+  ArgumentBuilder amount = target.argument("数值", ...);
+  amount.executes(...);
+  root.addChild(target);
   ```
-  症状很好认：**多参数命令只剩最后一层参数**，解析时把第一个参数值当成了后一个参数的类型
-  （`/hurt @s 100` → 「`@s` 不是一个合法的长整数」）。
-  单层参数的命令（`/kill <目标>`、`/list <目标>`、`/endfight <结果>`、`/help <命令名>`）
-  恰好怎么写都对，所以这个坑很容易漏掉。
+  症状很好认：命令树 dump 里查不到应该有的那一层（`[effect] 子节点=[add, 效果, list]`，
+  没有「目标」），运行时则是**所有带参数的写法**都报「命令无法继续解析」。
+  自测里已经加了「官方命令：effect 下应挂着『目标』」等断言把这条钉住。
+- **★ 判断「字面量 / 参数」不能用 `instanceof`，要用 `CommandNode.isLiteralNode()`**
+  （和上一条同时踩到，是「树搭对了却依然解析不了」的第二个原因）：
+  `ArgumentBuilder` 本身就是节点，既可能表示字面量分支，也可能表示参数分支，
+  但它既不是 `LiteralCommandNode` 也不是 `ArgumentCommandNode`。
+  解析器原先写的是 `child instanceof LiteralCommandNode` / `instanceof ArgumentCommandNode`，
+  于是构建器建出来的分支**两个判断都不匹配**：字面量匹配轮跳过它，参数匹配轮也跳过它。
+  现在改为能力判定（`LiteralCommandNode` → `true`，`ArgumentBuilder` → 有没有参数类型），
+  补全里的三处判断同样改掉了。
+- **构建器建出来的字面量分支也必须能自己吃输入**：`ArgumentBuilder.parse()` 对字面量分支
+  要和 `LiteralCommandNode.parse()` 一样（跳空白 → 读一个词 → 大小写不敏感比对），
+  不能只抛一句「这是字面量，不能按参数解析」——解析器是真的会调用它来吃掉这一层的。
+- **同一个分支不要建两遍**：`addChild` 按名字合并同名节点（新的执行体覆盖旧的、
+  子节点并进旧节点），第二次建出来的那个对象会被丢弃，再往它上面挂子分支就等于没挂。
+  `/effect` 的 `add / remove / list` 因此改成从**同一个**「目标」节点上长出来，
+  而不是三条链各建一个「目标」。
 - **可见性规则（踩了两次）**：Java 覆写方法时**不能降低可见性**。
-  最终固定为 `public build()` + `protected buildNode()`（`Command` 里两者都在，
-  `ArgumentBuilder` 里只有 `public build()`）。
+  最终固定为 `public build()` + `protected buildNode()`（`Command` 里两者都在）。
+  `Command` 里那两个静态便捷方法 `argument(...)` / `literal(...)` 已经删掉：
+  它们和继承来的实例方法 `literal(String)` / `argument(String, ArgumentType)` 同名，
+  调用处极容易看错成「在建子分支」。
 - **`CommandManager.sendError` 只接受 `CommandSyntaxException`**，不要传字符串
   （`CommandSender.sendError(String)` 是另一个重载）。
 - **`stripPrefix()` 会 `trim()`，别拿它的结果判断「尾随空白」**：
@@ -327,6 +388,42 @@ System.console() = 可用       console.charset() = UTF-8   isTerminal = true
   `ArgumentBuilder.class`，用 IDEA 直接跑自测时会用到它，表现为「源码明明改了却还是旧行为」。
   排查时请用 `test-command-system.ps1`（它每次重新编译到 `out\cmdtest`），
   或在 IDEA 里先 `Build → Rebuild Project`。
+- **注册表里的效果 id 带模组前缀，运行时实例不带**：`Mod.addEffect()` 会把 id 改成
+  `game_official_content:frozenEffect`，而效果类构造器里写死的 id 是短名 `frozenEffect`。
+  于是「按 id 找模板」和「按 id 删效果」两条路都会因为字符串不相等而失败
+  （`/effect @s remove frozenEffect` 会变成「成功但一个也没删」）。
+  现在 `matches()` / `sameEffect()` 按「类型 → 全长 id → 去掉前缀的 id → 简单类名」依次比，
+  提示与回显统一只打印短名。
+- **自测不启动游戏，效果注册表默认是空的**：`World.getEffectList()` 由
+  `OfficialGameContent.registerItself()` 填充（真实游戏在 `GameStartEvent` 之后才走这一步）。
+  `/effect` 的候选全部来自这张表，不填就会报「效果注册表里没有…」，
+  `templateOf()` 也会一路返回 `null`。自测里已手动走一遍同样的流程。
+- **★「同一个数字能匹配两个构造函数」要在内容那边消掉，不要靠命令猜**：
+  通用效果原本是「百分比」和「固定值」两个 2 参数构造器
+  （{@code (double percent,int)} 与 {@code (long amount,int)}），
+  于是 {@code AttackEnhance(1,1)} 两个都能匹配（int 既能转 long 也能转 double），
+  `getConstructors()` 的返回顺序又没有规定 —— 也就是「1 是 1.0 还是 1L」全看 JVM 心情。
+  现在这 5 个效果（AttackEnhance / HpEnhanceEffect / SpeedEnhanceEffect /
+  CriticalRateEnhanceEffect / CriticalDMGEnhanceEffect）改成
+  **把可能混的数值并进同一个构造函数**：
+  ```java
+  public AttackEnhance(double percent, long amount, int lastTime)  // 完整版（3 参数）
+  public AttackEnhance(double percent, int latTime) { this(percent, 0, latTime); }  // 简写（2 参数）
+  ```
+  参数个数不同 → 永远不会互相匹配；写 2 个参数就一定是百分比，要固定值就写满 3 个。
+  命令侧也加了兜底：匹配到多个构造函数时**报错并列出候选**，不再「拿到哪个用哪个」；
+  回显里会写明用了哪个构造函数。自测里有断言守护「这类效果各只有 1 个双参数 + 1 个三参数构造函数」。
+- **`/effect ... remove all` 现在会让效果正常收尾**：原来直接 `clear()` 列表，
+  像「+N 攻击」这种把加成写进属性的效果会**永久留在身上**（效果没了、属性还是增强过的）。
+  现在会先对每个效果调 `whenLastTimeEnd()` 再清空，和单条 `remove` 的行为一致。
+- **★ 通用效果的<b>每一个</b>构造函数都要加 `UNIVERSAL` 标签，拷贝构造器尤其容易漏**：
+  `isUniversal()` 是标签判定（与 `isInfinity()` 同一套做法），而实体复制走的是
+  `effect.copy()` → 拷贝构造器。漏一行，副本在运行时就会被当成「非通用」，
+  将来任何「按通用性筛选」的逻辑都会漏掉它。10 个通用效果已全部补齐
+  （`DamageEnhanceEffect` 的拷贝构造器连 `POSITIVE` 也一起补了，
+  `DefenseEnhanceEffect(String,int,int)` 这个新建实例的构造器同样补了）。
+  自测里加了「每种通用效果的 `copy()` 副本都保留 UNIVERSAL 标签」与「通用效果共 10 种」，
+  以后新增效果忘了加标签会直接报红。
 
 ---
 
@@ -348,17 +445,17 @@ public class MyCommand extends Command {
             return 1;
         });
 
-        // /my hit <目标> <数值>
-        root.addChild(argument("目标", EntityArgumentType.entities())
-                .argument("数值", IntegerArgumentType.integer(1, 999))
-                .executes((context, source) -> {
-                    List<LivingThing> targets = context.getLivingThings("目标");
-                    int amount = context.getInt("数值", null, 0);
-                    for (LivingThing t : targets) t.setHp(t.getHp() - amount);
-                    source.sendMessage("影响了 " + targets.size() + " 个目标");
-                    return targets.size();
-                })
-                .build());
+        // /my <目标> <数值>：一层一个变量
+        ArgumentBuilder target = ArgumentBuilder.argumentBuilder("目标", EntityArgumentType.entities());
+        ArgumentBuilder amount = target.argument("数值", IntegerArgumentType.integer(1, 999));
+        amount.executes((context, source) -> {
+            List<LivingThing> targets = context.getLivingThings("目标");
+            int value = context.getInt("数值", null, 0);
+            for (LivingThing t : targets) t.setHp(t.getHp() - value);
+            source.sendMessage("影响了 " + targets.size() + " 个目标");
+            return targets.size();
+        });
+        root.addChild(target);   // 只挂最外层
 
         return root;
     }

@@ -156,6 +156,20 @@ public abstract class CommandNode {
     }
 
     /**
+     * 本节点是不是「字面量」节点（解析时按输入原文比对，而不是交给参数类型去解析）。
+     * <p>
+     * 解析与补全必须区分这两类分支，但<b>不能</b>用 {@code instanceof LiteralCommandNode} 判断：
+     * {@link ArgumentBuilder} 既能建字面量分支也能建参数分支，而且它本身就是一个节点，
+     * 用它建出来的分支既不是 {@code LiteralCommandNode} 也不是 {@code ArgumentCommandNode}，
+     * 用 {@code instanceof} 判断会让这些分支两边都不匹配。所以这里用能力判定，由各节点自己回答。
+     *
+     * @return 字面量节点返回 {@code true}；参数节点与参数构建器返回 {@code false}
+     */
+    public boolean isLiteralNode() {
+        return false;
+    }
+
+    /**
      * @return 执行体；没有则返回 {@code null}
      */
     public CommandExecutor getExecutor() {

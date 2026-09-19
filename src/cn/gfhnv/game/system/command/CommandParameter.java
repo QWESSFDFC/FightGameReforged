@@ -7,11 +7,9 @@ import java.util.Map;
 /**
  * 命令参数容器：旧版命令系统的核心数据结构，现在作为 {@link CommandContext} 的<b>兼容视图</b>保留。
  * <p>
- * 背景：旧版命令系统要求命令自己把输入字符串切成 {@code List<ParameterEntry>}，再按下标取值
- * （旧的两个入口 {@code resolveInput(String)} / {@code comeToEffect(CommandParameter)}
- * 已在命令系统重写时移除，本类保留下来只是为了兼容仍引用它的代码）。
- * 新设计把解析下沉到了 {@link ArgumentType}，参数改为<b>按名字</b>存放在
- * {@link CommandContext} 里，因此本类现在的职责只剩「让老代码继续编译、继续按顺序拿到参数」。
+ * 旧版要求命令自己把输入字符串切成 {@code List<ParameterEntry>} 再按下标取值；
+ * 新设计把解析下沉到了 {@link ArgumentType}，参数改为<b>按名字</b>存放在 {@link CommandContext} 里，
+ * 因此本类现在的职责只剩「让仍引用它的代码继续编译、继续按顺序拿到参数」。
  * <p>
  * 新写的命令请直接用 {@link #getContext()}（或干脆用 {@code executes((context, source) -> ...)}）：
  * <pre>{@code

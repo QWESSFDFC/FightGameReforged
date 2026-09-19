@@ -285,9 +285,11 @@ public class CommandDispatcher {
             String word = reader.peekWord();
 
             // 1) 先试字面量子节点
+            // 判定用 isLiteralNode()（能力判定）而不是 instanceof LiteralCommandNode：
+            // 构建器 ArgumentBuilder 建出来的分支同样要参与字面量匹配。
             List<CommandNode> literalCandidates = new ArrayList<>();
             for (CommandNode child : current.getChildren()) {
-                if (child instanceof LiteralCommandNode && matchesIgnoreCase(child.getName(), word)) {
+                if (child.isLiteralNode() && matchesIgnoreCase(child.getName(), word)) {
                     literalCandidates.add(child);
                 }
             }
@@ -326,7 +328,7 @@ public class CommandDispatcher {
             // 2) 再试参数子节点
             CommandNode argumentMatch = null;
             for (CommandNode child : current.getChildren()) {
-                if (!(child instanceof ArgumentCommandNode)) {
+                if (child.isLiteralNode()) {
                     continue;
                 }
                 Map<String, Object> snapshot = new LinkedHashMap<>(context.getArguments());
@@ -340,8 +342,8 @@ public class CommandDispatcher {
                             + fork.getRemaining() + "」之前的内容，当前参数表=" + context.getArguments());
                     break;
                 } catch (CommandSyntaxException e) {
-                    // 用 debug 开关输出（不再写日志，避免每次输错都在 latest.log 里留噪音）。
-                    // 排查中文选择器这类问题时，把 setDebugParsing(true) 打开即可看到具体原因。
+                    // 用 debug 开关输出：这类「试了哪个参数节点、为什么失败」的信息每次都写日志
+                    // 会把 latest.log 刷满噪音。排查中文选择器这类问题时把 setDebugParsing(true) 打开。
                     debug("在 " + current.getName() + " 下试参数「" + child.getName() + "」失败："
                             + e.getRawMessage() + "，剩余输入=「" + fork.getRemaining() + "」");
                     context.getArguments().clear();
@@ -432,7 +434,7 @@ public class CommandDispatcher {
         }
         // 注意：尾随空白必须看【原始输入】。stripPrefix() 内部会 trim()（那是给解析用的，
         // "kill " 必须变成 "kill"），所以对 stripPrefix 的结果调 endsWith(" ") 恒为 false，
-        // 补全就永远不知道该提示「下一步」了（这个 bug 被自测诊断抓到过）。
+        // 补全就永远不知道该提示「下一步」了。
         boolean endsWithSpace = endsWithWhitespace(input);
 
         String command = stripPrefix(input);
@@ -482,7 +484,7 @@ public class CommandDispatcher {
         if (index < parts.size()) {
             String partial = parts.get(index).toLowerCase();
             for (CommandNode child : current.getChildren()) {
-                if (child instanceof LiteralCommandNode && child.getName().toLowerCase().startsWith(partial)) {
+                if (child.isLiteralNode() && child.getName().toLowerCase().startsWith(partial)) {
                     suggestions.add(child.getName());
                 }
             }
@@ -491,7 +493,7 @@ public class CommandDispatcher {
         if (endsWithSpace) {
             // 处于「参数位置」：参数分支给出 <参数名>，字面量分支给出字面量
             for (CommandNode child : current.getChildren()) {
-                suggestions.add(child instanceof ArgumentCommandNode ? "<" + child.getName() + ">" : child.getName());
+                suggestions.add(child.isLiteralNode() ? child.getName() : "<" + child.getName() + ">");
             }
         }
         return new ArrayList<>(suggestions);
@@ -520,7 +522,7 @@ public class CommandDispatcher {
      */
     private static CommandNode findLiteralIgnoreCase(CommandNode parent, String name) {
         for (CommandNode child : parent.getChildren()) {
-            if (child instanceof LiteralCommandNode && child.getName().equalsIgnoreCase(name)) {
+            if (child.isLiteralNode() && child.getName().equalsIgnoreCase(name)) {
                 return child;
             }
         }
@@ -538,7 +540,7 @@ public class CommandDispatcher {
      */
     private static CommandNode firstArgumentChild(CommandNode parent) {
         for (CommandNode child : parent.getChildren()) {
-            if (child instanceof ArgumentCommandNode && child.getRequires().test(CommandSource.console())) {
+            if (!child.isLiteralNode() && child.getRequires().test(CommandSource.console())) {
                 return child;
             }
         }

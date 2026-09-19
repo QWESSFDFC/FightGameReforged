@@ -1,5 +1,6 @@
 package cn.gfhnv.game.officialStuff.customCommands;
 
+import cn.gfhnv.game.system.command.ArgumentBuilder;
 import cn.gfhnv.game.system.command.Command;
 import cn.gfhnv.game.system.command.CommandManager;
 import cn.gfhnv.game.system.command.CommandNode;
@@ -15,8 +16,8 @@ import cn.gfhnv.game.system.command.StringArgumentType;
  * /help kill       查看 kill 命令的用法与可用的下一步
  * </pre>
  * <p>
- * 说明：{@code help} 与 {@code ?} 两个名字指向同一套分支（用
- * {@link Command#node()} 之外再挂一个字面量别名即可，这里通过 {@code alias} 分支实现）。
+ * 说明：命令树的根字面量必须与命令名一致，因此 {@code /?} 这类别名无法挂在同一棵树上，
+ * 而是由 {@link Alias} 这个独立命令类承担（见下方内部类）。
  *
  * @author AI（DeepSeek）生成
  */
@@ -31,9 +32,6 @@ public class HelpCommand extends Command {
 
     /**
      * 构建命令树：{@code help}、{@code help <命令名>}。
-     * <p>
-     * 命令树的根字面量必须与命令名一致，因此 {@code /?} 这类别名无法挂在同一棵树上，
-     * 而是由 {@link Alias} 这个独立命令类承担（见下方内部类）。
      *
      * @return 命令根节点
      */
@@ -48,13 +46,12 @@ public class HelpCommand extends Command {
         });
 
         // 分支二：help <命令名>
-        root.addChild(argument("命令名", StringArgumentType.word())
-                .executes((context, source) -> {
-                    String name = context.getString("命令名", null);
-                    CommandManager.printUsage(name);
-                    return 1;
-                })
-                .build());
+        ArgumentBuilder name = ArgumentBuilder.argumentBuilder("命令名", StringArgumentType.word());
+        name.executes((context, source) -> {
+            CommandManager.printUsage(context.getString("命令名", null));
+            return 1;
+        });
+        root.addChild(name);
 
         return root;
     }
@@ -86,16 +83,19 @@ public class HelpCommand extends Command {
         @Override
         protected CommandNode buildNode() {
             LiteralCommandNode root = node();
+
             root.setExecutor((context, source) -> {
                 CommandManager.printUsage(null);
                 return CommandManager.getRegisteredCommandNames().size();
             });
-            root.addChild(argument("命令名", StringArgumentType.word())
-                    .executes((context, source) -> {
-                        CommandManager.printUsage(context.getString("命令名", null));
-                        return 1;
-                    })
-                    .build());
+
+            ArgumentBuilder argument = ArgumentBuilder.argumentBuilder("命令名", StringArgumentType.word());
+            argument.executes((context, source) -> {
+                CommandManager.printUsage(context.getString("命令名", null));
+                return 1;
+            });
+            root.addChild(argument);
+
             return root;
         }
     }

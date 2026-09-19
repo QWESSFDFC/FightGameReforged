@@ -235,12 +235,20 @@ public class Effect {
     }
 
     /**
+     * 该效果是否为「通用效果」——即任意生物都能获得的、与角色无关的效果。
+     *
+     * @return 是否为可被命令施加的通用效果
+     */
+    public boolean isUniversal() {
+        return effectTagsList.contains(EffectTags.UNIVERSAL);
+    }
+
+    /**
      * @return 效果来源（施放者/技能等）
      */
     public String getOrigin() {
         return origin;
     }
-
     /**
      * 设置效果来源（链式调用）。
      *

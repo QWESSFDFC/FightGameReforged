@@ -36,6 +36,7 @@ public final class OfficialCommands {
                 new KillCommand(),
                 new ListCommand(),
                 new HurtCommand(),
+                new EffectCommand(),
                 new EndFightCommand(),
                 new HelpCommand(),
                 new HelpCommand.Alias("?")
@@ -43,5 +44,7 @@ public final class OfficialCommands {
         for (Command command : commands) {
             dispatcher.register(command);
         }
+        // 注册完成后把可用的通用效果写进日志，便于排查「模组效果为什么没出现在候选里」
+        EffectCommand.logAvailableEffects();
     }
 }

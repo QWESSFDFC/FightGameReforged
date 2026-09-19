@@ -10,11 +10,14 @@ public class HealthRestoreEffect extends Effect {
 
     public HealthRestoreEffect(int level, int lastTime) {
         super("healthRestoreEffect", level, lastTime);
+        this.getEffectTagsList().add(EffectTags.UNIVERSAL);
         this.getEffectTagsList().add(EffectTags.POSITIVE);
     }
 
     public HealthRestoreEffect(HealthRestoreEffect effect) {
         super(effect.getID());
+        // 副本也是同一种效果，UNIVERSAL 标签要一起复制，否则副本 isUniversal() 会变成 false
+        this.getEffectTagsList().add(EffectTags.UNIVERSAL);
         this.setLastTime(effect.getLastTime());
         this.setLevel(effect.getLevel());
         this.getEffectTagsList().add(EffectTags.POSITIVE);
@@ -24,6 +27,7 @@ public class HealthRestoreEffect extends Effect {
 
     public HealthRestoreEffect() {
         super("healthRestoreEffect");
+        this.getEffectTagsList().add(EffectTags.UNIVERSAL);
         this.getEffectTagsList().add(EffectTags.POSITIVE);
     }
 

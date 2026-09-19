@@ -41,46 +41,41 @@ public class HurtCommand extends Command {
     /**
      * 构建命令树：{@code hurt <目标> <数值>}。
      * <p>
-     * <b>关键</b>：{@code build()} 只构建「调用它的那个构建器」以及它下面的子分支，
-     * <b>不会</b>把自己挂到父构建器上（父子关系是在父构建器 build 时才建立的）。
-     * 所以要 {@code root.addChild(...)} 的那个东西，必须是<b>要被挂上去的那一层</b>的构建器。
-     * <p>
-     * 因此这里分两步：先在「目标」构建器上搭出「数值」，再 build「目标」这一层。
-     * 若写成 {@code root.addChild(argument("目标", ...).argument("数值", ...).build())}，
-     * 传进去的其实是「数值」节点，「目标」整层会丢失。
+     * 「目标」是外层、「数值」是内层，因此先建「目标」，把「数值」挂到它上面（并给「数值」
+     * 绑执行体），最后把「目标」交给根节点。
      *
      * @return 命令根节点
      */
     @Override
     protected CommandNode buildNode() {
         LiteralCommandNode root = node();
-        ArgumentBuilder targetBuilder = argument("目标", EntityArgumentType.entities());
-        targetBuilder.argument("数值", LongArgumentType.longArg())
-                .executes((context, source) -> {
-                    List<LivingThing> targets = context.getLivingThings("目标");
-                    long amount = context.getLong("数值", null, 0L);
-                    int affected = 0;
-                    StringBuilder detail = new StringBuilder();
-                    for (LivingThing target : targets) {
-                        long before = target.getHp();
-                        long after = before - amount;
-                        target.setHp(after);
-                        long actual = target.getHp();
-                        if (detail.length() > 0) {
-                            detail.append("、");
-                        }
-                        detail.append(EntityArgumentType.nameOf(target))
-                                .append("（").append(before).append(" → ").append(actual).append("）");
-                        if (actual != before) {
-                            affected++;
-                        }
-                    }
-                    String verb = amount >= 0 ? "造成 " + amount + " 点伤害" : "回复 " + (-amount) + " 点生命";
-                    source.sendMessage("对 " + targets.size() + " 个目标" + verb + "，实际变化 " + affected + " 个：" + detail);
-                    return affected;
-                });
-        // 注意：build 的是「目标」那一层，它会把「数值」一起带上
-        root.addChild(targetBuilder.build());
+
+        ArgumentBuilder target = ArgumentBuilder.argumentBuilder("目标", EntityArgumentType.entities());
+        ArgumentBuilder amount = target.argument("数值", LongArgumentType.longArg());
+        amount.executes((context, source) -> {
+            List<LivingThing> living = context.getLivingThings("目标");
+            long value = context.getLong("数值", null, 0L);
+            int affected = 0;
+            StringBuilder detail = new StringBuilder();
+            for (LivingThing one : living) {
+                long before = one.getHp();
+                one.setHp(before - value);
+                long actual = one.getHp();
+                if (detail.length() > 0) {
+                    detail.append("、");
+                }
+                detail.append(EntityArgumentType.nameOf(one))
+                        .append("（").append(before).append(" → ").append(actual).append("）");
+                if (actual != before) {
+                    affected++;
+                }
+            }
+            String verb = value >= 0 ? "造成 " + value + " 点伤害" : "回复 " + (-value) + " 点生命";
+            source.sendMessage("对 " + living.size() + " 个目标" + verb + "，实际变化 " + affected + " 个：" + detail);
+            return affected;
+        });
+        root.addChild(target);
+
         return root;
     }
 }

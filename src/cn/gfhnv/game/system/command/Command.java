@@ -16,25 +16,48 @@ import java.util.List;
  *     @Override
  *     protected LiteralCommandNode buildNode() {
  *         LiteralCommandNode root = node();
- *         root.addChild(argument("目标", EntityArgumentType.entities())
- *                 .executes((context, source) -> {
- *                     List<LivingThing> targets = context.getLivingThings("目标");
- *                     for (LivingThing target : targets) target.setHp(0);
- *                     return targets.size();
- *                 })
- *                 .build());          // 子分支最后 build，再挂到根上
+ *
+ *         // 先建这一层的节点，绑好执行体，再交给父节点
+ *         ArgumentBuilder target = ArgumentBuilder.argumentBuilder(
+ *                 "目标", EntityArgumentType.entities());
+ *         target.executes((context, source) -> {
+ *             List<LivingThing> targets = context.getLivingThings("目标");
+ *             for (LivingThing t : targets) t.setHp(0);
+ *             return targets.size();
+ *         });
+ *         root.addChild(target);
+ *
  *         return root;
  *     }
  * }
  * }</pre>
  *
- * <h2>多条分支的写法</h2>
+ * <h2>多层与多分支</h2>
  * <pre>{@code
- * LiteralCommandNode root = node();
- * root.setExecutor(...);                                  // /cmd 本身可执行
- * root.addChild(argument("目标", ...).executes(...).build()); // /cmd <目标>
- * root.addChild(literal("hand").executes(...).build());       // /cmd hand
+ * // 多层：外层建好之后，把内层挂到它上面，最后把外层交给 root
+ * ArgumentBuilder outer = ArgumentBuilder.argumentBuilder("目标", ...);
+ * ArgumentBuilder inner = outer.argument("数值", ...);
+ * inner.executes(...);
+ * root.addChild(outer);
+ *
+ * // 多分支：分支都从【同一个】外层节点上长出来
+ * ArgumentBuilder target = ArgumentBuilder.argumentBuilder("目标", ...);
+ * ArgumentBuilder add = target.literal("add");
+ * ArgumentBuilder addArgument = add.argument("效果", ...);
+ * addArgument.executes(...);
+ * ArgumentBuilder remove = target.literal("remove");
+ * remove.executes(...);
+ * root.addChild(target);
  * }</pre>
+ *
+ * <h2>建树规则</h2>
+ * <p>
+ * {@code literal(...)} / {@code argument(...)} 返回的是<b>新建出来的那个子节点</b>，
+ * 所以不要把长链直接当 {@code addChild} 的参数
+ * （{@code root.addChild(argumentBuilder("目标", ...).literal("add"))} 挂上去的是 {@code add} 那一层，
+ * 外面的 {@code 目标} 根本不在树里），也不要把同一个分支建两遍
+ * （同名节点会在 {@code addChild} 里合并，第二次建出来的那个对象会被丢弃）。
+ * 一层一个变量、最后只挂最外层，树一定是对的。
  *
  * @author AI（DeepSeek）生成
  */
@@ -109,27 +132,6 @@ public abstract class Command {
      */
     protected LiteralCommandNode node() {
         return new LiteralCommandNode(commandName);
-    }
-
-    /**
-     * 便捷方法：建一个参数分支构建器。
-     *
-     * @param argumentName 参数名
-     * @param type         参数类型
-     * @return 参数分支构建器
-     */
-    protected ArgumentBuilder argument(String argumentName, ArgumentType<?> type) {
-        return ArgumentBuilder.argumentBuilder(argumentName, type);
-    }
-
-    /**
-     * 便捷方法：建一个字面量分支构建器。
-     *
-     * @param literal 字面量文本
-     * @return 字面量分支构建器
-     */
-    protected ArgumentBuilder literal(String literal) {
-        return ArgumentBuilder.literalBuilder(literal);
     }
 
     /**

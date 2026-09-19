@@ -12,6 +12,9 @@ public class DamageEnhanceEffect extends Effect {
 
     public DamageEnhanceEffect(DamageEnhanceEffect effect) {
         super(effect.getID());
+        // 副本也是同一种效果，UNIVERSAL / POSITIVE 标签要一起复制，否则副本 isUniversal() 会变成 false
+        this.getEffectTagsList().add(EffectTags.UNIVERSAL);
+        this.getEffectTagsList().add(EffectTags.POSITIVE);
         this.setLastTime(effect.getLastTime());
         this.setLevel(effect.getLevel());
         this.baseNum = effect.baseNum;
@@ -22,6 +25,7 @@ public class DamageEnhanceEffect extends Effect {
 
     public DamageEnhanceEffect() {
         super("damageEnhanceEffect");
+        this.getEffectTagsList().add(EffectTags.UNIVERSAL);
         this.isOn = false;
         this.baseNum = 1.0;
         this.getEffectTagsList().add(EffectTags.POSITIVE);
@@ -32,6 +36,7 @@ public class DamageEnhanceEffect extends Effect {
 
     public DamageEnhanceEffect(int level, int lastTime) {
         super("damageEnhanceEffect", level, lastTime);
+        this.getEffectTagsList().add(EffectTags.UNIVERSAL);
         this.isOn = false;
         this.getEffectTagsList().add(EffectTags.POSITIVE);
         this.baseNum = 1.0;
@@ -43,6 +48,7 @@ public class DamageEnhanceEffect extends Effect {
         super(id, level, lastTime);
         this.baseNum = baseNum;
         this.enhanceNum = enhanceNum;
+        this.getEffectTagsList().add(EffectTags.UNIVERSAL);
         this.getEffectTagsList().add(EffectTags.POSITIVE);
         enhanceN = this.getLevel() * enhanceNum + baseNum;
 
@@ -72,4 +78,5 @@ public class DamageEnhanceEffect extends Effect {
         livingThing.setEnhance(livingThing.getEnhance() - enhanceN);
         this.isOn = false;
     }
+
 }
