@@ -206,7 +206,9 @@ public class PlayerController extends UniversalController {
         int i = 0;
         for (Item item : itemList) {
             items[i] = item;
-            System.out.println(i + " " + item.getName());
+            // 同种物品叠在一格，这里带上堆叠数量，否则「有几把」在界面上看不出来
+            System.out.println(i + " " + item.getName()
+                    + (item.getStackNumber() > 1 ? " x" + item.getStackNumber() : ""));
             i++;
 
         }
@@ -229,6 +231,7 @@ public class PlayerController extends UniversalController {
             }
         }
         usedItem.comeToEffect(user, fight);//如果物品需要选择目标,自己写.
-        user.getInventory().removeItem(usedItem);
+        // 只消耗一个：背包里同种物品是叠在一格的，removeOne 扣 1 点堆叠数（扣到 0 自动清空格子）
+        user.getInventory().removeOne(usedItem);
     }
 }

@@ -74,10 +74,6 @@ public class Skill {
 
     }
 
-    public void setTags(Map<TagType, Tag> tags) {
-        this.tags = tags;
-    }
-
     /**
      * 构造一个基础技能。
      *
@@ -97,7 +93,6 @@ public class Skill {
         this.aims = aims;
     }
 
-
     /**
      * 复制技能。默认调用复制构造器 {@link #Skill(Skill)}；
      * 子类若持有额外可变状态，应重写此方法返回正确的副本。
@@ -105,7 +100,7 @@ public class Skill {
      * @return 技能的深拷贝实例
      */
     public Skill copy() {
-        throw new RuntimeException("请重写此方法..类"+this.getClass().getName());
+        throw new RuntimeException("请重写此方法..类" + this.getClass().getName());
     }
 
     /**
@@ -254,8 +249,14 @@ public class Skill {
      * <ol>
      *     <li>调用 {@link #comeToEffect(Fight, LivingThing, List)} 执行技能效果；</li>
      *     <li>扣除所需的法力（若存在消耗）；</li>
-     *     <li>将当前冷却设置为 {@code coolDown + 1}（进入冷却）。</li>
+     *     <li>把当前冷却设为 {@code coolDown}（进入冷却）。</li>
      * </ol>
+     * <p>
+     * <b>冷却语义（两个重载完全一致）</b>：释放后 {@code nowCoolDown = coolDown}；
+     * 回合循环在该生物每个回合开始时把它 {@code -1}，因此
+     * <b>{@code nowCoolDown <= 0} 就表示可以使用</b>（见 {@link #canUse}）。
+     * 于是 {@code coolDown = 0} 的技能每回合都能放，{@code coolDown = 5} 的技能
+     * 用完之后 5 个回合才能再放 —— 与 {@code PlayerController} 里显示的「剩余冷却」一致。
      *
      * @param fight   当前战斗上下文
      * @param user    技能使用者
@@ -284,7 +285,7 @@ public class Skill {
                     break;
                 }
             }
-            this.setNowCoolDown(this.getCoolDown() + 1);
+            this.setNowCoolDown(this.getCoolDown());
             return true;
         }
         return false;
@@ -294,7 +295,8 @@ public class Skill {
      * 尝试使用技能（无目标列表版本，适用于作用于自身或无需目标的情况）。
      * <p>
      * 若 {@link #canUse(Fight, LivingThing)} 通过，则执行效果、扣除法力，
-     * 并将当前冷却设置为 {@code coolDown}。与三参版本的差异在于冷却设置方式。
+     * 并把当前冷却设为 {@code coolDown}。冷却语义与
+     * {@link #use(Fight, LivingThing, List)} 完全相同：{@code nowCoolDown <= 0} 即可用。
      *
      * @param fight 当前战斗上下文
      * @param user  技能使用者
@@ -332,18 +334,25 @@ public class Skill {
     /**
      * 预测使用该技能对目标造成的伤害值（不实际结算）。
      * <p>
-     * 内部通过构造 {@link DamageEvent} 走完整的伤害计算流程，并应用目标的伤害修正接口
-     * （{@link cn.gfhnv.game.interfaces.IModifyDamage}）后计算差值。供 AI 决策系统评估技能收益使用。
+     * 内部通过构造 {@link DamageEvent} 走完整的伤害计算流程，并套用目标的全部伤害修正器
+     * （{@link LivingThing#modifyIncomingDamage}，与真正挨打时用的是同一条链）后计算差值。
+     * 供 AI 决策系统评估技能收益使用。
+     * <p>
+     * 整段计算包在 {@link LivingThing#anticipating(java.util.function.Supplier)} 里：
+     * 修正器照常参与计算（预测值才准），但被约定为<b>不改状态</b>。
+     * AI 只是「看一眼」不能把白厄的免死这种一次性机制花掉。
      *
      * @param attackedEntity 被攻击方
      * @param attacker       攻击方（技能使用者）
      * @return 预测造成的伤害值
      */
     public long getAnticipatedDamage(LivingThing attackedEntity, LivingThing attacker) {
-        DamageEvent da = new DamageEvent(attacker, attackedEntity, this);
-        long newHp = attackedEntity.getHp() - da.getDamage().getDamageAmount();
-        newHp = attackedEntity.getModifyDamage().damageModify(newHp, da);
-        return attackedEntity.getHp() - newHp;
+        return attackedEntity.anticipating(() -> {
+            DamageEvent da = new DamageEvent(attacker, attackedEntity, this);
+            long newHp = attackedEntity.getHp() - da.getDamage().getDamageAmount();
+            newHp = attackedEntity.modifyIncomingDamage(newHp, da);
+            return attackedEntity.getHp() - newHp;
+        });
     }
 
     /**
@@ -488,5 +497,9 @@ public class Skill {
      */
     public Map<TagType, Tag> getTags() {
         return tags;
+    }
+
+    public void setTags(Map<TagType, Tag> tags) {
+        this.tags = tags;
     }
 }

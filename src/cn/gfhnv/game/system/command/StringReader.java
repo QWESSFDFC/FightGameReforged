@@ -40,6 +40,16 @@ public class StringReader {
     }
 
     /**
+     * 判断是否为空白字符。
+     *
+     * @param c 待判断字符
+     * @return 是否为空白
+     */
+    private static boolean isWhitespace(char c) {
+        return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+    }
+
+    /**
      * @return 被读取的完整字符串
      */
     public String getString() {
@@ -220,16 +230,6 @@ public class StringReader {
         } finally {
             cursor = saved;
         }
-    }
-
-    /**
-     * 判断是否为空白字符。
-     *
-     * @param c 待判断字符
-     * @return 是否为空白
-     */
-    private static boolean isWhitespace(char c) {
-        return c == ' ' || c == '\t' || c == '\n' || c == '\r';
     }
 
     @Override

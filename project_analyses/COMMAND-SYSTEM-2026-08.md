@@ -49,10 +49,16 @@ src/cn/gfhnv/game/officialStuff/customCommands/   ← 官方命令
 ├── ListCommand.java             /list
 ├── HurtCommand.java             /hurt
 ├── EffectCommand.java           /effect 加/移除/查看效果（从效果注册表取模板）
+├── ExecuteCommand.java          /execute as <目标> run <命令>（换个执行者再跑一条命令）
+├── GiveCommand.java             /give <目标> <物品> [数量]（物品名支持完整 id / 短名 / 类名）
 ├── EndFightCommand.java         /endfight
 └── HelpCommand.java             /help 与 /?
 
 src/cn/gfhnv/debug_tools/TestCommandSystem.java   ← 自测程序（可单独运行）
+
+src/cn/gfhnv/game/officialStuff/customItem/potions/   ← 效果药水（8 瓶，官方物品共 9 件）
+├── EffectPotion.java            基类：使用后给自己挂 createEffect() 返回的效果
+└── AttackPotion 等 8 个          攻击 / 防御 / 生命 / 迅捷 / 暴击 / 暴击伤害 / 穿甲 / 治疗
 ```
 
 ### 被改动的既有文件（改动都很小）
@@ -126,6 +132,8 @@ CommandManager.describeState();                  // 当前状态（调试）
 | `/effect <目标> add <效果>(参数,…)` | 用指定的构造函数参数新建效果实例，例如 `CriticalDMGEnhanceEffect(1,5)` |
 | `/effect <目标> remove <效果>` | 按 id 移除目标身上的该效果 |
 | `/effect <目标> remove all` | 清空目标身上的全部效果（`*` 同义） |
+| `/execute as <目标> run <命令>` | 以指定对象的身份运行另一条命令（内层 `@s` 指向它） |
+| `/give <目标> <物品> [数量]` | 发物品；物品名可写完整 id / 短名 / 简单类名，数量默认 1 |
 | `/endfight` | 强制结束战斗（默认按玩家胜利结算，会发奖励） |
 | `/endfight lose` | 强制结束战斗并按失败结算 |
 
@@ -150,6 +158,45 @@ CommandManager.describeState();                  // 当前状态（调试）
 同一组数字如果能同时匹配两个构造函数，命令会**直接报错并列出候选**，不会替你猜；
 每次添加的回显里也会写出实际用了哪个构造函数（例如
 `已对 1 个目标添加效果 attackEnhanceEffect（按构造函数 AttackEnhance(double,int) 创建 (0.2, 3)）`）。
+
+**`/execute as <目标> run <命令>`**：只换「执行者」，不换战斗范围 ——
+内层命令里的 `@s` 指向被指定的那个目标，`@p` / `@n` / `@r` 也改成以它为中心来找，
+而 `@a` / `@e` 看到的仍是同一场战斗里的生物，所以不会跑到别的战斗里去。
+
+```
+/execute as @e[type=CommonInsect] run kill @s               每只普通虫杀死自己
+/execute as @p run hurt @s 10                               把这 10 点伤害算到最近的生物头上
+/execute as @e[type=CommonInsect] run effect @s add frozen  给每只虫子挂冰冻
+/execute as @s run list                                     等价于 /list
+```
+
+- 目标有多个时**逐个各执行一次**，返回值是各次影响对象数之和（与 MC 一致）；
+- 内层命令失败时，由**最外层**的 `execute` 包一句「以『谁』的身份执行『什么』失败：<真正的原因>」再抛出
+  （多目标时能看出是哪一个目标出的问题）；嵌套的里层直接原样抛出 ——
+  每层都包的话，深层嵌套的报错会叠成一长串，真正的原因被埋在最里面；
+- `execute` 自己套自己最多 **8 层**，超过直接报错（否则会一路递归到 `StackOverflowError`）；
+- 实现方式：`run` 后面是**贪婪字符串**（吃掉整行），执行体再把它交回调度器解析
+  —— 所以 `run` 后面能写任意命令，命令树里不需要再描述一遍所有命令。
+
+**`/give <目标> <物品> [数量]`**：把物品放进目标的背包。
+
+```
+/give @s aNiceSword                                短名（官方物品直接这么写）
+/give @s game_official_content:aNiceSword 3        完整 id + 数量
+/give @s ANiceSword 2                              简单类名
+/give @s attackPotion 3                            效果药水（8 瓶：攻击/防御/生命/迅捷/暴击/暴击伤害/穿甲/治疗）
+```
+
+- 物品名三种写法都认（完整 id / 去掉 `MOD_ID:` 前缀的短名 / 简单类名），大小写不敏感；
+  写错会报错并列出可用物品，短名撞车时会要求写完整 id（不会随手挑一个）；
+- **数量会叠进同一格**：同种物品按注册表 id 判等（`Item.equals`），`Inventory.addItem`
+  会叠到已有的那一格上，`stackNumber` 累加、没有上限 —— `/give @s aNiceSword 100` 只占 1 格；
+- **使用物品只消耗 1 个**：`PlayerController.useItem` 走 `Inventory.removeOne`（扣 1 点堆叠数，
+  扣到 0 清空格子），而不是 `removeItem`（那个按物品自带的 `stackNumber` 扣掉一整叠）；
+- 发的是 `注册表模板.copy()`，所以物品带**完整的注册表 id**
+  （这就是 `ANiceSword.copy()` 必须走拷贝构造器的原因）；
+- 背包格子不够：能发多少发多少，回显里说明有几个没发出去；
+  目标没有背包格子（普通虫子、冰虫子没初始化背包）→ 直接报错。
 
 **实体选择器**（写在需要目标的位置）：
 
@@ -176,6 +223,10 @@ CommandManager.describeState();                  // 当前状态（调试）
 /effect @s add CriticalDMGEnhanceEffect(1,5)
 /effect @s remove frozenEffect
 /effect @s list
+/execute as @e[type=CommonInsect] run kill @s
+/execute as @p run hurt @s 10
+/give @s aNiceSword
+/give @s game_official_content:aNiceSword 3
 /endfight lose
 ```
 
@@ -282,7 +333,7 @@ System.console() = 可用       console.charset() = UTF-8   isTerminal = true
 中文名/id 匹配本身**实现好了且有自测覆盖**（自测里 `@e[name=普通虫子]` 能选中虫子），
 只是 cmd 送不进来；换 Windows Terminal / IDEA 运行通常可用。
 
-1. **选人/选敌人/选奖励阶段**——输入 `/help`，应当列出 7 行命令（`kill / list / hurt / effect / endfight / help / ?`）且**不会**被当成「输入错误」。
+1. **选人/选敌人/选奖励阶段**——输入 `/help`，应当列出 9 行命令（`kill / list / hurt / effect / execute / give / endfight / help / ?`）且**不会**被当成「输入错误」。
 2. 选一个角色加入队伍后输入 `/list`，应当看到这个角色的名字与 HP。
 3. 战斗开始时输入 `/list`，应当列出双方所有生物。
 4. 轮到你行动时（提示「输入前方数字使用」）输入 `/hurt @s 100`，应当掉血；然后再输入技能编号，流程应当继续正常。
@@ -302,13 +353,26 @@ System.console() = 可用       console.charset() = UTF-8   isTerminal = true
    - `/effect @s remove all` 之后再 `/effect @s list`：确认攻击力等加成已经还回去了（不是只清了列表）
    - `/effect @s add memorizedHp` → 应当被拒绝并列出可用效果（角色专属效果没有 `UNIVERSAL` 标签）
    - `/effect @s remove all` → 提示清空了 N 个效果；再 `/effect @s list` 应当说「身上没有任何效果」
-8. 故意写错，确认报错信息带定位与用法：
+8. **execute 命令**（战斗中）：
+   - `/execute as @e[type=CommonInsect] run hurt @s 10` → 掉血的是**虫子**，不是你自己
+   - `/execute as @s run list` → 输出与 `/list` 一样
+   - `/execute as @e[type=CommonInsect] run execute as @s run hurt @s 1` → 嵌套也能跑，最里层 `@s` 仍是虫子
+   - `/execute as @s run` → 报错「命令不完整：/execute <目标> run」
+   - 连写 9 层 `execute as @s run` → 报「execute 嵌套超过 8 层」，游戏不崩
+9. **give 命令 + 效果药水**（战斗中）：
+   - `/give @s aNiceSword` → 提示「已发放 aNiceSword（一把剑）×1」
+   - `/give @s game_official_content:aNiceSword 3` → 再发 3 件（背包里应当是 4 件、**占 1 格**，显示 `一把剑 x4`）
+   - `/give @s attackPotion 3` → 3 瓶攻击药水占 1 格
+   - 轮到你行动时用一次物品 → 只消耗一件（另外 3 件还在），并挂上对应效果（`/effect @s list` 能看到）
+   - `/give @e[type=CommonInsect] aNiceSword` → 报错「目标没有背包格子」（虫子没初始化背包）
+   - `/give @s noSuchItem` → 报错并列出可用物品（现在应当列出 9 件）
+10. 故意写错，确认报错信息带定位与用法：
    - `/nosuch` → `未知的命令：nosuch。你是不是想输入：...`
    - `/kill` → `命令不完整：/kill <目标>`
    - `/kill @e[bad=1]` → `未知的筛选键「bad」...`
    - `/hurt @s abc` → `「abc」不是一个合法的长整数: ...<--[HERE]`
    - `/effect @s add frozen(1` → `构造函数参数没有用右括号闭合：frozen(1`
-9. 输入普通文本 `yes` / `no` / `next` / `数字`，确认一切与改动前一样。
+11. 输入普通文本 `yes` / `no` / `next` / `数字`，确认一切与改动前一样。
 
 ## 五、已经踩过的坑
 
@@ -388,16 +452,34 @@ System.console() = 可用       console.charset() = UTF-8   isTerminal = true
   `ArgumentBuilder.class`，用 IDEA 直接跑自测时会用到它，表现为「源码明明改了却还是旧行为」。
   排查时请用 `test-command-system.ps1`（它每次重新编译到 `out\cmdtest`），
   或在 IDEA 里先 `Build → Rebuild Project`。
-- **注册表里的效果 id 带模组前缀，运行时实例不带**：`Mod.addEffect()` 会把 id 改成
-  `game_official_content:frozenEffect`，而效果类构造器里写死的 id 是短名 `frozenEffect`。
-  于是「按 id 找模板」和「按 id 删效果」两条路都会因为字符串不相等而失败
-  （`/effect @s remove frozenEffect` 会变成「成功但一个也没删」）。
-  现在 `matches()` / `sameEffect()` 按「类型 → 全长 id → 去掉前缀的 id → 简单类名」依次比，
-  提示与回显统一只打印短名。
+- **注册表里的 id 带模组前缀，运行时实例原本是短名**（已修）：`Mod.addEffect()` 只会把
+  <b>被注册的那个模板</b>改成 `game_official_content:frozenEffect`，
+  而效果类构造器里写死的是短名 `frozenEffect`、技能召唤出来的生物也是短名。
+  后果是「按 id 找模板 / 按 id 删效果 / 按 id 判定同类效果」全都对不上
+  （`/effect @s remove frozenEffect` 会变成「成功但一个也没删」；
+  `Effect.equals` 按 id 判定，还会让同种效果的叠加/刷新失效）。
+  **现在改成运行时也保持完整 id**：`World` 提供
+  `fullIdOf(Entity/Item/Effect)` 与 `applyRegisteredId(...)`，在三个入口调用 ——
+  `World.addThing()`（选人、奖励）、`Fight.addFighter/addEnemy()`（技能召唤）、
+  `LivingThing.addEffect()`（**必须在 `equals` 合并判定之前**）。
+  已经是完整 id（含 `:`）的不动，所以想给实例单独起 id 就写成 `myMod:xxx`。
+  命令侧的 `matches()` / `sameEffect()` 前缀容错**保留**，作为「没注册进 World 的自定义内容」的兜底；
+  但提示与回显仍打印短名（`/effect list` 会显示完整 id，方便核对）。
 - **自测不启动游戏，效果注册表默认是空的**：`World.getEffectList()` 由
   `OfficialGameContent.registerItself()` 填充（真实游戏在 `GameStartEvent` 之后才走这一步）。
   `/effect` 的候选全部来自这张表，不填就会报「效果注册表里没有…」，
   `templateOf()` 也会一路返回 `null`。自测里已手动走一遍同样的流程。
+- **★ 物品判等必须按「注册表 id」，不能按 uuid，否则堆叠是死代码**：
+  `Thing.equals` 比的是 uuid，而 uuid 是构造时生成的 `final` 字段、拷贝构造器也不复制它，
+  所以每个 `copy()` 出来的副本都不相等 → `Inventory.addItem` 里那段
+  「背包已有同种物品就合并堆叠」永远走不到 → 一件一格、`stackNumber` 恒为 1
+  （实测：`/give` 6 把剑 = 6 格；63 格背包给 100 件只放得下 63 件）。
+  现在 `Item.equals/hashCode` 改成按注册表 id 比较（没有 id 的退回按名字+描述+阵营），
+  实体仍然按 uuid 比（两只同种生物是两个个体，不该合并）；
+  同时「使用物品」从 `removeItem`（按物品自带的 `stackNumber` 扣一整叠）改成
+  新增的 `Inventory.removeOne`（只扣 1，扣到 0 清空格子）。
+  注意 `World.removeItem(Item)` / `Mod.removeItem(Item)` 用 `contains` 判等，
+  改完之后传一个副本就能移除注册表模板（目前这两个方法没有调用点）。
 - **★「同一个数字能匹配两个构造函数」要在内容那边消掉，不要靠命令猜**：
   通用效果原本是「百分比」和「固定值」两个 2 参数构造器
   （{@code (double percent,int)} 与 {@code (long amount,int)}），

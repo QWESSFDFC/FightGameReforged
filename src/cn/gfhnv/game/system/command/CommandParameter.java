@@ -53,6 +53,25 @@ public class CommandParameter {
     }
 
     /**
+     * 猜一个参数值对应的旧版类型标签，仅用于兼容 {@link ParameterEntry}。
+     *
+     * @param value 参数值
+     * @return 类型标签
+     */
+    private static CommandParameterType guessType(Object value) {
+        if (value instanceof EntitySelector) {
+            return CommandParameterType.ENTITY_SELECTOR;
+        }
+        if (value instanceof cn.gfhnv.game.entity.Entity) {
+            return CommandParameterType.ENTITIES;
+        }
+        if (value instanceof cn.gfhnv.game.item.Item) {
+            return CommandParameterType.ITEMS;
+        }
+        return CommandParameterType.STRING;
+    }
+
+    /**
      * @return 命令上下文；旧构造器创建的对象返回 {@code null}
      */
     public CommandContext getContext() {
@@ -80,25 +99,6 @@ public class CommandParameter {
             throw CommandSyntaxException.create("本参数容器没有上下文，无法按名字取值：" + name);
         }
         return context.getArgument(name, type);
-    }
-
-    /**
-     * 猜一个参数值对应的旧版类型标签，仅用于兼容 {@link ParameterEntry}。
-     *
-     * @param value 参数值
-     * @return 类型标签
-     */
-    private static CommandParameterType guessType(Object value) {
-        if (value instanceof EntitySelector) {
-            return CommandParameterType.ENTITY_SELECTOR;
-        }
-        if (value instanceof cn.gfhnv.game.entity.Entity) {
-            return CommandParameterType.ENTITIES;
-        }
-        if (value instanceof cn.gfhnv.game.item.Item) {
-            return CommandParameterType.ITEMS;
-        }
-        return CommandParameterType.STRING;
     }
 
     @Override

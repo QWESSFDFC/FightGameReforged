@@ -1,14 +1,19 @@
 package cn.gfhnv.debug_tools;
 
+import cn.gfhnv.game.damage.DamageCalculate;
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.entityController.FixOrderController;
+import cn.gfhnv.game.event.DamageEvent;
+import cn.gfhnv.game.interfaces.IModifyDamage;
+import cn.gfhnv.game.inventory.Slot;
+import cn.gfhnv.game.item.Item;
+import cn.gfhnv.game.officialStuff.customEffect.universalEffects.Taunt;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.CommonInsect;
 import cn.gfhnv.game.officialStuff.customEntity.players.PlayerOne;
-import cn.gfhnv.game.system.command.CommandManager;
-import cn.gfhnv.game.system.command.CommandResult;
-import cn.gfhnv.game.system.command.CommandSource;
-import cn.gfhnv.game.system.command.EntitySelector;
-import cn.gfhnv.game.system.command.StringReader;
+import cn.gfhnv.game.skill.Skill;
+import cn.gfhnv.game.system.command.*;
 import cn.gfhnv.game.system.fight.Fight;
+import cn.gfhnv.game.system.fight.TargetStrategies;
 import cn.gfhnv.game.world.World;
 
 import java.util.ArrayList;
@@ -62,6 +67,8 @@ public class TestCommandSystem {
         testStringReader();
         testEntitySelectorSyntax();
         testRegistrationAndExecution();
+        testFixOrderController();
+        testDamageReduction();
 
         System.out.println("========== 自测结束：通过 " + passes + " 条，失败 " + failures + " 条 ==========");
         if (failures > 0) {
@@ -414,7 +421,7 @@ public class TestCommandSystem {
                 lostTag.append(template.getClass().getSimpleName());
             }
         }
-        check("通用效果共 10 种（实际 " + universalCount + " 种）", universalCount == 10);
+        check("通用效果共 11 种（实际 " + universalCount + " 种）", universalCount == 11);
         check("每种通用效果的 copy() 副本都保留 UNIVERSAL 标签"
                         + (lostTag.length() == 0 ? "" : "（丢失：" + lostTag + "）"),
                 universalCount > 0 && lostTag.length() == 0);
@@ -423,40 +430,676 @@ public class TestCommandSystem {
                         && templateOf("frozenEffect").copy().getID()
                         .equalsIgnoreCase(templateOf("frozenEffect").getID()));
 
+        // ---- /execute as <目标> run <命令> ----
+        check("已注册 execute", CommandManager.getRegisteredCommandNames().contains("execute"));
+
+        long bugHpBefore = bug.getHp();
+        long heroHpBefore = hero.getHp();
+
+        // 内层 @s 必须变成「被指定的目标」，而不是原来的玩家
+        run("execute as @e[type=CommonInsect] run hurt @s 10", true);
+        check("execute as：内层 @s 指向虫子（虫子掉 10 血）", bug.getHp() == bugHpBefore - 10);
+        check("execute as：玩家一没有掉血", hero.getHp() == heroHpBefore);
+
+        // 外层 @s 仍然是玩家，内层选择器照常工作
+        run("execute as @s run hurt @e[type=CommonInsect] 5", true);
+        check("execute as：外层 @s 仍是玩家一（由玩家一发出伤害）", bug.getHp() == bugHpBefore - 15);
+
+        // 嵌套：里层 @s 会变成虫子
+        run("execute as @e[type=CommonInsect] run execute as @s run hurt @s 1", true);
+        check("execute 嵌套：最里层 @s 仍然是虫子", bug.getHp() == bugHpBefore - 16);
+
+        // 只读的内层命令也能跑（@s 换成虫子，输出的是虫子的状态）
+        run("execute as @e[type=CommonInsect] run list", true);
+
+        // 预期失败：写错/写漏/选不中/内层命令不存在
+        run("execute as @s", false);
+        run("execute as @s run", false);
+        run("execute run list", false);
+        run("execute as @e[type=根本没有这个类型] run list", false);
+        run("execute as @s run nosuchcommand", false);
+
+        // 嵌套上限：9 层 execute 必须被挡住（不然会一路递归到 StackOverflowError）
+        StringBuilder tooDeep = new StringBuilder("execute as @s run hurt @s 1");
+        for (int i = 0; i < 8; i++) {
+            tooDeep.insert(0, "execute as @s run ");
+        }
+        run(tooDeep.toString(), false);
+        check("execute 嵌套上限拦住了过深调用（虫子没被多打）", bug.getHp() == bugHpBefore - 16);
+
+        // ---- id 归一：运行时对象的 id 必须和注册表一样是完整 id ----
+        // 效果：技能/命令里 new 出来的效果，挂上身之后应当带 game_official_content: 前缀
+        // （靠 LivingThing.addEffect 里的 World.applyRegisteredId）
+        run("effect @s add frozen", true);
+        check("运行时效果的 id 被补成完整 id",
+                effectOf(hero, "game_official_content:frozenEffect") != null);
+        run("effect @s remove all", true);
+        check("清空后效果列表为空", hero.getEntityEffectList().isEmpty());
+
+        // 实体：技能里直接 new 出来的生物（例如 Boss 分裂），进战斗时补全 id
+        LivingThing summoned = new CommonInsect(100L);
+        check("刚 new 出来的生物还是短 id（对照）", "commonInsect".equals(summoned.getId()));
+        fight.addEnemy(summoned);
+        check("进战斗后实体的 id 被补成完整 id",
+                "game_official_content:commonInsect".equals(summoned.getId()));
+
+        // 物品：注册表模板 copy() 之后必须保住完整 id（靠 ANiceSword 的拷贝构造器）
+        cn.gfhnv.game.item.Item swordTemplate = null;
+        for (cn.gfhnv.game.item.Item item : World.getItemList()) {
+            if (item != null && item.getId() != null && item.getId().indexOf(':') >= 0) {
+                swordTemplate = item;
+                break;
+            }
+        }
+        check("物品注册表里有带前缀的模板", swordTemplate != null);
+        check("物品：模板 copy() 之后仍是完整 id",
+                swordTemplate != null && swordTemplate.getId().equals(swordTemplate.copy().getId()));
+
+        // ---- /give <目标> <物品> [数量] ----
+        check("已注册 give", CommandManager.getRegisteredCommandNames().contains("give"));
+
+        int slotsBefore = itemCountOf(hero);
+        int unitsBefore = unitCountOf(hero);
+        run("give @s aNiceSword", true);
+        check("give：短名可用（+1 件，占 1 格）",
+                unitCountOf(hero) == unitsBefore + 1 && itemCountOf(hero) == slotsBefore + 1);
+        check("give：发的是副本，带完整注册表 id",
+                "game_official_content:aNiceSword".equals(firstItemIdOf(hero)));
+
+        run("give @s game_official_content:aNiceSword 3", true);
+        check("give：完整 id + 数量可用（+3，共 4 件）", unitCountOf(hero) == unitsBefore + 4);
+
+        run("give @s ANiceSword 2", true);
+        check("give：简单类名可用（+2，共 6 件）", unitCountOf(hero) == unitsBefore + 6);
+        check("give：同种物品叠在一格（6 件只占 1 格）", itemCountOf(hero) == slotsBefore + 1);
+        check("give：那一格的堆叠数是 6", firstItemStackOf(hero) == unitsBefore + 6);
+
+        boolean allFullId = true;
+        for (Slot slot : hero.getInventory().getSlots()) {
+            Item item = slot.getContainedItem();
+            if (item != null && !"game_official_content:aNiceSword".equals(item.getId())) {
+                allFullId = false;
+            }
+        }
+        check("give：格子里的物品带完整的注册表 id", allFullId);
+
+        // 用一次只消耗一个：PlayerController.useItem 走的就是 comeToEffect + removeOne
+        Item firstItem = firstItemOf(hero);
+        if (firstItem != null) {
+            hero.getInventory().removeOne(firstItem);
+        }
+        check("用一次只少一个（还剩 5 件，仍在同一格）",
+                unitCountOf(hero) == unitsBefore + 5 && itemCountOf(hero) == slotsBefore + 1);
+
+        // 用光之后格子会被清空
+        for (int i = 0; i < 5; i++) {
+            Item left = firstItemOf(hero);
+            if (left == null) {
+                break;
+            }
+            hero.getInventory().removeOne(left);
+        }
+        check("用光之后那一格被清空", itemCountOf(hero) == slotsBefore);
+        check("物品全部消耗完", unitCountOf(hero) == unitsBefore);
+
+        // 预期失败
+        run("give @s noSuchItem", false);
+        run("give @s aNiceSword 0", false);
+        run("give @s", false);
+        run("give @e[type=CommonInsect] aNiceSword", false);
+
+        // ---- 官方内容里的效果药水（customItem/potions/）----
+        // 每件注册物品都必须能 copy() 并保住完整 id（药水各自实现了拷贝构造器）
+        StringBuilder badCopy = new StringBuilder();
+        for (Item template : World.getItemList()) {
+            if (template == null || template.getId() == null || template.getId().indexOf(':') < 0) {
+                if (badCopy.length() > 0) {
+                    badCopy.append('、');
+                }
+                badCopy.append(template == null ? "null" : template.getClass().getSimpleName() + "(没有完整 id)");
+                continue;
+            }
+            try {
+                if (!template.getId().equals(template.copy().getId())) {
+                    if (badCopy.length() > 0) {
+                        badCopy.append('、');
+                    }
+                    badCopy.append(template.getClass().getSimpleName() + "(copy 后 id 变了)");
+                }
+            } catch (RuntimeException e) {
+                if (badCopy.length() > 0) {
+                    badCopy.append('、');
+                }
+                badCopy.append(template.getClass().getSimpleName() + "(copy 抛异常)");
+            }
+        }
+        check("每件注册物品都能 copy() 且保住完整 id"
+                        + (badCopy.length() == 0 ? "" : "（有问题：" + badCopy + "）"),
+                badCopy.length() == 0);
+        check("注册表里有 9 件物品（1 把剑 + 8 瓶药水）", World.getItemList().size() == 9);
+
+        // 攻击药水：走一遍「使用物品」的那一步（PlayerController.useItem 做的就是 comeToEffect）
+        Item attackPotion = itemTemplateOf("attackPotion");
+        check("注册表里有攻击药水", attackPotion != null);
+        double attackPercentBefore = hero.getAttackEnhancePercent();
+        if (attackPotion != null) {
+            attackPotion.copy().comeToEffect(hero, fight);
+        }
+        check("攻击药水：使用后攻击百分比 +0.2",
+                Math.abs(hero.getAttackEnhancePercent() - (attackPercentBefore + 0.2)) < 1e-9);
+        cn.gfhnv.game.effect.Effect attackEffect = effectOf(hero, "attackEnhanceEffect");
+        check("攻击药水：效果来源记的是这件物品的 id",
+                attackEffect != null && "game_official_content:attackPotion".equals(attackEffect.getOrigin()));
+        run("effect @s remove all", true);
+
+        // 治疗药水：先掉 500 血，再喝一瓶
+        Item healingPotion = itemTemplateOf("healingPotion");
+        hero.setHp(hero.getHp() - 500);
+        long hpBeforePotion = hero.getHp();
+        if (healingPotion != null) {
+            healingPotion.copy().comeToEffect(hero, fight);
+        }
+        check("治疗药水：使用后回血 210",
+                hero.getHp() == Math.min(hero.getHpMax(), hpBeforePotion + 210));
+        run("effect @s remove all", true);
+
+        // 药水同样能堆叠
+        int potionSlotsBefore = itemCountOf(hero);
+        int potionUnitsBefore = unitCountOf(hero);
+        run("give @s attackPotion 3", true);
+        check("药水也能堆叠（3 瓶只占 1 格）",
+                itemCountOf(hero) == potionSlotsBefore + 1 && unitCountOf(hero) == potionUnitsBefore + 3);
+
         CommandManager.clearCurrentFight();
         CommandSource.setCurrentFight(null);
     }
 
+    /* ------------------------------------------------------------------
+     * 4. 固定顺序 AI / 目标策略 / 嘲讽
+     * ------------------------------------------------------------------ */
+
+    /**
+     * 测试 {@link FixOrderController}（固定技能顺序 + 指定下一个技能）、
+     * 目标选择策略 {@link TargetStrategies} 与嘲讽效果 {@link Taunt}。
+     */
+    private static void testFixOrderController() {
+        section("固定顺序 AI 与目标策略");
+        List<String> actionLog = new ArrayList<>();
+        try {
+            // 一场小战斗：玩家一（我方） vs 甲虫 / 乙虫（敌方）
+            LivingThing hero = new PlayerOne(125).copy();
+            LivingThing bugA = new CommonInsect(100L).copy();
+            LivingThing bugB = new CommonInsect(100L).copy();
+            bugA.setName("甲虫");
+            bugB.setName("乙虫");
+            World.addThing(hero);
+            World.addThing(bugA);
+            World.addThing(bugB);
+            Fight fight = new Fight(new ArrayList<>(List.of(bugA, bugB)), new ArrayList<>(),
+                    new ArrayList<>(List.of(hero)));
+
+            // 三个假技能：只往日志里记一笔，不产生任何战斗效果
+            List<Skill> skills = new ArrayList<>();
+            skills.add(new ProbeSkill("甲招", actionLog));
+            skills.add(new ProbeSkill("乙招", actionLog));
+            skills.add(new ProbeSkill("丙招", actionLog));
+            FixOrderController controller = new FixOrderController(skills, hero);
+            hero.setController(controller);
+            check("默认轮转顺序 = 技能列表顺序",
+                    String.join(",", controller.getRotationNames()).equals("甲招,乙招,丙招"));
+            controller.setRotationByName("甲招", "乙招", "丙招");
+
+            // ① 轮转：甲 → 乙 → 丙 → 甲
+            controller.act(fight);
+            controller.act(fight);
+            controller.act(fight);
+            controller.act(fight);
+            check("固定顺序：按 甲→乙→丙 循环（第 4 次回到甲）",
+                    String.join(",", actionLog).equals("甲招,乙招,丙招,甲招"));
+            Skill peeked = controller.peekNextSkill();
+            check("peekNextSkill 预知下一个是乙招", peeked != null && "乙招".equals(peeked.getName()));
+
+            // ② 指定下一个技能（插入语义：不消耗轮转）
+            check("forceNextSkill 对不存在的技能返回 false", !controller.forceNextSkill("不存在招"));
+            check("forceNextSkill 对存在的技能返回 true", controller.forceNextSkill("丙招"));
+            Skill peekedForced = controller.peekNextSkill();
+            check("peekNextSkill 优先返回指定的技能",
+                    peekedForced != null && "丙招".equals(peekedForced.getName()));
+            actionLog.clear();
+            controller.act(fight);
+            check("指定的技能先放（丙招）", String.join(",", actionLog).equals("丙招"));
+            actionLog.clear();
+            controller.act(fight);
+            check("插入语义：放完指定的技能后回到轮转里的乙招",
+                    String.join(",", actionLog).equals("乙招"));
+
+            // ③ 替换语义：指定技能顺手吃掉轮转里的下一步
+            controller.setRotationByName("甲招", "乙招", "丙招");   // 游标回到甲招
+            actionLog.clear();
+            controller.act(fight);
+            check("替换语义：先按轮转放甲招", String.join(",", actionLog).equals("甲招"));
+            actionLog.clear();
+            controller.forceNextSkill("甲招", true);                 // 指定甲招，并吃掉轮转里的乙招
+            controller.act(fight);
+            check("替换语义：这一步放的是甲招", String.join(",", actionLog).equals("甲招"));
+            actionLog.clear();
+            controller.act(fight);
+            check("替换语义：轮转里的乙招被吃掉，下一个是丙招",
+                    String.join(",", actionLog).equals("丙招"));
+
+            // ④ 放不出来时顺延（把乙招冷却住）
+            controller.setRotationByName("甲招", "乙招", "丙招");
+            Skill beta = skillNamed(controller, "乙招");
+            if (beta != null) {
+                beta.setNowCoolDown(3);
+            }
+            actionLog.clear();
+            controller.act(fight);
+            controller.act(fight);
+            check("放不出来时顺延到下一招（乙招在冷却 → 丙招）",
+                    String.join(",", actionLog).equals("甲招,丙招"));
+            if (beta != null) {
+                beta.setNowCoolDown(0);
+            }
+
+            // ⑤ 拷贝之后必须还是固定顺序（否则选敌人时一 copy 就退化成随机 AI）
+            LivingThing clone = hero.copy();
+            check("拷贝后控制器类型不变（仍是 FixOrderController）",
+                    clone.getController() instanceof FixOrderController);
+            FixOrderController cloneController = clone.getController() instanceof FixOrderController
+                    ? (FixOrderController) clone.getController() : null;
+            check("拷贝后轮转顺序保留",
+                    cloneController != null
+                            && String.join(",", cloneController.getRotationNames()).equals("甲招,乙招,丙招"));
+
+            // ⑥ 目标策略：first() 恒定选候选里的第一个
+            List<Skill> attackSkills = new ArrayList<>();
+            attackSkills.add(new ProbeSkill("点杀", actionLog, 1));
+            FixOrderController attacker = new FixOrderController(attackSkills, hero);
+            hero.setController(attacker);
+            attacker.setRotationByName("点杀");
+            attacker.setTargetStrategy(TargetStrategies.first());
+            actionLog.clear();
+            attacker.act(fight);
+            check("目标策略 first()：打候选里的第一个（甲虫）",
+                    actionLog.size() == 1 && actionLog.get(0).equals("点杀→甲虫"));
+
+            // 冷却语义（统一后）：释放完 nowCoolDown = coolDown，所以 coolDown=0 的技能可以接着再用。
+            // 这里同时也是「目标策略」那几条断言能连续跑的前提 —— 不能再有 coolDown + 1 那套规则。
+            Skill pointKill = skillNamed(attacker, "点杀");
+            check("冷却语义统一：带目标技能释放后 nowCoolDown = coolDown",
+                    pointKill != null && pointKill.getCoolDown() == 0 && pointKill.getNowCoolDown() == 0);
+
+            // ⑦ 嘲讽：把乙虫标成嘲讽目标，tauntAware 会把它排到最前
+            bugB.addEffect(new Taunt(3));
+            check("嘲讽等级从效果里读出来（Taunt(3) → 等级 1）",
+                    TargetStrategies.tauntLevelOf(bugB) == 1);
+            attacker.setTargetStrategy(TargetStrategies.tauntAware(TargetStrategies.first()));
+            actionLog.clear();
+            attacker.act(fight);
+            check("嘲讽：优先打带嘲讽的乙虫（即使它不是第一个）",
+                    actionLog.size() == 1 && actionLog.get(0).equals("点杀→乙虫"));
+
+            // ⑧ 嘲讽等级高的更优先
+            bugA.addEffect(new Taunt(2, 3));
+            actionLog.clear();
+            attacker.act(fight);
+            check("嘲讽等级高的更优先（甲虫等级 2 > 乙虫等级 1）",
+                    actionLog.size() == 1 && actionLog.get(0).equals("点杀→甲虫"));
+
+            // ⑨ 嘲讽效果已注册（/effect 里能直接加）
+            check("嘲讽效果已注册（/effect 可用）", templateOf("tauntEffect") != null);
+        } catch (Exception e) {
+            fail("固定顺序 AI 测试抛出异常：" + e);
+        }
+    }
+
+    /* ------------------------------------------------------------------
+     * 5. 减伤（乘算叠加）
+     * ------------------------------------------------------------------ */
+
+    /**
+     * 测试减伤：{@code LivingThing} 的多个减伤来源按<b>乘算</b>叠加
+     * （50% 与 25% → 只受 37.5% 伤害），并且伤害永远不会算成负数
+     * （负伤害会被 {@code getDamage} 当成治疗）。
+     */
+    private static void testDamageReduction() {
+        section("减伤计算（乘算叠加）");
+        try {
+            LivingThing target = new CommonInsect(100L).copy();
+            Object sourceA = new Object();
+            Object sourceB = new Object();
+
+            // 50% 与 25%：乘算 → 0.5 × 0.75 = 0.375（相加才是 0.25，那是错的）
+            target.addDamageReduction(sourceA, 0.5);
+            target.addDamageReduction(sourceB, 0.25);
+            check("两个减伤 50% + 25% 乘算 → 承伤 0.375",
+                    Math.abs(target.getDamageTakenMultiplier() - 0.375) < 1e-9);
+            check("总减伤 = 1 − 承伤倍率 = 0.625",
+                    Math.abs(target.getDamageAbsorbedPercent() - 0.625) < 1e-9);
+
+            // 同一来源重复添加只算一次（技能反复触发不会越叠越多）
+            target.addDamageReduction(sourceA, 0.5);
+            check("同一来源重复添加不会叠两次",
+                    Math.abs(target.getDamageTakenMultiplier() - 0.375) < 1e-9);
+
+            // 移除一个来源
+            target.removeDamageReduction(sourceB);
+            check("移除一个来源后只剩 50% 减伤",
+                    Math.abs(target.getDamageTakenMultiplier() - 0.5) < 1e-9);
+
+            // 兼容旧写法：setDamageAbsorbedPercent(0.75) → 少受 75%
+            target.clearDamageReductions();
+            target.setDamageAbsorbedPercent(0.75);
+            check("旧写法 setDamageAbsorbedPercent(0.75) → 承伤 0.25",
+                    Math.abs(target.getDamageTakenMultiplier() - 0.25) < 1e-9);
+
+            // 比例被夹到 [0,1]：减伤叠再多也只会压到 0，不会变成负数
+            target.clearDamageReductions();
+            target.addDamageReduction(sourceA, 1.5);
+            check("减伤比例被夹到 1（承伤 0，不会变负数）",
+                    target.getDamageTakenMultiplier() == 0);
+
+            // 真实伤害计算：承伤 = 基础伤害 × 承伤倍率
+            LivingThing attacker = new PlayerOne(125).copy();
+            attacker.setGetCriticalRATE(-1);   // 负暴击率 = 永不暴击，避免随机暴击干扰比例断言
+            Skill probe = new ProbeSkill("测伤", new ArrayList<>(), 1, 1.0);
+            LivingThing dummy = new CommonInsect(100L).copy();
+            long base = DamageCalculate.calculate(attacker, dummy, probe);
+            check("基础伤害大于 0（测试前提）", base > 0);
+
+            dummy.addDamageReduction(sourceA, 0.5);
+            long reduced = DamageCalculate.calculate(attacker, dummy, probe);
+            check("减伤 50% 后伤害约为一半（取整误差 ≤ 2）",
+                    Math.abs(reduced - base * 0.5) <= 2);
+
+            dummy.clearDamageReductions();
+            dummy.addDamageReduction(sourceB, 1.0);
+            long zeroed = DamageCalculate.calculate(attacker, dummy, probe);
+            check("减伤 100% 时伤害为 0（不是负数，也就不会变成治疗）", zeroed == 0);
+
+            // ---- 抗性 / 穿透也是乘算：(1 − 抗性) × (1 + 穿透) ----
+            // 虫子的元素是金，金属抗性 0.95；用同族虫子当靶子，数值可控
+            LivingThing metalAttacker = new CommonInsect(100L).copy();
+            metalAttacker.setGetCriticalRATE(-1);
+            LivingThing metalVictim = new CommonInsect(100L).copy();
+            long resistant = DamageCalculate.calculate(metalAttacker, metalVictim, probe);
+            check("抗性 95% 时伤害很低但大于 0（测试前提）", resistant > 0);
+
+            metalAttacker.setPenetration(0.5);
+            long pierced = DamageCalculate.calculate(metalAttacker, metalVictim, probe);
+            check("穿透 50% → 伤害 ×1.5（乘算，不是和抗性相加）",
+                    Math.abs(pierced - resistant * 1.5) <= 2);
+
+            metalAttacker.setPenetration(0);
+            metalVictim.setMetalResistance(0);
+            long neutral = DamageCalculate.calculate(metalAttacker, metalVictim, probe);
+            metalVictim.setMetalResistance(-0.5);
+            long weak = DamageCalculate.calculate(metalAttacker, metalVictim, probe);
+            check("抗性为负（弱点）→ 受伤 ×1.5（负抗性不会被夹掉）",
+                    Math.abs(weak - neutral * 1.5) <= 2);
+
+            // ---- 伤害修正器：可以有多个，按添加顺序依次套用 ----
+            LivingThing tank = new CommonInsect(100L).copy();
+            IModifyDamage halve = new IModifyDamage() {
+                @Override
+                public long damageModify(long newHp, DamageEvent da) {
+                    return newHp / 2;
+                }
+            };
+            IModifyDamage minusHundred = new IModifyDamage() {
+                @Override
+                public long damageModify(long newHp, DamageEvent da) {
+                    return newHp - 100;
+                }
+            };
+            DamageEvent sample = new DamageEvent(metalAttacker, tank, probe);
+            tank.setModifyDamage(halve);
+            tank.addModifyDamage(minusHundred);
+            check("两个修正器都要生效：1000 → 500 → 400",
+                    tank.modifyIncomingDamage(1000, sample) == 400);
+            check("修正器列表里有 2 个", tank.getModifyDamageList().size() == 2);
+
+            tank.setModifyDamage(halve);
+            check("setModifyDamage 是替换而不是追加（1000 → 500）",
+                    tank.modifyIncomingDamage(1000, sample) == 500
+                            && tank.getModifyDamageList().size() == 1);
+
+            tank.addModifyDamage(minusHundred);
+            tank.removeModifyDamage(halve);
+            check("移除一个修正器后只剩另一个（1000 → 900）",
+                    tank.modifyIncomingDamage(1000, sample) == 900);
+
+            // ---- 免死机制：致死伤害在 getDamage 里被修正器拦下 ----
+            // 白厄的免死、李晓焰的复活都挂在同一条链上，这里用等价的探针验证链路
+            tank.clearModifyDamage();
+            tank.setHp(1);
+            DamageEvent lethal = new DamageEvent(metalAttacker, tank, probe);
+            lethal.getDamage().setDamageAmount(9999L);
+            ProbeDeathWard ward = new ProbeDeathWard();
+            tank.addModifyDamage(ward);
+            tank.getDamage(lethal);
+            check("免死把致死伤害拦下、血量锁在 1（这次是真实挨打，免死被消费）",
+                    tank.getHp() == 1 && tank.isAlive() && ward.wasConsumed());
+
+            // ---- 伤害试算必须是只读的：AI 预判一次不能就把免死花掉 ----
+            LivingThing living = new CommonInsect(100L).copy();
+            ProbeDeathWard guarded = new ProbeDeathWard();
+            living.addModifyDamage(guarded);
+            living.setHp(1);
+            DamageEvent predictedEvent = new DamageEvent(metalAttacker, living, probe);
+            predictedEvent.getDamage().setDamageAmount(9999L);
+            long predicted = probe.getAnticipatedDamage(living, metalAttacker);
+            check("试算时修正器确实被调用、并且能看出自己在试算（isAnticipating 为 true）",
+                    guarded.wasCalledWhileAnticipating());
+            check("试算走完整修正器链：预测伤害 = 0（1 血 − 9999，被锁回 1）",
+                    predicted == 0);
+            check("试算不改状态：免死没被花掉、试算结束后 isAnticipating() 复位",
+                    guarded.wasConsumed() == false && !living.isAnticipating());
+            living.getDamage(predictedEvent);
+            check("试算之后再真挨打，免死照常触发（只读预测没有偷走次数）",
+                    living.getHp() == 1 && guarded.wasConsumed());
+            tank.removeModifyDamage(ward);
+            tank.setHp(1);
+            tank.getDamage(lethal);
+            check("移除修正器后 1 血吃 9999 伤害会死（说明前面是修正器救的）",
+                    tank.getHp() == 0 && !tank.isAlive());
+
+            // ---- 血量下限：修正器只能把血往上拉，不能反过来加伤 ----
+            LivingThing guardian = new CommonInsect(100L).copy();
+            long guardianMaxHp = guardian.getHpMax();
+            ProbeHpFloor floor = new ProbeHpFloor(0.5);
+            guardian.addModifyDamage(floor);
+            guardian.setHp(1);
+            guardian.getDamage(lethal);
+            check("血量下限：1 血吃致死伤害后被抬到 50% 生命上限",
+                    guardian.getHp() == (long) (guardianMaxHp * 0.5));
+            check("满血时不触发下限（修正器只抬高、不压低）",
+                    guardian.modifyIncomingDamage(guardianMaxHp, lethal) == guardianMaxHp);
+            guardian.removeModifyDamage(floor);
+            check("移除下限修正器后列表为空", guardian.getModifyDamageList().isEmpty());
+
+            // ---- 无视防御：只认 IDefenceIgnore 接口，模组自写的效果一样生效 ----
+            LivingThing piercer = new CommonInsect(100L).copy();
+            piercer.addEffect(new ProbeDefenceIgnoreEffect(0.5, 0));
+            check("无视防御：接口实现被汇总（0.5）",
+                    Math.abs(piercer.getIgnoreDefencePercent() - 0.5) < 1e-9);
+            long normalHit = DamageCalculate.calculate(metalAttacker, metalVictim, probe);
+            long ignoreHit = DamageCalculate.calculate(piercer, metalVictim, probe);
+            check("无视防御确实让伤害变高", ignoreHit > normalHit);
+        } catch (Exception e) {
+            fail("减伤测试抛出异常：" + e);
+        }
+    }
+
+    /**
+     * 从控制器里按名字取技能实例（取的是控制器自己持有的那一份）。
+     *
+     * @param controller 控制器
+     * @param name       技能名
+     * @return 技能；找不到返回 {@code null}
+     */
+    private static Skill skillNamed(FixOrderController controller, String name) {
+        for (Skill skill : controller.getSkills()) {
+            if (skill != null && name.equals(skill.getName())) {
+                return skill;
+            }
+        }
+        return null;
+    }
+
     /**
      * 判断生物身上是否有指定 id 的效果。
+     * <p>
+     * 比较时会去掉模组前缀：运行时效果的 id 已经被
+     * {@link cn.gfhnv.game.world.World#applyRegisteredId(cn.gfhnv.game.effect.Effect)}
+     * 补成了完整 id（{@code game_official_content:frozenEffect}），
+     * 而用例里写的是短名（{@code frozenEffect}），两种写法都要能匹配上。
      *
      * @param livingThing 生物
-     * @param effectId    效果 id
+     * @param effectId    效果 id（短名或完整 id）
      * @return 是否存在
      */
     private static boolean hasEffect(LivingThing livingThing, String effectId) {
+        return effectOf(livingThing, effectId) != null;
+    }
+
+    /**
+     * 取生物身上指定 id 的效果实例。
+     *
+     * @param livingThing 生物
+     * @param effectId    效果 id（短名或完整 id）
+     * @return 效果；找不到返回 {@code null}
+     */
+    private static cn.gfhnv.game.effect.Effect effectOf(LivingThing livingThing, String effectId) {
         for (cn.gfhnv.game.effect.Effect effect : livingThing.getEntityEffectList()) {
-            if (effectId.equalsIgnoreCase(effect.getID())) {
-                return true;
+            if (effect == null || effect.getID() == null) {
+                continue;
+            }
+            String id = effect.getID();
+            if (effectId.equalsIgnoreCase(id) || effectId.equalsIgnoreCase(shortIdOf(id))) {
+                return effect;
             }
         }
-        return false;
+        return null;
     }
 
     /**
      * 取生物身上指定 id 的效果等级。
      *
      * @param livingThing 生物
-     * @param effectId    效果 id
+     * @param effectId    效果 id（短名或完整 id）
      * @return 等级；不存在返回 -1
      */
     private static int effectLevelOf(LivingThing livingThing, String effectId) {
-        for (cn.gfhnv.game.effect.Effect effect : livingThing.getEntityEffectList()) {
-            if (effectId.equalsIgnoreCase(effect.getID())) {
-                return effect.getLevel();
+        cn.gfhnv.game.effect.Effect effect = effectOf(livingThing, effectId);
+        return effect == null ? -1 : effect.getLevel();
+    }
+
+    /**
+     * 去掉 id 里的模组前缀（{@code game_official_content:xxx} → {@code xxx}）。
+     *
+     * @param id 完整 id
+     * @return 短名
+     */
+    private static String shortIdOf(String id) {
+        if (id == null) {
+            return "";
+        }
+        int colon = id.indexOf(':');
+        return colon >= 0 && colon + 1 < id.length() ? id.substring(colon + 1) : id;
+    }
+
+    /**
+     * 数背包里占了几格（每格只要有东西就 +1，不看堆叠数量）。
+     *
+     * @param livingThing 生物
+     * @return 占用的格子数
+     */
+    private static int itemCountOf(LivingThing livingThing) {
+        int count = 0;
+        for (Slot slot : livingThing.getInventory().getSlots()) {
+            if (slot != null && slot.getContainedItem() != null) {
+                count++;
             }
         }
-        return -1;
+        return count;
+    }
+
+    /**
+     * 数背包里一共有几件物品（把每格的堆叠数加起来）。
+     * <p>
+     * 同种物品会叠在一格，所以「件数」与「格数」是两个不同的量：
+     * 给 6 把剑 → 1 格、6 件。
+     *
+     * @param livingThing 生物
+     * @return 物品件数
+     */
+    private static int unitCountOf(LivingThing livingThing) {
+        int count = 0;
+        for (Slot slot : livingThing.getInventory().getSlots()) {
+            if (slot != null && slot.getContainedItem() != null) {
+                count += slot.getContainedItem().getStackNumber();
+            }
+        }
+        return count;
+    }
+
+    /**
+     * 取背包里第一件物品的堆叠数量。
+     *
+     * @param livingThing 生物
+     * @return 堆叠数量；背包为空返回 0
+     */
+    private static int firstItemStackOf(LivingThing livingThing) {
+        Item item = firstItemOf(livingThing);
+        return item == null ? 0 : item.getStackNumber();
+    }
+
+    /**
+     * 取背包里第一件物品（按格子顺序）。
+     *
+     * @param livingThing 生物
+     * @return 物品；背包为空返回 {@code null}
+     */
+    private static Item firstItemOf(LivingThing livingThing) {
+        for (Slot slot : livingThing.getInventory().getSlots()) {
+            if (slot != null && slot.getContainedItem() != null) {
+                return slot.getContainedItem();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 取背包里第一件物品的 id。
+     *
+     * @param livingThing 生物
+     * @return 物品 id；背包为空返回空串
+     */
+    private static String firstItemIdOf(LivingThing livingThing) {
+        Item item = firstItemOf(livingThing);
+        return item == null || item.getId() == null ? "" : item.getId();
+    }
+
+    /**
+     * 从物品注册表里按「完整 id / 短名 / 简单类名」找模板（大小写不敏感）。
+     *
+     * @param name 物品名
+     * @return 模板；找不到返回 {@code null}
+     */
+    private static Item itemTemplateOf(String name) {
+        for (Item item : World.getItemList()) {
+            if (item == null || item.getId() == null) {
+                continue;
+            }
+            if (item.getId().equalsIgnoreCase(name)
+                    || shortIdOf(item.getId()).equalsIgnoreCase(name)
+                    || item.getClass().getSimpleName().equalsIgnoreCase(name)) {
+                return item;
+            }
+        }
+        return null;
     }
 
     /**
@@ -721,5 +1364,228 @@ public class TestCommandSystem {
          * @throws Exception 任意异常
          */
         void run() throws Exception;
+    }
+
+    /**
+     * 自测用的「免死」修正器。
+     * <p>
+     * 和白厄的免死（{@code Phainon#soulscorchDeathWard()}）同一套写法：致死伤害被拦下、
+     * 血量锁 1，并用一个标记保证一场只触发一次；试算期间只算数、不消费。
+     * 这里不依赖战斗上下文，所以可以脱离 {@code Fight} 单独验证链路。
+     *
+     * @author AI（DeepSeek）生成
+     */
+    private static class ProbeDeathWard implements IModifyDamage {
+
+        /**
+         * 免死是否已经被消费掉（试算不算消费）。
+         */
+        private boolean consumed = false;
+
+        /**
+         * 是否有过一次「在试算期间被调用」的记录。
+         */
+        private boolean calledWhileAnticipating = false;
+
+        @Override
+        public long damageModify(long newHp, DamageEvent da) {
+            if (newHp > 0) {
+                return newHp;
+            }
+            if (da.getAttackedEntity().isAnticipating()) {
+                calledWhileAnticipating = true;
+                return 1;
+            }
+            consumed = true;
+            return 1;
+        }
+
+        /**
+         * @return 免死是否已经被消费
+         */
+        boolean wasConsumed() {
+            return consumed;
+        }
+
+        /**
+         * @return 免死是否有过「在试算期间被调用」的记录
+         */
+        boolean wasCalledWhileAnticipating() {
+            return calledWhileAnticipating;
+        }
+    }
+
+    /**
+     * 自测用的「血量下限」修正器（类似李晓焰的记忆生命）。
+     *
+     * @author AI（DeepSeek）生成
+     */
+    private static class ProbeHpFloor implements IModifyDamage {
+
+        /**
+         * 生命上限的比例下限。
+         */
+        private final double rate;
+
+        /**
+         * @param rate 生命上限的比例下限（0.5 表示不低于半血）
+         */
+        ProbeHpFloor(double rate) {
+            this.rate = rate;
+        }
+
+        @Override
+        public long damageModify(long newHp, DamageEvent da) {
+            long minHp = (long) (da.getAttackedEntity().getHpMax() * rate);
+            return Math.max(newHp, minHp);
+        }
+    }
+
+    /**
+     * 自测用的「无视防御」效果。
+     * <p>
+     * 它<b>不是</b>官方内容里的 {@code IgnoreDefenceEffect}，只实现了
+     * {@link cn.gfhnv.game.interfaces.IDefenceIgnore}：用来证明伤害计算认的是接口，
+     * 模组自己写的穿甲效果一样会被算进去。
+     *
+     * @author AI（DeepSeek）生成
+     */
+    private static class ProbeDefenceIgnoreEffect extends cn.gfhnv.game.effect.Effect
+            implements cn.gfhnv.game.interfaces.IDefenceIgnore {
+
+        /**
+         * 无视防御的百分比。
+         */
+        private final double percent;
+
+        /**
+         * 无视防御的固定值。
+         */
+        private final long amount;
+
+        /**
+         * 构造效果。
+         *
+         * @param percent 无视防御百分比
+         * @param amount  无视防御固定值
+         */
+        ProbeDefenceIgnoreEffect(double percent, long amount) {
+            super("probeDefenceIgnoreEffect");
+            this.percent = percent;
+            this.amount = amount;
+        }
+
+        /**
+         * 复制构造器。
+         *
+         * @param other 被复制的效果
+         */
+        ProbeDefenceIgnoreEffect(ProbeDefenceIgnoreEffect other) {
+            super(other.getID());
+            this.percent = other.percent;
+            this.amount = other.amount;
+        }
+
+        @Override
+        public double getIgnoreDefencePercent() {
+            return percent;
+        }
+
+        @Override
+        public long getIgnoreDefenceAmount() {
+            return amount;
+        }
+
+        @Override
+        public void comeIntoEffect(LivingThing thing) {
+            // 标记型效果：不需要每回合做事（顺便避免基类占位实现打印提示）
+        }
+
+        @Override
+        public cn.gfhnv.game.effect.Effect copy() {
+            return new ProbeDefenceIgnoreEffect(this);
+        }
+    }
+
+    /**
+     * 自测用的假技能：不产生任何战斗效果，只把「用了哪一招、打了谁」记进日志。
+     *
+     * @author AI（DeepSeek）生成
+     */
+    private static class ProbeSkill extends Skill {
+
+        /**
+         * 日志（所有副本共享同一个列表）。
+         */
+        private final List<String> log;
+
+        /**
+         * 构造一个作用于自身的假技能（{@code aims = 0}）。
+         *
+         * @param name 技能名
+         * @param log  日志
+         */
+        ProbeSkill(String name, List<String> log) {
+            this(name, log, 0);
+        }
+
+        /**
+         * 构造一个假技能。
+         *
+         * @param name 技能名
+         * @param log  日志
+         * @param aims 目标数（0=自身；正数=选 N 个目标）
+         */
+        ProbeSkill(String name, List<String> log, int aims) {
+            super(name, "自测用假技能", 0, 0, 0, aims);
+            this.log = log;
+        }
+
+        /**
+         * 构造一个用于伤害试算的假技能（带攻击力倍率）。
+         *
+         * @param name             技能名
+         * @param log              日志
+         * @param aims             目标数
+         * @param atkMagnification 攻击力倍率（伤害计算里乘在攻击力上）
+         */
+        ProbeSkill(String name, List<String> log, int aims, double atkMagnification) {
+            super(name, "自测用假技能", 0, atkMagnification, 0, aims);
+            this.log = log;
+        }
+
+        /**
+         * 复制构造器。
+         *
+         * @param other 被复制的技能
+         */
+        ProbeSkill(ProbeSkill other) {
+            super(other);
+            this.log = other.log;
+        }
+
+        @Override
+        public Skill copy() {
+            return new ProbeSkill(this);
+        }
+
+        @Override
+        public void comeToEffect(Fight fight, LivingThing user) {
+            log.add(getName());
+        }
+
+        @Override
+        public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
+            StringBuilder builder = new StringBuilder(getName()).append('→');
+            if (enemies != null) {
+                for (int i = 0; i < enemies.size(); i++) {
+                    if (i > 0) {
+                        builder.append(',');
+                    }
+                    builder.append(enemies.get(i).getName());
+                }
+            }
+            log.add(builder.toString());
+        }
     }
 }

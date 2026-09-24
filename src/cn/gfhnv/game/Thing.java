@@ -18,7 +18,9 @@ import java.util.UUID;
  * <p>
  * 所有可放进游戏世界的对象（实体、物品等）都继承自本类。Thing 提供了：
  * <ul>
- *     <li><b>uuid</b>：实例化时自动生成的唯一标识，用于 {@link #equals(Object)} 判定同一对象；</li>
+ *     <li><b>uuid</b>：实例化时自动生成的唯一标识，用于 {@link #equals(Object)} 判定同一对象
+ *     （子类可以改写判等规则：{@link cn.gfhnv.game.item.Item} 就改成按注册表 id 比较，
+ *     这样同种物品的副本才能叠进背包同一格）；</li>
  *     <li><b>tags</b>：行为 Tag 权重表（供 Utility AI 思考系统决策使用）；</li>
  *     <li><b>物理属性</b>：质量（mass）、力（force）、速度（velocity）、加速度（acceleration）、位置（position），
  *     构成一个简单的牛顿力学模型；</li>

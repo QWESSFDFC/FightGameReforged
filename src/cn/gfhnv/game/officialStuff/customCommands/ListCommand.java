@@ -2,12 +2,7 @@ package cn.gfhnv.game.officialStuff.customCommands;
 
 import cn.gfhnv.game.entity.Entity;
 import cn.gfhnv.game.entity.LivingThing;
-import cn.gfhnv.game.system.command.ArgumentBuilder;
-import cn.gfhnv.game.system.command.Command;
-import cn.gfhnv.game.system.command.CommandNode;
-import cn.gfhnv.game.system.command.EntityArgumentType;
-import cn.gfhnv.game.system.command.EntitySelector;
-import cn.gfhnv.game.system.command.LiteralCommandNode;
+import cn.gfhnv.game.system.command.*;
 import cn.gfhnv.game.world.World;
 
 import java.util.List;
@@ -34,38 +29,6 @@ public class ListCommand extends Command {
      */
     public ListCommand() {
         super("list");
-    }
-
-    /**
-     * 构建命令树：{@code list} 与 {@code list <目标>}。
-     *
-     * @return 命令根节点
-     */
-    @Override
-    protected CommandNode buildNode() {
-        LiteralCommandNode root = node();
-
-        // 分支一：list（列出全部）
-        root.setExecutor((context, source) -> {
-            List<LivingThing> all = context.getSelectorContext().getFightEntities();
-            source.sendMessage(describe(all, context.getFight() == null ? "世界里的生物" : "当前战斗中的生物"));
-            return all.size();
-        });
-
-        // 分支二：list <目标>
-        ArgumentBuilder target = ArgumentBuilder.argumentBuilder("目标", EntityArgumentType.entities());
-        target.executes((context, source) -> {
-            List<Entity> entities = context.getEntities("目标");
-            EntitySelector selector = context.getArgument("目标", EntitySelector.class);
-            source.sendMessage("选择器 " + selector.getRawText() + " 选中了 " + entities.size() + " 个实体：");
-            for (Entity entity : entities) {
-                source.sendMessage("  " + describeOne(entity));
-            }
-            return entities.size();
-        });
-        root.addChild(target);
-
-        return root;
     }
 
     /**
@@ -115,5 +78,37 @@ public class ListCommand extends Command {
             }
         }
         return result;
+    }
+
+    /**
+     * 构建命令树：{@code list} 与 {@code list <目标>}。
+     *
+     * @return 命令根节点
+     */
+    @Override
+    protected CommandNode buildNode() {
+        LiteralCommandNode root = node();
+
+        // 分支一：list（列出全部）
+        root.setExecutor((context, source) -> {
+            List<LivingThing> all = context.getSelectorContext().getFightEntities();
+            source.sendMessage(describe(all, context.getFight() == null ? "世界里的生物" : "当前战斗中的生物"));
+            return all.size();
+        });
+
+        // 分支二：list <目标>
+        ArgumentBuilder target = ArgumentBuilder.argumentBuilder("目标", EntityArgumentType.entities());
+        target.executes((context, source) -> {
+            List<Entity> entities = context.getEntities("目标");
+            EntitySelector selector = context.getArgument("目标", EntitySelector.class);
+            source.sendMessage("选择器 " + selector.getRawText() + " 选中了 " + entities.size() + " 个实体：");
+            for (Entity entity : entities) {
+                source.sendMessage("  " + describeOne(entity));
+            }
+            return entities.size();
+        });
+        root.addChild(target);
+
+        return root;
     }
 }

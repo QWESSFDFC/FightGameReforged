@@ -1,11 +1,6 @@
 package cn.gfhnv.game.officialStuff.customCommands;
 
-import cn.gfhnv.game.system.command.ArgumentBuilder;
-import cn.gfhnv.game.system.command.Command;
-import cn.gfhnv.game.system.command.CommandManager;
-import cn.gfhnv.game.system.command.CommandNode;
-import cn.gfhnv.game.system.command.LiteralCommandNode;
-import cn.gfhnv.game.system.command.StringArgumentType;
+import cn.gfhnv.game.system.command.*;
 
 /**
  * {@code /help} —— 查看命令列表与用法。

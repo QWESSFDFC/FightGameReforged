@@ -83,6 +83,113 @@ public abstract class CommandRegistration extends Command {
     }
 
     /**
+     * 判断构建器（或它下面的某个分支）是否已经绑了执行体。
+     *
+     * @param builder 构建器
+     * @return 是否有执行体
+     */
+    private static boolean hasExecutor(ArgumentBuilder builder) {
+        if (builder.isExecutable()) {
+            return true;
+        }
+        for (CommandNode child : builder.getChildren()) {
+            if (child instanceof ArgumentBuilder childBuilder && hasExecutor(childBuilder)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 判断是否为「构建方法」。
+     *
+     * @param method 方法
+     * @return 是否为构建方法
+     */
+    private static boolean isBuilderMethod(Method method) {
+        Class<?>[] parameters = method.getParameterTypes();
+        if (parameters.length != 1 || !CommandBuilder.class.isAssignableFrom(parameters[0])) {
+            return false;
+        }
+        Class<?> returnType = method.getReturnType();
+        return returnType == void.class || CommandBuilder.class.isAssignableFrom(returnType);
+    }
+
+    /**
+     * 判断是否为「执行方法」。
+     *
+     * @param method 方法
+     * @return 是否为执行方法
+     */
+    private static boolean isExecuteMethod(Method method) {
+        Class<?>[] parameters = method.getParameterTypes();
+        if (parameters.length != 2) {
+            return false;
+        }
+        if (!CommandContext.class.isAssignableFrom(parameters[0])) {
+            return false;
+        }
+        if (!CommandSource.class.isAssignableFrom(parameters[1])) {
+            return false;
+        }
+        Class<?> returnType = method.getReturnType();
+        return returnType == void.class || returnType == int.class || returnType == Integer.class;
+    }
+
+    /**
+     * 按注解值（子命令路径）在树里走出/建出对应分支。
+     *
+     * @param root 根构建器
+     * @param path 子命令路径，空串或 {@code "."} 表示根
+     * @return 路径末端的构建器
+     */
+    private static ArgumentBuilder route(ArgumentBuilder root, String path) {
+        ArgumentBuilder current = root;
+        if (path == null || path.isBlank() || path.equals(".")) {
+            return current;
+        }
+        for (String segment : path.trim().split("\\s+")) {
+            if (segment.isBlank()) {
+                continue;
+            }
+            current = current.literal(segment);
+        }
+        return current;
+    }
+
+    /**
+     * 反射调用一个执行方法。
+     *
+     * @param method   执行方法
+     * @param receiver 调用目标（静态方法传 {@code null}）
+     * @param context  命令上下文
+     * @param source   命令来源
+     * @return 影响到的对象数量
+     * @throws CommandSyntaxException 方法内部抛出的语法异常
+     */
+    private static int invokeExecutor(Method method, Object receiver, CommandContext context, CommandSource source)
+            throws CommandSyntaxException {
+        try {
+            Object result = method.invoke(receiver, context, source);
+            if (result instanceof Integer value) {
+                return value;
+            }
+            return 1;
+        } catch (InvocationTargetException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof CommandSyntaxException syntaxException) {
+                throw syntaxException;
+            }
+            if (cause instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+            }
+            throw CommandSyntaxException.create("执行命令时出错：" + (cause == null ? e : cause));
+        } catch (ReflectiveOperationException e) {
+            throw CommandSyntaxException.create("无法调用命令方法 " + method.getName() + "：" + e);
+        }
+    }
+
+    /**
      * @return 执行命令时使用的实例
      */
     protected Object getInstance() {
@@ -139,24 +246,6 @@ public abstract class CommandRegistration extends Command {
     }
 
     /**
-     * 判断构建器（或它下面的某个分支）是否已经绑了执行体。
-     *
-     * @param builder 构建器
-     * @return 是否有执行体
-     */
-    private static boolean hasExecutor(ArgumentBuilder builder) {
-        if (builder.isExecutable()) {
-            return true;
-        }
-        for (CommandNode child : builder.getChildren()) {
-            if (child instanceof ArgumentBuilder childBuilder && hasExecutor(childBuilder)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
      * 创建一个专门用于「构建」的实例。
      * <p>
      * 默认复用执行实例（要求它有无参构造器）。若执行实例是通过带参构造器创建的，
@@ -175,42 +264,6 @@ public abstract class CommandRegistration extends Command {
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("无法创建命令构建实例：" + instance.getClass().getName(), e);
         }
-    }
-
-    /**
-     * 判断是否为「构建方法」。
-     *
-     * @param method 方法
-     * @return 是否为构建方法
-     */
-    private static boolean isBuilderMethod(Method method) {
-        Class<?>[] parameters = method.getParameterTypes();
-        if (parameters.length != 1 || !CommandBuilder.class.isAssignableFrom(parameters[0])) {
-            return false;
-        }
-        Class<?> returnType = method.getReturnType();
-        return returnType == void.class || CommandBuilder.class.isAssignableFrom(returnType);
-    }
-
-    /**
-     * 判断是否为「执行方法」。
-     *
-     * @param method 方法
-     * @return 是否为执行方法
-     */
-    private static boolean isExecuteMethod(Method method) {
-        Class<?>[] parameters = method.getParameterTypes();
-        if (parameters.length != 2) {
-            return false;
-        }
-        if (!CommandContext.class.isAssignableFrom(parameters[0])) {
-            return false;
-        }
-        if (!CommandSource.class.isAssignableFrom(parameters[1])) {
-            return false;
-        }
-        Class<?> returnType = method.getReturnType();
-        return returnType == void.class || returnType == int.class || returnType == Integer.class;
     }
 
     /**
@@ -233,27 +286,6 @@ public abstract class CommandRegistration extends Command {
     }
 
     /**
-     * 按注解值（子命令路径）在树里走出/建出对应分支。
-     *
-     * @param root 根构建器
-     * @param path 子命令路径，空串或 {@code "."} 表示根
-     * @return 路径末端的构建器
-     */
-    private static ArgumentBuilder route(ArgumentBuilder root, String path) {
-        ArgumentBuilder current = root;
-        if (path == null || path.isBlank() || path.equals(".")) {
-            return current;
-        }
-        for (String segment : path.trim().split("\\s+")) {
-            if (segment.isBlank()) {
-                continue;
-            }
-            current = current.literal(segment);
-        }
-        return current;
-    }
-
-    /**
      * 为某个路径分支绑定执行方法。
      *
      * @param root   根构建器
@@ -273,38 +305,6 @@ public abstract class CommandRegistration extends Command {
             return mine + theirs;
         });
         LogWriter.writeLog("注册命令执行方法：" + commandName + " " + callTarget.getName());
-    }
-
-    /**
-     * 反射调用一个执行方法。
-     *
-     * @param method   执行方法
-     * @param receiver 调用目标（静态方法传 {@code null}）
-     * @param context  命令上下文
-     * @param source   命令来源
-     * @return 影响到的对象数量
-     * @throws CommandSyntaxException 方法内部抛出的语法异常
-     */
-    private static int invokeExecutor(Method method, Object receiver, CommandContext context, CommandSource source)
-            throws CommandSyntaxException {
-        try {
-            Object result = method.invoke(receiver, context, source);
-            if (result instanceof Integer value) {
-                return value;
-            }
-            return 1;
-        } catch (InvocationTargetException e) {
-            Throwable cause = e.getCause();
-            if (cause instanceof CommandSyntaxException syntaxException) {
-                throw syntaxException;
-            }
-            if (cause instanceof RuntimeException runtimeException) {
-                throw runtimeException;
-            }
-            throw CommandSyntaxException.create("执行命令时出错：" + (cause == null ? e : cause));
-        } catch (ReflectiveOperationException e) {
-            throw CommandSyntaxException.create("无法调用命令方法 " + method.getName() + "：" + e);
-        }
     }
 
     /**

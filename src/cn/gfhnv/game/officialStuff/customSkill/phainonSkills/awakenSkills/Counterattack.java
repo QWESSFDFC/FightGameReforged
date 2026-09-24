@@ -31,7 +31,8 @@ public class Counterattack extends Skill {
             soulscorch = phainon.getSoulscorch();
             phainon.setSoulscorch(0);
             if (phainon.isAbsorbDamage()) {
-                phainon.setDamageAbsorbedPercent(phainon.getDamageAbsorbedPercent() - 0.75);
+                // 移除「灾厄」那一份减伤（按来源键，幂等）
+                phainon.removeDamageReduction(Phainon.SOULSCORCH_DAMAGE_REDUCTION);
                 phainon.setAbsorbDamage(false);
             }
             for (Skill skill : user.getController().getSkills()) {

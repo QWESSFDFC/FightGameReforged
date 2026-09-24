@@ -28,14 +28,13 @@ import java.util.Map;
 public class CommandContext {
 
     /**
-     * 命令来源。{@link CommandSource} 会在构造时把自身写进来，因此不是 final。
-     */
-    private CommandSender sender;
-
-    /**
      * 已解析的参数：参数名 → 值。用 {@link LinkedHashMap} 保持解析顺序，便于调试输出。
      */
     private final Map<String, Object> arguments = new LinkedHashMap<>();
+    /**
+     * 命令来源。{@link CommandSource} 会在构造时把自身写进来，因此不是 final。
+     */
+    private CommandSender sender;
 
     /**
      * 构造一个命令上下文。
@@ -54,6 +53,25 @@ public class CommandContext {
     /* ------------------------------------------------------------------
      * 参数存取
      * ------------------------------------------------------------------ */
+
+    /**
+     * 把参数值转成简短可读文本。
+     *
+     * @param value 参数值
+     * @return 可读文本
+     */
+    private static String describeValue(Object value) {
+        if (value == null) {
+            return "null";
+        }
+        if (value instanceof EntitySelector selector) {
+            return selector.toString();
+        }
+        if (value instanceof Entity entity) {
+            return EntityArgumentType.nameOf(entity);
+        }
+        return String.valueOf(value);
+    }
 
     /**
      * 写入一个解析好的参数。
@@ -93,10 +111,10 @@ public class CommandContext {
     /**
      * 取参数（可选）。先按名字找，找不到再按别名找。
      *
-     * @param name   参数名
-     * @param alias  备用名（可为 {@code null}）
-     * @param type   期望类型
-     * @param <T>    期望类型
+     * @param name  参数名
+     * @param alias 备用名（可为 {@code null}）
+     * @param type  期望类型
+     * @param <T>   期望类型
      * @return 参数值；不存在返回 {@code null}
      * @throws CommandSyntaxException 类型不符时抛出
      */
@@ -130,8 +148,8 @@ public class CommandContext {
     /**
      * 取整数参数。
      *
-     * @param name  参数名
-     * @param alias 备用名
+     * @param name     参数名
+     * @param alias    备用名
      * @param fallback 参数不存在时的默认值
      * @return 整数
      * @throws CommandSyntaxException 类型不符时抛出
@@ -245,16 +263,16 @@ public class CommandContext {
         return targets;
     }
 
+    /* ------------------------------------------------------------------
+     * 执行环境
+     * ------------------------------------------------------------------ */
+
     /**
      * @return 已解析的所有参数（只读遍历用）
      */
     public Map<String, Object> getArguments() {
         return arguments;
     }
-
-    /* ------------------------------------------------------------------
-     * 执行环境
-     * ------------------------------------------------------------------ */
 
     /**
      * 取命令来源；如果构造时没给（{@code null}），这里惰性建一个控制台来源。
@@ -334,25 +352,6 @@ public class CommandContext {
             first = false;
         }
         return builder.toString();
-    }
-
-    /**
-     * 把参数值转成简短可读文本。
-     *
-     * @param value 参数值
-     * @return 可读文本
-     */
-    private static String describeValue(Object value) {
-        if (value == null) {
-            return "null";
-        }
-        if (value instanceof EntitySelector selector) {
-            return selector.toString();
-        }
-        if (value instanceof Entity entity) {
-            return EntityArgumentType.nameOf(entity);
-        }
-        return String.valueOf(value);
     }
 
     @Override

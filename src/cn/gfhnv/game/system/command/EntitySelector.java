@@ -16,14 +16,14 @@ import java.util.Random;
  * <p>
  * 支持《我的世界》Java 版风格的写法：
  * <pre>{@code
- * @s                     执行者自己（玩家选的生物）
- * @p                     离执行者最近的生物
- * @n                     离执行者最远的生物
- * @r                     随机一个生物
- * @a                     全部生物（等价于 @e[type=LivingThing]）
- * @e                     全部生物
- * @e[type=Phainon]       按类型筛选（简单类名，大小写不敏感，也支持中文名）
- * @e[name=白厄]           按名字筛选（支持 * 通配）
+ * @s 执行者自己（玩家选的生物）
+ * @p 离执行者最近的生物
+ * @n 离执行者最远的生物
+ * @r 随机一个生物
+ * @a 全部生物（等价于 @e[type=LivingThing]）
+ * @e 全部生物
+ * @e[type=Phainon] 按类型筛选（简单类名，大小写不敏感，也支持中文名）
+ * @e[name=白厄] 按名字筛选（支持 * 通配）
  * @e[limit=2,sort=nearest]
  * @e[type=CommonInsect,limit=1]
  * }</pre>
@@ -40,87 +40,29 @@ import java.util.Random;
 public class EntitySelector {
 
     /**
-     * 选择器类型。不同来源（{@code @} 后面的一个字符）对应不同语义。
-     */
-    public enum SelectorKind {
-        /**
-         * {@code @s}：执行者自己（没有玩家时退化为全部生物的当前战斗列表中的第一个）。
-         */
-        SELF,
-        /**
-         * {@code @p}：离执行者最近的生物。
-         */
-        NEAREST_PLAYER,
-        /**
-         * {@code @r}：随机一个生物。
-         */
-        RANDOM,
-        /**
-         * {@code @a}：全部生物。
-         */
-        ALL,
-        /**
-         * {@code @e}：全部生物（可带筛选）。
-         */
-        ALL_ENTITIES,
-        /**
-         * {@code @n}：离执行者最远的生物。
-         */
-        FURTHEST
-    }
-
-    /**
-     * 多结果时的排序方式（对应 {@code sort=}）。
-     */
-    public enum SortMode {
-        /**
-         * 按距离由近到远。
-         */
-        NEAREST,
-        /**
-         * 按距离由远到近。
-         */
-        FURTHEST,
-        /**
-         * 随机顺序。
-         */
-        RANDOM,
-        /**
-         * {@code arbitrary}：保持列表原本的顺序。
-         */
-        ARBITRARY
-    }
-
-    /**
      * 选择器类型（{@code @} 后面的字符决定）。
      */
     private SelectorKind kind = SelectorKind.ALL_ENTITIES;
-
     /**
      * 类型筛选（{@code type=}），{@code null} 表示不筛选。
      */
     private String typeFilter = null;
-
     /**
      * 名字筛选（{@code name=}），{@code null} 表示不筛选。
      */
     private String nameFilter = null;
-
     /**
      * 数量上限（{@code limit=}），负数表示不限制。
      */
     private int limit = -1;
-
     /**
      * 排序方式。
      */
     private SortMode sort = SortMode.NEAREST;
-
     /**
      * 解析出的实体列表（由 {@link #resolve} 填充）。
      */
     private List<Entity> targets = new ArrayList<>();
-
     /**
      * 未被解析时保留的原始文本（用于报错与调试输出）。
      */
@@ -131,10 +73,6 @@ public class EntitySelector {
      */
     public EntitySelector() {
     }
-
-    /* ------------------------------------------------------------------
-     * 解析
-     * ------------------------------------------------------------------ */
 
     /**
      * 从文本解析选择器语法（不解析出实体，只解析「怎么选」）。
@@ -216,6 +154,10 @@ public class EntitySelector {
         };
     }
 
+    /* ------------------------------------------------------------------
+     * 解析
+     * ------------------------------------------------------------------ */
+
     /**
      * 解析 {@code limit=} 的值。
      *
@@ -253,9 +195,138 @@ public class EntitySelector {
         };
     }
 
+    /**
+     * 把列表按到「参照实体」的距离排序。
+     *
+     * @param list      待排序列表
+     * @param reference 参照实体（可为 {@code null}）
+     * @param furthest  {@code true} 表示由远到近，{@code false} 表示由近到远
+     */
+    private static void sortByDistance(List<Entity> list, Entity reference, boolean furthest) {
+        if (list.size() < 2) {
+            return;
+        }
+        double refX = 0;
+        double refY = 0;
+        double refZ = 0;
+        boolean hasReference = reference != null;
+        if (hasReference) {
+            refX = reference.getPosition().getX();
+            refY = reference.getPosition().getY();
+            refZ = reference.getPosition().getZ();
+        }
+        final double rx = refX;
+        final double ry = refY;
+        final double rz = refZ;
+        Comparator<Entity> comparator = Comparator.comparingDouble(entity -> {
+            if (!hasReference || entity == null) {
+                return 0;
+            }
+            double dx = entity.getPosition().getX() - rx;
+            double dy = entity.getPosition().getY() - ry;
+            double dz = entity.getPosition().getZ() - rz;
+            return dx * dx + dy * dy + dz * dz;
+        });
+        if (furthest) {
+            comparator = comparator.reversed();
+        }
+        list.sort(comparator);
+    }
+
+    /**
+     * 判断实体是否精确匹配某个类型筛选词。
+     *
+     * @param entity 实体
+     * @param filter 筛选词
+     * @return 是否匹配
+     */
+    private static boolean matchesTypeExactly(Entity entity, String filter) {
+        String simpleName = entity.getClass().getSimpleName();
+        String fullName = entity.getClass().getName();
+        String displayName = entity.getName() == null ? "" : entity.getName();
+        String id = entity.getId() == null ? "" : entity.getId();
+        return simpleName.equalsIgnoreCase(filter)
+                || fullName.equalsIgnoreCase(filter)
+                || displayName.equalsIgnoreCase(filter)
+                || id.equalsIgnoreCase(filter)
+                || simpleName.toLowerCase().contains(filter.toLowerCase());
+    }
+
     /* ------------------------------------------------------------------
      * 求解
      * ------------------------------------------------------------------ */
+
+    /**
+     * 生成一组「编码容错候选」。
+     * <p>
+     * Windows 控制台（cmd.exe，代码页 936）与 JVM 的字符集不一致时，
+     * 玩家输入的中文可能被错误解码。这里把原串按「平台默认字符集」和「UTF-8」等几种方式
+     * 互相重解释，得到几个候选写法，只要其中任意一个能对上生物的类型/名字就算命中。
+     * <p>
+     * <b>能力边界</b>：
+     * <ul>
+     *     <li>有效：字节还在、只是解码方式错了（例如 UTF-8 字节被按 GBK 解出来）；</li>
+     *     <li>无效：输入通道已经把中文替换成 {@code ?} 或 {@code \uFFFD}（U+FFFD）——
+     *     这时信息已经丢失，任何重解释都救不回来（cmd.exe 里就是这种情况）。</li>
+     * </ul>
+     * 所以命令行里请优先使用 ASCII 简单类名（{@code @e[type=InsectBoss]}），
+     * 或用 Windows Terminal / IDEA 运行以获得可靠的中文输入。
+     *
+     * @param raw 玩家输入的筛选词
+     * @return 候选写法（第一个元素永远是原串本身）
+     */
+    private static List<String> candidatesOf(String raw) {
+        List<String> candidates = new ArrayList<>();
+        candidates.add(raw);
+        // 整串已经是替换字符时没有任何还原余地，直接返回原串
+        if (raw.indexOf('\uFFFD') >= 0 || raw.indexOf('?') >= 0) {
+            return candidates;
+        }
+        try {
+            java.nio.charset.Charset platform = java.nio.charset.Charset.defaultCharset();
+            candidates.add(new String(raw.getBytes(platform), java.nio.charset.StandardCharsets.UTF_8));
+            candidates.add(new String(raw.getBytes(java.nio.charset.StandardCharsets.UTF_8), platform));
+            candidates.add(new String(raw.getBytes(java.nio.charset.StandardCharsets.ISO_8859_1),
+                    java.nio.charset.StandardCharsets.UTF_8));
+            candidates.add(new String(raw.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                    java.nio.charset.StandardCharsets.ISO_8859_1));
+        } catch (RuntimeException ignored) {
+            // 某些字符集不支持时忽略，原串仍然可用
+        }
+        return candidates;
+    }
+
+    /**
+     * 判断生物名是否匹配某个模式（支持 {@code *} 通配）。
+     *
+     * @param name    生物名
+     * @param pattern 模式
+     * @return 是否匹配
+     */
+    private static boolean matchesNameExactly(String name, String pattern) {
+        if (pattern == null || pattern.isEmpty()) {
+            return false;
+        }
+        if (pattern.contains("*")) {
+            String regex = java.util.regex.Pattern.quote(pattern).replace("*", "\\E.*\\Q");
+            return name.matches(regex);
+        }
+        return name.equalsIgnoreCase(pattern);
+    }
+
+    /**
+     * 直接把文本解析成实体列表（{@link #fromString} + {@link #resolve} 的组合）。
+     *
+     * @param text    选择器文本
+     * @param context 求解上下文
+     * @return 选中的实体列表
+     * @throws CommandSyntaxException 语法错误或没有选中实体时抛出
+     */
+    public static List<Entity> resolveText(String text, CommandSelectorContext context) throws CommandSyntaxException {
+        EntitySelector selector = fromString(text);
+        selector.resolve(context);
+        return selector.getTargets();
+    }
 
     /**
      * 按当前选择器设置，从上下文里求解出具体实体列表。
@@ -354,44 +425,6 @@ public class EntitySelector {
     }
 
     /**
-     * 把列表按到「参照实体」的距离排序。
-     *
-     * @param list       待排序列表
-     * @param reference  参照实体（可为 {@code null}）
-     * @param furthest   {@code true} 表示由远到近，{@code false} 表示由近到远
-     */
-    private static void sortByDistance(List<Entity> list, Entity reference, boolean furthest) {
-        if (list.size() < 2) {
-            return;
-        }
-        double refX = 0;
-        double refY = 0;
-        double refZ = 0;
-        boolean hasReference = reference != null;
-        if (hasReference) {
-            refX = reference.getPosition().getX();
-            refY = reference.getPosition().getY();
-            refZ = reference.getPosition().getZ();
-        }
-        final double rx = refX;
-        final double ry = refY;
-        final double rz = refZ;
-        Comparator<Entity> comparator = Comparator.comparingDouble(entity -> {
-            if (!hasReference || entity == null) {
-                return 0;
-            }
-            double dx = entity.getPosition().getX() - rx;
-            double dy = entity.getPosition().getY() - ry;
-            double dz = entity.getPosition().getZ() - rz;
-            return dx * dx + dy * dy + dz * dz;
-        });
-        if (furthest) {
-            comparator = comparator.reversed();
-        }
-        list.sort(comparator);
-    }
-
-    /**
      * 判断实体是否通过 {@code type=} 筛选。
      * <p>
      * 依次尝试：简单类名（不区分大小写）→ 全限定类名 → 显示名（中文名）→ id →
@@ -418,65 +451,6 @@ public class EntitySelector {
     }
 
     /**
-     * 判断实体是否精确匹配某个类型筛选词。
-     *
-     * @param entity 实体
-     * @param filter 筛选词
-     * @return 是否匹配
-     */
-    private static boolean matchesTypeExactly(Entity entity, String filter) {
-        String simpleName = entity.getClass().getSimpleName();
-        String fullName = entity.getClass().getName();
-        String displayName = entity.getName() == null ? "" : entity.getName();
-        String id = entity.getId() == null ? "" : entity.getId();
-        return simpleName.equalsIgnoreCase(filter)
-                || fullName.equalsIgnoreCase(filter)
-                || displayName.equalsIgnoreCase(filter)
-                || id.equalsIgnoreCase(filter)
-                || simpleName.toLowerCase().contains(filter.toLowerCase());
-    }
-
-    /**
-     * 生成一组「编码容错候选」。
-     * <p>
-     * Windows 控制台（cmd.exe，代码页 936）与 JVM 的字符集不一致时，
-     * 玩家输入的中文可能被错误解码。这里把原串按「平台默认字符集」和「UTF-8」等几种方式
-     * 互相重解释，得到几个候选写法，只要其中任意一个能对上生物的类型/名字就算命中。
-     * <p>
-     * <b>能力边界</b>：
-     * <ul>
-     *     <li>有效：字节还在、只是解码方式错了（例如 UTF-8 字节被按 GBK 解出来）；</li>
-     *     <li>无效：输入通道已经把中文替换成 {@code ?} 或 {@code \uFFFD}（U+FFFD）——
-     *     这时信息已经丢失，任何重解释都救不回来（cmd.exe 里就是这种情况）。</li>
-     * </ul>
-     * 所以命令行里请优先使用 ASCII 简单类名（{@code @e[type=InsectBoss]}），
-     * 或用 Windows Terminal / IDEA 运行以获得可靠的中文输入。
-     *
-     * @param raw 玩家输入的筛选词
-     * @return 候选写法（第一个元素永远是原串本身）
-     */
-    private static List<String> candidatesOf(String raw) {
-        List<String> candidates = new ArrayList<>();
-        candidates.add(raw);
-        // 整串已经是替换字符时没有任何还原余地，直接返回原串
-        if (raw.indexOf('\uFFFD') >= 0 || raw.indexOf('?') >= 0) {
-            return candidates;
-        }
-        try {
-            java.nio.charset.Charset platform = java.nio.charset.Charset.defaultCharset();
-            candidates.add(new String(raw.getBytes(platform), java.nio.charset.StandardCharsets.UTF_8));
-            candidates.add(new String(raw.getBytes(java.nio.charset.StandardCharsets.UTF_8), platform));
-            candidates.add(new String(raw.getBytes(java.nio.charset.StandardCharsets.ISO_8859_1),
-                    java.nio.charset.StandardCharsets.UTF_8));
-            candidates.add(new String(raw.getBytes(java.nio.charset.StandardCharsets.UTF_8),
-                    java.nio.charset.StandardCharsets.ISO_8859_1));
-        } catch (RuntimeException ignored) {
-            // 某些字符集不支持时忽略，原串仍然可用
-        }
-        return candidates;
-    }
-
-    /**
      * 判断实体是否通过 {@code name=} 筛选（支持 {@code *} 通配）。
      * <p>
      * 与 {@link #matchesType(Entity)} 一样，会尝试编码容错候选（见 {@link #candidatesOf(String)}）。
@@ -500,33 +474,15 @@ public class EntitySelector {
     }
 
     /**
-     * 判断生物名是否匹配某个模式（支持 {@code *} 通配）。
-     *
-     * @param name    生物名
-     * @param pattern 模式
-     * @return 是否匹配
-     */
-    private static boolean matchesNameExactly(String name, String pattern) {
-        if (pattern == null || pattern.isEmpty()) {
-            return false;
-        }
-        if (pattern.contains("*")) {
-            String regex = java.util.regex.Pattern.quote(pattern).replace("*", "\\E.*\\Q");
-            return name.matches(regex);
-        }
-        return name.equalsIgnoreCase(pattern);
-    }
-
-    /* ------------------------------------------------------------------
-     * 常规访问器
-     * ------------------------------------------------------------------ */
-
-    /**
      * @return 解析出的实体列表；未调用过 {@link #resolve} 时为空列表
      */
     public List<Entity> getTargets() {
         return targets;
     }
+
+    /* ------------------------------------------------------------------
+     * 常规访问器
+     * ------------------------------------------------------------------ */
 
     /**
      * 设置解析出的实体列表。
@@ -608,23 +564,61 @@ public class EntitySelector {
         return targets.isEmpty();
     }
 
-    /**
-     * 直接把文本解析成实体列表（{@link #fromString} + {@link #resolve} 的组合）。
-     *
-     * @param text    选择器文本
-     * @param context 求解上下文
-     * @return 选中的实体列表
-     * @throws CommandSyntaxException 语法错误或没有选中实体时抛出
-     */
-    public static List<Entity> resolveText(String text, CommandSelectorContext context) throws CommandSyntaxException {
-        EntitySelector selector = fromString(text);
-        selector.resolve(context);
-        return selector.getTargets();
-    }
-
     @Override
     public String toString() {
         return "EntitySelector{" + rawText + ", targets=" + targets.size() + "}";
+    }
+
+    /**
+     * 选择器类型。不同来源（{@code @} 后面的一个字符）对应不同语义。
+     */
+    public enum SelectorKind {
+        /**
+         * {@code @s}：执行者自己（没有玩家时退化为全部生物的当前战斗列表中的第一个）。
+         */
+        SELF,
+        /**
+         * {@code @p}：离执行者最近的生物。
+         */
+        NEAREST_PLAYER,
+        /**
+         * {@code @r}：随机一个生物。
+         */
+        RANDOM,
+        /**
+         * {@code @a}：全部生物。
+         */
+        ALL,
+        /**
+         * {@code @e}：全部生物（可带筛选）。
+         */
+        ALL_ENTITIES,
+        /**
+         * {@code @n}：离执行者最远的生物。
+         */
+        FURTHEST
+    }
+
+    /**
+     * 多结果时的排序方式（对应 {@code sort=}）。
+     */
+    public enum SortMode {
+        /**
+         * 按距离由近到远。
+         */
+        NEAREST,
+        /**
+         * 按距离由远到近。
+         */
+        FURTHEST,
+        /**
+         * 随机顺序。
+         */
+        RANDOM,
+        /**
+         * {@code arbitrary}：保持列表原本的顺序。
+         */
+        ARBITRARY
     }
 
     /**
@@ -706,9 +700,9 @@ public class EntitySelector {
         }
 
         /**
-         * @return 世界里全部运行时对象中，属于指定类型的对象
-         * @param <T> 目标类型
+         * @param <T>  目标类型
          * @param type 目标类型
+         * @return 世界里全部运行时对象中，属于指定类型的对象
          */
         public <T> List<T> getThingsOfType(Class<T> type) {
             List<T> result = new ArrayList<>();

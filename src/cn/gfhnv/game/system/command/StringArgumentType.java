@@ -17,24 +17,6 @@ public class StringArgumentType implements ArgumentType<String> {
     /**
      * 读取模式。
      */
-    public enum Mode {
-        /**
-         * 只读一个词。
-         */
-        SINGLE_WORD,
-        /**
-         * 一个词或一段带引号的文本。
-         */
-        QUOTABLE_PHRASE,
-        /**
-         * 剩余整行。
-         */
-        GREEDY_PHRASE
-    }
-
-    /**
-     * 读取模式。
-     */
     private final Mode mode;
 
     /**
@@ -96,5 +78,23 @@ public class StringArgumentType implements ArgumentType<String> {
             case GREEDY_PHRASE -> "greedyString";
             default -> "string";
         };
+    }
+
+    /**
+     * 读取模式。
+     */
+    public enum Mode {
+        /**
+         * 只读一个词。
+         */
+        SINGLE_WORD,
+        /**
+         * 一个词或一段带引号的文本。
+         */
+        QUOTABLE_PHRASE,
+        /**
+         * 剩余整行。
+         */
+        GREEDY_PHRASE
     }
 }

@@ -73,13 +73,16 @@ public class UltimateAttack extends Skill {
             user.getController().setActionSignal(ActionSignal.WITHOUT_NEW_TURN);
         }
         BigDecimal needTime = BigDecimal.valueOf(10000).divide(BigDecimal.valueOf(user.getSpeed()), 10, RoundingMode.HALF_UP);
-        if (user instanceof Phainon) {
-            ((Phainon) user).setExtraTurns(8);
-            ((Phainon) user).addScourge(4);
+        if (user instanceof Phainon phainon) {
+            phainon.setExtraTurns(8);
+            phainon.addScourge(4);
         }
+        List<TurnEntry> awakenExtraTurns = user instanceof Phainon phainon ? phainon.getAwakenExtraTurns() : null;
+        // 交给白厄登记（活引用）：变身被致命伤害打断时要照着这个列表把剩余额外回合从时间轴上摘掉
+        if (awakenExtraTurns != null) awakenExtraTurns.clear();
         for (int i = 0; i <= 6; i++) {
 
-            TurnManager.getTurns().add(new TurnEntry(user, needTime.multiply(BigDecimal.valueOf(i)), TurnManager.getPresentTime()).setExtra(true).addLastSpecialAction((fight1, user1) -> {
+            TurnEntry extraTurn = new TurnEntry(user, needTime.multiply(BigDecimal.valueOf(i)), TurnManager.getPresentTime()).setExtra(true).addLastSpecialAction((fight1, user1) -> {
                 if (user1 instanceof Phainon phainon) {
                     phainon.setExtraTurns(phainon.getExtraTurns() - 1);
 
@@ -92,7 +95,9 @@ public class UltimateAttack extends Skill {
                         new Counterattack().comeToEffect(fight1, user1, anticipateEnemies);
                     }
                 }
-            }).setActionSignal(ActionSignal.WITHOUT_NEW_TURN));
+            }).setActionSignal(ActionSignal.WITHOUT_NEW_TURN);
+            TurnManager.getTurns().add(extraTurn);
+            if (awakenExtraTurns != null) awakenExtraTurns.add(extraTurn);
         }
 
         TurnEntry lastestOne = new TurnEntry(user, needTime.multiply(BigDecimal.valueOf(7)), TurnManager.getPresentTime()).setExtra(true);//8
@@ -119,6 +124,7 @@ public class UltimateAttack extends Skill {
 
         });
         TurnManager.getTurns().add(lastestOne);
+        if (awakenExtraTurns != null) awakenExtraTurns.add(lastestOne);
         TurnManager.sort();
     }
 }

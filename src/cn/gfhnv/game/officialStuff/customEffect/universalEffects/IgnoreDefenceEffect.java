@@ -3,9 +3,16 @@ package cn.gfhnv.game.officialStuff.customEffect.universalEffects;
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.effect.EffectTags;
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.interfaces.IDefenceIgnore;
 
 
-public class IgnoreDefenceEffect extends Effect {
+/**
+ * 无视防御效果：持有者攻击时会削减目标的有效防御。
+ * <p>
+ * 通过实现 {@link IDefenceIgnore} 参与伤害计算 —— 伤害计算只认那个接口，
+ * 不认识本类，所以模组写自己的穿甲效果一样生效。
+ */
+public class IgnoreDefenceEffect extends Effect implements IDefenceIgnore {
     private double percent = 0;
     private long amount = 0;
 
@@ -46,6 +53,16 @@ public class IgnoreDefenceEffect extends Effect {
 
     public void setPercent(double percent) {
         this.percent = percent;
+    }
+
+    @Override
+    public double getIgnoreDefencePercent() {
+        return percent;
+    }
+
+    @Override
+    public long getIgnoreDefenceAmount() {
+        return amount;
     }
 
     @Override

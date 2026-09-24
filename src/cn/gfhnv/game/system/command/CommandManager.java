@@ -82,35 +82,16 @@ public final class CommandManager {
      * 当前是否处于战斗中（由 {@code FightStartEventListener} / {@code FightEndEventListener} 维护）。
      */
     private static boolean inFight = false;
+    /**
+     * 是否已经初始化过（保证官方命令只注册一次）。
+     */
+    private static boolean initialized = false;
 
     /**
      * 工具类不允许实例化。
      */
     private CommandManager() {
     }
-
-    /**
-     * 「输入行处理结果」。
-     */
-    public enum ProcessResult {
-        /**
-         * 这一行<b>不是</b>命令，调用方应当按原有逻辑继续处理。
-         */
-        NOT_A_COMMAND,
-        /**
-         * 这一行是命令，并且已经处理完毕（成功或失败信息都已输出）。
-         */
-        HANDLED,
-        /**
-         * 这一行以命令前缀开头，但命令本身解析/执行失败（错误信息已输出）。
-         */
-        FAILED
-    }
-
-    /**
-     * 是否已经初始化过（保证官方命令只注册一次）。
-     */
-    private static boolean initialized = false;
 
     /**
      * 初始化命令系统：注册官方命令。
@@ -127,10 +108,6 @@ public final class CommandManager {
         cn.gfhnv.game.officialStuff.customCommands.OfficialCommands.registerAll(DISPATCHER);
         LogWriter.writeLog("命令系统初始化完成，已注册命令：" + DISPATCHER.getCommandNames());
     }
-
-    /* ------------------------------------------------------------------
-     * 输入命令的方法（预留入口）
-     * ------------------------------------------------------------------ */
 
     /**
      * 判断一行输入是不是命令。
@@ -151,6 +128,10 @@ public final class CommandManager {
         char first = trimmed.charAt(0);
         return first == PREFIX || first == ALT_PREFIX;
     }
+
+    /* ------------------------------------------------------------------
+     * 输入命令的方法（预留入口）
+     * ------------------------------------------------------------------ */
 
     /**
      * 处理一行输入：是命令就执行并把结果打印出来。
@@ -340,6 +321,13 @@ public final class CommandManager {
         sendMessage(builder.toString());
     }
 
+    /**
+     * @return 当前玩家生物；可能为 {@code null}
+     */
+    public static LivingThing getPlayer() {
+        return player;
+    }
+
     /* ------------------------------------------------------------------
      * 状态设置
      * ------------------------------------------------------------------ */
@@ -351,13 +339,6 @@ public final class CommandManager {
      */
     public static void setPlayer(LivingThing livingThing) {
         player = livingThing;
-    }
-
-    /**
-     * @return 当前玩家生物；可能为 {@code null}
-     */
-    public static LivingThing getPlayer() {
-        return player;
     }
 
     /**
@@ -389,19 +370,19 @@ public final class CommandManager {
     }
 
     /**
+     * @return 命令功能是否开启
+     */
+    public static boolean isEnabled() {
+        return enabled;
+    }
+
+    /**
      * 开启/关闭命令功能。关闭后所有输入都会被当成普通输入。
      *
      * @param value 是否开启
      */
     public static void setEnabled(boolean value) {
         enabled = value;
-    }
-
-    /**
-     * @return 命令功能是否开启
-     */
-    public static boolean isEnabled() {
-        return enabled;
     }
 
     /**
@@ -549,5 +530,23 @@ public final class CommandManager {
         return head + "；注意这只是 JVM 侧检查，"
                 + "cmd.exe 可能仍在原生层丢掉中文输入，"
                 + "所以命令里建议用 ASCII 选择器：@e[type=InsectBoss]、@e[type=CommonInsect] 等。";
+    }
+
+    /**
+     * 「输入行处理结果」。
+     */
+    public enum ProcessResult {
+        /**
+         * 这一行<b>不是</b>命令，调用方应当按原有逻辑继续处理。
+         */
+        NOT_A_COMMAND,
+        /**
+         * 这一行是命令，并且已经处理完毕（成功或失败信息都已输出）。
+         */
+        HANDLED,
+        /**
+         * 这一行以命令前缀开头，但命令本身解析/执行失败（错误信息已输出）。
+         */
+        FAILED
     }
 }

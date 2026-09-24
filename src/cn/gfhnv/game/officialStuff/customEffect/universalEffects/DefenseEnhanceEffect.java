@@ -48,6 +48,29 @@ public class DefenseEnhanceEffect extends Effect {
         this.getEffectTagsList().add(EffectTags.POSITIVE);
     }
 
+    /**
+     * 构造一个防御增强效果：百分比与固定值都在这一个构造函数里
+     * （与 {@code AttackEnhance} / {@code HpEnhanceEffect} 等同类保持一致）。
+     * <p>
+     * 写满 3 个参数时位置是固定的（百分比、固定值、持续回合）：
+     * <pre>
+     * new DefenseEnhanceEffect(0.3, 0, 3)   3 回合内防御 +30%
+     * new DefenseEnhanceEffect(0, 50, 3)    3 回合内防御 +50 点
+     * </pre>
+     *
+     * @param percent  防御增强百分比（0.3 表示 +30%）
+     * @param amount   防御增强固定值（+N 点）
+     * @param lastTime 持续回合数
+     */
+    public DefenseEnhanceEffect(double percent, long amount, int lastTime) {
+        super("defenseEnhanceEffect");
+        this.getEffectTagsList().add(EffectTags.UNIVERSAL);
+        this.getEffectTagsList().add(EffectTags.POSITIVE);
+        this.percent = percent;
+        this.amount = amount;
+        this.setLastTime(lastTime);
+    }
+
     @Override
     public Effect copy() {
         return new DefenseEnhanceEffect(this);

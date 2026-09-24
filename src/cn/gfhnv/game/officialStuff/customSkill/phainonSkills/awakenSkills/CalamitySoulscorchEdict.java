@@ -46,7 +46,8 @@ public class CalamitySoulscorchEdict extends Skill {
             ((Phainon) user).setScourge(((Phainon) user).getScourge() + enemies.size());
             ((Phainon) user).setSoulscorch(((Phainon) user).getSoulscorch() + 1);
             if (!((Phainon) user).isAbsorbDamage())
-                ((Phainon) user).setDamageAbsorbedPercent(user.getDamageAbsorbedPercent() + 0.75);
+                // 按来源键加 75% 减伤：乘算叠加，且同一来源重复触发不会翻倍
+                user.addDamageReduction(Phainon.SOULSCORCH_DAMAGE_REDUCTION, 0.75);
             ((Phainon) user).setAbsorbDamage(true);
 
         }

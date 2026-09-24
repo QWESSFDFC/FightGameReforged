@@ -2,17 +2,7 @@ package cn.gfhnv.game.officialStuff.customCommands;
 
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.LivingThing;
-import cn.gfhnv.game.system.command.ArgumentBuilder;
-import cn.gfhnv.game.system.command.Command;
-import cn.gfhnv.game.system.command.CommandContext;
-import cn.gfhnv.game.system.command.CommandManager;
-import cn.gfhnv.game.system.command.CommandNode;
-import cn.gfhnv.game.system.command.CommandSource;
-import cn.gfhnv.game.system.command.CommandSyntaxException;
-import cn.gfhnv.game.system.command.EntityArgumentType;
-import cn.gfhnv.game.system.command.IntegerArgumentType;
-import cn.gfhnv.game.system.command.LiteralCommandNode;
-import cn.gfhnv.game.system.command.WordArgumentType;
+import cn.gfhnv.game.system.command.*;
 import cn.gfhnv.game.world.World;
 
 import java.lang.reflect.Constructor;
@@ -71,50 +61,6 @@ public class EffectCommand extends Command {
      */
     public EffectCommand() {
         super("effect");
-    }
-
-    /**
-     * 构建命令树。
-     * <p>
-     * 写法：{@link ArgumentBuilder#argumentBuilder(String, cn.gfhnv.game.system.command.ArgumentType)}
-     * 建出「目标」这一层，其余各层一层一个变量依次往下建，最后只把最外层交给命令根节点。
-     * <p>
-     * {@code 目标} 只建<b>一次</b>，{@code add / remove / list} 三条分支都挂在同一个节点上：
-     * 若三条链各建一个「目标」，它们会在 {@link CommandNode#addChild(CommandNode)} 里
-     * 按名字合并，后续再往其中一个上挂子分支就会挂到被丢弃的那个对象上，树里看不到。
-     *
-     * @return 命令根节点
-     */
-    @Override
-    protected CommandNode buildNode() {
-        LiteralCommandNode root = node();
-
-        // 共同的外层：/effect <目标> ...
-        ArgumentBuilder target = ArgumentBuilder.argumentBuilder("目标", EntityArgumentType.entities());
-        root.addChild(target);
-
-        // /effect <目标> add <效果> [等级] [持续回合]
-        ArgumentBuilder add = target.literal("add");
-        ArgumentBuilder effectArgument = add.argument("效果", WordArgumentType.word());
-        // /effect <目标> add <效果>
-        effectArgument.executes((context, source) -> addEffect(context, source, false));
-        // /effect <目标> add <效果> <等级>
-        ArgumentBuilder level = effectArgument.argument("等级", IntegerArgumentType.integer(1, 99));
-        level.executes((context, source) -> addEffect(context, source, false));
-        // /effect <目标> add <效果> <等级> <持续回合>
-        ArgumentBuilder duration = level.argument("持续回合", IntegerArgumentType.integer(1, 999));
-        duration.executes((context, source) -> addEffect(context, source, true));
-
-        // /effect <目标> remove <效果>（效果填 all 或 * 表示清空）
-        ArgumentBuilder remove = target.literal("remove");
-        ArgumentBuilder removeArgument = remove.argument("效果", WordArgumentType.word());
-        removeArgument.executes((context, source) -> removeEffect(context, source));
-
-        // /effect <目标> list
-        ArgumentBuilder list = target.literal("list");
-        list.executes((context, source) -> listEffects(context, source));
-
-        return root;
     }
 
     /**
@@ -337,15 +283,6 @@ public class EffectCommand extends Command {
     }
 
     /**
-     * 效果名 + 可选的构造函数参数文本。
-     *
-     * @param name   效果 id 或类名
-     * @param params 构造函数参数文本（按书写顺序）
-     */
-    private record NameSpec(String name, List<String> params) {
-    }
-
-    /**
      * 判断注册表里的效果是否匹配玩家输入的名字。
      *
      * @param effect 注册表里的效果
@@ -361,21 +298,17 @@ public class EffectCommand extends Command {
     }
 
     /**
-     * 去掉 id 里的模组前缀。
+     * 去掉 id 里的模组前缀（转交给 {@link World#shortIdOf(String)}）。
      * <p>
-     * 注册进 {@link World} 的效果 id 会被 {@code Mod.addEffect()} 加上 {@code MOD_ID:} 前缀
+     * 注册进 {@link World} 的效果 id 带 {@code MOD_ID:} 前缀
      * （官方内容是 {@code game_official_content:frozenEffect}），
-     * 而玩家习惯写短名，报错提示里也只该出现短名。
+     * 而玩家习惯写短名，报错提示与回显里也只该出现短名。
      *
      * @param id 完整 id
      * @return 去掉 {@code 前缀:} 之后的 id；没有前缀则原样返回
      */
     private static String shortId(String id) {
-        if (id == null) {
-            return "";
-        }
-        int colon = id.indexOf(':');
-        return colon >= 0 && colon + 1 < id.length() ? id.substring(colon + 1) : id;
+        return World.shortIdOf(id);
     }
 
     /**
@@ -385,7 +318,7 @@ public class EffectCommand extends Command {
      * @return 短 id
      */
     private static String shortId(Effect effect) {
-        return effect == null ? "?" : shortId(effect.getID());
+        return World.shortIdOf(effect);
     }
 
     /**
@@ -627,15 +560,6 @@ public class EffectCommand extends Command {
     }
 
     /**
-     * 「新建出来的效果实例」+「用的是哪个构造函数」。
-     *
-     * @param effect 实例
-     * @param how    可读的构造方式描述（会打进命令回显）
-     */
-    private record Created(Effect effect, String how) {
-    }
-
-    /**
      * 便于外部（例如补全）查询当前可用的通用效果。
      *
      * @return 可用效果名列表
@@ -649,5 +573,67 @@ public class EffectCommand extends Command {
      */
     public static void logAvailableEffects() {
         CommandManager.log("可用效果（/effect 候选）：" + universalEffectNames());
+    }
+
+    /**
+     * 构建命令树。
+     * <p>
+     * 写法：{@link ArgumentBuilder#argumentBuilder(String, cn.gfhnv.game.system.command.ArgumentType)}
+     * 建出「目标」这一层，其余各层一层一个变量依次往下建，最后只把最外层交给命令根节点。
+     * <p>
+     * {@code 目标} 只建<b>一次</b>，{@code add / remove / list} 三条分支都挂在同一个节点上：
+     * 若三条链各建一个「目标」，它们会在 {@link CommandNode#addChild(CommandNode)} 里
+     * 按名字合并，后续再往其中一个上挂子分支就会挂到被丢弃的那个对象上，树里看不到。
+     *
+     * @return 命令根节点
+     */
+    @Override
+    protected CommandNode buildNode() {
+        LiteralCommandNode root = node();
+
+        // 共同的外层：/effect <目标> ...
+        ArgumentBuilder target = ArgumentBuilder.argumentBuilder("目标", EntityArgumentType.entities());
+        root.addChild(target);
+
+        // /effect <目标> add <效果> [等级] [持续回合]
+        ArgumentBuilder add = target.literal("add");
+        ArgumentBuilder effectArgument = add.argument("效果", WordArgumentType.word());
+        // /effect <目标> add <效果>
+        effectArgument.executes((context, source) -> addEffect(context, source, false));
+        // /effect <目标> add <效果> <等级>
+        ArgumentBuilder level = effectArgument.argument("等级", IntegerArgumentType.integer(1, 99));
+        level.executes((context, source) -> addEffect(context, source, false));
+        // /effect <目标> add <效果> <等级> <持续回合>
+        ArgumentBuilder duration = level.argument("持续回合", IntegerArgumentType.integer(1, 999));
+        duration.executes((context, source) -> addEffect(context, source, true));
+
+        // /effect <目标> remove <效果>（效果填 all 或 * 表示清空）
+        ArgumentBuilder remove = target.literal("remove");
+        ArgumentBuilder removeArgument = remove.argument("效果", WordArgumentType.word());
+        removeArgument.executes((context, source) -> removeEffect(context, source));
+
+        // /effect <目标> list
+        ArgumentBuilder list = target.literal("list");
+        list.executes((context, source) -> listEffects(context, source));
+
+        return root;
+    }
+
+    /**
+     * 效果名 + 可选的构造函数参数文本。
+     *
+     * @param name   效果 id 或类名
+     * @param params 构造函数参数文本（按书写顺序）
+     */
+    private record NameSpec(String name, List<String> params) {
+    }
+
+    /**
+     * 「新建出来的效果实例」+「用的是哪个构造函数」。
+     *
+     * @param effect 实例
+     * @param how    可读的构造方式描述（会打进命令回显）
+     */
+    private record Created(Effect effect, String how) {
     }
 }

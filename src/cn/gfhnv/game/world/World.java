@@ -128,10 +128,14 @@ public class World {
 
     /**
      * 向游戏运行时对象列表添加一个对象（如选中的角色、敌人副本、物品实例等）。
+     * <p>
+     * 入表前会把 id 补成注册表里的完整 id（见 {@link #applyRegisteredId(Thing)}），
+     * 这样「选出来的角色/物品」与注册表模板的 id 始终一致。
      *
      * @param thing 运行时对象
      */
     public static void addThing(Thing thing) {
+        applyRegisteredId(thing);
         things.add(thing);
     }
 
@@ -185,6 +189,167 @@ public class World {
      */
     public static void removeEntity(Entity e) {
         if (entityList.contains(e)) entityList.remove(e);
+    }
+
+    /* ------------------------------------------------------------------
+     * id 归一：把运行时实例的「短 id」补成注册表里的完整 id
+     * ------------------------------------------------------------------ */
+
+    /**
+     * 取 id 里 {@code 前缀:} 之后的部分（用于显示，例如
+     * {@code game_official_content:aNiceSword} → {@code aNiceSword}）。
+     * <p>
+     * 注册表与运行时数据里存的都是完整 id，但玩家在命令里通常只写短名，
+     * 所以回显与报错都打印短名；判断相等时两种写法都要认（见
+     * {@code EffectCommand.matches} / {@code GiveCommand.matches}）。
+     *
+     * @param id 完整 id；可为 {@code null}
+     * @return 短名；{@code null} 返回空串，没有冒号则原样返回
+     */
+    public static String shortIdOf(String id) {
+        if (id == null) {
+            return "";
+        }
+        int colon = id.indexOf(':');
+        return colon >= 0 && colon + 1 < id.length() ? id.substring(colon + 1) : id;
+    }
+
+    /**
+     * 取运行时实体的短名。
+     *
+     * @param thing 实体或物品；可为 {@code null}
+     * @return 短名（{@code null} 返回 {@code "?"}）
+     */
+    public static String shortIdOf(Thing thing) {
+        return thing == null ? "?" : shortIdOf(thing.getId());
+    }
+
+    /**
+     * 取运行时效果的短名。
+     *
+     * @param effect 效果；可为 {@code null}
+     * @return 短名（{@code null} 返回 {@code "?"}）
+     */
+    public static String shortIdOf(Effect effect) {
+        return effect == null ? "?" : shortIdOf(effect.getID());
+    }
+
+    /**
+     * 取出与指定类型相同的注册表模板的 id。
+     * <p>
+     * 用<b>精确类型</b>比较（{@code ==}）而不是 {@code instanceof}：
+     * 要的就是「这个类自己的模板」，父类模板不算。
+     *
+     * @param type   要查找的类型
+     * @param things 注册表列表（实体表或物品表）
+     * @return 模板的完整 id；找不到返回 {@code null}
+     */
+    private static String registeredIdOf(Class<?> type, List<? extends Thing> things) {
+        for (Thing thing : things) {
+            if (thing != null && thing.getClass() == type && thing.getId() != null) {
+                return thing.getId();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 把一个运行时实体的 id 补成注册表里的完整 id（带 {@code MOD_ID:} 前缀）。
+     * <p>
+     * <b>为什么需要它</b>：加前缀这一步只发生在 {@link Mod#addEntity(Entity)} 里，
+     * 而它作用的是<b>被注册的那个模板</b>；代码里直接 {@code new Xxx(...)} 出来的实例，
+     * id 是构造函数里写死的短名（例如 {@code iceInsect}）。
+     * 于是一个「Boss 分裂出来的冰虫」和注册表里的冰虫会是两个不同的 id，
+     * 按 id 比较的地方（选择器筛选、效果合并判定等）就会对不上。
+     * <p>
+     * 已经是完整 id（含 {@code :}）、id 为空、或注册表里没有同类模板时，原样返回。
+     *
+     * @param entity 运行时实体
+     * @return 完整 id
+     */
+    public static String fullIdOf(Entity entity) {
+        if (entity == null) {
+            return null;
+        }
+        String id = entity.getId();
+        if (id == null || id.indexOf(':') >= 0) {
+            return id;
+        }
+        String registered = registeredIdOf(entity.getClass(), entityList);
+        return registered == null ? id : registered;
+    }
+
+    /**
+     * 把一个运行时物品的 id 补成注册表里的完整 id。
+     *
+     * @param item 运行时物品
+     * @return 完整 id
+     * @see #fullIdOf(Entity)
+     */
+    public static String fullIdOf(Item item) {
+        if (item == null) {
+            return null;
+        }
+        String id = item.getId();
+        if (id == null || id.indexOf(':') >= 0) {
+            return id;
+        }
+        String registered = registeredIdOf(item.getClass(), itemList);
+        return registered == null ? id : registered;
+    }
+
+    /**
+     * 把一个运行时效果的 id 补成注册表里的完整 id。
+     *
+     * @param effect 运行时效果
+     * @return 完整 id
+     * @see #fullIdOf(Entity)
+     */
+    public static String fullIdOf(Effect effect) {
+        if (effect == null) {
+            return null;
+        }
+        String id = effect.getID();
+        if (id == null || id.indexOf(':') >= 0) {
+            return id;
+        }
+        for (Effect template : effectList) {
+            if (template != null && template.getClass() == effect.getClass() && template.getID() != null) {
+                return template.getID();
+            }
+        }
+        return id;
+    }
+
+    /**
+     * 直接把运行时对象的 id 改成 {@link #fullIdOf(Entity)} 给出的完整 id。
+     * <p>
+     * 供「对象进入游戏世界」的入口调用（{@link #addThing(Thing)}、
+     * {@code Fight.addFighter/addEnemy}、{@code LivingThing.addEffect}），
+     * 这样无论实例是在哪里 new 出来的，进入游戏后都带完整的注册表 id。
+     * <p>
+     * 只补<b>不含 {@code :}</b> 的 id；想给某个实例单独指定 id，写成带 {@code :} 的形式即可
+     * （例如 {@code myMod:bossCopy1}），本方法不会动它。
+     *
+     * @param thing 运行时实体或物品；可为 {@code null}
+     */
+    public static void applyRegisteredId(Thing thing) {
+        if (thing instanceof Entity entity) {
+            entity.setId(fullIdOf(entity));
+        } else if (thing instanceof Item item) {
+            item.setId(fullIdOf(item));
+        }
+    }
+
+    /**
+     * 直接把运行时效果的 id 改成 {@link #fullIdOf(Effect)} 给出的完整 id。
+     *
+     * @param effect 运行时效果；可为 {@code null}
+     */
+    public static void applyRegisteredId(Effect effect) {
+        if (effect != null) {
+            effect.setId(fullIdOf(effect));
+        }
     }
 
     /**

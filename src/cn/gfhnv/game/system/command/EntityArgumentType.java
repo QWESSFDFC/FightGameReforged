@@ -61,40 +61,6 @@ public class EntityArgumentType implements ArgumentType<EntitySelector> {
     }
 
     /**
-     * @return 是否只允许选出一个实体
-     */
-    public boolean isSingle() {
-        return single;
-    }
-
-    @Override
-    public EntitySelector parse(StringReader reader) throws CommandSyntaxException {
-        String text = reader.readWord();
-        // 只校验语法，具体实体在执行阶段求解
-        return EntitySelector.fromString(text);
-    }
-
-    /**
-     * 在给定上下文里把选择器求解成实体列表，并做「单个/多个」校验。
-     *
-     * @param selector 选择器
-     * @param context  命令上下文
-     * @return 选中的实体列表（至少一个）
-     * @throws CommandSyntaxException 没有选中实体、或单个模式选中多个时抛出
-     */
-    public List<Entity> resolve(EntitySelector selector, CommandContext context) throws CommandSyntaxException {
-        if (selector == null) {
-            throw CommandSyntaxException.create("没有解析到实体选择器");
-        }
-        selector.resolve(context.getSelectorContext());
-        if (single && selector.getTargets().size() != 1) {
-            throw CommandSyntaxException.create("该参数要求恰好选中 1 个实体，但选中了 "
-                    + selector.getTargets().size() + " 个：" + describe(selector.getTargets()));
-        }
-        return selector.getTargets();
-    }
-
-    /**
      * 把实体列表拼成可读文本（用于报错与回显）。
      *
      * @param entities 实体列表
@@ -183,6 +149,40 @@ public class EntityArgumentType implements ArgumentType<EntitySelector> {
             return Optional.empty();
         }
         return Optional.ofNullable(targets.get(0));
+    }
+
+    /**
+     * @return 是否只允许选出一个实体
+     */
+    public boolean isSingle() {
+        return single;
+    }
+
+    @Override
+    public EntitySelector parse(StringReader reader) throws CommandSyntaxException {
+        String text = reader.readWord();
+        // 只校验语法，具体实体在执行阶段求解
+        return EntitySelector.fromString(text);
+    }
+
+    /**
+     * 在给定上下文里把选择器求解成实体列表，并做「单个/多个」校验。
+     *
+     * @param selector 选择器
+     * @param context  命令上下文
+     * @return 选中的实体列表（至少一个）
+     * @throws CommandSyntaxException 没有选中实体、或单个模式选中多个时抛出
+     */
+    public List<Entity> resolve(EntitySelector selector, CommandContext context) throws CommandSyntaxException {
+        if (selector == null) {
+            throw CommandSyntaxException.create("没有解析到实体选择器");
+        }
+        selector.resolve(context.getSelectorContext());
+        if (single && selector.getTargets().size() != 1) {
+            throw CommandSyntaxException.create("该参数要求恰好选中 1 个实体，但选中了 "
+                    + selector.getTargets().size() + " 个：" + describe(selector.getTargets()));
+        }
+        return selector.getTargets();
     }
 
     @Override

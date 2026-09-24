@@ -36,8 +36,6 @@ import java.util.Scanner;
  * </ul>
  */
 public class GameMain {
-    public static String userName;
-
     /**
      * 输入源。
      * <p>
@@ -54,7 +52,7 @@ public class GameMain {
      * 只是 {@code cmd.exe} 送不进来。换 Windows Terminal / IDEA 运行通常可用。
      */
     public static final Scanner SCANNER = new Scanner(System.in);
-
+    public static String userName;
     /**
      * 是否正在战斗中（供命令系统与主流程共用）。
      */
@@ -122,8 +120,8 @@ public class GameMain {
      *     {@code whenFightEnds()}、发放奖励、注销监听器。</li>
      * </ol>
      *
-     * @param fight      要结束的战斗
-     * @param playerWin  是否按「玩家获胜」处理（会正常发奖励）
+     * @param fight     要结束的战斗
+     * @param playerWin 是否按「玩家获胜」处理（会正常发奖励）
      * @return {@code true} 表示确实结束了一场战斗
      */
     public static boolean endFight(Fight fight, boolean playerWin) {

@@ -66,7 +66,7 @@ public class AttackEnhance extends Effect {
             thing.setAttackEnhanceAmount(thing.getAttackEnhanceAmount() + amount);
             thing.setAttackEnhancePercent(thing.getAttackEnhancePercent() + percent);
         }
-        isOn=true;
+        isOn = true;
     }
 
     @Override

@@ -17,8 +17,8 @@ import java.lang.annotation.Target;
  * </ul>
  * 注解值就是子命令路径，支持多级，用空格分隔：
  * <pre>{@code
- * @Subcommand("")            // 挂在命令根上
- * @Subcommand("add")         // /my add
+ * @Subcommand("") // 挂在命令根上
+ * @Subcommand("add") // /my add
  * @Subcommand("team add")    // /my team add
  * }</pre>
  *

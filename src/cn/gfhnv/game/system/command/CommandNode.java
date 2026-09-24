@@ -33,7 +33,7 @@ public abstract class CommandNode {
 
     /**
      * 子节点表：字面量名（或参数名）→ 节点。使用 {@link LinkedHashMap} 保证注册顺序稳定，
- * 这样解析与提示的顺序对用户是可预期的。
+     * 这样解析与提示的顺序对用户是可预期的。
      */
     private final Map<String, CommandNode> children = new LinkedHashMap<>();
 

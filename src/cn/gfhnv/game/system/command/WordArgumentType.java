@@ -59,6 +59,16 @@ public class WordArgumentType implements ArgumentType<String> {
         return new WordArgumentType(true, excludeStartingUnderscore);
     }
 
+    /**
+     * 判断字符是否被允许。
+     *
+     * @param c 字符
+     * @return 是否允许
+     */
+    private static boolean isAllowed(char c) {
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
+    }
+
     @Override
     public String parse(StringReader reader) throws CommandSyntaxException {
         reader.skipWhitespace();
@@ -80,16 +90,6 @@ public class WordArgumentType implements ArgumentType<String> {
             }
         }
         return word;
-    }
-
-    /**
-     * 判断字符是否被允许。
-     *
-     * @param c 字符
-     * @return 是否允许
-     */
-    private static boolean isAllowed(char c) {
-        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
     }
 
     @Override

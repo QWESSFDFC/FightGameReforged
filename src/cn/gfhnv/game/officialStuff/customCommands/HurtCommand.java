@@ -1,12 +1,7 @@
 package cn.gfhnv.game.officialStuff.customCommands;
 
 import cn.gfhnv.game.entity.LivingThing;
-import cn.gfhnv.game.system.command.ArgumentBuilder;
-import cn.gfhnv.game.system.command.Command;
-import cn.gfhnv.game.system.command.CommandNode;
-import cn.gfhnv.game.system.command.EntityArgumentType;
-import cn.gfhnv.game.system.command.LiteralCommandNode;
-import cn.gfhnv.game.system.command.LongArgumentType;
+import cn.gfhnv.game.system.command.*;
 
 import java.util.List;
 

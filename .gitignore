@@ -53,3 +53,5 @@ build-input/
 /out/
 /consoleprobe/
 sources.txt
+
+/TIPS_FOR_LLM.md

@@ -59,80 +59,6 @@ public class CommandSyntaxException extends Exception {
     }
 
     /**
-     * @return 不含定位信息的错误描述
-     */
-    public String getRawMessage() {
-        return rawMessage;
-    }
-
-    /**
-     * @return 错误发生处的原始输入片段；可能为 {@code null}
-     */
-    public String getContext() {
-        return context;
-    }
-
-    /**
-     * @return 错误在 {@link #getContext()} 中的字符下标；负数表示不定位
-     */
-    public int getCursor() {
-        return cursor;
-    }
-
-    /**
-     * @return 用法提示；可能为 {@code null}
-     */
-    public String getUsage() {
-        return usage;
-    }
-
-    /**
-     * 补上用法提示。若已有用法提示则不会被覆盖。
-     *
-     * @param usage 用法提示，例如 {@code /kill <目标>}
-     * @return 当前异常自身（便于链式书写）
-     */
-    public CommandSyntaxException withUsage(String usage) {
-        if (this.usage == null && usage != null && !usage.isBlank()) {
-            this.usage = usage;
-        }
-        return this;
-    }
-
-    /**
-     * 与 MC 一致：把错误位置用 {@link #CONTEXT_MARK} 标出。
-     *
-     * @return 带定位的上下文；无法定位时返回 {@code null}
-     */
-    public String getContextWithMark() {
-        if (context == null || cursor < 0) {
-            return null;
-        }
-        int index = Math.min(cursor, context.length());
-        return context.substring(0, index) + CONTEXT_MARK + context.substring(index);
-    }
-
-    /**
-     * @return 完整错误信息：错误描述 + （若有）定位 + （若有）用法提示
-     */
-    @Override
-    public String getMessage() {
-        StringBuilder builder = new StringBuilder(rawMessage);
-        String marked = getContextWithMark();
-        if (marked != null) {
-            builder.append(": ").append(marked);
-        }
-        if (usage != null && !usage.isBlank()) {
-            builder.append("（用法：").append(usage).append("）");
-        }
-        return builder.toString();
-    }
-
-    /* ------------------------------------------------------------------
-     * 静态工厂：常用的错误构造方式
-     * ------------------------------------------------------------------ */
-
-    /**
      * 在指定读取器的当前位置构造一个错误。
      *
      * @param reader  正在读取的输入
@@ -201,5 +127,79 @@ public class CommandSyntaxException extends Exception {
      */
     public static CommandSyntaxException expectedInput(StringReader reader, String expected) {
         return at(reader, "此处需要" + expected + "，但输入已经结束");
+    }
+
+    /**
+     * @return 不含定位信息的错误描述
+     */
+    public String getRawMessage() {
+        return rawMessage;
+    }
+
+    /* ------------------------------------------------------------------
+     * 静态工厂：常用的错误构造方式
+     * ------------------------------------------------------------------ */
+
+    /**
+     * @return 错误发生处的原始输入片段；可能为 {@code null}
+     */
+    public String getContext() {
+        return context;
+    }
+
+    /**
+     * @return 错误在 {@link #getContext()} 中的字符下标；负数表示不定位
+     */
+    public int getCursor() {
+        return cursor;
+    }
+
+    /**
+     * @return 用法提示；可能为 {@code null}
+     */
+    public String getUsage() {
+        return usage;
+    }
+
+    /**
+     * 补上用法提示。若已有用法提示则不会被覆盖。
+     *
+     * @param usage 用法提示，例如 {@code /kill <目标>}
+     * @return 当前异常自身（便于链式书写）
+     */
+    public CommandSyntaxException withUsage(String usage) {
+        if (this.usage == null && usage != null && !usage.isBlank()) {
+            this.usage = usage;
+        }
+        return this;
+    }
+
+    /**
+     * 与 MC 一致：把错误位置用 {@link #CONTEXT_MARK} 标出。
+     *
+     * @return 带定位的上下文；无法定位时返回 {@code null}
+     */
+    public String getContextWithMark() {
+        if (context == null || cursor < 0) {
+            return null;
+        }
+        int index = Math.min(cursor, context.length());
+        return context.substring(0, index) + CONTEXT_MARK + context.substring(index);
+    }
+
+    /**
+     * @return 完整错误信息：错误描述 + （若有）定位 + （若有）用法提示
+     */
+    @Override
+    public String getMessage() {
+        StringBuilder builder = new StringBuilder(rawMessage);
+        String marked = getContextWithMark();
+        if (marked != null) {
+            builder.append(": ").append(marked);
+        }
+        if (usage != null && !usage.isBlank()) {
+            builder.append("（用法：").append(usage).append("）");
+        }
+        return builder.toString();
     }
 }

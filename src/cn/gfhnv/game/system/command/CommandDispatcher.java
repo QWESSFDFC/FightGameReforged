@@ -2,14 +2,7 @@ package cn.gfhnv.game.system.command;
 
 import cn.gfhnv.game.system.logSystem.LogWriter;
 
-import java.util.ArrayList;
-import java.util.IdentityHashMap;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 
 /**
  * 命令调度器：命令注册表 + 解析/执行入口。
@@ -37,10 +30,9 @@ import java.util.TreeSet;
 public class CommandDispatcher {
 
     /**
-     * 命令树根节点（名字为 {@code /}）。
+     * 是否把解析过程打到标准输出（排查解析问题时打开）。
      */
-    private LiteralCommandNode root = new LiteralCommandNode("/");
-
+    private static boolean debugParsing = false;
     /**
      * 已注册命令：完整名字 → 根节点（用于 {@code help} 展示与查询）。
      */
@@ -62,6 +54,121 @@ public class CommandDispatcher {
      * 那会让 {@code buildNode()} 无限递归，而栈溢出异常非常难排查。
      */
     private final Set<Command> registeredCommands = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+    /**
+     * 命令树根节点（名字为 {@code /}）。
+     */
+    private LiteralCommandNode root = new LiteralCommandNode("/");
+
+    /**
+     * 诊断输出（仅在 {@link #setDebugParsing(boolean)} 打开时有效）。
+     * <p>
+     * 对本包外也开放，方便 {@link ArgumentCommandNode} 这类节点把自己的解析过程报出来。
+     *
+     * @param message 内容
+     */
+    public static void debugParse(String message) {
+        if (debugParsing) {
+            System.out.println("      [解析] " + message);
+        }
+    }
+
+    /**
+     * 打开/关闭解析过程诊断输出。
+     *
+     * @param value 是否输出
+     */
+    public static void setDebugParsing(boolean value) {
+        debugParsing = value;
+    }
+
+    /* ------------------------------------------------------------------
+     * 解析与执行
+     * ------------------------------------------------------------------ */
+
+    /**
+     * 诊断输出（包内简写）。
+     *
+     * @param message 内容
+     */
+    private static void debug(String message) {
+        debugParse(message);
+    }
+
+    /**
+     * 大小写不敏感比较。
+     *
+     * @param a 文本一
+     * @param b 文本二
+     * @return 是否相等
+     */
+    private static boolean matchesIgnoreCase(String a, String b) {
+        return a != null && b != null && a.equalsIgnoreCase(b);
+    }
+
+    /**
+     * 去掉命令前缀（{@code /} 或 {@code #}）与多余空白。
+     *
+     * @param input 原始输入
+     * @return 纯命令文本
+     */
+    public static String stripPrefix(String input) {
+        if (input == null) {
+            return "";
+        }
+        String trimmed = input.trim();
+        if (!trimmed.isEmpty() && (trimmed.charAt(0) == '/' || trimmed.charAt(0) == '#')) {
+            return trimmed.substring(1).trim();
+        }
+        return trimmed;
+    }
+
+    /**
+     * 判断输入是否以空白结尾（尾随空白表示「玩家准备输入下一个词」）。
+     *
+     * @param input 原始输入
+     * @return 是否以空白结尾
+     */
+    private static boolean endsWithWhitespace(String input) {
+        if (input == null || input.isEmpty()) {
+            return false;
+        }
+        char last = input.charAt(input.length() - 1);
+        return last == ' ' || last == '\t';
+    }
+
+    /**
+     * 大小写不敏感地找一个字面量子节点。
+     *
+     * @param parent 父节点
+     * @param name   字面量文本
+     * @return 子节点；找不到返回 {@code null}
+     */
+    private static CommandNode findLiteralIgnoreCase(CommandNode parent, String name) {
+        for (CommandNode child : parent.getChildren()) {
+            if (child.isLiteralNode() && child.getName().equalsIgnoreCase(name)) {
+                return child;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 取第一个可用的参数子节点（按注册顺序）。
+     * <p>
+     * 补全时用它把「参数值」这一格吃掉，从而能继续往下一层走：
+     * {@code "hurt @s "} → 吃掉 {@code @s} → 到了「数值」那层 → 提示 {@code <数值>}。
+     *
+     * @param parent 父节点
+     * @return 参数子节点；没有则返回 {@code null}
+     */
+    private static CommandNode firstArgumentChild(CommandNode parent) {
+        for (CommandNode child : parent.getChildren()) {
+            if (!child.isLiteralNode() && child.getRequires().test(CommandSource.console())) {
+                return child;
+            }
+        }
+        return null;
+    }
 
     /**
      * 注册一条命令。同名命令会被合并：新命令的执行体覆盖旧的，分支并进同一棵树。
@@ -133,10 +240,6 @@ public class CommandDispatcher {
         return current;
     }
 
-    /* ------------------------------------------------------------------
-     * 解析与执行
-     * ------------------------------------------------------------------ */
-
     /**
      * 只做「解析」，不执行：返回应当执行的节点，参数已经写进传入的上下文。
      * <p>
@@ -151,42 +254,6 @@ public class CommandDispatcher {
     public CommandNode parse(String input, CommandContext context) throws CommandSyntaxException {
         CommandContext effective = context == null ? new CommandContext(null) : context;
         return parseToNode(input, effective);
-    }
-
-    /**
-     * 是否把解析过程打到标准输出（排查解析问题时打开）。
-     */
-    private static boolean debugParsing = false;
-
-    /**
-     * 诊断输出（仅在 {@link #setDebugParsing(boolean)} 打开时有效）。
-     * <p>
-     * 对本包外也开放，方便 {@link ArgumentCommandNode} 这类节点把自己的解析过程报出来。
-     *
-     * @param message 内容
-     */
-    public static void debugParse(String message) {
-        if (debugParsing) {
-            System.out.println("      [解析] " + message);
-        }
-    }
-
-    /**
-     * 打开/关闭解析过程诊断输出。
-     *
-     * @param value 是否输出
-     */
-    public static void setDebugParsing(boolean value) {
-        debugParsing = value;
-    }
-
-    /**
-     * 诊断输出（包内简写）。
-     *
-     * @param message 内容
-     */
-    private static void debug(String message) {
-        debugParse(message);
     }
 
     /**
@@ -217,6 +284,10 @@ public class CommandDispatcher {
         }
         return node;
     }
+
+    /* ------------------------------------------------------------------
+     * 补全与查询
+     * ------------------------------------------------------------------ */
 
     /**
      * 解析并执行一条命令。
@@ -388,38 +459,6 @@ public class CommandDispatcher {
     }
 
     /**
-     * 大小写不敏感比较。
-     *
-     * @param a 文本一
-     * @param b 文本二
-     * @return 是否相等
-     */
-    private static boolean matchesIgnoreCase(String a, String b) {
-        return a != null && b != null && a.equalsIgnoreCase(b);
-    }
-
-    /**
-     * 去掉命令前缀（{@code /} 或 {@code #}）与多余空白。
-     *
-     * @param input 原始输入
-     * @return 纯命令文本
-     */
-    public static String stripPrefix(String input) {
-        if (input == null) {
-            return "";
-        }
-        String trimmed = input.trim();
-        if (!trimmed.isEmpty() && (trimmed.charAt(0) == '/' || trimmed.charAt(0) == '#')) {
-            return trimmed.substring(1).trim();
-        }
-        return trimmed;
-    }
-
-    /* ------------------------------------------------------------------
-     * 补全与查询
-     * ------------------------------------------------------------------ */
-
-    /**
      * 取补全建议（{@code Tab} 补全的雏形）。
      * <p>
      * 支持补全第一层命令名与当前节点下的字面量子节点；处在参数位置时会给出
@@ -497,54 +536,6 @@ public class CommandDispatcher {
             }
         }
         return new ArrayList<>(suggestions);
-    }
-
-    /**
-     * 判断输入是否以空白结尾（尾随空白表示「玩家准备输入下一个词」）。
-     *
-     * @param input 原始输入
-     * @return 是否以空白结尾
-     */
-    private static boolean endsWithWhitespace(String input) {
-        if (input == null || input.isEmpty()) {
-            return false;
-        }
-        char last = input.charAt(input.length() - 1);
-        return last == ' ' || last == '\t';
-    }
-
-    /**
-     * 大小写不敏感地找一个字面量子节点。
-     *
-     * @param parent 父节点
-     * @param name   字面量文本
-     * @return 子节点；找不到返回 {@code null}
-     */
-    private static CommandNode findLiteralIgnoreCase(CommandNode parent, String name) {
-        for (CommandNode child : parent.getChildren()) {
-            if (child.isLiteralNode() && child.getName().equalsIgnoreCase(name)) {
-                return child;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * 取第一个可用的参数子节点（按注册顺序）。
-     * <p>
-     * 补全时用它把「参数值」这一格吃掉，从而能继续往下一层走：
-     * {@code "hurt @s "} → 吃掉 {@code @s} → 到了「数值」那层 → 提示 {@code <数值>}。
-     *
-     * @param parent 父节点
-     * @return 参数子节点；没有则返回 {@code null}
-     */
-    private static CommandNode firstArgumentChild(CommandNode parent) {
-        for (CommandNode child : parent.getChildren()) {
-            if (!child.isLiteralNode() && child.getRequires().test(CommandSource.console())) {
-                return child;
-            }
-        }
-        return null;
     }
 
     /**

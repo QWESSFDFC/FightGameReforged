@@ -71,6 +71,16 @@ public class CommandResult {
     }
 
     /**
+     * 便捷方法：把若干消息拼成一行。
+     *
+     * @param lines 消息行
+     * @return 拼接结果
+     */
+    public static String join(List<String> lines) {
+        return String.join("；", lines);
+    }
+
+    /**
      * 补上参数说明（链式）。
      *
      * @param arguments 参数说明
@@ -126,15 +136,5 @@ public class CommandResult {
             return "失败：" + error.getMessage();
         }
         return "成功（影响 " + result + " 个对象）" + (message == null ? "" : "：" + message);
-    }
-
-    /**
-     * 便捷方法：把若干消息拼成一行。
-     *
-     * @param lines 消息行
-     * @return 拼接结果
-     */
-    public static String join(List<String> lines) {
-        return String.join("；", lines);
     }
 }

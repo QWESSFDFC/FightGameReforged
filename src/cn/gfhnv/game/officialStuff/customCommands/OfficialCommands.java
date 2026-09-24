@@ -37,6 +37,8 @@ public final class OfficialCommands {
                 new ListCommand(),
                 new HurtCommand(),
                 new EffectCommand(),
+                new ExecuteCommand(),
+                new GiveCommand(),
                 new EndFightCommand(),
                 new HelpCommand(),
                 new HelpCommand.Alias("?")

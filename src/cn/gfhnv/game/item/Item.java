@@ -102,17 +102,48 @@ public class Item extends Thing {
         this.stackNumber = stackNumber;
     }
 
+    /**
+     * 物品判等：<b>按注册表 id</b>比较，不按实例（uuid）。
+     * <p>
+     * 这样 {@link cn.gfhnv.game.inventory.Inventory#addItem(Item)} 才能把「同一种物品」叠进同一格：
+     * 它靠 {@code equals} 判断背包里有没有同种物品，如果沿用 {@link Thing#equals(Object)}（比 uuid），
+     * 那每个 {@code copy()} 出来的副本都不相等，结果永远是「一件一格」，
+     * {@code stackNumber} 那套堆叠逻辑就成了死代码。
+     * <p>
+     * 没有注册 id 的物品（临时 new 出来、没进注册表的）退回按名字 + 描述 + 是否作用于敌人比较，
+     * 否则所有无 id 物品都会被当成同一种。
+     * <p>
+     * <b>注意</b>：生物（{@link cn.gfhnv.game.entity.Entity}）仍然按 uuid 判等 ——
+     * 两只同种生物是两个个体，不该被合并。
+     *
+     * @param o 另一个对象
+     * @return 是否算同一种物品
+     */
     @Override
     public boolean equals(Object o) {
-        if (o == null || getClass() != o.getClass()) return false;
-        if (!super.equals(o)) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
         Item item = (Item) o;
-        return isForEnemies() == item.isForEnemies() && Objects.equals(getName(), item.getName()) && Objects.equals(getDescription(), item.getDescription());
+        if (getId() != null && item.getId() != null) {
+            return getId().equals(item.getId());
+        }
+        return isForEnemies() == item.isForEnemies()
+                && Objects.equals(getName(), item.getName())
+                && Objects.equals(getDescription(), item.getDescription());
     }
 
+    /**
+     * @return 哈希值（与 {@link #equals(Object)} 保持一致：有 id 用 id，否则用名字/描述/阵营）
+     */
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), getName(), getDescription(), isForEnemies());
+        return getId() != null
+                ? getId().hashCode()
+                : Objects.hash(getName(), getDescription(), isForEnemies());
     }
 
     /**
@@ -149,7 +180,7 @@ public class Item extends Thing {
      * @return 物品的深拷贝实例
      */
     public Item copy() {
-        throw new RuntimeException("请重写此方法..类"+this.getClass().getName());
+        throw new RuntimeException("请重写此方法..类" + this.getClass().getName());
     }
 
     public Item facSetName(String name) {

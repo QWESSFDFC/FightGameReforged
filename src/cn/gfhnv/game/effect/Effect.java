@@ -249,6 +249,7 @@ public class Effect {
     public String getOrigin() {
         return origin;
     }
+
     /**
      * 设置效果来源（链式调用）。
      *

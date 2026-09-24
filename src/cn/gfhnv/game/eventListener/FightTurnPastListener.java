@@ -40,6 +40,13 @@ public class FightTurnPastListener {
     }
 
     /**
+     * @return 是否正在驱动回合循环
+     */
+    public boolean isDriving() {
+        return isDriving;
+    }
+
+    /**
      * 设置是否正在驱动回合循环。
      * <p>
      * 供 {@link FightEndEventListener} 在战斗结束时叫停循环。
@@ -50,13 +57,6 @@ public class FightTurnPastListener {
      */
     public void setDriving(boolean driving) {
         this.isDriving = driving;
-    }
-
-    /**
-     * @return 是否正在驱动回合循环
-     */
-    public boolean isDriving() {
-        return isDriving;
     }
 
     @SubscribeEvent

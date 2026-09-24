@@ -1,11 +1,9 @@
 package cn.gfhnv.game.damage;
 
-import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.event.CalculateDamageEndEvent;
 import cn.gfhnv.game.event.CalculateDamageGetStatusEvent;
 import cn.gfhnv.game.event.EventBus;
-import cn.gfhnv.game.officialStuff.customEffect.universalEffects.IgnoreDefenceEffect;
 import cn.gfhnv.game.skill.Skill;
 
 /**
@@ -16,8 +14,8 @@ import cn.gfhnv.game.skill.Skill;
  *     <li>发布 {@link CalculateDamageGetStatusEvent}（允许外部在计算前修改攻击者/目标状态）；</li>
  *     <li>判定是否暴击（依据攻击者暴击率 {@code getGetCriticalRATE()}，暴击时伤害乘上爆伤 {@code getCriticalDMG()}）；</li>
  *     <li>根据攻击者元素属性（金木水火土）取对应的目标抗性、元素增伤与元素穿透；</li>
- *     <li>计算目标有效防御（考虑防御削减 {@code getDefenseLoss()} 与无视防御效果
- *     {@link IgnoreDefenceEffect}）；</li>
+ *     <li>计算目标有效防御（考虑目标自身的防御削减 {@code getDefenseLoss()}，
+ *     以及攻击者身上由 {@link cn.gfhnv.game.interfaces.IDefenceIgnore} 效果汇总出来的无视防御）；</li>
  *     <li>发布 {@link CalculateDamageEndEvent}（允许外部在计算完成后修正结果）；</li>
  *     <li>套用最终伤害公式并返回取整后的伤害值。</li>
  * </ol>
@@ -26,12 +24,17 @@ import cn.gfhnv.game.skill.Skill;
  * <pre>
  * (hp * hp倍率 + atk倍率 * 攻击 + 防御倍率 * 防御 + 技能额外伤害 + 使用者额外伤害)
  *   × (1 + 元素增伤)
- *   × (1 − 目标抗性 + 穿透)
- *   × (1 − 目标伤害吸收)
+ *   × (1 − 目标抗性) × (1 + 穿透)      // 抗性/穿透乘算；抗性为负（弱点）时受伤更多
+ *   × 承伤倍率                        // Π(1 − 每个减伤)，乘算叠加，见 LivingThing#getDamageTakenMultiplier
  *   × (等级 * 10 + 200) / (等级 * 10 + 200 + 目标有效防御)
  *   × 单体伤害倍率
  *   × 暴击倍率
  * </pre>
+ * 结果不会小于 0：负伤害会被 {@code LivingThing#getDamage} 当成治疗。
+ * <p>
+ * 减伤是<b>乘算</b>的：50% 与 25% 两个来源 → 只受 {@code 0.5 × 0.75 = 37.5%} 伤害，
+ * 而不是相加的 25%。抗性与穿透同样乘算：抗性 50% + 穿透 50% → {@code 0.5 × 1.5 = 0.75}
+ * （相加会得到 1.0，等于穿透完全抵消抗性，那是旧行为）。
  *
  * @author gfhnv
  */
@@ -53,7 +56,8 @@ public class DamageCalculate {
         double resistance = 0;
         double penetration = 0;
         penetration = attacker.getPenetration();
-        double damageAbsorbed = targetEntity.getDamageAbsorbedPercent();
+        // 减伤是乘算叠加的（50% + 25% → 只受 37.5%），且已夹在 [0,1]，见 LivingThing#getDamageTakenMultiplier
+        double damageTakenMultiplier = targetEntity.getDamageTakenMultiplier();
         double enhance = attacker.getEnhance();
         double attack = attacker.getAttack();
         double hp = attacker.getHpMax();
@@ -67,15 +71,9 @@ public class DamageCalculate {
         long attackerExtraDamage = attacker.getExtraDamage();
         cn.gfhnv.game.system.ElementSort elementSort = attacker.getElementSort();
         double defenseLoss = targetEntity.getDefenseLoss();
-        double lossAmount = 0;
-        if (!attacker.getEntityEffectList().isEmpty()) {
-            for (Effect effect : attacker.getEntityEffectList()) {
-                if (effect instanceof IgnoreDefenceEffect) {
-                    defenseLoss += ((IgnoreDefenceEffect) effect).getPercent();
-                    lossAmount += ((IgnoreDefenceEffect) effect).getAmount();
-                }
-            }
-        }
+        // 无视防御由「效果实现 IDefenceIgnore」提供，这里只读汇总值（不认识具体效果类）
+        defenseLoss += attacker.getIgnoreDefencePercent();
+        double lossAmount = attacker.getIgnoreDefenceAmount();
         double targetDefence = targetEntity.getDefence() * (1 - defenseLoss) - lossAmount;
         if (targetDefence <= 0) targetDefence = 0;
         switch (elementSort) {
@@ -109,6 +107,20 @@ public class DamageCalculate {
             }
         }
         EventBus.post(new CalculateDamageEndEvent(attacker, targetEntity));
-        return (long) (((hp * hpMagnification + atkMagnification * attack + attackerDefence * dfkMagnification + extraDamage + attackerExtraDamage) * (1 + enhance) * (1 - resistance + penetration) * (1 - damageAbsorbed) * ((level * 10 + 200) / (level * 10 + 200 + targetDefence))) * individualMultipleArea * criticalDamageEnhance);
+        // 抗性/穿透是**乘算**的：(1 − 抗性) × (1 + 穿透)
+        // 抗性可以是负数（弱点 → 受伤更多），所以只夹「不为负」；
+        // 穿透按「额外增伤」理解，负穿透当 0（不会反过来变成减伤）
+        double resistanceMultiplier = Math.max(0, 1 - resistance) * (1 + Math.max(0, penetration));
+        double base = hp * hpMagnification + atkMagnification * attack + attackerDefence * dfkMagnification
+                + extraDamage + attackerExtraDamage;
+        double damage = base
+                * (1 + enhance)
+                * resistanceMultiplier
+                * damageTakenMultiplier
+                * ((level * 10 + 200) / (level * 10 + 200 + targetDefence))
+                * individualMultipleArea
+                * criticalDamageEnhance;
+        // 伤害永不为负：负数会被 LivingThing#getDamage 当成治疗
+        return Math.max(0, (long) damage);
     }
 }

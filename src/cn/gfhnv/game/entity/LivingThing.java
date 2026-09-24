@@ -1,12 +1,14 @@
 package cn.gfhnv.game.entity;
 
 import cn.gfhnv.game.effect.Effect;
+import cn.gfhnv.game.entityController.FixOrderController;
 import cn.gfhnv.game.entityController.PlayerController;
 import cn.gfhnv.game.entityController.UniversalController;
 import cn.gfhnv.game.event.DamageEvent;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.event.HpLossEvent;
 import cn.gfhnv.game.event.HpRestorationEvent;
+import cn.gfhnv.game.interfaces.IDefenceIgnore;
 import cn.gfhnv.game.interfaces.IModifyDamage;
 import cn.gfhnv.game.interfaces.IShowSpecialMes;
 import cn.gfhnv.game.skill.Skill;
@@ -19,11 +21,13 @@ import cn.gfhnv.game.system.thinkingSystem.Tag;
 import cn.gfhnv.game.system.thinkingSystem.TagType;
 import cn.gfhnv.game.system.thinkingSystem.ThinkingController;
 import cn.gfhnv.game.system.thinkingSystem.ThinkingControllerAI;
+import cn.gfhnv.game.world.World;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 /**
  * 生物基类。表示游戏中具有生命值、攻击、防御、速度、五行抗性、元素法力等战斗属性的实体，
@@ -47,6 +51,17 @@ import java.util.Map;
  * @author gfhnv
  */
 public class LivingThing extends Entity {
+    /**
+     * 「基础减伤」在 {@link #damageReductions} 里的来源键。
+     * <p>
+     * 只有 {@link #setDamageAbsorbedPercent(double)} 用它，用来兼容旧写法（直接设置一个总减伤）。
+     */
+    private static final Object BASE_DAMAGE_REDUCTION = new Object();
+    /**
+     * 减伤来源（<b>乘算叠加</b>）：承伤倍率 = Π(1 − 每个减伤)，见 {@link #getDamageTakenMultiplier()}。
+     */
+    private final List<DamageReduction> damageReductions = new ArrayList<>();
+    private final List<IModifyDamage> damageModifiers = new ArrayList<>();
     public long extraDamage = 0;
     private IShowSpecialMes showSpecialMes;
     private double fireResistance, waterResistance, metalResistance, woodResistance, dirtResistance, criticalDMG, getCriticalRATE;
@@ -55,7 +70,6 @@ public class LivingThing extends Entity {
     private List<Effect> entityEffectList = new ArrayList<>();
     private double penetration = 0;//全属性穿透
     private double metalPenetration, woodPenetration, waterPenetration, firePenetration, dirtPenetration;
-    private double damageAbsorbedPercent = 0;
     private double hpGrowNumber;
     private double atkGrowNumber;
     private double dfkGrowNumber;
@@ -76,7 +90,10 @@ public class LivingThing extends Entity {
     private UniversalController controller;
     private String description;
     private double individualMultipleArea = 1;
-    private IModifyDamage modifyDamage = IModifyDamage.DEFAULT;//这是伤害修正接口
+    /**
+     * 是否正在做伤害试算（只读预测）。见 {@link #modifyIncomingDamage}。
+     */
+    private boolean anticipating = false;
 
     public LivingThing() {
 
@@ -117,18 +134,21 @@ public class LivingThing extends Entity {
         this.attack = other.attack;
         this.hpMax = other.hpMax;
         this.setShowSpecialMes(other.getShowSpecialMes());
-        this.setModifyDamage(other.modifyDamage);
+        this.damageModifiers.addAll(other.damageModifiers);
         this.criticalDMG = other.criticalDMG;
         this.getCriticalRATE = other.getCriticalRATE;
         this.entityEffectList = new ArrayList<>(other.entityEffectList);
         this.penetration = other.penetration;
-        this.damageAbsorbedPercent = other.damageAbsorbedPercent;
+        this.damageReductions.addAll(other.damageReductions);
         this.participateFight = null;
         this.presentTurn = null;
         if (other.getController() instanceof PlayerController) {
             this.controller = new PlayerController(other.controller.getSkills(), this);
         } else if (other.getController() instanceof ThinkingControllerAI) {
             this.controller = new ThinkingControllerAI(other.controller.getSkills(), this);
+        } else if (other.getController() instanceof FixOrderController fixOrderController) {
+            // 固定顺序的怪物：复制之后必须还是固定顺序，否则一进战斗就退化成随机 AI
+            this.controller = new FixOrderController(fixOrderController, this);
         } else {
             this.controller = new UniversalController(other.controller, this);
         }
@@ -1108,13 +1128,13 @@ public class LivingThing extends Entity {
     }
 
     /**
-     * 链式设置伤害吸收百分比。
+     * 链式设置「基础减伤」（等价于 {@link #setDamageAbsorbedPercent(double)}）。
      *
-     * @param damageAbsorbedPercent 伤害吸收百分比
+     * @param damageAbsorbedPercent 减伤比例（0.25 = 少受 25% 伤害）
      * @return 当前生物实例
      */
     public LivingThing facSetDamageAbsorbedPercent(double damageAbsorbedPercent) {
-        this.damageAbsorbedPercent = damageAbsorbedPercent;
+        this.setDamageAbsorbedPercent(damageAbsorbedPercent);
         return this;
     }
 
@@ -1358,11 +1378,21 @@ public class LivingThing extends Entity {
     /**
      * 为指定目标添加效果。若目标已存在同类效果（{@link Effect#equals} 判定），
      * 等级相同或更高则延长持续时间，否则用新效果替换并触发 {@link Effect#initialEffect}。
+     * <p>
+     * 进入列表前会把效果的 id 补成注册表里的完整 id（见
+     * {@link cn.gfhnv.game.world.World#applyRegisteredId(Effect)}）：
+     * 效果通常是技能里 {@code new} 出来的，构造器里只有短 id，
+     * 而 {@link Effect#equals} 是按 id 判定的 —— 不补全就会和「从注册表复制出来的同种效果」
+     * 被当成两种，叠加/刷新逻辑失效。这一步必须在 {@code equals} 判定<b>之前</b>做。
      *
      * @param target 被施加效果的目标
      * @param effect 要添加的效果
      */
     public void addEffect(LivingThing target, Effect effect) {
+        if (target == null || effect == null) {
+            return;
+        }
+        World.applyRegisteredId(effect);
         for (int i = 0; i < target.entityEffectList.size(); i++) {
             Effect existing = target.entityEffectList.get(i);
             if (existing.equals(effect)) {
@@ -1371,7 +1401,7 @@ public class LivingThing extends Entity {
                 } else {
 
                     target.entityEffectList.set(i, effect);
-                    effect.initialEffect(this);
+                    effect.initialEffect(target);
                 }
                 return;
             }
@@ -1381,26 +1411,13 @@ public class LivingThing extends Entity {
     }
 
     /**
-     * 为当前生物添加效果。叠加规则与 {@link #addEffect(LivingThing, Effect)} 相同。
+     * 为当前生物添加效果。叠加规则与 {@link #addEffect(LivingThing, Effect)} 相同，
+     * id 归一也在那里做。
      *
      * @param effect 要添加的效果
      */
     public void addEffect(Effect effect) {
-        for (int i = 0; i < entityEffectList.size(); i++) {
-            Effect existing = entityEffectList.get(i);
-            if (existing.equals(effect)) {
-                if (existing.getLevel() >= effect.getLevel()) {
-                    existing.setLastTime(existing.getLastTime() + effect.getLastTime());
-                } else {
-
-                    entityEffectList.set(i, effect);
-                    effect.initialEffect(this);
-                }
-                return;
-            }
-        }
-        entityEffectList.add(effect);
-        effect.initialEffect(this);
+        addEffect(this, effect);
     }
 
     /**
@@ -1413,19 +1430,88 @@ public class LivingThing extends Entity {
     }
 
     /**
-     * @return 伤害吸收百分比
+     * @return 总减伤比例（{@code 1 − 承伤倍率}）。
+     * <p>
+     * 例如两个减伤 50% 与 25%：承伤倍率 0.5 × 0.75 = 0.375，所以这里是 0.625。
+     * 注意减伤是<b>乘算</b>叠加的，不是相加 —— 想要逐项明细看 {@link #getDamageReductions()}。
      */
     public double getDamageAbsorbedPercent() {
-        return damageAbsorbedPercent;
+        return 1 - getDamageTakenMultiplier();
     }
 
     /**
-     * 设置伤害吸收百分比。
+     * 设置「基础减伤」（替换掉上一次用它设置的值）。
+     * <p>
+     * 兼容旧写法：{@code setDamageAbsorbedPercent(0.75)} 表示少受 75% 伤害。
+     * 它会作为一个独立来源参与乘算，比例被夹到 [0,1]；
+     * 想要多个来源叠加请用 {@link #addDamageReduction(Object, double)}。
      *
-     * @param damageAbsorbedPercent 伤害吸收百分比
+     * @param damageAbsorbedPercent 减伤比例（0.25 = 少受 25% 伤害）
      */
     public void setDamageAbsorbedPercent(double damageAbsorbedPercent) {
-        this.damageAbsorbedPercent = damageAbsorbedPercent;
+        addDamageReduction(BASE_DAMAGE_REDUCTION, damageAbsorbedPercent);
+    }
+
+    /**
+     * 增加一个减伤来源（<b>乘算</b>叠加）。
+     * <p>
+     * 承伤倍率 = Π(1 − 每个减伤)：50% 与 25% 两个来源 → 只受 37.5% 伤害。
+     * 同一个来源（按对象身份判断）重复添加只保留最后一次，所以技能反复触发不会越叠越多；
+     * 比例会被夹到 [0,1]，因此减伤叠再多也只会把伤害压到 0，<b>不会算成负数</b>
+     * （负数会被 {@link #getDamage(DamageEvent)} 当成治疗）。
+     *
+     * @param source  来源，按对象身份区分（效果实例、技能、装备都可以）
+     * @param percent 减伤比例（0.25 = 少受 25% 伤害）
+     */
+    public void addDamageReduction(Object source, double percent) {
+        if (source == null) {
+            return;
+        }
+        removeDamageReduction(source);
+        double clamped = Math.max(0, Math.min(1, percent));
+        if (clamped > 0) {
+            damageReductions.add(new DamageReduction(source, clamped));
+        }
+    }
+
+    /**
+     * 移除一个减伤来源。
+     *
+     * @param source 来源（与添加时是同一个对象）
+     * @return 是否真的移除了
+     */
+    public boolean removeDamageReduction(Object source) {
+        return source != null && damageReductions.removeIf(reduction -> reduction.source() == source);
+    }
+
+    /**
+     * 清空全部减伤来源。
+     */
+    public void clearDamageReductions() {
+        damageReductions.clear();
+    }
+
+    /**
+     * @return 全部减伤来源（副本，改它不影响本体）
+     */
+    public List<DamageReduction> getDamageReductions() {
+        return new ArrayList<>(damageReductions);
+    }
+
+    /**
+     * 承伤倍率：{@code Π(1 − 每个减伤)}，最后夹在 [0,1]。
+     * <p>
+     * 例：50% 与 25% → {@code 0.5 × 0.75 = 0.375}（只受 37.5% 伤害），而不是相加的 25%。
+     * 伤害计算（{@link cn.gfhnv.game.damage.DamageCalculate}）用的就是这个值。
+     *
+     * @return 承伤倍率；没有任何减伤时是 1
+     */
+    public double getDamageTakenMultiplier() {
+        double multiplier = 1;
+        for (DamageReduction reduction : damageReductions) {
+            multiplier *= (1 - reduction.percent());
+        }
+        return Math.max(0, Math.min(1, multiplier));
     }
 
     /**
@@ -1535,13 +1621,14 @@ public class LivingThing extends Entity {
     }
 
     /**
-     * 受到伤害。根据 {@link DamageEvent} 计算新生命值，并经 {@link IModifyDamage} 修正后设置。
+     * 受到伤害。根据 {@link DamageEvent} 计算新生命值，并依次经过全部
+     * {@link IModifyDamage 伤害修正器}（见 {@link #modifyIncomingDamage}）后设置。
      *
      * @param da 伤害事件
      */
     public void getDamage(DamageEvent da) {
         long newHp = this.getHp() - da.getDamage().getDamageAmount();
-        newHp = modifyDamage.damageModify(newHp, da);
+        newHp = modifyIncomingDamage(newHp, da);
         this.setHp(newHp);
         System.out.print("剩余HP" + this.getHp());
     }
@@ -1552,7 +1639,7 @@ public class LivingThing extends Entity {
      * @return 生物的副本
      */
     public LivingThing copy() {
-        throw new RuntimeException("请重写此方法..类"+this.getClass().getName());
+        throw new RuntimeException("请重写此方法..类" + this.getClass().getName());
     }
 
     /**
@@ -1826,18 +1913,175 @@ public class LivingThing extends Entity {
     }
 
     /**
-     * @return 伤害修正接口（用于对受到的伤害做自定义修正）
+     * 把一个「即将结算的新生命值」依次交给所有伤害修正器处理。
+     * <p>
+     * 受到伤害（{@link #getDamage(DamageEvent)}）与伤害试算
+     * （{@link cn.gfhnv.game.skill.Skill#getAnticipatedDamage}）都走这里，
+     * 保证「预测的伤害」和「实际掉的伤害」一致。
+     * <p>
+     * 试算期间 {@link #isAnticipating()} 为 {@code true}：修正器可以照常返回修正后的血量
+     * （预测值才准），但<b>不能改动任何状态</b>（消耗次数、排技能、加效果……），
+     * 否则 AI 只是「看一眼」就会把一次性的免死/复活提前花掉。
+     *
+     * @param newHp 已经算好的新生命值（{@code 当前HP − 伤害}）
+     * @param da    伤害事件
+     * @return 修正后的新生命值
      */
-    public IModifyDamage getModifyDamage() {
-        return modifyDamage;
+    public long modifyIncomingDamage(long newHp, DamageEvent da) {
+        long result = newHp;
+        for (IModifyDamage modifier : damageModifiers) {
+            result = modifier.damageModify(result, da);
+        }
+        return result;
     }
 
     /**
-     * 设置伤害修正接口。
+     * @return 是否正在做「伤害试算」（只读，见 {@link #modifyIncomingDamage}）
+     */
+    public boolean isAnticipating() {
+        return anticipating;
+    }
+
+    /**
+     * 把一段代码标记为「伤害试算」并执行。
+     * <p>
+     * 只有 {@link cn.gfhnv.game.skill.Skill#getAnticipatedDamage} 会用它；
+     * 用 try/finally 保证异常时开关也会复位。
+     *
+     * @param action 试算过程
+     * @param <T>    返回值类型
+     * @return 试算结果
+     */
+    public <T> T anticipating(Supplier<T> action) {
+        boolean previous = anticipating;
+        anticipating = true;
+        try {
+            return action.get();
+        } finally {
+            anticipating = previous;
+        }
+    }
+
+    /**
+     * 增加一个伤害修正器（会追加到末尾，按添加顺序依次套用）。
+     * <p>
+     * 之所以改成列表：以前只有一个槽位，第二个想挂钩的系统一 {@code set} 就把前一个顶掉了
+     * （例如「免死」「血量下限」这类机制同时存在时）。
+     *
+     * @param modifier 修正器；{@code null} 与 {@link IModifyDamage#DEFAULT} 会被忽略
+     */
+    public void addModifyDamage(IModifyDamage modifier) {
+        if (modifier == null || modifier == IModifyDamage.DEFAULT) {
+            return;
+        }
+        damageModifiers.add(modifier);
+    }
+
+    /**
+     * 移除一个伤害修正器（按对象身份判断）。
+     *
+     * @param modifier 修正器（与添加时是同一个对象）
+     * @return 是否真的移除了
+     */
+    public boolean removeModifyDamage(IModifyDamage modifier) {
+        return modifier != null && damageModifiers.removeIf(each -> each == modifier);
+    }
+
+    /**
+     * 清空全部伤害修正器。
+     */
+    public void clearModifyDamage() {
+        damageModifiers.clear();
+    }
+
+    /**
+     * @return 全部伤害修正器（副本，按套用顺序）
+     */
+    public List<IModifyDamage> getModifyDamageList() {
+        return new ArrayList<>(damageModifiers);
+    }
+
+    /**
+     * @return 把全部修正器串起来的一个视图；没有修正器时返回 {@link IModifyDamage#DEFAULT}
+     * <p>
+     * 兼容旧接口。新代码请直接用 {@link #modifyIncomingDamage(long, DamageEvent)}。
+     */
+    public IModifyDamage getModifyDamage() {
+        if (damageModifiers.isEmpty()) {
+            return IModifyDamage.DEFAULT;
+        }
+        if (damageModifiers.size() == 1) {
+            return damageModifiers.get(0);
+        }
+        final List<IModifyDamage> chain = new ArrayList<>(damageModifiers);
+        return new IModifyDamage() {
+            @Override
+            public long damageModify(long newHp, DamageEvent da) {
+                long result = newHp;
+                for (IModifyDamage modifier : chain) {
+                    result = modifier.damageModify(result, da);
+                }
+                return result;
+            }
+        };
+    }
+
+    /**
+     * 替换掉全部伤害修正器（等价于「清空 + 添加这一个」）。
+     * <p>
+     * 兼容旧写法：单个修正器仍然可以这样设置。想再挂一个请用
+     * {@link #addModifyDamage(IModifyDamage)}。
      *
      * @param modifyDamage 伤害修正接口
      */
     public void setModifyDamage(IModifyDamage modifyDamage) {
-        this.modifyDamage = modifyDamage;
+        damageModifiers.clear();
+        addModifyDamage(modifyDamage);
+    }
+
+    /**
+     * 汇总身上所有「无视防御」效果（{@link IDefenceIgnore}）提供的百分比。
+     * <p>
+     * 汇总放在实体这一层，伤害计算就只需要读数字，不必认识具体的效果类
+     * （以前是伤害计算里 {@code instanceof IgnoreDefenceEffect}，属于框架反向依赖官方内容）。
+     *
+     * @return 无视防御的百分比之和（0.5 表示无视目标 50% 防御）
+     */
+    public double getIgnoreDefencePercent() {
+        double total = 0;
+        for (Effect effect : entityEffectList) {
+            if (effect instanceof IDefenceIgnore ignore) {
+                total += ignore.getIgnoreDefencePercent();
+            }
+        }
+        return total;
+    }
+
+    /* ------------------------------------------------------------------
+     * 无视防御（由效果提供，见 IDefenceIgnore）
+     * ------------------------------------------------------------------ */
+
+    /**
+     * 汇总身上所有「无视防御」效果（{@link IDefenceIgnore}）提供的固定值。
+     *
+     * @return 无视防御的固定值之和
+     */
+    public long getIgnoreDefenceAmount() {
+        long total = 0;
+        for (Effect effect : entityEffectList) {
+            if (effect instanceof IDefenceIgnore ignore) {
+                total += ignore.getIgnoreDefenceAmount();
+            }
+        }
+        return total;
+    }
+
+    /**
+     * 一个减伤来源（{@link LivingThing#getDamageReductions()} 的元素）。
+     *
+     * @param source  来源对象（按身份区分）
+     * @param percent 减伤比例（已夹到 [0,1]）
+     */
+    public record DamageReduction(Object source, double percent) {
     }
 }

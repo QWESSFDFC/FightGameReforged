@@ -82,10 +82,52 @@
 | `/effect <目标> add <效果> [等级] [持续回合]` | 加效果，效果模板取自效果注册表 |
 | `/effect <目标> add <效果>(参数,…)` | 按构造函数参数新建效果实例，如 `AttackEnhance(0.2,3)` |
 | `/effect <目标> remove <效果>\|all` | 移除某个效果，`all` 清空 |
+| `/execute as <目标> run <命令>` | **以指定对象的身份**运行另一条命令（内层 `@s` 指向它） |
+| `/give <目标> <物品> [数量]` | 发物品（数量默认 1） |
 | `/endfight [win\|lose]` | 强制结束战斗（默认按玩家胜利结算） |
 
+`/give` 的物品名可以写**完整 id**、**短名**或**类名**（大小写不敏感）：
+
+```
+/give @s aNiceSword                                短名（官方物品直接这么写）
+/give @s game_official_content:aNiceSword 3        完整 id + 数量
+/give @s ANiceSword 2                              类名
+/give @s attackPotion                              效果药水（见下）
+```
+
+官方物品一共 9 件：一把剑（`aNiceSword`）+ 8 瓶**效果药水**（使用后给自己挂一个效果）。
+除治疗药水是立刻回血外，其余 7 瓶都是持续 3 回合的增益：
+
+| 物品 | 效果 |
+|---|---|
+| `attackPotion` 攻击药水 | 攻击 +20% |
+| `defensePotion` 防御药水 | 防御 +30% |
+| `hpPotion` 生命药水 | 生命上限 +20% |
+| `speedPotion` 迅捷药水 | 速度 +20% |
+| `criticalRatePotion` 暴击药水 | 暴击率 +20% |
+| `criticalDMGPotion` 暴击伤害药水 | 暴击伤害 +50% |
+| `piercingPotion` 穿甲药水 | 无视目标 50% 防御 |
+| `healingPotion` 治疗药水 | 立刻回复 210 点生命 |
+
+同种物品**叠在一格**（按注册表 id 判定，堆叠数没有上限），所以 `/give @s aNiceSword 100` 只占 1 格；
+使用物品时只消耗 1 个，不会把整叠一起扣掉。背包格子不够时能发多少发多少，
+回显里会说明有几个没发出去；目标没有背包格子（例如普通虫子）会直接报错。
+
+`/execute as` 只换「执行者」，不换战斗范围（和 MC 一样）：
+
+```
+/execute as @e[type=CommonInsect] run kill @s          让每只普通虫杀死自己
+/execute as @p run hurt @s 10                          把这 10 点伤害算到最近的生物头上
+/execute as @e[type=CommonInsect] run effect @s add frozen   给每只虫子挂冰冻
+/execute as @s run list                                以自己身份看状态（等价于 /list）
+```
+
+目标有多个时会**逐个各执行一次**，返回值是各次影响数之和；`execute` 自己套自己最多 8 层，
+超过会报错（不会递归到栈溢出）。
+
 效果名可以写注册表里的 **id** 或**类名**（大小写不敏感）：`frozen`、`frozenEffect`、
-`damageEnhanceEffect`、`CriticalDMGEnhanceEffect(1,5)`。
+`damageEnhanceEffect`、`CriticalDMGEnhanceEffect(1,5)`、`taunt`（嘲讽：让对手优先打你，
+配合怪物 AI 的 `TargetStrategies.tauntAware(...)` 生效）。
 角色专属/机制性效果（没有 `EffectTags.UNIVERSAL` 标签）**不能**用 `/effect` 施加，
 写错名字时会报错并列出当前所有可用的通用效果。
 
@@ -289,7 +331,7 @@ FightGameReforged/
 │   │   ├── inventory/            # 背包与格子（Slot，支持堆叠合并）
 │   │   ├── item/                 # 物品基类
 │   │   ├── mod/                  # 模组加载器（ModLoader / Mod / ModInformation / JavaSourceCode）
-│   │   ├── officialStuff/        # 官方内容：6 个生物、15 个技能、11 个效果、1 件物品、官方命令
+│   │   ├── officialStuff/        # 官方内容：6 个生物、15 个技能、12 个效果、9 件物品（1 把剑 + 8 瓶效果药水）、官方命令
 │   │   ├── skill/                # 技能基类（倍率 / 目标数 / 冷却 / 消耗 Mana / Tag）
 │   │   ├── system/               # 各类子系统（详见下方）
 │   │   │   ├── command/          # 命令系统（AI 编写：参数类型 / 选择器 / 命令树 / 调度器 / 补全）
@@ -309,7 +351,7 @@ FightGameReforged/
 ├── project_analyses/    # 分析文档与命令系统说明（含历史轮次报告）
 ├── screenshots/         # 运行截图
 ├── out/                 # javac/gradle 的临时输出（自测脚本用它）
-├── test-command-system.ps1      # 命令系统自测脚本（编译整个 src + 跑 90 多条断言）
+├── test-command-system.ps1      # 命令系统自测脚本（编译整个 src + 跑全部自测断言）
 ├── 启动游戏-UTF8.bat             # 启动脚本（切 UTF-8 控制台；内容纯 ASCII）
 ├── build.gradle / gradle.properties
 └── README.md
