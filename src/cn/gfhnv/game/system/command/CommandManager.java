@@ -242,7 +242,8 @@ public final class CommandManager {
             String firstWord = command.split("\\s+", 2)[0];
             CommandNode node = DISPATCHER.getCommandNode(firstWord);
             if (node != null) {
-                e.withUsage(node.getFullUsage());
+                // 用"建议用法"（含后续参数）而不是只回显命令名：单敲 /give 时能看到 /give <目标> <物品> [数量]
+                e.withUsage(node.getSuggestedUsage());
             }
             LogWriter.writeLog("命令失败：" + command + " → " + e.getMessage());
             return CommandResult.failure(e).withArguments(source.describeArguments());

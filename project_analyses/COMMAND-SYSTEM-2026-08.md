@@ -50,7 +50,7 @@ src/cn/gfhnv/game/officialStuff/customCommands/   ← 官方命令
 ├── HurtCommand.java             /hurt
 ├── EffectCommand.java           /effect 加/移除/查看效果（从效果注册表取模板）
 ├── ExecuteCommand.java          /execute as <目标> run <命令>（换个执行者再跑一条命令）
-├── GiveCommand.java             /give <目标> <物品> [数量]（物品名支持完整 id / 短名 / 类名）
+├── GiveCommand.java             /give <目标> <物品> [数量]（完整 id 谁都认；短名/类名只解析官方内容）
 ├── EndFightCommand.java         /endfight
 └── HelpCommand.java             /help 与 /?
 
@@ -133,14 +133,28 @@ CommandManager.describeState();                  // 当前状态（调试）
 | `/effect <目标> remove <效果>` | 按 id 移除目标身上的该效果 |
 | `/effect <目标> remove all` | 清空目标身上的全部效果（`*` 同义） |
 | `/execute as <目标> run <命令>` | 以指定对象的身份运行另一条命令（内层 `@s` 指向它） |
-| `/give <目标> <物品> [数量]` | 发物品；物品名可写完整 id / 短名 / 简单类名，数量默认 1 |
+| `/give <目标> <物品> [数量]` | 发物品；**官方物品**可写短名/类名，**模组物品必须写完整 id**（见下），数量默认 1 |
 | `/endfight` | 强制结束战斗（默认按玩家胜利结算，会发奖励） |
 | `/endfight lose` | 强制结束战斗并按失败结算 |
 
-**`/effect` 的效果名**：效果注册表（`World.getEffectList()`）里的 **id** 或**简单类名**，
-大小写不敏感，两种写法都可以：
-`frozen`（类名 `Frozen`）、`frozenEffect`（它的 id）、`damageEnhanceEffect`、
-`CriticalDMGEnhanceEffect(1,5)`。写错时会报错并列出当前所有可用的通用效果。
+**名字的命名空间规则（2026-09 起，`/give` 与 `/effect` 共用同一套）**：
+
+| 写法 | 例子 | 谁能匹配 |
+|---|---|---|
+| 完整 id（带 `:`） | `game_official_content:aNiceSword`、`drunkenSword:osmanthusWine` | 任何内容，精确匹配 |
+| 短名 | `aNiceSword`、`frozen` | **只有官方内容** |
+| 简单类名 | `ANiceSword`、`Frozen` | **只有官方内容** |
+
+判据是「谁注册的」：`OfficialGameContent#isOfficial(...)` 在模组表里找到认领该内容的模组，
+看它是不是官方内容本身（**不能**用"id 里带没带冒号"判断 —— 官方内容的 id 同样带
+`game_official_content:` 前缀）。没有模组认领的内容（测试里直接塞进 `World` 的临时内容）按官方处理。
+
+写模组内容的短名会被拒绝，并提示该写的完整 id；报错列表里官方内容列短名、模组内容列完整 id
+（它只能这么写）。撞名时直接报错要求写全 id，不会随手挑第一个。
+
+**`/effect` 的效果名**：效果注册表（`World.getEffectList()`）里的名字，规则同上。
+`frozen`（官方短名）、`damageEnhanceEffect`、`CriticalDMGEnhanceEffect(1,5)`、
+`drunkenSword:xxx`（模组效果）。写错时会报错并列出当前所有可用的通用效果。
 **角色专属/机制性效果不能通过命令施加**——判定用的是效果自身的标签
 （`EffectTags.UNIVERSAL`，`Effect.isUniversal()`），没有这个标签就拒绝，
 所以「官方内容里那些只属于某个角色的效果」不会被 `/effect` 挂到别人身上。
@@ -182,13 +196,14 @@ CommandManager.describeState();                  // 当前状态（调试）
 
 ```
 /give @s aNiceSword                                短名（官方物品直接这么写）
-/give @s game_official_content:aNiceSword 3        完整 id + 数量
-/give @s ANiceSword 2                              简单类名
+/give @s game_official_content:aNiceSword 3        完整 id + 数量（谁都认）
+/give @s ANiceSword 2                              简单类名（同样只解析官方内容）
 /give @s attackPotion 3                            效果药水（8 瓶：攻击/防御/生命/迅捷/暴击/暴击伤害/穿甲/治疗）
+/give @s drunkenSword:osmanthusWine 2              模组物品：必须带模组前缀
 ```
 
-- 物品名三种写法都认（完整 id / 去掉 `MOD_ID:` 前缀的短名 / 简单类名），大小写不敏感；
-  写错会报错并列出可用物品，短名撞车时会要求写完整 id（不会随手挑一个）；
+- 名字规则见上面的**命名空间规则**表：完整 id 谁都认，短名/类名只解析官方内容，
+  写模组物品的短名会被拒绝并提示该写的完整 id；
 - **数量会叠进同一格**：同种物品按注册表 id 判等（`Item.equals`），`Inventory.addItem`
   会叠到已有的那一格上，`stackNumber` 累加、没有上限 —— `/give @s aNiceSword 100` 只占 1 格；
 - **使用物品只消耗 1 个**：`PlayerController.useItem` 走 `Inventory.removeOne`（扣 1 点堆叠数，

@@ -1,5 +1,7 @@
 package cn.gfhnv.game.officialStuff;
 
+import cn.gfhnv.game.effect.Effect;
+import cn.gfhnv.game.item.Item;
 import cn.gfhnv.game.mod.Mod;
 import cn.gfhnv.game.officialStuff.customEffect.actorLiXiaoYanEffects.MemorizedHp;
 import cn.gfhnv.game.officialStuff.customEffect.flameReaverEffects.*;
@@ -14,6 +16,7 @@ import cn.gfhnv.game.officialStuff.customEntity.players.PlayerOne;
 import cn.gfhnv.game.officialStuff.customEntity.summons.BrokenContainer;
 import cn.gfhnv.game.officialStuff.customItem.ANiceSword;
 import cn.gfhnv.game.officialStuff.customItem.potions.*;
+import cn.gfhnv.game.world.World;
 
 /**
  * 官方（游戏自带）内容。
@@ -23,8 +26,15 @@ import cn.gfhnv.game.officialStuff.customItem.potions.*;
  * 角色专属效果（{@link MemorizedHp}）虽然也注册在效果表里，但不会被该命令施加。
  */
 public class OfficialGameContent extends Mod {
+
+    /**
+     * 官方内容的模组 ID。注册时会被 {@code Mod.addXxx} 加到每个内容的 id 前缀上，
+     * 所以官方物品的完整 id 形如 {@code game_official_content:aNiceSword}。
+     */
+    public static final String MOD_ID = "game_official_content";
+
     public OfficialGameContent() {//请模组加载时把模组内容在invokeWhenLoaded方法中添加到模组的各个List中.不要学这个
-        super("game_official_content", new OfficialModInformation());
+        super(MOD_ID, new OfficialModInformation());
         this.addItem(new ANiceSword());
 
         // 效果药水：使用后给自己挂一个通用效果（见 customItem/potions/）
@@ -77,5 +87,58 @@ public class OfficialGameContent extends Mod {
                 ContainerReward.DEFAULT_LAST_TIME));       // 击杀完整容器的增伤 buff
         System.out.println("游戏自带内容加载完成");
 
+    }
+
+    /**
+     * 判断一件物品是不是<b>官方内容</b>（命令里"能不能只写短名"就看这个）。
+     * <p>
+     * 判据是<b>谁注册的</b>：在模组表里找到认领这件物品的模组，看它是不是官方内容本身。
+     * 不用"id 里带没带冒号"判断 —— 官方内容的 id 同样带前缀
+     * （{@code game_official_content:...}），那样会把官方当成模组。
+     * <p>
+     * 没有模组认领的物品（例如测试里直接塞进 {@code World} 的临时物品）按官方处理，
+     * 保持宽松，免得把临时内容的短名也一起禁掉。
+     *
+     * @param item 物品；可为 {@code null}
+     * @return 是否为官方内容
+     */
+    public static boolean isOfficial(Item item) {
+        if (item == null) {
+            return false;
+        }
+        for (Mod mod : World.getModList()) {
+            if (mod == null) {
+                continue;
+            }
+            for (Item owned : mod.getItems()) {
+                if (owned == item) {
+                    return mod instanceof OfficialGameContent;
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
+     * 判断一个效果是不是<b>官方内容</b>。判据与 {@link #isOfficial(Item)} 相同。
+     *
+     * @param effect 效果；可为 {@code null}
+     * @return 是否为官方内容
+     */
+    public static boolean isOfficial(Effect effect) {
+        if (effect == null) {
+            return false;
+        }
+        for (Mod mod : World.getModList()) {
+            if (mod == null) {
+                continue;
+            }
+            for (Effect owned : mod.getEffects()) {
+                if (owned == effect) {
+                    return mod instanceof OfficialGameContent;
+                }
+            }
+        }
+        return true;
     }
 }

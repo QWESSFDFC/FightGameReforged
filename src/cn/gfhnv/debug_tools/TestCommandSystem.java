@@ -7,10 +7,12 @@ import cn.gfhnv.game.event.DamageEvent;
 import cn.gfhnv.game.interfaces.IModifyDamage;
 import cn.gfhnv.game.inventory.Slot;
 import cn.gfhnv.game.item.Item;
+import cn.gfhnv.game.mod.Mod;
 import cn.gfhnv.game.officialStuff.customEffect.universalEffects.Taunt;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.CommonInsect;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.FlameReaver;
 import cn.gfhnv.game.officialStuff.customEntity.players.PlayerOne;
+import cn.gfhnv.game.officialStuff.customItem.ANiceSword;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.command.*;
 import cn.gfhnv.game.system.fight.Fight;
@@ -184,7 +186,12 @@ public class TestCommandSystem {
         // 自测不启动游戏，所以这里手动走一遍同样的流程（放在 initialize() 之前，
         // 这样注册命令时打出的「可用效果」日志里就已经有内容了）。
         // 只需要效果表被填满：选择器用的是 World.getThings()（运行时对象），不受这些模板影响。
-        new cn.gfhnv.game.officialStuff.OfficialGameContent().registerItself();
+        // 【模组表也要加】——/give 与 /effect 的"短名只解析官方内容"靠模组表判断谁注册的，
+        // 不加的话官方内容会被当成"没有模组认领"，规则就退化成全都放行。
+        cn.gfhnv.game.officialStuff.OfficialGameContent officialContent =
+                new cn.gfhnv.game.officialStuff.OfficialGameContent();
+        World.addMod(officialContent);
+        officialContent.registerItself();
 
         // 只初始化命令系统（不调用 GameMain.gameInitialize()，避免加载模组与配置）
         CommandManager.initialize();
@@ -337,6 +344,43 @@ public class TestCommandSystem {
         run("effect @s add", false);
         run("effect @s remove", false);
         run("effect @s bad", false);
+
+        // ---- 效果名规则：与 /give 同一套（短名只认官方，模组效果必须写完整 id）----
+        // 用自测专用、且【各自一个类】的探针效果，理由有两条：
+        //   ① 它们和官方效果不是同一个类，短名撞车时才能验证"官方优先、且不算歧义"；
+        //   ② World#fullIdOf 是按【类】查表补全 id 的，同一个类注册两条模板会互相盖掉 id。
+        Mod effectProbeMod = new Mod("effectTestMod") {
+        };
+        ProbeModOnlyEffect modOnlyProbe = new ProbeModOnlyEffect();
+        effectProbeMod.addEffect(modOnlyProbe);
+        ProbeModSameNameEffect sameNameProbe = new ProbeModSameNameEffect();
+        effectProbeMod.addEffect(sameNameProbe);
+        World.addMod(effectProbeMod);
+        effectProbeMod.registerItself();
+        try {
+            run("effect @s remove all", true);
+            run("effect @s add frozenEffect", true);
+            check("effect：短名只解析官方内容（模组同名效果不参与，因此不算歧义）",
+                    hasEffectExactId(hero, "game_official_content:frozenEffect")
+                            && !hasEffectExactId(hero, "effectTestMod:frozenEffect"));
+
+            run("effect @s remove all", true);
+            run("effect @s add effectTestMod:modOnlyEffect", true);
+            check("effect：模组效果写完整 id 可以施加",
+                    hasEffectExactId(hero, "effectTestMod:modOnlyEffect"));
+
+            run("effect @s remove all", true);
+            CommandResult effectShortName = CommandManager.executeResult("effect @s add modOnlyEffect");
+            check("effect：模组效果写短名会被拒绝", !effectShortName.isSuccess());
+            check("effect：拒绝时提示该写的完整 id", effectShortName.getError() != null
+                    && effectShortName.getError().getMessage() != null
+                    && effectShortName.getError().getMessage().contains("effectTestMod:modOnlyEffect"));
+            run("effect @s remove all", true);
+        } finally {
+            World.removeEffect(modOnlyProbe);
+            World.removeEffect(sameNameProbe);
+            World.removeMod(effectProbeMod);
+        }
 
         // 构造函数参数语法：效果名(参数,...)
         run("effect @s add CriticalDMGEnhanceEffect(1,5)", true);
@@ -549,6 +593,63 @@ public class TestCommandSystem {
         run("give @s aNiceSword 0", false);
         run("give @s", false);
         run("give @e[type=CommonInsect] aNiceSword", false);
+
+        // ---- 命令不完整时的提示：要给出"接下来该怎么写"，而不是只回显 /give ----
+        // 注意失败结果的文本在 getError().getMessage() 里（getMessage() 是成功回显，失败时为 null）
+        CommandResult incompleteGive = CommandManager.executeResult("give");
+        check("命令不完整时提示完整用法", !incompleteGive.isSuccess()
+                && incompleteGive.getError() != null
+                && incompleteGive.getError().getMessage() != null
+                && incompleteGive.getError().getMessage().contains("/give <目标> <物品>"));
+
+        // ---- 物品名规则：短名/类名只解析官方内容，模组物品必须写完整 id（模仿 MC 的命名空间）----
+        // 造一个"假模组"来验证：它的物品 id 会带上 itemTestMod: 前缀
+        Mod itemProbeMod = new Mod("itemTestMod") {
+        };
+        ANiceSword modSword = new ANiceSword();          // 与官方那把剑同短名、同类名
+        itemProbeMod.addItem(modSword);
+        Item modOnlyItem = new ANiceSword();
+        modOnlyItem.setId("modOnlyItem");                // 短名唯一，只能靠完整 id 拿到
+        modOnlyItem.setName("模组专属物品");
+        itemProbeMod.addItem(modOnlyItem);
+        World.addMod(itemProbeMod);
+        itemProbeMod.registerItself();
+        try {
+            int slotsBeforeProbe = itemCountOf(hero);
+            int unitsBeforeProbe = unitCountOf(hero);
+
+            // 现在注册表里"aNiceSword"能匹配到官方 + 模组两件，但短名只该命中官方那件
+            run("give @s aNiceSword", true);
+            check("give：短名只解析官方内容（模组同名物品不参与，因此不算歧义）",
+                    "game_official_content:aNiceSword".equals(firstItemIdOf(hero)));
+
+            run("give @s ANiceSword", true);
+            check("give：类名同样只解析官方内容",
+                    "game_official_content:aNiceSword".equals(firstItemIdOf(hero)));
+
+            CommandResult modShortName = CommandManager.executeResult("give @s modOnlyItem");
+            check("give：模组物品写短名会被拒绝", !modShortName.isSuccess());
+            check("give：拒绝时提示该写的完整 id", modShortName.getError() != null
+                    && modShortName.getError().getMessage() != null
+                    && modShortName.getError().getMessage().contains("itemTestMod:modOnlyItem"));
+
+            run("give @s itemTestMod:modOnlyItem", true);
+            check("give：模组物品写完整 id 可以发", hasItemId(hero, "itemTestMod:modOnlyItem"));
+
+            // 把探测用的物品收回来，别影响后面的用例
+            while (itemCountOf(hero) > slotsBeforeProbe) {
+                Item left = firstItemOf(hero);
+                if (left == null) {
+                    break;
+                }
+                hero.getInventory().removeOne(left);
+            }
+            check("探测用的物品已清干净", unitCountOf(hero) == unitsBeforeProbe);
+        } finally {
+            World.removeItem(modSword);
+            World.removeItem(modOnlyItem);
+            World.removeMod(itemProbeMod);
+        }
 
         // ---- 官方内容里的效果药水（customItem/potions/）----
         // 每件注册物品都必须能 copy() 并保住完整 id（药水各自实现了拷贝构造器）
@@ -1134,6 +1235,22 @@ public class TestCommandSystem {
     }
 
     /**
+     * 判断生物身上有没有<b>精确</b> id 的效果（用来区分"官方"与"模组"的同名效果）。
+     *
+     * @param livingThing 生物
+     * @param fullId      完整注册表 id
+     * @return 是否存在
+     */
+    private static boolean hasEffectExactId(LivingThing livingThing, String fullId) {
+        for (cn.gfhnv.game.effect.Effect effect : livingThing.getEntityEffectList()) {
+            if (effect != null && fullId.equals(effect.getID())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * 取生物身上指定 id 的效果等级。
      *
      * @param livingThing 生物
@@ -1229,6 +1346,23 @@ public class TestCommandSystem {
     private static String firstItemIdOf(LivingThing livingThing) {
         Item item = firstItemOf(livingThing);
         return item == null || item.getId() == null ? "" : item.getId();
+    }
+
+    /**
+     * 判断背包里有没有<b>精确</b> id 的物品（用来区分"官方"与"模组"的同名物品）。
+     *
+     * @param livingThing 生物
+     * @param fullId      完整注册表 id
+     * @return 是否存在
+     */
+    private static boolean hasItemId(LivingThing livingThing, String fullId) {
+        for (Slot slot : livingThing.getInventory().getSlots()) {
+            Item item = slot == null ? null : slot.getContainedItem();
+            if (item != null && fullId.equals(item.getId())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -1735,6 +1869,96 @@ public class TestCommandSystem {
                 }
             }
             log.add(builder.toString());
+        }
+    }
+
+    /**
+     * 自测用的"模组效果"探针 A：短名唯一（{@code modOnlyEffect}），官方效果里没有这个名字。
+     * <p>
+     * 用来验证「模组效果必须写完整 id」：写短名要被拒绝并提示 {@code effectTestMod:modOnlyEffect}，
+     * 写完整 id 则能正常施加。
+     * <p>
+     * <b>为什么必须 public + 公开无参构造器</b>：{@code /effect} 是用反射构造实例的
+     * （{@code getConstructor(...).newInstance(...)}），类或构造器不可访问会直接失败。
+     * <b>为什么和 {@link ProbeModSameNameEffect} 分成两个类</b>：运行时补全 id 是按【类】查表的
+     * （{@code World#fullIdOf}），同一个类注册两条模板会互相盖掉对方的 id。
+     *
+     * @author AI（DeepSeek）生成
+     */
+    public static class ProbeModOnlyEffect extends cn.gfhnv.game.effect.Effect {
+
+        /**
+         * 构造探针效果（只写名字，等级/持续回合由命令用 setter 补上）。
+         */
+        public ProbeModOnlyEffect() {
+            super("modOnlyEffect");
+            this.getEffectTagsList().add(cn.gfhnv.game.effect.EffectTags.UNIVERSAL);
+            this.setLastTime(1);
+        }
+
+        /**
+         * 复制构造器。
+         *
+         * @param other 被复制的效果
+         */
+        public ProbeModOnlyEffect(ProbeModOnlyEffect other) {
+            super(other.getID());
+            this.setLevel(other.getLevel());
+            this.setLastTime(other.getLastTime());
+            this.getEffectTagsList().add(cn.gfhnv.game.effect.EffectTags.UNIVERSAL);
+        }
+
+        @Override
+        public cn.gfhnv.game.effect.Effect copy() {
+            return new ProbeModOnlyEffect(this);
+        }
+
+        @Override
+        public void comeIntoEffect(LivingThing thing) {
+            // 探针效果：不需要每回合做事（顺便避免基类占位实现打印提示）
+        }
+    }
+
+    /**
+     * 自测用的"模组效果"探针 B：短名故意与官方 {@code Frozen} 撞车（都是 {@code frozenEffect}）。
+     * <p>
+     * 用来验证「短名只解析官方内容，且撞名不算歧义」：{@code /effect @s add frozenEffect}
+     * 必须挂上官方的冰冻，而不是报"匹配到 2 个效果"。
+     * 它与官方效果<b>不是同一个类</b>，所以也不会影响官方实例按类补全 id。
+     *
+     * @author AI（DeepSeek）生成
+     */
+    public static class ProbeModSameNameEffect extends cn.gfhnv.game.effect.Effect {
+
+        /**
+         * 构造探针效果（短名与官方冰冻相同）。
+         */
+        public ProbeModSameNameEffect() {
+            super("frozenEffect");
+            this.getEffectTagsList().add(cn.gfhnv.game.effect.EffectTags.UNIVERSAL);
+            this.setLastTime(1);
+        }
+
+        /**
+         * 复制构造器。
+         *
+         * @param other 被复制的效果
+         */
+        public ProbeModSameNameEffect(ProbeModSameNameEffect other) {
+            super(other.getID());
+            this.setLevel(other.getLevel());
+            this.setLastTime(other.getLastTime());
+            this.getEffectTagsList().add(cn.gfhnv.game.effect.EffectTags.UNIVERSAL);
+        }
+
+        @Override
+        public cn.gfhnv.game.effect.Effect copy() {
+            return new ProbeModSameNameEffect(this);
+        }
+
+        @Override
+        public void comeIntoEffect(LivingThing thing) {
+            // 探针效果：不需要每回合做事（顺便避免基类占位实现打印提示）
         }
     }
 }

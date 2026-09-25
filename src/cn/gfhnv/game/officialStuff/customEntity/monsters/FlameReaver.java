@@ -549,11 +549,23 @@ public class FlameReaver extends LivingThing {
 
     /**
      * 给击杀【完整容器】的玩家发奖励：<b>额外回合 + 增伤 buff</b>（官方末日幻影 3.4 的机制）。
+     * <p>
+     * 击杀者如果已经倒下则不发（见方法内注释）。
+     * 注意额外回合是排在<b>当前时间点</b>上的，所以本方法必须在容器离场的那一刻就被调用
+     * （回合循环里"移出阵营列表"之后立刻结算，见 {@code FightTurnPastListener}），
+     * 拖到回合末尾就会让这一整个回合先跑完、奖励迟到。
      *
      * @param killer 击杀者
      */
     public void grantContainerReward(LivingThing killer) {
         if (killer == null) {
+            return;
+        }
+        // 击杀者已经倒下（例如击杀容器的同一回合里被 BOSS 反杀）：奖励发了也用不上 ——
+        // 增伤会随战斗结束立刻到期，排出来的额外回合会被 TurnManager#removeTheDeath 摘掉。
+        // 与其在日志里报一条"获得了一个额外回合"的假消息，不如直接不发。
+        if (!killer.isAlive()) {
+            System.out.println("【完整容器】被击碎，但击杀者已经倒下，奖励未发放（" + killer.getName() + "）");
             return;
         }
         killer.addEffect(new ContainerReward(ContainerReward.DEFAULT_ENHANCE,

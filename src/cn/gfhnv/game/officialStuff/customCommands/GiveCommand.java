@@ -3,6 +3,7 @@ package cn.gfhnv.game.officialStuff.customCommands;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.inventory.Inventory;
 import cn.gfhnv.game.item.Item;
+import cn.gfhnv.game.officialStuff.OfficialGameContent;
 import cn.gfhnv.game.system.command.*;
 import cn.gfhnv.game.world.World;
 
@@ -24,11 +25,15 @@ import java.util.List;
  * /give @p ANiceSword 2
  * </pre>
  * <p>
- * <b>物品名怎么写</b>：注册表 id 的三种写法都认，大小写不敏感 ——
- * 完整 id（{@code game_official_content:aNiceSword}）、
- * 短名（{@code aNiceSword}，官方物品直接写这个就行）、
- * 简单类名（{@code ANiceSword}）。写错会报错并列出当前所有可用物品；
- * 短名撞车（两个模组各有一个同名物品）时会报错并要求写完整 id，不会随手挑一个。
+ * <b>物品名怎么写</b>（模仿 MC 的命名空间规则，大小写不敏感）：
+ * <ul>
+ *     <li><b>完整 id</b>（{@code game_official_content:aNiceSword}、{@code drunkenSword:osmanthusWine}）：
+ *     任何内容都能这么写，精确匹配；</li>
+ *     <li><b>短名</b>（{@code aNiceSword}）与<b>简单类名</b>（{@code ANiceSword}）：
+ *     <b>只解析官方内容</b> —— 模组物品必须写完整 id，否则多装几个模组就分不清是谁家的东西。</li>
+ * </ul>
+ * 写错会报错并列出当前所有可用物品（官方物品列短名，模组物品列它唯一能写的完整 id）；
+ * 用短名指向模组物品时会专门提示该写什么。
  * <p>
  * <b>数量会叠进同一格</b>：同一种物品（{@link Item#equals(Object)} 按注册表 id 判定）在背包里共用一格，
  * 堆叠数累加、没有上限 —— 所以 {@code /give @s aNiceSword 100} 只占 1 格（背包一共 63 格）。
@@ -102,6 +107,8 @@ public class GiveCommand extends Command {
             throw CommandSyntaxException.create("背包放不下（格子已满），一件都没发出去：" + detail);
         }
 
+        // 成功回显用短名（给人看，越短越好）；"该怎么写完整 id"由报错里的可用物品列表负责
+        // —— 用户 2026-09 拍板，别为了"和 /effect 一致"改成完整 id。
         StringBuilder message = new StringBuilder("已发放 ")
                 .append(World.shortIdOf(template)).append("（").append(template.getName()).append("）×")
                 .append(addedTotal).append("：").append(detail);
@@ -117,6 +124,8 @@ public class GiveCommand extends Command {
 
     /**
      * 按「完整 id / 短名 / 简单类名」在物品注册表里找模板。
+     * <p>
+     * 短名与类名<b>只解析官方内容</b>；带 {@code :} 的完整 id 谁都认（见类注释）。
      *
      * @param rawName 玩家输入的物品名
      * @return 注册表里的模板
@@ -127,22 +136,31 @@ public class GiveCommand extends Command {
             throw CommandSyntaxException.create("没有指定物品。可用物品：" + describeRegistry());
         }
         String name = rawName.trim();
+        // 带冒号 = 玩家明确指定了命名空间，按完整 id 匹配
+        boolean explicitId = name.indexOf(':') >= 0;
         List<Item> matched = new ArrayList<>();
+        List<Item> modOnlyMatched = new ArrayList<>();
         for (Item item : World.getItemList()) {
-            if (item != null && matches(item, name)) {
+            if (item == null) {
+                continue;
+            }
+            if (matches(item, name, explicitId)) {
                 matched.add(item);
+            } else if (!explicitId && isModContent(item) && matchesShortName(item, name)) {
+                // 短名其实指向了模组物品，但规则不允许 —— 单独记下来，好在报错里告诉玩家该写什么
+                modOnlyMatched.add(item);
             }
         }
         if (matched.isEmpty()) {
+            if (!modOnlyMatched.isEmpty()) {
+                throw CommandSyntaxException.create("「" + name + "」是模组物品，必须写完整的 id："
+                        + idsOf(modOnlyMatched) + "（官方物品才能只写短名）");
+            }
             throw CommandSyntaxException.create("物品注册表里没有「" + name + "」。可用物品：" + describeRegistry());
         }
         if (matched.size() > 1) {
-            List<String> ids = new ArrayList<>();
-            for (Item item : matched) {
-                ids.add(item.getId() == null ? item.getClass().getSimpleName() : item.getId());
-            }
             throw CommandSyntaxException.create("「" + name + "」匹配到 " + matched.size()
-                    + " 个物品：" + String.join("、", ids) + "。请写完整的 id（含模组前缀）");
+                    + " 个物品：" + idsOf(matched) + "。请写完整的 id（含模组前缀）");
         }
         return matched.get(0);
     }
@@ -150,19 +168,58 @@ public class GiveCommand extends Command {
     /**
      * 判断注册表里的物品是否匹配玩家输入的名字。
      *
+     * @param item       注册表里的物品
+     * @param name       玩家输入
+     * @param explicitId 玩家是否写了完整 id（输入里带 {@code :}）
+     * @return 是否匹配
+     */
+    private static boolean matches(Item item, String name, boolean explicitId) {
+        String id = item.getId() == null ? "" : item.getId();
+        if (explicitId) {
+            return id.equalsIgnoreCase(name);
+        }
+        // 短名/类名只解析官方内容：模组物品必须写完整 id
+        return !isModContent(item) && matchesShortName(item, name);
+    }
+
+    /**
+     * 只比「短名」与「简单类名」，不管是不是官方内容（用于给出更准确的报错）。
+     *
      * @param item 注册表里的物品
      * @param name 玩家输入
-     * @return 是否匹配（完整 id、去掉模组前缀的短名、或简单类名，均忽略大小写）
+     * @return 是否匹配短名或类名（忽略大小写）
      */
-    private static boolean matches(Item item, String name) {
-        String id = item.getId() == null ? "" : item.getId();
-        return id.equalsIgnoreCase(name)
-                || World.shortIdOf(id).equalsIgnoreCase(name)
+    private static boolean matchesShortName(Item item, String name) {
+        return World.shortIdOf(item).equalsIgnoreCase(name)
                 || item.getClass().getSimpleName().equalsIgnoreCase(name);
     }
 
     /**
-     * 列出注册表里所有可用物品的短名（用于报错提示）。
+     * @param item 物品
+     * @return 是否由模组（非官方内容）注册
+     */
+    private static boolean isModContent(Item item) {
+        return !OfficialGameContent.isOfficial(item);
+    }
+
+    /**
+     * 把若干物品的 id 拼成可读文本（没有 id 的退回类名）。
+     *
+     * @param items 物品列表
+     * @return 可读文本
+     */
+    private static String idsOf(List<Item> items) {
+        List<String> ids = new ArrayList<>();
+        for (Item item : items) {
+            ids.add(item.getId() == null ? item.getClass().getSimpleName() : item.getId());
+        }
+        return String.join("、", ids);
+    }
+
+    /**
+     * 列出注册表里所有可用物品（用于报错提示）。
+     * <p>
+     * 官方物品显示短名（它就能这么写），模组物品显示完整 id（它只能这么写）。
      *
      * @return 可读文本
      */
@@ -170,10 +227,18 @@ public class GiveCommand extends Command {
         List<String> names = new ArrayList<>();
         for (Item item : World.getItemList()) {
             if (item != null) {
-                names.add(World.shortIdOf(item) + "（" + item.getName() + "）");
+                names.add(displayNameOf(item) + "（" + item.getName() + "）");
             }
         }
         return names.isEmpty() ? "（注册表里目前没有物品）" : String.join("、", names);
+    }
+
+    /**
+     * @param item 物品
+     * @return 报错提示里该怎么称呼它：官方物品用短名，模组物品用完整 id
+     */
+    private static String displayNameOf(Item item) {
+        return isModContent(item) ? String.valueOf(item.getId()) : World.shortIdOf(item);
     }
 
     /**

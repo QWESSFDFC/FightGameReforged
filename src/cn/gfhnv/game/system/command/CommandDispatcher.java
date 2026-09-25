@@ -305,7 +305,8 @@ public class CommandDispatcher {
             throw CommandSyntaxException.create("当前无法使用该命令：" + node.getFullUsage());
         }
         if (node.getExecutor() == null) {
-            throw CommandSyntaxException.create("命令不完整：" + node.getFullUsage());
+            // 只报当前节点（/give）等于没说，所以附上"接下来该怎么写"的建议用法
+            throw CommandSyntaxException.create("命令不完整").withUsage(node.getSuggestedUsage());
         }
         // 参数已经在 parseToNode 里直接写进 effectiveSource 了（source 与 context 是同一个对象），
         // 这里直接执行即可。
@@ -350,7 +351,7 @@ public class CommandDispatcher {
                 if (current.isExecutable()) {
                     return current;
                 }
-                throw CommandSyntaxException.create("命令不完整：" + current.getFullUsage());
+                throw CommandSyntaxException.create("命令不完整").withUsage(current.getSuggestedUsage());
             }
 
             String word = reader.peekWord();

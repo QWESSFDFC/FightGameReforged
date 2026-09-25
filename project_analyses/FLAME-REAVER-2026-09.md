@@ -342,6 +342,41 @@ LivingThing#whenFightEnds()         // 保持原义：整场结束的重置（�
 > 影响面：`whenFightEnds()` 全项目只有 2 个调用点、3 个重写（Phainon / ActorLiXiaoYan / FlameReaver），
 > 三个重写都只调 `super` 或做自己的战斗结束清理，**没有实体依赖"死亡时被复位"**，所以拆分是安全的。
 
+### 8.4.2 离场结算的**时机**：必须紧跟"移出阵营列表"（2026-09 再修）
+
+**症状**：打死【完整容器】后日志里出现 `【酒剑仙】获得了一个额外回合`，但那一回合**从没发生**，
+紧接着是 `【破容器之赏】…的增伤结束了` 与战斗失败。
+
+**根因**：拆分出 `whenLeaveFight` 时，结算被放在**回合末尾**（`theDeath` 循环原本在
+`lastExecuteList` 之后）。而 `theDeath` 是在**下一圈的循环开头**才收集的，
+于是"死亡 → 结算"中间隔了**一整个回合**：
+
+```
+[我方回合] 大招打死容器（HP→0，仍在阵营列表里）
+[敌方回合] 循环开头才收集死者 → 敌方行动（把击杀者打死）→ 回合末尾才结算 → 发奖给已倒下的人
+```
+
+而「完整容器」的奖励是**额外回合**（`FlameReaver#grantExtraTurn`：`needTime = 0`、
+`startTime = 当前时间点`），拖到那一刻才发，受益人已经倒下 → 刚排上的条目
+立刻被 `TurnManager#removeTheDeath` 摘掉 = 白拿。
+
+**修法**：把 `theDeath` 的 `whenLeaveFight` 循环从回合末尾挪到
+`TurnManager.removeTheDeath()` **之后、判定胜负之前**（`FightTurnPastListener`）。
+
+```text
+循环开头：收集死者(removeIf) → removeTheDeath() → whenLeaveFight 结算 → 判定胜负 → 取下一个回合
+回合末尾：只剩 lastExecuteList 与 EffectUpdateEvent
+```
+
+挪到判定胜负**之前**还有两个附带好处：镣锁容器复活会先把新敌人加进 `enemiesList`，
+胜负判定看到的就是真实场面；新排的额外回合条目也能拦住"时间轴空了"的兜底 `break`。
+
+**配套**：`FlameReaver#grantContainerReward` 增加"击杀者已倒下就不发"的判据，
+避免再打印一条发不出去的"获得了一个额外回合"。
+
+> 影响面：全项目**只有 `BrokenContainer` 重写了 `whenLeaveFight`**，所以这次时序调整
+> 实际只影响盗火行者的容器结算；自测（222 条）不驱动回合循环，也不受影响。
+
 ### 8.4.1 不要改 `isAlive()` 的判据（考虑过，否掉）
 
 曾考虑把 `isAlive()` 改成"不在 `allEntities` 里就算死"，**否掉**，三处理由：

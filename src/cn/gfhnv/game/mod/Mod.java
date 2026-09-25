@@ -132,6 +132,22 @@ public abstract class Mod {
     }
 
     /**
+     * @return 模组注册的效果列表
+     */
+    public List<Effect> getEffects() {
+        return effects;
+    }
+
+    /**
+     * 设置模组的效果列表。
+     *
+     * @param effects 效果列表
+     */
+    public void setEffects(List<Effect> effects) {
+        this.effects = effects;
+    }
+
+    /**
      * 向模组注册一个物品。若 MOD_ID 非 {@code null}，物品 id 会被自动加上 {@code MOD_ID:} 前缀。
      *
      * @param item 要注册的物品

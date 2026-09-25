@@ -2,6 +2,7 @@ package cn.gfhnv.game.officialStuff.customCommands;
 
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.officialStuff.OfficialGameContent;
 import cn.gfhnv.game.system.command.*;
 import cn.gfhnv.game.world.World;
 
@@ -34,6 +35,11 @@ import java.util.List;
  * 但只有带 {@link cn.gfhnv.game.effect.EffectTags#UNIVERSAL} 标签的效果
  * （即 {@link Effect#isUniversal()} 为 {@code true}）才能被添加 ——
  * 角色专属或机制性的效果（例如「记忆血量」）不会出现在候选里，也不会被施加到别人身上。
+ * <p>
+ * <b>效果名怎么写</b>（与 {@code /give} 同一套规则，模仿 MC 的命名空间，大小写不敏感）：
+ * 官方效果写短名（{@code frozen}）或类名（{@code Frozen}）即可；
+ * <b>模组效果必须写完整 id</b>（{@code drunkenSword:xxx}），写短名会报错并提示该写什么。
+ * 同一名字匹配到多个效果时会报错要求写完整 id，不会随手挑一个。
  * <p>
  * <b>效果实例的创建</b>：
  * <ul>
@@ -234,19 +240,37 @@ public class EffectCommand extends Command {
      */
     private static Effect findUniversalEffect(String raw) throws CommandSyntaxException {
         NameSpec spec = parseNameSpec(raw);
+        // 带冒号 = 玩家明确指定了命名空间，按完整 id 匹配（规则与 /give 一致，见其类注释）
+        boolean explicitId = spec.name().indexOf(':') >= 0;
+        List<Effect> matched = new ArrayList<>();
+        List<Effect> modOnlyMatched = new ArrayList<>();
         for (Effect effect : World.getEffectList()) {
             if (effect == null) {
                 continue;
             }
-            if (matches(effect, spec.name())) {
-                if (!effect.isUniversal()) {
-                    throw CommandSyntaxException.create("「" + shortId(effect)
-                            + "」是角色专属/机制性效果，不能用 /effect 施加。可用效果：" + describeRegistry());
-                }
-                return effect;
+            if (matches(effect, spec.name(), explicitId)) {
+                matched.add(effect);
+            } else if (!explicitId && !isOfficial(effect) && matchesShortName(effect, spec.name())) {
+                modOnlyMatched.add(effect);
             }
         }
-        throw CommandSyntaxException.create("效果注册表里没有「" + spec.name() + "」。可用效果：" + describeRegistry());
+        if (matched.isEmpty()) {
+            if (!modOnlyMatched.isEmpty()) {
+                throw CommandSyntaxException.create("「" + spec.name() + "」是模组效果，必须写完整的 id："
+                        + displayNamesOf(modOnlyMatched) + "（官方效果才能只写短名）");
+            }
+            throw CommandSyntaxException.create("效果注册表里没有「" + spec.name() + "」。可用效果：" + describeRegistry());
+        }
+        if (matched.size() > 1) {
+            throw CommandSyntaxException.create("「" + spec.name() + "」匹配到 " + matched.size()
+                    + " 个效果：" + displayNamesOf(matched) + "。请写完整的 id（含模组前缀）");
+        }
+        Effect effect = matched.get(0);
+        if (!effect.isUniversal()) {
+            throw CommandSyntaxException.create("「" + displayNameOf(effect)
+                    + "」是角色专属/机制性效果，不能用 /effect 施加。可用效果：" + describeRegistry());
+        }
+        return effect;
     }
 
     /**
@@ -284,17 +308,70 @@ public class EffectCommand extends Command {
 
     /**
      * 判断注册表里的效果是否匹配玩家输入的名字。
+     * <p>
+     * 规则与 {@code /give} 一致（模仿 MC 的命名空间）：带 {@code :} 的完整 id 谁都认；
+     * 不带冒号的短名/类名<b>只解析官方内容</b> —— 模组效果必须写 {@code modId:效果名}。
+     *
+     * @param effect     注册表里的效果
+     * @param name       玩家输入（已去掉构造函数参数部分）
+     * @param explicitId 玩家是否写了完整 id（输入里带 {@code :}）
+     * @return 是否匹配
+     */
+    private static boolean matches(Effect effect, String name, boolean explicitId) {
+        String id = effect.getID() == null ? "" : effect.getID();
+        if (explicitId) {
+            return id.equalsIgnoreCase(name);
+        }
+        return isOfficial(effect) && matchesShortName(effect, name);
+    }
+
+    /**
+     * 只比「短 id」与「简单类名」，不管是不是官方内容（用于给出更准确的报错）。
      *
      * @param effect 注册表里的效果
      * @param name   玩家输入
-     * @return 是否匹配（id、去掉模组前缀的 id、或简单类名，均忽略大小写）
+     * @return 是否匹配短 id 或类名（忽略大小写）
      */
-    private static boolean matches(Effect effect, String name) {
-        String id = effect.getID() == null ? "" : effect.getID();
-        String simple = effect.getClass().getSimpleName();
-        return id.equalsIgnoreCase(name)
-                || shortId(id).equalsIgnoreCase(name)
-                || simple.equalsIgnoreCase(name);
+    private static boolean matchesShortName(Effect effect, String name) {
+        return shortId(effect).equalsIgnoreCase(name)
+                || effect.getClass().getSimpleName().equalsIgnoreCase(name);
+    }
+
+    /**
+     * @param effect 效果
+     * @return 是否由官方内容注册（判据见 {@code OfficialGameContent#isOfficial(Effect)}）
+     */
+    private static boolean isOfficial(Effect effect) {
+        return OfficialGameContent.isOfficial(effect);
+    }
+
+    /**
+     * 提示文本里该怎么称呼一个效果。
+     * <p>
+     * 只用于<b>报错与「可用效果」列表</b>：官方效果给短 id、模组效果给完整 id
+     * （模组效果只认完整 id，见 {@link #matches(Effect, String, boolean)}）。
+     * <b>成功回显不用它</b> —— 回显是给人看的，用 {@link #shortId(Effect)} 的短名就够
+     * （用户 2026-09 拍板：回显越短越好，完整 id 交给报错去提示）。
+     *
+     * @param effect 效果
+     * @return 可写名字
+     */
+    private static String displayNameOf(Effect effect) {
+        return isOfficial(effect) ? shortId(effect) : String.valueOf(effect.getID());
+    }
+
+    /**
+     * 把若干效果的「可写名字」拼成可读文本。
+     *
+     * @param effects 效果列表
+     * @return 可读文本
+     */
+    private static String displayNamesOf(List<Effect> effects) {
+        List<String> names = new ArrayList<>();
+        for (Effect effect : effects) {
+            names.add(displayNameOf(effect));
+        }
+        return String.join("、", names);
     }
 
     /**
@@ -323,14 +400,17 @@ public class EffectCommand extends Command {
 
     /**
      * 列出注册表里所有可用的通用效果名（用于提示与补全）。
+     * <p>
+     * 返回的是「玩家能照着写的名字」：官方效果给短 id，模组效果给完整 id
+     * （模组效果只认完整 id，见类注释与 {@link #matches(Effect, String, boolean)}）。
      *
-     * @return 可用效果名列表（短 id）
+     * @return 可用效果名列表
      */
     private static List<String> universalEffectNames() {
         List<String> names = new ArrayList<>();
         for (Effect effect : World.getEffectList()) {
             if (effect != null && effect.isUniversal()) {
-                names.add(shortId(effect));
+                names.add(displayNameOf(effect));
             }
         }
         return names;

@@ -1,0 +1,9 @@
+{
+  "name": "醉剑仙",
+  "author": "gfhnv（代码由 AI/DeepSeek 生成）",
+  "description": "新增角色「酒剑仙」：攒【醉意】再一次性倾泻的爆发型剑客，附 2 个效果与 2 件物品。",
+  "mainClass": "com.gfhnv.mods.drunkenSword.DrunkenSwordMod",
+  "version": "1.0",
+  "modID": "drunkenSword",
+  "guide": "完整的模组编写说明在仓库根目录的 MODDING-GUIDE.md；最小示例见 mods/exampleModByGFHNV。"
+}

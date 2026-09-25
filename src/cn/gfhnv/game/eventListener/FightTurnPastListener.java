@@ -92,6 +92,20 @@ public class FightTurnPastListener {
                     return false;
                 });
                 TurnManager.removeTheDeath();
+                // 死亡离场结算：走 whenLeaveFight（单个生物离场），**不是** whenFightEnds()。
+                // whenFightEnds() 是整场结束时的重置（含 setHp(getHpMax())），在这里调用会把
+                // 死掉的生物复活 —— 而它已经被移出阵营列表，于是变成"不在任何阵营却能继续出手"
+                // 的幽灵实体。
+                //
+                // 时机同样要紧：结算必须**紧跟**在"移出阵营列表"之后，不能拖到本回合末尾。
+                // 召唤物离场时会按死因结算（盗火行者的容器会给击杀者发"额外回合 + 增伤"），
+                // 而额外回合是排成"当前时间点 + needTime = 0"的条目（FlameReaver#grantExtraTurn）。
+                // 拖到回合末尾的话，这一整个回合（例如 BOSS 的回合）会先跑完：奖励迟了一整个回合，
+                // 受益人还可能已经倒下 —— 那条额外回合随即被 removeTheDeath 摘掉，等于没发。
+                for (LivingThing dead : theDeath) {
+                    dead.whenLeaveFight(fightPastOneTurnEvent.getFight());
+                }
+                theDeath.clear();
                 if (fightPastOneTurnEvent.getFight().getFighterList().isEmpty()) {
                     EventBus.post(new FightEndEvent(false, fightPastOneTurnEvent.getFight()));
                     break;
@@ -166,14 +180,6 @@ public class FightTurnPastListener {
                     }
                 }
 
-                // 本回合死掉的生物：走「离场」钩子，**不是** whenFightEnds()。
-                // whenFightEnds() 是整场结束时的重置（含 setHp(getHpMax())），
-                // 在这里调用会把死掉的生物复活 —— 而它已经被移出阵营列表，
-                // 于是变成"不在任何阵营却能继续出手"的幽灵实体。
-                for (LivingThing dead : theDeath) {
-                    dead.whenLeaveFight(fightPastOneTurnEvent.getFight());
-                }
-                theDeath.clear();
                 EventBus.post(new EffectUpdateEvent(presentTurn.getLivingThing(), presentTurn));
                 // 本回合处理完毕，回到 turnLoop 开头取下一个回合（不再递归 post 事件）
             }

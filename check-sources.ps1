@@ -180,7 +180,12 @@ foreach ($f in $files) {
             if ($imported.ContainsKey($name)) { continue }
             if ($samePkg.ContainsKey($name)) { continue }
             if ($nested.ContainsKey($name)) { continue }
-            if ($allClasses.ContainsKey($name)) { continue }
+            # Same-package classes need no import. The test must be "the class lives in
+            # THIS file's package" -- NOT "a class with that name exists somewhere in
+            # the repo". The weaker version let a missing
+            # `import cn.gfhnv.game.item.Item;` slip through and cost a javac round-trip
+            # (OfficialGameContent.java, 2026-09), because Item does exist elsewhere.
+            if ($pkgOfClass.ContainsKey($name) -and $pkgOfClass[$name] -eq $pkg) { continue }
             if ($javaLang -contains $name) { continue }
             if ($wildcardPackages.Count -gt 0) {
                 $covered = $false

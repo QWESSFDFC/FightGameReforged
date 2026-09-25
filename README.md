@@ -79,21 +79,25 @@
 | `/kill <目标>` | 把目标生命值清零 |
 | `/hurt <目标> <数值>` | 改生命值，正数扣血、负数回血 |
 | `/effect <目标> list` | 列出目标身上的效果（等级/剩余回合/正面负面） |
-| `/effect <目标> add <效果> [等级] [持续回合]` | 加效果，效果模板取自效果注册表 |
+| `/effect <目标> add <效果> [等级] [持续回合]` | 加效果，效果模板取自效果注册表（模组效果要写完整 id） |
 | `/effect <目标> add <效果>(参数,…)` | 按构造函数参数新建效果实例，如 `AttackEnhance(0.2,3)` |
 | `/effect <目标> remove <效果>\|all` | 移除某个效果，`all` 清空 |
 | `/execute as <目标> run <命令>` | **以指定对象的身份**运行另一条命令（内层 `@s` 指向它） |
 | `/give <目标> <物品> [数量]` | 发物品（数量默认 1） |
 | `/endfight [win\|lose]` | 强制结束战斗（默认按玩家胜利结算） |
 
-`/give` 的物品名可以写**完整 id**、**短名**或**类名**（大小写不敏感）：
+物品名与效果名都遵循**「官方内容可以写短名，模组内容必须写完整 id」**（模仿 MC 的命名空间，大小写不敏感）：
 
 ```
 /give @s aNiceSword                                短名（官方物品直接这么写）
-/give @s game_official_content:aNiceSword 3        完整 id + 数量
-/give @s ANiceSword 2                              类名
+/give @s game_official_content:aNiceSword 3        完整 id + 数量（谁都认）
+/give @s ANiceSword 2                              类名（同样只解析官方内容）
 /give @s attackPotion                              效果药水（见下）
+/give @s drunkenSword:osmanthusWine 2              模组物品：必须带模组前缀
 ```
+
+写模组物品的短名会被拒绝，并提示该写的完整 id；敲不完整的命令（例如只敲 `/give`）会直接给出
+`/give <目标> <物品> [数量]` 这样的完整用法。
 
 官方物品一共 9 件：一把剑（`aNiceSword`）+ 8 瓶**效果药水**（使用后给自己挂一个效果）。
 除治疗药水是立刻回血外，其余 7 瓶都是持续 3 回合的增益：
@@ -128,6 +132,8 @@
 效果名可以写注册表里的 **id** 或**类名**（大小写不敏感）：`frozen`、`frozenEffect`、
 `damageEnhanceEffect`、`CriticalDMGEnhanceEffect(1,5)`、`taunt`（嘲讽：让对手优先打你，
 配合怪物 AI 的 `TargetStrategies.tauntAware(...)` 生效）。
+和 `/give` 同一套命名空间规则：**官方效果写短名即可，模组效果必须写完整 id**
+（例如 `drunkenSword:xxx`），写短名会被拒绝并提示该写什么。
 角色专属/机制性效果（没有 `EffectTags.UNIVERSAL` 标签）**不能**用 `/effect` 施加，
 写错名字时会报错并列出当前所有可用的通用效果。
 
@@ -240,6 +246,10 @@ build-output\FightGameReforged\FightGameReforged.exe
 
 ## 🧱 写一个自己的模组（怎么用模组系统）
 
+> 📘 **完整写法见 [`MODDING-GUIDE.md`](MODDING-GUIDE.md)**（目录约定、`Mod` API、
+> 实体/技能/效果/物品各自的模板、14 条踩坑清单、可照抄的完整示例）。
+> 下面只是最小骨架。
+
 模组就是 `mods/` 下的一个文件夹，结构固定：
 
 ```
@@ -300,10 +310,21 @@ public class mainClass extends Mod {
 - **`copy()` 必须重写**。`LivingThing` / `Skill` / `Item` 的基类 `copy()` 是
   `throw new RuntimeException("请重写此方法..类" + ...)`，官方子类全都重写了；
   你的实体/技能/物品子类忘了重写，一进战斗就会炸（开局选人是靠 `copy()` 生成实例的）。
-- **自定义控制器会被"降级"**。`LivingThing` 的复制构造器只认 `PlayerController` 和
-  `ThinkingControllerAI`，其它一律按 `UniversalController` 重建——
-  所以 `FixOrderController` 这类自定义控制器复制后会变成随机控制器。
+- **自定义控制器会被"降级"**。`LivingThing` 的复制构造器只认 `PlayerController`、
+  `ThinkingControllerAI` 和 `FixOrderController`，其它一律按 `UniversalController` 重建——
+  所以自己写的控制器子类复制后会变成随机控制器。
 - **别指望给父类事件注册监听器**。`EventBus` 是精确类匹配，`@SubscribeEvent` 也只扫本类方法（见下方"各个系统都在哪"）。
+- **`canUse(fight, user, null)` 真的会传 `null`**：控制器判断"这招能不能放"时第三个参数就是
+  `null`，重写 `canUse` 时别解引用它。
+
+### 已经写好的模组示例
+
+`mods/drunkenSword/`（「醉剑仙」）是一个可直接照抄的完整例子：新角色「酒剑仙」+
+【醉意】层数资源 + 2 个效果 + 2 件物品，全部内容都在 `invokeWhenLoaded()` 里注册。
+文件清单、数值与玩法见 [`MODDING-GUIDE.md`](MODDING-GUIDE.md) §7。
+
+> ⚠️ 模组的源码是在**同一个 JVM、同一权限**下编译并立刻执行的，没有沙箱
+> （可以读写文件、联网、`System.exit`）。**安装模组 = 授予该模组与游戏同等的权限，请只加载你信得过的源码。**
 
 ---
 
@@ -346,11 +367,12 @@ FightGameReforged/
 │   │   ├── utils/                # JSONHelper（org.json 薄封装）
 │   │   └── world/                # World：全局注册表（实体/物品/效果/模组/运行时对象）
 │   └── debug_tools/              # 调试与自测程序（不需要玩就能跑：命令系统自测、预期伤害试算、行动条实验）
-├── mods/                # 外部模组目录（两个示例模组；各模组的 bin/ 是编译产物）
+├── mods/                # 外部模组目录（两个示例模组 + 「醉剑仙」完整示例；各模组的 bin/ 是编译产物）
 ├── config/gameConfig/   # TagConfig.json（AI Tag 权重）/ PropertyConfig.json
 ├── project_analyses/    # 分析文档与命令系统说明（含历史轮次报告）
 ├── screenshots/         # 运行截图
 ├── out/                 # javac/gradle 的临时输出（自测脚本用它）
+├── MODDING-GUIDE.md             # 模组编写指南（目录约定 / API / 模板 / 踩坑 / 完整示例）
 ├── test-command-system.ps1      # 命令系统自测脚本（编译整个 src + 跑全部自测断言）
 ├── 启动游戏-UTF8.bat             # 启动脚本（切 UTF-8 控制台；内容纯 ASCII）
 ├── build.gradle / gradle.properties
@@ -369,6 +391,7 @@ FightGameReforged/
 | 角色/怪物/技能/物品 | `officialStuff/` 下对应的 `customXxx/` 子包 |
 | 事件有哪些、谁在监听 | `event/`、`eventListener/` |
 | 加载外部模组 | `mod/ModLoader.java`、`mod/Mod.java` |
+| 想写一个自己的模组 | `MODDING-GUIDE.md`（完整指南）、`mods/drunkenSword/`（可照抄的示例） |
 | 命令怎么写 | `system/command/`、`officialStuff/customCommands/`、`project_analyses/COMMAND-SYSTEM-2026-08.md` |
 | AI 怎么做决策 | `system/thinkingSystem/`、`config/gameConfig/TagConfig.json` |
 | 想给项目做体检 | `project_analyses/`（最上面几份是历史轮次，注意看文档开头的时效说明） |

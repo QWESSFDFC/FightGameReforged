@@ -241,6 +241,35 @@ public abstract class CommandNode {
         return "/" + String.join(" ", parts);
     }
 
+    /**
+     * 「这条命令接下来该怎么写」的建议用法：从本节点沿<b>第一条分支</b>一路往下拼，
+     * 并把<b>可选的</b>部分用方括号括起来。
+     * <p>
+     * 可选判据：如果<b>当前节点自己就已经可以执行</b>，那它的子节点就是可省的
+     * （例如 {@code /give <目标> <物品>} 已经能跑，所以 {@code [数量]} 可省）。
+     * <p>
+     * 用途：报「命令不完整」时只回显当前节点（{@code /give}）等于没说 ——
+     * 这里会给出 {@code /give <目标> <物品> [数量]}，玩家一眼就知道缺什么。
+     * 分叉多于一条时，末尾再列一下「可用的下一步」。
+     *
+     * @return 建议用法文本
+     */
+    public String getSuggestedUsage() {
+        StringBuilder builder = new StringBuilder(getFullUsage());
+        CommandNode current = this;
+        while (!current.getChildren().isEmpty()) {
+            boolean optional = current.isExecutable();
+            CommandNode next = current.getChildren().getFirst();
+            builder.append(' ').append(optional ? "[" : "").append(next.getUsageText()).append(optional ? "]" : "");
+            current = next;
+        }
+        List<String> branches = getChildrenNames();
+        if (branches.size() > 1) {
+            builder.append("（可用的下一步：").append(String.join("、", branches)).append("）");
+        }
+        return builder.toString();
+    }
+
     @Override
     public String toString() {
         return getClass().getSimpleName() + "{" + getName()
