@@ -1139,6 +1139,9 @@ public class TestCommandSystem {
                     granted != null);
             check("额外回合：排完序后它在队首（所以下一圈就会被取出来行动）",
                     !turns.isEmpty() && turns.getFirst() == granted);
+            // 必须是 isExtra：额外回合不推进身上效果的剩余回合（EffectEventListener 按这个标记走）
+            check("额外回合：标记了 isExtra（与白厄的额外回合同一个约定）",
+                    granted != null && granted.isExtra());
 
             // ⑥ 增伤 buff：走 setEnhance（伤害公式的 (1+enhance)），并且只加一次
             //    先用一个干净的容器来量"一次奖励加了多少"

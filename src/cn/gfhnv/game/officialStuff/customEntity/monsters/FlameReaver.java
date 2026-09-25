@@ -580,12 +580,21 @@ public class FlameReaver extends LivingThing {
      * {@code TurnManager.sort()} 之后它就会排在队首附近，于是"额外回合"自然发生
      * （回合循环轮到谁就一定会调一次 {@code act()}，所以这一条就是实打实多一次行动）。
      * <b>不要</b>通过改 {@code ActionSignal} 实现（那会污染回合推进的语义）。
+     * <p>
+     * <b>必须标记 {@code setExtra(true)}</b>（与白厄的额外回合同一个约定）：
+     * {@code EffectEventListener} 对额外回合只调 {@code comeIntoEffect}、
+     * <b>不减 {@code lastTime}</b> —— 不然刚发出去的【破容器之赏】（3 回合）
+     * 会在"被奖励的那次行动"里就少掉 1 回合，目标身上的【侵蚀】【宿醉】也会跟着多跳一次。
+     * 顺带这个标记也让"觉醒中的白厄拿到奖励"时能触发他的额外回合反击
+     * （{@code UltimateAttack} 里的判定就是看 {@code isExtra()}）。
      *
      * @param beneficiary 获得额外回合的生物
      */
     public void grantExtraTurn(LivingThing beneficiary) {
         // TurnManager.getPresentTime() 已经保证不为 null（未初始化时返回 ZERO）
-        TurnManager.getTurns().add(new TurnEntry(beneficiary, BigDecimal.ZERO, TurnManager.getPresentTime()));
+        TurnEntry extraTurn = new TurnEntry(beneficiary, BigDecimal.ZERO, TurnManager.getPresentTime())
+                .setExtra(true);
+        TurnManager.getTurns().add(extraTurn);
         TurnManager.sort();
         System.out.println("【" + beneficiary.getName() + "】获得了一个额外回合");
     }
