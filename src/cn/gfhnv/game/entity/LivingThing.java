@@ -976,7 +976,20 @@ public class LivingThing extends Entity {
     }
 
     /**
-     * 每回合执行一次。子类可重写此方法写天赋、被动等每回合更新的状态。
+     * 帧更新钩子。
+     * <p>
+     * <b>设计意图：模拟"游戏每帧更新所有实体"</b>——{@code FightTurnPastListener} 在<b>每个回合</b>
+     * 处理完当前行动者之后，会对<b>全场所有实体</b>各调用一次本方法，等价于主循环里的
+     * {@code Update()}。所以它<b>不是</b>"这个实体的回合到了"的回调。
+     * <p>
+     * 由此推出两条写法约定：
+     * <ul>
+     *     <li><b>可以</b>在这里做"每帧检查"（血量阈值、状态同步之类）——
+     *     自己判断"我是不是已经做过了"即可（例如用 {@code appliedXxx} 之类标记）；</li>
+     *     <li><b>不要</b>用它来数"自己过了几个回合"（那是"每帧"不是"每回合"）。
+     *     需要按回合计时的状态请做成 {@link cn.gfhnv.game.effect.Effect}：
+     *     {@code EffectEventListener} 会统一递减 {@code lastTime} 并在到期时移除。</li>
+     * </ul>
      */
     public void updateSelf() {
     }
@@ -1793,10 +1806,33 @@ public class LivingThing extends Entity {
 
     /**
      * 战斗开始时的钩子方法。子类可重写此方法执行开局逻辑（如注册事件监听器等）。
+     * <p>
+     * 注意：本钩子只在<b>开局</b>由 {@code FightStartEventListener} 遍历
+     * {@code Fight#getAllEntities()} 调用一次。战斗中<b>中途加入</b>的实体
+     * （技能召唤出来的召唤物等，走 {@code Fight#addEnemy/addFighter}）<b>不会</b>收到，
+     * 需要召唤方在加入后显式调用一次（范例：{@code FlameReaver#summonContainer}）。
      *
      * @param fight 当前战斗上下文
      */
     public void whenFightStart(Fight fight) {
+    }
+
+    /**
+     * 生物<b>离开战斗</b>时的钩子（死亡、被移出阵营列表时调用）。
+     * <p>
+     * <b>与 {@link #whenFightEnds()} 的分工</b>（这两个钩子曾经是同一个，导致死亡时被复活）：
+     * <ul>
+     *     <li>{@code whenLeaveFight}：单个生物离场。<b>只做离场结算与清理，绝不复位血量</b> ——
+     *     对已死的生物复位血量等于把它复活；而它已经从阵营列表里被摘掉，
+     *     会变成"不在任何阵营却能继续出手"的幽灵实体（目标解析还会落到错误的一侧）。</li>
+     *     <li>{@link #whenFightEnds()}：整场战斗结束。那是<b>重置</b>（补满血、清效果、清冷却），
+     *     为下一场做准备，只会发给还留在 {@code getAllEntities()} 里的生物。</li>
+     * </ul>
+     * 默认不做事。召唤物这类需要"通知召唤者"的实体应当重写它。
+     *
+     * @param fight 当前战斗上下文
+     */
+    public void whenLeaveFight(Fight fight) {
     }
 
     /**
@@ -1811,7 +1847,11 @@ public class LivingThing extends Entity {
     }
 
     /**
-     * 战斗结束时清理状态：重置回合、恢复生命、清除效果、重置技能冷却并恢复法力。
+     * 把生物重置为"可再次参战"：重置回合、补满生命、清除效果、重置技能冷却并恢复法力。
+     * <p>
+     * <b>只应在整场战斗结束时调用</b>（{@code FightEndEventListener}）。
+     * 单个生物死亡离场时请用 {@link #whenLeaveFight(Fight)} ——
+     * 本方法里的 {@code setHp(getHpMax())} 会把已经死掉的生物复活。
      */
     public void whenFightEnds() {
 

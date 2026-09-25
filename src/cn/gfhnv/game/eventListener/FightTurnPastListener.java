@@ -166,8 +166,12 @@ public class FightTurnPastListener {
                     }
                 }
 
+                // 本回合死掉的生物：走「离场」钩子，**不是** whenFightEnds()。
+                // whenFightEnds() 是整场结束时的重置（含 setHp(getHpMax())），
+                // 在这里调用会把死掉的生物复活 —— 而它已经被移出阵营列表，
+                // 于是变成"不在任何阵营却能继续出手"的幽灵实体。
                 for (LivingThing dead : theDeath) {
-                    dead.whenFightEnds();
+                    dead.whenLeaveFight(fightPastOneTurnEvent.getFight());
                 }
                 theDeath.clear();
                 EventBus.post(new EffectUpdateEvent(presentTurn.getLivingThing(), presentTurn));

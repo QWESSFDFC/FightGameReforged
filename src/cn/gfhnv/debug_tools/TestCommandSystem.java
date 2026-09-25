@@ -9,6 +9,7 @@ import cn.gfhnv.game.inventory.Slot;
 import cn.gfhnv.game.item.Item;
 import cn.gfhnv.game.officialStuff.customEffect.universalEffects.Taunt;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.CommonInsect;
+import cn.gfhnv.game.officialStuff.customEntity.monsters.FlameReaver;
 import cn.gfhnv.game.officialStuff.customEntity.players.PlayerOne;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.command.*;
@@ -69,6 +70,7 @@ public class TestCommandSystem {
         testRegistrationAndExecution();
         testFixOrderController();
         testDamageReduction();
+        testFlameReaverFactions();
 
         System.out.println("========== 自测结束：通过 " + passes + " 条，失败 " + failures + " 条 ==========");
         if (failures > 0) {
@@ -930,6 +932,153 @@ public class TestCommandSystem {
         } catch (Exception e) {
             fail("减伤测试抛出异常：" + e);
         }
+    }
+
+    /**
+     * 盗火行者的阵营判定自测。
+     * <p>
+     * 钉住一个实测踩到的 bug：召唤物【残破容器】与 BOSS 同属敌方阵营，
+     * 所以任何"打对面"的代码都必须按 <b>user 所在阵营的对面</b> 取目标。
+     * 曾经写成 {@code Fight#getOpponentList(user)}（它在 user 不在敌方列表时返回 enemiesList），
+     * 导致目标里混进 BOSS 自己的召唤物 —— 日志表现为"BOSS 打自己的容器"、
+     * "BOSS 被自己的【侵蚀】烧"。正确写法见
+     * {@code FlameReaverSkill#fightingSideOf(Fight, LivingThing)}。
+     *
+     * @author AI（DeepSeek）生成
+     */
+    private static void testFlameReaverFactions() {
+        System.out.println();
+        System.out.println("-------- 盗火行者：阵营与目标 --------");
+        try {
+            FlameReaver boss =
+                    new FlameReaver(150);
+            LivingThing hero = new PlayerOne(125).copy();
+            hero.setName("测试玩家");
+            List<LivingThing> enemies = new ArrayList<>();
+            enemies.add(boss);
+            List<LivingThing> fighters = new ArrayList<>();
+            fighters.add(hero);
+            Fight fight = new Fight(enemies, new ArrayList<>(), fighters);
+
+            cn.gfhnv.game.officialStuff.customEntity.summons.BrokenContainer container =
+                    boss.summonContainer(fight);
+            check("召唤容器成功（测试前提）", container != null);
+            check("容器进了敌方阵营",
+                    container != null && fight.getEnemiesList().contains(container));
+            check("容器不在我方阵营",
+                    container != null && !fight.getFighterList().contains(container));
+
+            // 先把几个列表的真实内容打出来：这两个框架方法的命名有歧义，
+            // 光看名字判断会来回改错（已经错过两次），必须靠实测输出定死。
+            System.out.println("  [诊断] enemiesList = " + describeNames(fight.getEnemiesList()));
+            System.out.println("  [诊断] fighterList = " + describeNames(fight.getFighterList()));
+            System.out.println("  [诊断] getOpponentList(BOSS) = " + describeNames(fight.getOpponentList(boss)));
+            System.out.println("  [诊断] getOwnList(BOSS)      = " + describeNames(fight.getOwnList(boss)));
+            System.out.println("  [诊断] getOpponentList(容器) = " + describeNames(fight.getOpponentList(container)));
+            System.out.println("  [诊断] getOwnList(容器)      = " + describeNames(fight.getOwnList(container)));
+
+            // ① 语义自证（实测输出见上面的 [诊断]，别再靠方法名猜）：
+            //    getOpponentList(entity) = entity 对面的实体列表
+            //    getOwnList(entity)      = entity 自己一侧的实体列表（BOSS 用 = 含它自己的召唤物）
+            List<LivingThing> oppositeOfBoss = fight.getOpponentList(boss);
+            List<LivingThing> sameSideAsBoss = fight.getOwnList(boss);
+            check("getOpponentList(BOSS) = 对面（只有玩家，不含自己人）",
+                    oppositeOfBoss.size() == 1 && oppositeOfBoss.contains(hero));
+            check("getOwnList(BOSS) = 自己一侧（含 BOSS 自己与它的容器）",
+                    sameSideAsBoss.contains(boss)
+                            && container != null && sameSideAsBoss.contains(container));
+            check("自己一侧里没有玩家",
+                    !sameSideAsBoss.contains(hero));
+
+            // ② BOSS 要打的就是对面 —— 直接就是玩家队伍，不会混进召唤物
+            check("BOSS 用 getOpponentList 取目标不会打到自己人",
+                    !oppositeOfBoss.contains(container));
+
+            // ③ 容器取目标同样是"它的对面"
+            List<LivingThing> containerTargets = fight.getOpponentList(container);
+            check("容器取目标 = 玩家队伍（不误伤 BOSS）",
+                    containerTargets.size() == 1 && containerTargets.contains(hero)
+                            && !containerTargets.contains(boss));
+
+            // ④ 遍历"自己的召唤物"必须用 getOwnList + 类型过滤（就像 FlameReaver#getAliveContainers）
+            List<LivingThing> ownSideContainers = new ArrayList<>();
+            for (LivingThing each : sameSideAsBoss) {
+                if (each instanceof cn.gfhnv.game.officialStuff.customEntity.summons.BrokenContainer) {
+                    ownSideContainers.add(each);
+                }
+            }
+            check("用 getOwnList + 类型过滤能筛出自己的容器",
+                    ownSideContainers.size() == 1 && ownSideContainers.contains(container));
+
+            // ⑤ 完整容器的奖励：额外回合 + 增伤 buff（官方末日幻影 3.4 的机制）
+            //    额外回合的实现是"在【当前时间点】给受益者插一个 needTime=0 的回合条目"，
+            //    所以断言就查这条目：必须是他的、而且立刻可执行（时间点 = 现在）。
+            int entriesBefore = cn.gfhnv.game.system.fight.TurnManager.getTurns().size();
+            // presentTime 在自测里是 null（没跑 TurnManager.init），实现会兜底成 ZERO，
+            // 断言这边用同样的归一化，否则 compareTo(null) 会 NPE
+            java.math.BigDecimal now = cn.gfhnv.game.system.fight.TurnManager.getPresentTime();
+            if (now == null) {
+                now = java.math.BigDecimal.ZERO;
+            }
+            boss.grantExtraTurn(hero);
+            List<cn.gfhnv.game.system.fight.TurnEntry> turns =
+                    cn.gfhnv.game.system.fight.TurnManager.getTurns();
+            check("额外回合：时间轴上多了一个回合条目",
+                    turns.size() == entriesBefore + 1);
+
+            cn.gfhnv.game.system.fight.TurnEntry granted = null;
+            for (cn.gfhnv.game.system.fight.TurnEntry entry : turns) {
+                if (entry.getLivingThing() == hero
+                        && entry.getNeedTime().compareTo(java.math.BigDecimal.ZERO) == 0
+                        && entry.getStartTime().compareTo(now) == 0) {
+                    granted = entry;
+                }
+            }
+            check("额外回合：那一条属于受益者，且 needTime=0 / startTime=now（立刻可执行）",
+                    granted != null);
+            check("额外回合：排完序后它在队首（所以下一圈就会被取出来行动）",
+                    !turns.isEmpty() && turns.getFirst() == granted);
+
+            // ⑥ 增伤 buff：走 setEnhance（伤害公式的 (1+enhance)），并且只加一次
+            //    先用一个干净的容器来量"一次奖励加了多少"
+            LivingThing rewardProbe = new PlayerOne(125).copy();
+            rewardProbe.setName("奖励探针");
+            double enhanceBefore = rewardProbe.getEnhance();
+            boss.grantContainerReward(rewardProbe);
+            check("完整容器奖励：增伤按 ContainerReward 的比例加上去了（+0.4）",
+                    Math.abs(rewardProbe.getEnhance() - (enhanceBefore + 0.4)) < 1e-9);
+            double afterFirst = rewardProbe.getEnhance();
+            // 再调一次"获得时"的钩子，验证 applied 标记挡住了重复叠加
+            for (cn.gfhnv.game.effect.Effect each : rewardProbe.getEntityEffectList()) {
+                if (each instanceof cn.gfhnv.game.officialStuff.customEffect.flameReaverEffects.ContainerReward) {
+                    each.comeIntoEffect(rewardProbe);
+                }
+            }
+            check("完整容器奖励：重复触发不会叠加（applied 标记）",
+                    Math.abs(rewardProbe.getEnhance() - afterFirst) < 1e-9);
+        } catch (Exception e) {
+            fail("阵营测试抛出异常：" + e);
+        }
+    }
+
+    /**
+     * 把一组生物的名字拼成一行，供诊断输出用。
+     *
+     * @param things 生物列表
+     * @return 形如 {@code [甲, 乙]} 的字符串
+     */
+    private static String describeNames(List<LivingThing> things) {
+        if (things == null) {
+            return "null";
+        }
+        StringBuilder builder = new StringBuilder("[");
+        for (int i = 0; i < things.size(); i++) {
+            if (i > 0) {
+                builder.append(", ");
+            }
+            builder.append(things.get(i) == null ? "null" : things.get(i).getName());
+        }
+        return builder.append(']').toString();
     }
 
     /**

@@ -327,11 +327,11 @@ FightGameReforged/
 │   │   ├── entityController/     # 控制器：PlayerController（玩家）/ UniversalController（随机）/ FixOrderController
 │   │   ├── event/                # 事件总线与事件定义（EventBus + 各 XxxEvent）
 │   │   ├── eventListener/        # 监听器：开局 / 开战 / 回合推进 / 结束 / 效果 / 物理
-│   │   ├── interfaces/           # IModifyDamage、IShowSpecialMes、ISpecialAction、IInitialize
+│   │   ├── interfaces/           # IModifyDamage、IDefenceIgnore、ITaunt、TargetStrategy、IShowSpecialMes、ISpecialAction、IInitialize
 │   │   ├── inventory/            # 背包与格子（Slot，支持堆叠合并）
 │   │   ├── item/                 # 物品基类
 │   │   ├── mod/                  # 模组加载器（ModLoader / Mod / ModInformation / JavaSourceCode）
-│   │   ├── officialStuff/        # 官方内容：6 个生物、15 个技能、12 个效果、9 件物品（1 把剑 + 8 瓶效果药水）、官方命令
+│   │   ├── officialStuff/        # 官方内容：8 个生物（含 BOSS 盗火行者与残破容器）、24 个技能类、17 个效果、9 件物品（1 把剑 + 8 瓶效果药水）、官方命令
 │   │   ├── skill/                # 技能基类（倍率 / 目标数 / 冷却 / 消耗 Mana / Tag）
 │   │   ├── system/               # 各类子系统（详见下方）
 │   │   │   ├── command/          # 命令系统（AI 编写：参数类型 / 选择器 / 命令树 / 调度器 / 补全）
@@ -437,13 +437,12 @@ FightGameReforged/
 |---|---|
 | `ThinkingControllerAI` | Utility AI 已实现，但没有任何生物在用（见上） |
 | `ThinkingController` | 没写完，`act()` 算完权重后直接 `super.act()`，等同死代码 |
-| `FixOrderController` | 按预设 `Queue<Skill>` 顺序出招的控制器，没有任何生物在用；而且它**不被复制构造器识别**，`copy()` 后会降级成随机控制器 |
+| `FixOrderController` | **现在已接上线**：盗火行者与残破容器按预设顺序出招（开了 `setSkipUnusable(true)`，用不了的招顺延）；复制构造器也能识别它（`LivingThing` 的控制器重建表），不会再降级成随机控制器 |
 | `system/useItemSystem/` | 空包；实际的物品使用逻辑写在 `PlayerController.useItem()` 里，`UniversalController.useItem()` 是空方法 |
 | 物理系统（`system/physics/`） | 数据结构齐全，但 `PhysicsStateUpdateEvent` 全项目从未被 post，`PhysicsEventListener` 因此从不触发 |
 | `ActEvent` | 既没有发布方，也没有监听器 |
 | `TurnManager.nextTurn()` | 只 post 一个 `FightPastOneTurnEvent`，没有任何调用方（推进由回合循环自己 `continue`） |
 | 暴击系统 | 没有任何实体设置基础暴击率 → `Math.random() <= 0`，**实际永远不会暴击** |
-| 5 个效果类 | `AttackEnhance`、`IgnoreDefenceEffect`、`CriticalRateEnhanceEffect`、`DefenseEnhanceEffect`、`HpEnhanceEffect` 从未被实例化 |
 
 ### 顺手发现的小毛病（不影响玩，但改的时候别踩）
 

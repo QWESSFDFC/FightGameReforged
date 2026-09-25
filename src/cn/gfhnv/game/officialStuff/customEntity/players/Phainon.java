@@ -58,19 +58,6 @@ public class Phainon extends Player {
     private boolean absorbDamage = false;
     private boolean pendingLastAttack = false;
     private int extraTurns = 0;
-    /**
-     * 变身被打断的那一刻，还剩多少个额外回合（{@link #snapshotInterruptedLastAttack()}）。
-     * <p>
-     * 最后一击是「额外回合剩得越少、打得越狠」
-     * （{@code atkMagnification = 13 × (1 − extraTurns × 0.125)}）。被打断时剩余额外回合会被
-     * 清算掉、{@link #extraTurns} 一起清零，那一击就会从（例如）4.875× 直接变成满倍率 13× ——
-     * 「挨打打断」反而比正常走完更疼。所以打断前先把当时的数字存下来给那一击用。
-     */
-    private int interruptedLastAttackSnapshot = 0;
-    /**
-     * 是否已经为「被打断的那一击」存过快照。
-     */
-    private boolean lastAttackSnapshotTaken = false;
 
     public Phainon(Phainon phainon1) {
         super(phainon1);
@@ -80,8 +67,6 @@ public class Phainon extends Player {
         absorbDamage = phainon1.absorbDamage;
         extraTurns = phainon1.extraTurns;
         pendingLastAttack = phainon1.pendingLastAttack;
-        interruptedLastAttackSnapshot = phainon1.interruptedLastAttackSnapshot;
-        lastAttackSnapshotTaken = phainon1.lastAttackSnapshotTaken;
         skills = new ArrayList<>(this.getController().getSkills());
         coreflame_max = phainon1.coreflame_max;
         soulscorch = phainon1.soulscorch;
@@ -159,8 +144,7 @@ public class Phainon extends Player {
                     }
                     newHp = 1;
                     phainon.setPendingLastAttack(true);
-                    // 顺序要紧：先把当时的额外回合数存下来，再清算（清算会把 extraTurns 清零）
-                    phainon.snapshotInterruptedLastAttack();
+                    // 顺序要紧：先清算掉还没用的额外回合，再把 LastAttack 插进当前回合末尾
                     phainon.clearAwakenExtraTurns();
                     FightTurnPastListener.getPresentTurn().getLastExecuteList().add((fight, user) -> {
                         List<LivingThing> availableTargets;
@@ -219,61 +203,25 @@ public class Phainon extends Player {
     }
 
     /**
-     * 中止变身：把还没走完的额外回合从时间轴上摘掉，并把计数清零。
+     * 中止变身：把还没走完的额外回合从时间轴上摘掉。
      * <p>
-     * 变身被致命伤害打断时用。只清 {@code extraTurns} 或只清技能表都不够：
+     * 变身被致命伤害打断时用。只清技能表或只清计数都不够：
      * 已经排在时间轴上的条目照样会被 {@code turnLoop} 取出来执行，
      * 而 {@code AwakeEndListener} 会把技能表<b>还原</b>成常规技能（不是留空），
      * 于是白厄还会带着全套常规技能继续行动若干回合。
      * <p>
      * 按引用摘除，不按 {@code isExtra} 扫描 —— 那个标记别的体系也在用。
      * <p>
-     * 注意它会连带把 {@link #extraTurns} 清零，所以「被打断后挥出的那一击」的倍率
-     * 必须提前用 {@link #snapshotInterruptedLastAttack()} 存下来。
+     * <b>它不碰 {@link #extraTurns}</b>：那个计数是"变身状态"的一部分，
+     * 清零点只有一个 —— 结束变身的 {@link AwakeEndListener#end(AwakenEndEvent)}。
+     * 计数器留在原值也正好让「被打断后挥出的那一击」按"还剩几个额外回合"算倍率
+     * （{@link LastAttack} 读实时值即可，不需要任何快照）。
      */
     public void clearAwakenExtraTurns() {
         for (TurnEntry entry : awakenExtraTurns) {
             TurnManager.getTurns().remove(entry);
         }
         awakenExtraTurns.clear();
-        extraTurns = 0;
-    }
-
-    /**
-     * 把「被打断那一刻还剩多少额外回合」存下来，供接下来那一击
-     * （{@link LastAttack}）算倍率用。要在 {@link #clearAwakenExtraTurns()} <b>之前</b>调用。
-     * <p>
-     * 每次变身只存一次：{@link AwakeEndListener} 在变身结束时复位快照，
-     * 所以下一次变身会重新取。
-     */
-    public void snapshotInterruptedLastAttack() {
-        if (lastAttackSnapshotTaken) {
-            return;
-        }
-        interruptedLastAttackSnapshot = extraTurns;
-        lastAttackSnapshotTaken = true;
-    }
-
-    /**
-     * @return 有没有为「被打断的那一击」存过快照
-     */
-    public boolean hasInterruptedLastAttackSnapshot() {
-        return lastAttackSnapshotTaken;
-    }
-
-    /**
-     * @return 被打断那一刻剩余的额外回合数（没存过快照时为 0）
-     */
-    public int getInterruptedLastAttackSnapshot() {
-        return interruptedLastAttackSnapshot;
-    }
-
-    /**
-     * 丢弃被打断那一击的倍率快照（变身结束时用）。
-     */
-    public void clearInterruptedLastAttackSnapshot() {
-        interruptedLastAttackSnapshot = 0;
-        lastAttackSnapshotTaken = false;
     }
 
     public boolean isPendingLastAttack() {
@@ -349,7 +297,6 @@ public class Phainon extends Player {
         pendingLastAttack = false;
         this.absorbDamage = false;
         this.clearAwakenExtraTurns();
-        this.clearInterruptedLastAttackSnapshot();
         if (this.isAwaken) {
             EventBus.post(new AwakenEndEvent(this));
         }

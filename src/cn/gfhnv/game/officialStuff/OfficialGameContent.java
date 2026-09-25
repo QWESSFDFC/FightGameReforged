@@ -2,13 +2,16 @@ package cn.gfhnv.game.officialStuff;
 
 import cn.gfhnv.game.mod.Mod;
 import cn.gfhnv.game.officialStuff.customEffect.actorLiXiaoYanEffects.MemorizedHp;
+import cn.gfhnv.game.officialStuff.customEffect.flameReaverEffects.*;
 import cn.gfhnv.game.officialStuff.customEffect.universalEffects.*;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.CommonInsect;
+import cn.gfhnv.game.officialStuff.customEntity.monsters.FlameReaver;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.IceInsect;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.InsectBoss;
 import cn.gfhnv.game.officialStuff.customEntity.players.ActorLiXiaoYan;
 import cn.gfhnv.game.officialStuff.customEntity.players.Phainon;
 import cn.gfhnv.game.officialStuff.customEntity.players.PlayerOne;
+import cn.gfhnv.game.officialStuff.customEntity.summons.BrokenContainer;
 import cn.gfhnv.game.officialStuff.customItem.ANiceSword;
 import cn.gfhnv.game.officialStuff.customItem.potions.*;
 
@@ -40,6 +43,12 @@ public class OfficialGameContent extends Mod {
         this.addEntity(new CommonInsect(150L));
         this.addEntity(new IceInsect(150));
         this.addEntity(new Phainon(125));
+        // 盗火行者（剧情 BOSS）与其召唤物【残破容器】。容器虽然由 BOSS 现场 new 出来，
+        // 也要注册：Fight#addEnemy 会按 id 把短 id 补成完整注册 id。
+        this.addEntity(new FlameReaver(150));
+        this.addEntity(new BrokenContainer(new FlameReaver(150)));
+        // 完整容器是同一个类的另一种"种类"（见 BrokenContainer.Kind）
+        this.addEntity(new BrokenContainer(new FlameReaver(150), BrokenContainer.Kind.COMPLETE));
 
         // 通用效果：任意生物都能获得，/effect 命令可用
         this.addEffect(new DamageEnhanceEffect());
@@ -55,8 +64,17 @@ public class OfficialGameContent extends Mod {
         // 嘲讽：不改属性，只是让 TargetStrategies.tauntAware(...) 这类策略优先选中持有者
         this.addEffect(new Taunt());
 
-        // 角色专属效果：注册进效果表，但不标记为通用，/effect 不会施加
+        // 角色专属效果：注册进效果表，但不标记为通用，/effect 不会施加。
+        // 注册的另一个意义是让运行时实例的 id 被补成完整 id
+        // （World#registeredIdOf 按【类】查表，没注册的运行时效果只能留着短 id）。
         this.addEffect(new MemorizedHp());
+        // 盗火行者专属效果
+        this.addEffect(new Erosion(1));                    // 侵蚀（挂在被击中的我方身上）
+        this.addEffect(new SacrificeRite(SacrificeRite.DEFAULT_LAST_TIME));   // 共祭（挂在容器身上）
+        this.addEffect(new PainEntanglement());            // 苦痛缠绕账本（挂在 BOSS 身上）
+        this.addEffect(new LockedRite(LockedRite.DEFAULT_LAST_TIME));         // 镣锁（二阶段容器）
+        this.addEffect(new ContainerReward(ContainerReward.DEFAULT_ENHANCE,
+                ContainerReward.DEFAULT_LAST_TIME));       // 击杀完整容器的增伤 buff
         System.out.println("游戏自带内容加载完成");
 
     }

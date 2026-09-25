@@ -76,8 +76,17 @@ public class TurnManager {
         t.setNeedTime(t.getNeedTime().multiply(BigDecimal.ONE.subtract(percent)));
     }
 
+    /**
+     * @return 当前时间轴时间
+     * <p>
+     * <b>不会返回 {@code null}</b>：只有 {@link #init(Fight)} 之后 {@code presentTime} 才有值，
+     * 而"先建好战斗、再往时间轴加实体"的场合（自测、手动加实体）不会调用 init。
+     * 那些调用点会把返回值直接塞进 {@link TurnEntry} 的 {@code startTime}，
+     * 一旦是 null，{@link #sort()} 里的 {@code startTime.add(needTime)} 就会抛 NPE。
+     * 所以这里统一兜底成 {@link BigDecimal#ZERO}（时间轴的起点）。
+     */
     public static BigDecimal getPresentTime() {
-        return presentTime;
+        return presentTime == null ? BigDecimal.ZERO : presentTime;
     }
 
     public static void setPresentTime(BigDecimal presentTime) {
