@@ -3,11 +3,18 @@
 暂不接受 Pull Request。如果你有改进想法，请 fork 本仓库后自行修改，自由使用。我只想自己写点东西玩玩.
 使用方法:直接运行.jar文件.可以自己编译或者下载Release中编译好的.但是Release中版本可能落后一点.
 我使用了AI(DeepSeek)写了部分代码.本项目的Javadoc都是ai写的，而且我没有核对，可能有问题.
-其中命令系统（`system/command/` 与 `officialStuff/customCommands/`）的代码、Javadoc 与说明文档
+其中命令系统（`system/command/` 与 `officialStuff/customCommands/` 和模组）的代码、Javadoc 与说明文档
 全部由 AI 编写，详见下面的命令系统一节与 `project_analyses/COMMAND-SYSTEM-2026-08.md`。
+ai代码具体标注
+行动系统我写了第一版(可以正常运行),ai修复了bug,更新了架构(我写的是事件递归).
+盗火行者是ai写的代码.
+白厄第一版是我写的.ai改了bug
+李晓焰(这也是这个项目第一个复杂角色)是ai提供的设计,我写的,之后ai修了bug.
+技能也是我写的 
+AI代码里面好像都标注了(作者DeepSeek)
 思考系统（`system/thinkingSystem/`）也是 AI 写的，其中 `ThinkingControllerAI` 目前还没有任何生物在用，
 实际生效的还是随机行动的 `UniversalController`。
-感觉ai编程太好使了!可以实现自己不会的东西.说起来,这个项目ai代码含量还挺高的.不过我个人感觉无所谓.
+感觉ai编程太好使了!可以实现自己不会的东西.说起来,这个项目ai代码含量还挺高的.不过我个人感觉无所谓.很多有技术力的东西都是ai写的.我是根据玩过的游戏提出的需求,ai实现
 下面是使用AI写的README.md
 
 > 📌 说明：下面这一部分（到「许可证」为止）由 AI 通读**当前源码**后重写，
