@@ -177,7 +177,7 @@ public class ThinkingControllerAI extends UniversalController {
         // ----- 8. 执行最优行动，若无则回退 -----
         if (bestSkill != null && bestTarget != null) {
             System.out.printf("%s 使用 %s 对 %s%n",
-                    self.getName(), bestSkill.getName(), bestTarget.getName());
+                    self.getNameWithSide(), bestSkill.getName(), bestTarget.getNameWithSide());
             bestSkill.use(fight, self, Collections.singletonList(bestTarget));
         } else {
             System.out.println(self.getName() + " 无法决策，执行普通攻击");

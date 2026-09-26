@@ -30,7 +30,6 @@ public class AwakenCommonAttack extends Skill {
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         user.setHp((long) (user.getHp() + user.getHpMax() * 0.2));
         for (LivingThing livingThing : enemies) {
-            System.out.print(user.getName() + "攻击了" + livingThing.getName());
             user.makeDamage(livingThing, this);
         }
         if (user instanceof Phainon) {

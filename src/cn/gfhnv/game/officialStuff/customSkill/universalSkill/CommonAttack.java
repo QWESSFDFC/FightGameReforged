@@ -30,7 +30,6 @@ public class CommonAttack extends Skill {
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         user.addEffect(new DamageEnhanceEffect(1, 1).setOrigin("commonAttack"));
         for (LivingThing livingThing : enemies) {
-            System.out.print(user.getName() + "攻击了" + livingThing.getName());
             user.makeDamage(livingThing, this);
         }
     }

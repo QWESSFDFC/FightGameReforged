@@ -21,6 +21,7 @@ import cn.gfhnv.game.system.thinkingSystem.Tag;
 import cn.gfhnv.game.system.thinkingSystem.TagType;
 import cn.gfhnv.game.system.thinkingSystem.ThinkingController;
 import cn.gfhnv.game.system.thinkingSystem.ThinkingControllerAI;
+import cn.gfhnv.game.utils.ConsoleColor;
 import cn.gfhnv.game.world.World;
 
 import java.util.ArrayList;
@@ -1373,6 +1374,24 @@ public class LivingThing extends Entity {
     }
 
     /**
+     * 名字后面跟上阵营，例如 {@code 张三（我方）}、{@code 火劫卫（敌方）}。
+     * <p>
+     * 战斗日志里同名生物经常分属两边（典型：双方各有一只【残破容器】），
+     * 光看名字分不出谁是谁，所以攻击行这类输出统一带上阵营 ——
+     * 判据借 {@link Fight#sideNameOf(LivingThing)}，与回合头同一套。
+     * 阵营用灰色，免得抢了伤害数字和技能名的注意力。
+     * <p>
+     * 不在战斗里（选人界面之类，{@link #getParticipateFight()} 为 {@code null}）时只返回名字。
+     *
+     * @return 带阵营的名字
+     */
+    public String getNameWithSide() {
+        Fight fight = getParticipateFight();
+        String side = fight == null ? "" : fight.sideNameOf(this);
+        return side.isEmpty() ? getName() : getName() + "（" + ConsoleColor.dim(side) + "）";
+    }
+
+    /**
      * @return 当前携带的效果列表（Buff/Debuff）
      */
     public List<Effect> getEntityEffectList() {
@@ -1643,7 +1662,8 @@ public class LivingThing extends Entity {
         long newHp = this.getHp() - da.getDamage().getDamageAmount();
         newHp = modifyIncomingDamage(newHp, da);
         this.setHp(newHp);
-        System.out.print("剩余HP" + this.getHp());
+        // 打印不在这里做：攻击行的完整文案（攻击者/目标/伤害/剩余 HP/技能名）统一在
+        // makeDamage 里打，其它"直接调 getDamage"的场合（自测等）不需要刷屏。
     }
 
     /**
@@ -1866,16 +1886,49 @@ public class LivingThing extends Entity {
 
     /**
      * 使用技能对目标造成伤害（构造 {@link DamageEvent} 并调用目标的 {@link #getDamage}）。
+     * <p>
+     * <b>攻击行的打印统一在这里做</b>：{@code A（我方）攻击了B（敌方）  -伤害  → HP 当前/上限  【技能名】}。
+     * 以前是"各技能自己 print 前缀 + makeDamage 打伤害 + getDamage 打剩余 HP"三段拼的，
+     * 结果<b>只要哪个技能漏了那句 print，日志里就会冒出一行没有主语的 "  -1109  → HP …"</b>
+     * （实测踩过：{@code Counterattack} 的 6 次追加攻击）。收进来之后谁也漏不了，
+     * 顺带还能把技能名一起打出来。
+     * <p>
+     * 攻守双方都带阵营（见 {@link #getNameWithSide()}）：双方可能有同名生物
+     * （典型是各一只【残破容器】），不带阵营根本分不出是谁打谁。
      *
      * @param attacked 被攻击目标
-     * @param skill    使用的技能
+     * @param skill    使用的技能（用来显示技能名；可为 {@code null}）
      */
     public void makeDamage(LivingThing attacked, Skill skill) {
         DamageEvent damageEvent = new DamageEvent(this, attacked, skill);
         EventBus.post(damageEvent);
-        System.out.print("造成了" + damageEvent.getDamage().getDamageAmount());
+        long hpBefore = attacked.getHp();
         attacked.getDamage(damageEvent);
+        // 打"实际掉血"而不是算出来的值：伤害修正器可能把这一击拦下（免死锁 1 血之类），
+        // 显示实际值才和后面的 HP 对得上（侵蚀那边同理）。
+        printAttackLine(attacked, skill, Math.max(0, hpBefore - attacked.getHp()));
+    }
 
+    /**
+     * 打印一行攻击日志：{@code A（我方）攻击了B（敌方）  -伤害  → HP 当前/上限  【技能名】}。
+     * <p>
+     * 伤害标红、剩余 HP 标灰、技能名标青、阵营标灰（着色能否生效见
+     * {@link cn.gfhnv.game.utils.ConsoleColor}；不支持 ANSI 的控制台会自动退化成纯文本）。
+     *
+     * @param attacked 被打的目标
+     * @param skill    使用的技能；可为 {@code null}
+     * @param damage   实际掉血量
+     */
+    private void printAttackLine(LivingThing attacked, Skill skill, long damage) {
+        StringBuilder line = new StringBuilder(getNameWithSide()).append("攻击了")
+                .append(attacked.getNameWithSide());
+        line.append("  ").append(ConsoleColor.red("-" + damage));
+        line.append("  ").append(ConsoleColor.dim(
+                "→ HP " + attacked.getHp() + "/" + attacked.getHpMax()));
+        if (skill != null && skill.getName() != null) {
+            line.append("  ").append(ConsoleColor.cyan("【" + skill.getName() + "】"));
+        }
+        System.out.println(line);
     }
 
     /**

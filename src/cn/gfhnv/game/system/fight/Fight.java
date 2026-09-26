@@ -35,6 +35,27 @@ public class Fight {
         } else return new ArrayList<>(fighterList);
     }
 
+    /**
+     * 判断一个实体在这局战斗里属于哪一边 —— <b>用词与回合头完全一致</b>（{@code 我方}/{@code 敌方}）。
+     * <p>
+     * 回合头、攻击行、侵蚀行等所有"要标明对象来源"的输出都共用这一个方法，
+     * 免得各处自己判、判出两套口径。
+     * <p>
+     * 判据只有一条：在不在 {@link #getFighterList()} 里 —— 在就是我方。
+     * 注意<b>两个阵营列表都没进去的实体也会被算成敌方</b>（{@link #getOpponentList(LivingThing)}
+     * 的口径同样如此），所以召唤物必须加进召唤者那一侧，否则会被当成敌人打（见 TIPS_FOR_LLM §5.8）。
+     *
+     * @param entity 实体；{@code null} 时返回空串
+     * @return {@code 我方} / {@code 敌方} / {@code ""}（{@code entity} 为 {@code null}）
+     */
+    public String sideNameOf(LivingThing entity) {
+        if (entity == null) {
+            return "";
+        }
+        List<LivingThing> fighters = getFighterList();
+        return fighters != null && fighters.contains(entity) ? "我方" : "敌方";
+    }
+
     @Override
     public String toString() {
         return "Fight{" +

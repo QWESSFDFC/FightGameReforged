@@ -65,7 +65,7 @@ public class Frozen extends Effect {
     @Override
     public void initialEffect(LivingThing thing) {
         applyFrozen(thing);
-        System.out.println(thing.getName() + "被冰冻");
+        System.out.println(thing.getNameWithSide() + "被冰冻");
     }
 
 
@@ -80,7 +80,7 @@ public class Frozen extends Effect {
     @Override
     public void comeIntoEffect(LivingThing thing) {
         applyFrozen(thing);
-        System.out.println(thing.getName() + "冰冻中");
+        System.out.println(thing.getNameWithSide() + "冰冻中");
     }
 
 

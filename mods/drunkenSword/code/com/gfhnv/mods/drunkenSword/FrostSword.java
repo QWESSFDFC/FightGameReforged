@@ -115,9 +115,7 @@ public class FrostSword extends Skill {
                 if (target == null || !target.isAlive()) {
                     continue;
                 }
-                System.out.print(user.getName() + "攻击了" + target.getName());
                 user.makeDamage(target, strike);
-                System.out.println();
             }
         }
 

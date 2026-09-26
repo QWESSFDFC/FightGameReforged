@@ -42,7 +42,6 @@ public class UltimateAttack extends Skill {
             enhanced = true;
         }
         for (LivingThing livingThing : enemies) {
-            System.out.print(user.getName() + "攻击了" + livingThing.getName());
             user.makeDamage(livingThing, this);
         }
         MemorizedHp memorizedHp = new MemorizedHp();

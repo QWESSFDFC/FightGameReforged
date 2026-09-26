@@ -43,12 +43,22 @@ public class RestorationHealthSkill extends Skill {
         return false;
     }
 
+    /**
+     * 给每个目标回血并打一行日志。
+     * <p>
+     * 施法者与目标的名字都带阵营（见 {@link LivingThing#getNameWithSide()}）：
+     * 治疗对象可能是我方也可能被拿去奶对面，不带阵营看不出来。
+     *
+     * @param fight   当前战斗上下文
+     * @param user    施法者
+     * @param enemies 目标列表
+     */
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         long restoredHP = (long) (user.getHp() * this.getHpMagnification() + user.getDefence() * this.getDefMagnification() + user.getAttack() * this.getAtkMagnification());
         for (LivingThing e : enemies) {
             e.setHp(e.getHp() + restoredHP);
-            System.out.println(user.getName() + "为" + e.getName() + "恢复了" + restoredHP + "点生命值");
+            System.out.println(user.getNameWithSide() + "为" + e.getNameWithSide() + "恢复了" + restoredHP + "点生命值");
         }
 
     }

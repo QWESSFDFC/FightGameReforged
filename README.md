@@ -371,7 +371,7 @@ FightGameReforged/
 │   │   │   ├── thinkingSystem/   # Tag / TagType / ThinkingController / ThinkingControllerAI（Utility AI）
 │   │   │   ├── ElementSort.java  # 金木水火土（+ UNIVERSAL）
 │   │   │   └── useItemSystem/    # 空包（"使用物品"的系统还没做，预留位置）
-│   │   ├── utils/                # JSONHelper（org.json 薄封装）
+│   │   ├── utils/                # JSONHelper（org.json 薄封装）、ConsoleColor（ANSI 着色，不引第三方库）
 │   │   └── world/                # World：全局注册表（实体/物品/效果/模组/运行时对象）
 │   └── debug_tools/              # 调试与自测程序（不需要玩就能跑：命令系统自测、预期伤害试算、行动条实验）
 ├── mods/                # 外部模组目录（两个示例模组 + 「醉剑仙」完整示例；各模组的 bin/ 是编译产物）

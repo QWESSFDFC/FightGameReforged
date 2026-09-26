@@ -45,7 +45,6 @@ public class PyrohemicPumping extends Skill {
         }
 
         for (LivingThing livingThing : enemies) {
-            System.out.print(user.getName() + "攻击了" + livingThing.getName());
             user.makeDamage(livingThing, this);
         }
 

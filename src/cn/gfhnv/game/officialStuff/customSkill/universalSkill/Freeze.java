@@ -24,11 +24,21 @@ public class Freeze extends Skill {
         return new Freeze();
     }
 
+    /**
+     * 冰冻所有被指定的目标，每个目标打一行日志。
+     * <p>
+     * 顺手修了两个小毛病：原来第二行用的是 {@code printf} 且格式里没有换行符，
+     * 冻两个目标时那一行会和后面的输出挤在同一行；现在统一用 {@code println}。
+     * 施法者与目标的名字都带上阵营（见 {@link LivingThing#getNameWithSide()}）。
+     *
+     * @param fight   当前战斗上下文
+     * @param user    施法者
+     * @param enemies 目标列表
+     */
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
-        System.out.println(user.getName() + "冰冻了" + enemies.get(0).getName());
-        if (enemies.size() == 2) System.out.printf(user.getName() + "冰冻了" + enemies.get(1).getName());
         for (LivingThing livingThing : enemies) {
+            System.out.println(user.getNameWithSide() + "冰冻了" + livingThing.getNameWithSide());
             livingThing.addEffect(new Frozen().setOrigin(user.getUUID()));
         }
     }

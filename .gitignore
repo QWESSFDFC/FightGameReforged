@@ -55,3 +55,5 @@ build-input/
 sources.txt
 
 /TIPS_FOR_LLM.md
+/fight-log.txt
+/gradle/wrapper/gradle-wrapper.properties

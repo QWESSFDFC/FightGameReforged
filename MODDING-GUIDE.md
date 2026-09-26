@@ -205,13 +205,19 @@ public class RaiseCup extends Skill {
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         for (LivingThing target : enemies) {
-            System.out.print(user.getName() + "攻击了" + target.getName());
-            user.makeDamage(target, this);     // 伤害在这里结算
-            System.out.println();
+            user.makeDamage(target, this);     // 伤害 + 攻击行（含技能名）都由它打印
         }
     }
 }
 ```
+
+> **攻击行不要自己打**：`makeDamage` 会打印整行
+> `A（我方）攻击了B（敌方）  -伤害  → HP 当前/上限  【技能名】`（伤害标红、HP 标灰、
+> 技能名标青、阵营标灰；不支持 ANSI 的控制台自动退化成纯文本，见 `utils/ConsoleColor`）。
+> 阵营由 `Fight#sideNameOf` 判定（在 `fighterList` 里就是我方），与回合头同一套；
+> 召唤物忘了加进召唤者那一侧时，这里也会跟着显示成敌人 —— 正好当了报警器。
+> 自己再 `print("A攻击了B")` 就会重复；漏了又会得到一行没有主语的 `  -1109  → HP …`
+> （官方代码里 `Counterattack` 就这样漏过）。
 
 - **目标数**：`0` = 自己（控制器会调 `use(fight, user)` 两个参数的重载）、
   `-1` = 全体、正数 = 需要选 N 个目标；

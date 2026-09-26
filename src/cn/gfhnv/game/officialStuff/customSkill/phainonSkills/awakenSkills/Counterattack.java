@@ -44,7 +44,6 @@ public class Counterattack extends Skill {
         this.setAtkMagnification(this.getAtkMagnification() * (1 + soulscorch * 0.2));
         randomMag = randomMag * (1 + soulscorch * 0.2);
         for (LivingThing livingThing : enemies) {
-            System.out.print(user.getName() + "攻击了" + livingThing.getName());
             user.makeDamage(livingThing, this);
         }
         this.setAtkMagnification(randomMag);

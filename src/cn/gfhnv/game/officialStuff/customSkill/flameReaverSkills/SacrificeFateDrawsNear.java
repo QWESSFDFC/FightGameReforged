@@ -94,7 +94,7 @@ public class SacrificeFateDrawsNear extends FlameReaverSkill {
             rate = Math.max(MIN_EROSION_RATE, Math.min(MAX_EROSION_RATE, rate));
             // 按目标合并：同一个目标身上只留一条【侵蚀】，重复击中只刷新（见 Erosion#applyTo）
             Erosion applied = Erosion.applyTo(target, rate, EROSION_LAST_TIME, origin);
-            System.out.println(target.getName() + "感染了【侵蚀】（每回合流失已损失生命值的 "
+            System.out.println(target.getNameWithSide() + "感染了【侵蚀】（每回合流失已损失生命值的 "
                     + Math.round(applied.getRate() * 100) + "%，持续 " + applied.getLastTime() + " 回合）");
         }
     }

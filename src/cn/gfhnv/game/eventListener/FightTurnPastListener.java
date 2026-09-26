@@ -12,6 +12,8 @@ import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.fight.ActionSignal;
 import cn.gfhnv.game.system.fight.TurnEntry;
 import cn.gfhnv.game.system.fight.TurnManager;
+import cn.gfhnv.game.system.mana.Mana;
+import cn.gfhnv.game.utils.ConsoleColor;
 import cn.gfhnv.game.world.World;
 
 import java.math.BigDecimal;
@@ -70,6 +72,22 @@ public class FightTurnPastListener {
         }
         String uuid = thing.getUUID();
         return uuid.length() <= 6 ? uuid : uuid.substring(0, 6);
+    }
+
+    /**
+     * 把一条法力压成短数字（只用于那行紧凑的状态栏）。
+     * <p>
+     * 只显示当前值不显示上限：上限是固定的（主元素 {@code 成长×(等级-1)+200}），
+     * 每回合都打"616.0/616.0"这种没有任何信息量的重复文本，纯属费眼睛。
+     *
+     * @param mana 法力；可为 {@code null}
+     * @return 当前值（取整）
+     */
+    private static long manaOf(Mana mana) {
+        if (mana == null) {
+            return 0;
+        }
+        return (long) mana.getAmount();
     }
 
     /**
@@ -173,19 +191,19 @@ public class FightTurnPastListener {
                 presentTurn.getLivingThing().recoverManaEveryTurn();
                 System.out.println();
                 World.turnTimer++;
-                System.out.println("现在是" + presentTurn.getLivingThing().getName()
-                        + "#" + shortUuid(presentTurn.getLivingThing()) + "的回合");
-                if(fightPastOneTurnEvent.getFight().getFighterList().contains(presentTurn.getLivingThing()))
-                    System.out.print("这是我方");
-                else System.out.print("这是敌方");
-                System.out.printf("状态:");
-                System.out.println("HP:" + presentTurn.getLivingThing().getHp() + "/" + presentTurn.getLivingThing().getHpMax());
-                System.out.println("能量");
-                System.out.println("金" + presentTurn.getLivingThing().getMetalMana().getAmount() + "/" + presentTurn.getLivingThing().getMetalMana().getAmountMax());
-                System.out.println("木" + presentTurn.getLivingThing().getWoodMana().getAmount() + "/" + presentTurn.getLivingThing().getWoodMana().getAmountMax());
-                System.out.println("水" + presentTurn.getLivingThing().getWaterMana().getAmount() + "/" + presentTurn.getLivingThing().getWaterMana().getAmountMax());
-                System.out.println("火" + presentTurn.getLivingThing().getFireMana().getAmount() + "/" + presentTurn.getLivingThing().getFireMana().getAmountMax());
-                System.out.println("土" + presentTurn.getLivingThing().getDirtMana().getAmount() + "/" + presentTurn.getLivingThing().getDirtMana().getAmountMax());
+                LivingThing actor = presentTurn.getLivingThing();
+                // 阵营判据统一走 Fight#sideNameOf：攻击行、侵蚀行用的是同一个方法，
+                // 别在这里再自己判一遍（两套口径迟早会漂）。
+                String actorSide = fightPastOneTurnEvent.getFight().sideNameOf(actor);
+                // 回合头 + 状态压成两行（以前是"回合头 + 我方/敌方 + 状态 + 能量 + 五行各一行"= 7 行，
+                // 每回合都刷一遍太费眼睛）。用户自己加的"我方/敌方"信息并进回合头，别丢。
+                System.out.println(ConsoleColor.cyan("─── 现在是 " + actor.getName() + "#" + shortUuid(actor)
+                        + "（" + actorSide + "）的回合 ───"));
+                System.out.println("HP " + actor.getHp() + "/" + actor.getHpMax() + "   能量 金" + manaOf(actor.getMetalMana())
+                        + " 木" + manaOf(actor.getWoodMana())
+                        + " 水" + manaOf(actor.getWaterMana())
+                        + " 火" + manaOf(actor.getFireMana())
+                        + " 土" + manaOf(actor.getDirtMana()));
                 if (!presentTurn.getFirstExecuteList().isEmpty()) {
                     for (ISpecialAction iSpecialAction : presentTurn.getFirstExecuteList()) {
                         iSpecialAction.execute(fightPastOneTurnEvent.getFight(), presentTurn.getLivingThing());

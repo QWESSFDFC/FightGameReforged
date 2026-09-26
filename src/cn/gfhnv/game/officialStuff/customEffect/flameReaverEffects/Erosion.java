@@ -3,6 +3,7 @@ package cn.gfhnv.game.officialStuff.customEffect.flameReaverEffects;
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.effect.EffectTags;
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.utils.ConsoleColor;
 
 /**
  * 【侵蚀】—— 盗火行者的专属负面效果。
@@ -158,8 +159,13 @@ public class Erosion extends Effect {
         if (damage <= 0) {
             return;
         }
-        long newHp = Math.max(1, thing.getHp() - damage);
-        System.out.println("【侵蚀】侵蚀了" + thing.getName() + "造成" + (thing.getHp() - newHp) + "点伤害");
+        long oldHp = thing.getHp();
+        long newHp = Math.max(1, oldHp - damage);
         thing.setHp(newHp);
+        // 与普通攻击行同一套格式：`【侵蚀】<目标>（阵营）  -实际掉血  → HP 当前/上限`
+        // 掉血要按"实际值"打（被"至少留 1 点"夹住时，想扣的和真扣的不一样）
+        System.out.println(ConsoleColor.magenta("【侵蚀】") + thing.getNameWithSide() + "  "
+                + ConsoleColor.red("-" + (oldHp - newHp)) + "  "
+                + ConsoleColor.dim("→ HP " + thing.getHp() + "/" + thing.getHpMax()));
     }
 }

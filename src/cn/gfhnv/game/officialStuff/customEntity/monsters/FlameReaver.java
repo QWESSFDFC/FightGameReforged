@@ -15,6 +15,7 @@ import cn.gfhnv.game.system.fight.ActionSignal;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.fight.TurnEntry;
 import cn.gfhnv.game.system.fight.TurnManager;
+import cn.gfhnv.game.utils.ConsoleColor;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -470,8 +471,8 @@ public class FlameReaver extends LivingThing {
             container.enterSacrifice(SacrificeRite.DEFAULT_LAST_TIME, getUUID());
             consumeSacrificeWindow();
         }
-        System.out.println(getName() + "消耗" + realCost + "点生命召唤了【" + kind.displayName()
-                + "】（苦痛缠绕 " + getPainTangled() + "）");
+        System.out.println(ConsoleColor.yellow(getName() + "消耗" + realCost + "点生命召唤了【" + kind.displayName()
+                + "】（苦痛缠绕 " + getPainTangled() + "）"));
         return container;
     }
 
@@ -608,7 +609,7 @@ public class FlameReaver extends LivingThing {
         // 增伤会随战斗结束立刻到期，排出来的额外回合会被 TurnManager#removeTheDeath 摘掉。
         // 与其在日志里报一条"获得了一个额外回合"的假消息，不如直接不发。
         if (!killer.isAlive()) {
-            System.out.println("【完整容器】被击碎，但击杀者已经倒下，奖励未发放（" + killer.getName() + "）");
+            System.out.println("【完整容器】被击碎，但击杀者已经倒下，奖励未发放（" + killer.getNameWithSide() + "）");
             return;
         }
         killer.addEffect(new ContainerReward(ContainerReward.DEFAULT_ENHANCE,
@@ -639,7 +640,7 @@ public class FlameReaver extends LivingThing {
                 .setExtra(true);
         TurnManager.getTurns().add(extraTurn);
         TurnManager.sort();
-        System.out.println("【" + beneficiary.getName() + "】获得了一个额外回合");
+        System.out.println(ConsoleColor.yellow("【" + beneficiary.getName() + "】获得了一个额外回合"));
     }
 
     /**
@@ -790,9 +791,7 @@ public class FlameReaver extends LivingThing {
             if (target == null || !target.isAlive()) {
                 continue;
             }
-            System.out.print(getName() + "攻击了" + target.getName());
             this.makeDamage(target, joint);
-            System.out.println();
         }
     }
 
@@ -879,7 +878,7 @@ public class FlameReaver extends LivingThing {
             System.out.println("【完整容器】被吸收，" + getName() + "额外获得【灾难之力】");
         }
         addDisasterPower(1);
-        System.out.println(getName() + "吸收了【残破容器】，回复" + heal + "点生命并获得1层【灾难之力】");
+        System.out.println(ConsoleColor.green(getName() + "吸收了【残破容器】，回复" + heal + "点生命并获得1层【灾难之力】"));
         return heal;
     }
 
@@ -998,8 +997,8 @@ public class FlameReaver extends LivingThing {
     private void enterPhaseTwo() {
         this.phaseTwo = true;
         this.addDamageReduction(PHASE_TWO_REDUCTION_KEY, PHASE_TWO_DAMAGE_REDUCTION);
-        System.out.println("【" + getName() + "】进入二阶段：获得高额免伤（"
-                + Math.round(PHASE_TWO_DAMAGE_REDUCTION * 100) + "%）");
+        System.out.println(ConsoleColor.yellow("【" + getName() + "】进入二阶段：获得高额免伤（"
+                + Math.round(PHASE_TWO_DAMAGE_REDUCTION * 100) + "%）"));
         if (getController() instanceof FixOrderController controller) {
             controller.setRotationByName(rotationNames());
         }

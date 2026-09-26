@@ -86,16 +86,16 @@ public class GameMain {
         System.out.println("好的." + userName + ".这是一款文字战斗游戏马上你可以选择你的角色和你的敌人,甚至是你的奖励");
         startAFight();
         do {
-            System.out.println("要不要再玩一局?输入no退出游戏.yes继续." + GameMain.userName);
+            System.out.println("要不要再玩一局?输入no/n/exit/e退出游戏.yes/y继续." + GameMain.userName);
             input = SCANNER.nextLine();
             if (CommandManager.process(input)) {
                 // 这一行是命令，已经执行过了，继续问「要不要再玩一局」
                 continue;
             }
-            if (input.equalsIgnoreCase("yes")) {
+            if (input.equalsIgnoreCase("yes")||input.equalsIgnoreCase("y")) {
                 GameMain.startAFight();
             }
-        } while (!input.equalsIgnoreCase("no"));
+        } while (!input.equalsIgnoreCase("no")&&!input.equalsIgnoreCase("n")&&!input.equalsIgnoreCase("e")&&!input.equalsIgnoreCase("exit"));
     }
 
     /**
@@ -143,7 +143,7 @@ public class GameMain {
         String input = "";
         LivingThing selectedLivingThing = null;
         Item selectedItem = null;
-        System.out.println("首先让我们从选择你的角色开始.可以选择任意数量的角色.这是角色列表.->输入角色名字前的数字来选择<-.\n输入next下一步,quit退出游戏");
+        System.out.println("首先让我们从选择你的角色开始.可以选择任意数量的角色.这是角色列表.->输入角色名字前的数字来选择<-.\n输入next/n下一步,quit/q退出游戏");
         System.out.println("选择一名角色之后你可以获得其介绍,之后再输入yes来把其加入到队伍中,输入no返回上一步");
         while (true) {
             if (!enemies.isEmpty() && !fighters.isEmpty()) {
@@ -158,10 +158,10 @@ public class GameMain {
             }
             while (true) {
                 input = readInput();
-                if (input.equalsIgnoreCase("quit")) {
+                if (input.equalsIgnoreCase("quit")||input.equalsIgnoreCase("q")) {
                     System.exit(0);
                 }
-                if (input.equalsIgnoreCase("next")) {
+                if (input.equalsIgnoreCase("next")||input.equalsIgnoreCase("n")) {
                     break;
                 }
                 try {
@@ -170,25 +170,25 @@ public class GameMain {
                     System.out.println(selectedLivingThing.getDescription());
                     while (true) {
                         input = readInput();
-                        if (input.equalsIgnoreCase("yes")) {
+                        if (input.equalsIgnoreCase("yes")||input.equalsIgnoreCase("y")) {
                             World.addThing(selectedLivingThing);
-                            System.out.println("输入下一个数字或next");
+                            System.out.println("输入下一个数字或next/n");
                             fighters.add(selectedLivingThing);
                             // 让命令系统知道「谁在玩」，@s / @p 等选择器以它为参照
                             CommandManager.setPlayer(selectedLivingThing);
 
                             break;
                         }
-                        if (input.equalsIgnoreCase("no")) {
+                        if (input.equalsIgnoreCase("no")||input.equalsIgnoreCase("n")) {
                             selectedLivingThing = null;
-                            System.out.println("输入下一个数字或next");
+                            System.out.println("输入下一个数字或next/n");
                             break;
                         }
                     }
                 } catch (Exception e) {
                     System.out.println("输入错误");
                     selectedLivingThing = null;
-                    System.out.println("输入下一个数字或next");
+                    System.out.println("输入下一个数字或next/n");
                 }
             }
 
@@ -200,10 +200,10 @@ public class GameMain {
             }
             while (true) {
                 input = readInput();
-                if (input.equalsIgnoreCase("quit")) {
+                if (input.equalsIgnoreCase("quit")||input.equalsIgnoreCase("q")) {
                     System.exit(0);
                 }
-                if (input.equalsIgnoreCase("next")) {
+                if (input.equalsIgnoreCase("next")||input.equalsIgnoreCase("n")) {
                     break;
                 }
                 try {
@@ -212,22 +212,22 @@ public class GameMain {
                     System.out.println(selectedLivingThing.getDescription());
                     while (true) {
                         input = readInput();
-                        if (input.equalsIgnoreCase("yes")) {
+                        if (input.equalsIgnoreCase("yes")||input.equalsIgnoreCase("y")) {
                             World.addThing(selectedLivingThing);
                             enemies.add(selectedLivingThing);
-                            System.out.println("输入下一个数字或next");
+                            System.out.println("输入下一个数字或next/n");
                             break;
                         }
-                        if (input.equalsIgnoreCase("no")) {
+                        if (input.equalsIgnoreCase("no")||input.equalsIgnoreCase("n")) {
                             selectedLivingThing = null;
-                            System.out.println("输入下一个数字或next");
+                            System.out.println("输入下一个数字或next/n");
                             break;
                         }
                     }
                 } catch (Exception e) {
                     System.out.println("输入错误");
                     selectedLivingThing = null;
-                    System.out.println("输入下一个数字或next");
+                    System.out.println("输入下一个数字或next/n");
                 }
             }
 
@@ -240,10 +240,10 @@ public class GameMain {
             }
             while (true) {
                 input = readInput();
-                if (input.equalsIgnoreCase("quit")) {
+                if (input.equalsIgnoreCase("quit")||input.equalsIgnoreCase("q")) {
                     System.exit(0);
                 }
-                if (input.equalsIgnoreCase("next")) {
+                if (input.equalsIgnoreCase("next")||input.equalsIgnoreCase("n")) {
                     break;
                 }
                 try {
@@ -251,22 +251,22 @@ public class GameMain {
                     System.out.println(selectedItem.getDescription());
                     while (true) {
                         input = readInput();
-                        if (input.equalsIgnoreCase("yes")) {
+                        if (input.equalsIgnoreCase("yes")||input.equalsIgnoreCase("y")) {
                             World.addThing(selectedItem);
                             rewards.add(selectedItem);
-                            System.out.println("输入下一个数字或next");
+                            System.out.println("输入下一个数字或next/n");
                             break;
                         }
-                        if (input.equalsIgnoreCase("no")) {
+                        if (input.equalsIgnoreCase("no")||input.equalsIgnoreCase("n")) {
                             selectedItem = null;
-                            System.out.println("输入下一个数字或next");
+                            System.out.println("输入下一个数字或next/n");
                             break;
                         }
                     }
                 } catch (Exception e) {
                     System.out.println("输入错误");
                     selectedItem = null;
-                    System.out.println("输入下一个数字或next");
+                    System.out.println("输入下一个数字或next/n");
                 }
             }
         }

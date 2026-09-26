@@ -53,7 +53,6 @@ public class FoundationStardeathVerdict extends Skill {
                 }
                 Collections.shuffle(e);
                 LivingThing livingThing = e.getFirst();
-                System.out.print(user.getName() + "攻击了" + livingThing.getName());
                 user.makeDamage(livingThing, this);
             }
             if (scourge != 4) {
@@ -62,7 +61,6 @@ public class FoundationStardeathVerdict extends Skill {
             }
             this.setAtkMagnification((double) 6 / e.size());
             for (LivingThing livingThing : e) {
-                System.out.print(user.getName() + "攻击了" + livingThing.getName());
                 user.makeDamage(livingThing, this);
             }
 
