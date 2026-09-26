@@ -181,17 +181,39 @@ public class BrokenContainer extends LivingThing {
     private long painCost = 0;
 
     /**
+     * 共祭这一轮"一同攻击"的<b>共同目标</b>，由
+     * {@code FlameReaver#absorbSacrificedContainers} 在让容器出手前临时设置、出手后清掉。
+     * <p>
+     * 为什么需要它：容器的招式是"用自己的控制器出手"的，目标也就由控制器随机挑 ——
+     * 结果同一轮共祭里几只容器各打各的（实测日志里同一轮出现好几个不同目标）。
+     * 官方是"与盗火行者<b>一同</b>施放"，所以改成 BOSS 选一次目标、容器照打
+     * （技能侧看 {@code FlameReaverSkill#jointTargetsOr}）。
+     * 这是运行时状态，不进拷贝构造器。
+     */
+    private List<LivingThing> jointTargets;
+
+    /**
      * 容器的生命上限占盗火行者最大生命的比例。
      * <p>
-     * 12%：容器太脆的话"吸收"永远来不及发生（玩家一个多目标技能就清场），
-     * 苦痛缠绕的账本也就形同虚设；太厚又会让清场变成负担。12% 大约要玩家花 2~3 次攻击。
+     * 容器太脆的话"吸收"永远来不及发生（玩家一个多目标技能就清场），
+     * 苦痛缠绕的账本也就形同虚设；太厚又会让清场变成负担。
+     * <p>
+     * 15%（2026-09 用户要求"容器本体加强"时从 12% 提到这里）：
+     * 取消召唤上限之后容器会越积越多，单只更耐打一点，玩家的多目标技能就"清不完"，
+     * 必须专门分火力去打 —— 这样"清场"才是一个要做的决策，而不是顺手就清掉了。
+     * 80000 血的 BOSS 下 = 12000 血。
      */
-    public static final double HP_RATIO = 0.12;
+    public static final double HP_RATIO = 0.15;
 
     /**
      * 容器的攻击占盗火行者攻击的比例。
+     * <p>
+     * 30% → <b>40%</b>（2026-09 用户要求"容器本体加强"）。
+     * 注意容器的输出走的是【共祭 · 亡死的黑云】/【共祭 · 将尽的命数】，
+     * 那两个技能的倍率本身只有 0.1×，所以这里提到 40% 之后单次仍然很轻
+     * （≈ BOSS 攻击的 4%），真正的压力来自"容器多了以后每轮一起打"。
      */
-    public static final double ATTACK_RATIO = 0.3;
+    public static final double ATTACK_RATIO = 0.4;
 
     /**
      * 【完整容器】的生命占盗火行者最大生命的比例（比残破容器厚得多，所以更难清掉）。
@@ -334,6 +356,23 @@ public class BrokenContainer extends LivingThing {
      */
     public FlameReaver getOwner() {
         return owner;
+    }
+
+    /**
+     * @return 共祭这一轮的共同目标；不在共祭结算中时为 {@code null}
+     */
+    public List<LivingThing> getJointTargets() {
+        return jointTargets;
+    }
+
+    /**
+     * 设置/清除共祭这一轮的共同目标。由 {@code FlameReaver#absorbSacrificedContainers} 调用，
+     * 出手前设、出手后立刻清（{@code null}），免得影响容器自己回合里的正常取目标。
+     *
+     * @param jointTargets 共同目标；{@code null} 表示恢复正常取目标
+     */
+    public void setJointTargets(List<LivingThing> jointTargets) {
+        this.jointTargets = jointTargets;
     }
 
     /**

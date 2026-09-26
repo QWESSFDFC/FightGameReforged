@@ -1160,6 +1160,84 @@ public class TestCommandSystem {
             }
             check("完整容器奖励：重复触发不会叠加（applied 标记）",
                     Math.abs(rewardProbe.getEnhance() - afterFirst) < 1e-9);
+
+            // ⑦ 【沉默的悲叹】的"下次行动延后 100%"：两种路径都真的生效
+            //    路径 A：时间轴上没有自己的回合（= 正在自己的回合里）→ 自己排一个双倍间隔的，
+            //           并把本回合信号设成 SKIP_WITHOUT_NEW_TURN，免得循环再排一条正常间隔的
+            cn.gfhnv.game.system.fight.TurnManager.getTurns()
+                    .removeIf(t -> t != null && t.getLivingThing() == boss);
+            java.math.BigDecimal normalNeed = java.math.BigDecimal.valueOf(10000)
+                    .divide(java.math.BigDecimal.valueOf(boss.getSpeed()), 10, java.math.RoundingMode.HALF_UP);
+            cn.gfhnv.game.system.fight.TurnEntry fakePresentTurn =
+                    new cn.gfhnv.game.system.fight.TurnEntry(boss, normalNeed, java.math.BigDecimal.ZERO);
+            cn.gfhnv.game.eventListener.FightTurnPastListener.setPresentTurn(fakePresentTurn);
+            boss.delayNextOwnTurn(java.math.BigDecimal.ONE);
+            cn.gfhnv.game.system.fight.TurnEntry delayed =
+                    cn.gfhnv.game.system.fight.TurnManager.getNextTurnOf(boss);
+            check("延后：时间轴上没有自己的回合时，自己排一条（间隔 ×2）",
+                    delayed != null && delayed.getNeedTime()
+                            .compareTo(normalNeed.multiply(java.math.BigDecimal.TWO)) == 0);
+            check("延后：本回合信号被设成 SKIP_WITHOUT_NEW_TURN（否则循环还会再排一条）",
+                    fakePresentTurn.getActionSignal() == cn.gfhnv.game.system.fight.ActionSignal.SKIP_WITHOUT_NEW_TURN);
+
+            //    路径 B：时间轴上已经有自己的回合 → 直接把那一条的间隔再乘 2
+            java.math.BigDecimal beforeDelay = delayed == null ? java.math.BigDecimal.ZERO : delayed.getNeedTime();
+            boss.delayNextOwnTurn(java.math.BigDecimal.ONE);
+            check("延后：已有待执行回合时，把那一条的间隔再乘 2",
+                    delayed != null && delayed.getNeedTime()
+                            .compareTo(beforeDelay.multiply(java.math.BigDecimal.TWO)) == 0);
+
+            // 收尾：把这两条探测用的时间轴条目与自己塞的"当前回合"都还原掉
+            cn.gfhnv.game.system.fight.TurnManager.getTurns()
+                    .removeIf(t -> t != null && t.getLivingThing() == boss);
+            cn.gfhnv.game.eventListener.FightTurnPastListener.setPresentTurn(null);
+
+            // ⑧ 【侵蚀】按目标合并：不同来源重复施加只刷新同一条（否则一回合会连跳好几次）
+            LivingThing erosionProbe = new PlayerOne(125).copy();
+            erosionProbe.setName("侵蚀探针");
+            cn.gfhnv.game.officialStuff.customEffect.flameReaverEffects.Erosion firstErosion =
+                    cn.gfhnv.game.officialStuff.customEffect.flameReaverEffects.Erosion
+                            .applyTo(erosionProbe, 0.05, 3, "来源甲");
+            cn.gfhnv.game.officialStuff.customEffect.flameReaverEffects.Erosion secondErosion =
+                    cn.gfhnv.game.officialStuff.customEffect.flameReaverEffects.Erosion
+                            .applyTo(erosionProbe, 0.03, 2, "来源乙");
+            int erosionCount = 0;
+            for (cn.gfhnv.game.effect.Effect each : erosionProbe.getEntityEffectList()) {
+                if (each instanceof cn.gfhnv.game.officialStuff.customEffect.flameReaverEffects.Erosion) {
+                    erosionCount++;
+                }
+            }
+            check("侵蚀：不同来源重复施加只留一条（刷新，而不是并列好几条）",
+                    firstErosion != null && firstErosion == secondErosion && erosionCount == 1);
+            check("侵蚀：刷新时强度取较大者、持续回合取较长者",
+                    secondErosion != null && Math.abs(secondErosion.getRate() - 0.05) < 1e-9
+                            && secondErosion.getLastTime() == 3);
+
+            // ⑨ 共祭那一轮：BOSS 自己也参与攻击，而且所有容器打<b>同一批目标</b>
+            //    （以前容器各自随机挑目标、BOSS 完全不攻击 —— 用户 2026-09 实测指出）
+            List<LivingThing> jointTargets = boss.pickJointTargets(fight);
+            check("共祭：共同目标由 BOSS 选一次（对面只有测试玩家时就是 1 个）",
+                    jointTargets.size() == 1 && jointTargets.contains(hero));
+            long hpBeforeJoint = hero.getHp();
+            int absorbedByJoint = boss.absorbSacrificedContainers(fight, new ArrayList<>(List.of(container)));
+            check("共祭：BOSS 本体也参与了这一轮攻击（测试玩家掉血），随后容器被吸收",
+                    absorbedByJoint == 1 && hero.getHp() < hpBeforeJoint);
+
+            // ⑩ 召唤物的阵营要跟着召唤者走：盗火行者也能被选成玩家角色（镜像对局），
+            //    那时它的容器必须进【我方】—— 否则 getOpponentList(容器) 会落到 else 分支
+            //    返回【我方】，变成"自家容器打自家队伍"，还会给自家 BOSS 叠一条 origin 不同的侵蚀。
+            FlameReaver allyBoss = new FlameReaver(150);
+            fight.addFighter(allyBoss);
+            cn.gfhnv.game.officialStuff.customEntity.summons.BrokenContainer allyContainer =
+                    allyBoss.summonContainer(fight);
+            check("召唤物阵营：玩家侧 BOSS 召唤的容器进【我方】",
+                    allyContainer != null && fight.getFighterList().contains(allyContainer));
+            check("召唤物阵营：它的对手是【敌方】（不会打自己人）",
+                    allyContainer != null && fight.getOpponentList(allyContainer).contains(boss)
+                            && !fight.getOpponentList(allyContainer).contains(allyBoss));
+            // 收尾：这两个探测实体排在时间轴上的回合条目也清掉
+            cn.gfhnv.game.system.fight.TurnManager.getTurns().removeIf(t -> t != null
+                    && (t.getLivingThing() == allyBoss || t.getLivingThing() == allyContainer));
         } catch (Exception e) {
             fail("阵营测试抛出异常：" + e);
         }

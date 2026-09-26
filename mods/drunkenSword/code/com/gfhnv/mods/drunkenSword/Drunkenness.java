@@ -175,6 +175,9 @@ public class Drunkenness extends Effect {
         Drunkenness drunkenness = of(thing);
         if (drunkenness == null) {
             drunkenness = new Drunkenness();
+            // origin 记持有者自己的 UUID（醉意是自己喝出来的）：Effect#equals 用 id + origin 判等，
+            // 于是同一个人再加层时认得出"还是同一条"，不会叠出第二份
+            drunkenness.setOrigin(thing.getUUID());
             thing.addEffect(drunkenness);
             // addEffect 可能因为身上已经有一条等价效果而没把新实例加进去，这里重新取一次
             drunkenness = of(thing);

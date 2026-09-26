@@ -2,6 +2,7 @@ package cn.gfhnv.game.officialStuff.customEntity.monsters;
 
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entityController.FixOrderController;
+import cn.gfhnv.game.eventListener.FightTurnPastListener;
 import cn.gfhnv.game.officialStuff.customEffect.flameReaverEffects.ContainerReward;
 import cn.gfhnv.game.officialStuff.customEffect.flameReaverEffects.LockedRite;
 import cn.gfhnv.game.officialStuff.customEffect.flameReaverEffects.PainEntanglement;
@@ -10,11 +11,13 @@ import cn.gfhnv.game.officialStuff.customEntity.summons.BrokenContainer;
 import cn.gfhnv.game.officialStuff.customSkill.flameReaverSkills.*;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
+import cn.gfhnv.game.system.fight.ActionSignal;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.fight.TurnEntry;
 import cn.gfhnv.game.system.fight.TurnManager;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -81,9 +84,22 @@ public class FlameReaver extends LivingThing {
     private static final double DAMAGE_REDUCTION_PER_LAYER = 0.25;
 
     /**
-     * 场上容器的数量上限（超过就不再召唤）。
+     * 场上容器的数量上限：{@code 0} 表示<b>不限制</b>（用户 2026-09 指定取消上限）。
+     * <p>
+     * 取消上限之后的连带效果（都是"越拖越强"的方向，符合召唤流的定位）：
+     * <ul>
+     *     <li>每轮【相混的道途】会把<b>场上所有</b>容器都标成共祭，
+     *     紧接着的【幽冥的悼念】把它们<b>一次性全部吸收</b> ——
+     *     于是【灾难之力】每轮涨"召唤了几只"，而它是<b>不设上限</b>的加伤（每层
+     *     {@value #DISASTER_POWER_ATTACK_BONUS}），大招的段数跟着一起涨；</li>
+     *     <li>每次召唤消耗 3% 最大生命，吸收时按【苦痛缠绕】全额还回来 ——
+     *     只要吸收得掉，召唤本身不亏血；</li>
+     *     <li>共祭时每只容器各打一次全体，容器越多，那一轮的总伤害越高。</li>
+     * </ul>
+     * 代价：时间轴条目与日志都会明显变多（每只容器都要占一个回合），
+     * 想让战斗短一点就把这里改回一个正整数（例如 {@code 8}）。
      */
-    private static final int CONTAINER_LIMIT = 4;
+    private static final int CONTAINER_LIMIT = 0;
 
     /**
      * 每次召唤时，出现【完整容器】的概率（其余为【残破容器】）。
@@ -410,16 +426,19 @@ public class FlameReaver extends LivingThing {
      *
      * @param fight 当前战斗
      * @param kind  容器种类（残破 / 完整）
-     * @return 召唤出的容器；场上已达上限或战斗为空时返回 {@code null}
+     * @return 召唤出的容器；达到 {@link #CONTAINER_LIMIT}（非 0 时）或战斗为空时返回 {@code null}
      */
     public BrokenContainer summonContainer(Fight fight, BrokenContainer.Kind kind) {
         if (fight == null) {
             return null;
         }
-        List<BrokenContainer> alive = getAliveContainers(fight);
-        if (alive.size() >= CONTAINER_LIMIT) {
-            System.out.println(getName() + "的容器已达上限（" + CONTAINER_LIMIT + "），不再召唤");
-            return null;
+        // CONTAINER_LIMIT = 0 表示不限制（用户 2026-09 指定）
+        if (CONTAINER_LIMIT > 0) {
+            List<BrokenContainer> alive = getAliveContainers(fight);
+            if (alive.size() >= CONTAINER_LIMIT) {
+                System.out.println(getName() + "的容器已达上限（" + CONTAINER_LIMIT + "），不再召唤");
+                return null;
+            }
         }
         long cost = (long) (getHpMax() * SUMMON_HP_COST_RATE);
         if (cost <= 0) {
@@ -435,8 +454,13 @@ public class FlameReaver extends LivingThing {
         // 官方：消耗的生命值转化为【苦痛缠绕】，吸收时按这笔账回血。
         // 所以把这次实际消耗记在容器身上，吸收时就能精确还多少（不必假设它等于最大生命）。
         container.setPainCost(realCost);
-        fight.addEnemy(container);
-        // addEnemy 会把它加入 allEntities 并排好回合；但「战斗开始」那个钩子只在开局
+        // 【必须按召唤者所在的阵营入列】—— 盗火行者既能当敌方 BOSS，也能被玩家选成自己的角色
+        // （它在同一个注册表里，选人/选敌人读的是同一份列表）。早先这里无条件 addEnemy：
+        // 玩家侧的盗火行者召唤出来的容器会被塞进【敌方列表】，于是
+        // Fight#getOpponentList(容器) 落到 else 分支返回【我方】——
+        // 自家容器打自家队伍，还给自家 BOSS 叠上一条 origin 不同的【侵蚀】（实测踩过）。
+        addSummonToOwnSide(fight, container);
+        // addEnemy/addFighter 会把它加入 allEntities 并排好回合；但「战斗开始」那个钩子只在开局
         // 遍历 allEntities 时调用一次（FightStartEventListener），**中途召唤出来的实体收不到**。
         // 所以这里显式补一次入场初始化：接上战斗上下文 + 调 whenFightStart。
         container.setParticipateFight(fight);
@@ -449,6 +473,25 @@ public class FlameReaver extends LivingThing {
         System.out.println(getName() + "消耗" + realCost + "点生命召唤了【" + kind.displayName()
                 + "】（苦痛缠绕 " + getPainTangled() + "）");
         return container;
+    }
+
+    /**
+     * 把召唤出来的容器加进<b>召唤者自己那一侧</b>的阵营列表。
+     * <p>
+     * 这是必须的：{@link Fight#getOpponentList(LivingThing)} 的判定是
+     * "在敌方列表里 → 返回我方；否则 → 返回敌方"。一个不在任何列表里的实体，
+     * 会被当成"非敌方"，于是它把<b>敌方</b>当对手 —— 对玩家侧的盗火行者来说，
+     * 那就是"自家容器打自家队伍"。所以召唤物必须和召唤者同侧。
+     *
+     * @param fight     当前战斗
+     * @param container 召唤出来的容器
+     */
+    private void addSummonToOwnSide(Fight fight, BrokenContainer container) {
+        if (fight.getFighterList().contains(this)) {
+            fight.addFighter(container);
+        } else {
+            fight.addEnemy(container);
+        }
     }
 
     /**
@@ -669,14 +712,88 @@ public class FlameReaver extends LivingThing {
      * 处于【共祭】的残破容器<b>一同发起攻击</b>，随后<b>被自身吸收</b>
      * （按【苦痛缠绕】回血 + 获得【灾难之力】）。
      * <p>
-     * 容器"一同攻击"是让它们用<b>自己的控制器</b>出手：它们的技能表里就是
-     * 【共祭 · 亡死的黑云】与【共祭 · 将尽的命数】。
+     * 那一轮谁打哪儿：<b>BOSS 先用 {@link #pickJointTargets(Fight)} 选一次共同目标</b>，
+     * 自己照着打一遍，再让每只容器用<b>自己的控制器</b>出手（技能表里是
+     * 【共祭 · 亡死的黑云】/【共祭 · 将尽的命数】），但目标换成同一批
+     * （{@code BrokenContainer#setJointTargets}）。
      *
      * @param fight 当前战斗
      * @return 参与并已被吸收的容器数量
      */
     public int absorbSacrificedContainers(Fight fight) {
         return absorbSacrificedContainers(fight, getSacrificedContainers(fight));
+    }
+
+    /**
+     * 共祭那一轮"一同攻击"的<b>共同目标数</b>。
+     * <p>
+     * 官方原文是"与【残破容器】一同施放【亡死的黑云】<b>或</b>【将尽的命数】"，
+     * 而亡死的黑云打"主目标及其相邻目标"= 本项目映射的 <b>3 目标</b>（见 {@code CloudOfDeath}）。
+     * 取一个固定数（而不是"全体"）是为了让"清场"与"共祭"的代价看得见：
+     * 目标少的队伍不会被一轮打穿。
+     */
+    private static final int JOINT_ATTACK_TARGETS = 3;
+
+    /**
+     * 选出这一轮共祭的<b>共同目标</b>：对面最多 {@value #JOINT_ATTACK_TARGETS} 个存活单位。
+     * <p>
+     * 以前容器是各自 {@code controller.act()} 出手、目标各自随机挑的 ——
+     * 同一轮共祭里几只容器各打各的（用户 2026-09 实测指出"应当攻击相同目标"）。
+     *
+     * @param fight 当前战斗
+     * @return 共同目标列表（对面不足 3 个就全打；没有对手时为空列表）
+     */
+    public List<LivingThing> pickJointTargets(Fight fight) {
+        List<LivingThing> targets = new ArrayList<>();
+        if (fight == null) {
+            return targets;
+        }
+        for (LivingThing each : fight.getOpponentList(this)) {
+            if (each != null && each.isAlive() && targets.size() < JOINT_ATTACK_TARGETS) {
+                targets.add(each);
+            }
+        }
+        return targets;
+    }
+
+    /**
+     * @param targets 目标列表；可为 {@code null}
+     * @return 里面是否还有活着的目标
+     */
+    private static boolean hasLivingTarget(List<LivingThing> targets) {
+        if (targets == null) {
+            return false;
+        }
+        for (LivingThing target : targets) {
+            if (target != null && target.isAlive()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * BOSS 本体也参与这一轮共祭攻击（官方："与容器<b>一同</b>施放"）。
+     * <p>
+     * 以前只让容器出手，日志里完全看不到 BOSS 的攻击（用户 2026-09 指出）。
+     * 这里借【亡死的黑云】的倍率打一遍，但<b>不</b>调用它的 {@code comeToEffect} ——
+     * 那一招会顺手消耗生命召唤容器，而紧接着的步骤就是把这些容器全部吸收掉。
+     *
+     * @param targets 共同目标
+     */
+    private void bossJoinsJointAttack(List<LivingThing> targets) {
+        if (targets == null || targets.isEmpty()) {
+            return;
+        }
+        Skill joint = new CloudOfDeath();
+        for (LivingThing target : targets) {
+            if (target == null || !target.isAlive()) {
+                continue;
+            }
+            System.out.print(getName() + "攻击了" + target.getName());
+            this.makeDamage(target, joint);
+            System.out.println();
+        }
     }
 
     /**
@@ -694,12 +811,31 @@ public class FlameReaver extends LivingThing {
         if (sacrificed == null || sacrificed.isEmpty()) {
             return 0;
         }
+        // ① 这一轮打哪儿，由 BOSS 定一次；容器跟着打同一批（官方是"与容器一同施放"）
+        List<LivingThing> jointTargets = pickJointTargets(fight);
+        // ② BOSS 自己也出手 —— 以前只让容器打，日志里看不到 BOSS 的攻击（用户 2026-09 指出）
+        bossJoinsJointAttack(jointTargets);
+        // ③ 每只共祭容器用<b>自己的控制器</b>出手（技能表里是【共祭 · 亡死的黑云】/【将尽的命数】），
+        //    但目标换成上面那批共同目标
         for (BrokenContainer container : sacrificed) {
             if (!container.isAlive()) {
                 continue;
             }
-            System.out.println("【残破容器】与" + getName() + "一同发起攻击");
-            container.getController().act(fight);
+            String who = "【" + container.getKind().displayName() + "】与" + getName() + "一同发起攻击";
+            if (!hasLivingTarget(jointTargets)) {
+                // 共同目标是顺序结算的：BOSS 本体与前面的容器可能已经把它们全打倒了，
+                // 这一击就落空了（官方也是"跟着同一击一起打"，目标先倒就是没得打）。
+                // 显式说明一句，免得日志上只剩标题、看起来像卡住。
+                System.out.println(who + "（共同目标已经倒下，这一击落空）");
+                continue;
+            }
+            System.out.println(who);
+            container.setJointTargets(jointTargets);
+            try {
+                container.getController().act(fight);
+            } finally {
+                container.setJointTargets(null);
+            }
         }
         int absorbed = 0;
         for (BrokenContainer container : sacrificed) {
@@ -879,22 +1015,45 @@ public class FlameReaver extends LivingThing {
     }
 
     /**
-     * 把自己<b>下一个还在时间轴上</b>的回合延后。
+     * 把自己<b>下一个</b>回合延后。
      * <p>
      * 官方「沉默的悲叹」：进入蓄力状态时"自身的下次行动也会延后 100%"。
-     * 用框架现成的 {@link TurnManager#delayByPercent(BigDecimal, TurnEntry)} 实现
-     * （它把回合条目的 {@code needTime} 乘上 {@code 1 + percent}）。
+     * <p>
+     * 分两种情况：
+     * <ol>
+     *     <li><b>时间轴上已经有自己的回合</b>（例如别人提前替它排好了）：直接把这个条目延后；</li>
+     *     <li><b>时间轴上没有</b>—— 正常就是"正在自己的回合里"：回合循环要到本回合跑完
+     *     （{@code lastExecuteList} 之后）才给行动者排下一个条目，所以那一刻
+     *     {@link TurnManager#getNextTurnOf} <b>必为 {@code null}</b>（这就是早期版本
+     *     打印"延后未生效"、延后形同虚设的原因）。这里改成自己排下个回合，
+     *     间隔取 {@code 10000/速度 × (1 + percent)}，
+     *     并把<b>本回合</b>的信号设成 {@link ActionSignal#SKIP_WITHOUT_NEW_TURN} ——
+     *     否则回合循环会再排一条正常间隔的，等于没延后（那样只会拿到两个回合）。</li>
+     * </ol>
      *
      * @param percent 延后比例（{@code 1.0} = 延后 100%）
      */
     public void delayNextOwnTurn(BigDecimal percent) {
+        String suffix = Math.round(percent.doubleValue() * 100) + "%";
         TurnEntry next = TurnManager.getNextTurnOf(this);
-        if (next == null) {
-            // 时间轴上没有自己的回合（例如刚行动完还没排新的），延后无处施加 —— 不算错，跳过
+        if (next != null) {
+            TurnManager.delayByPercent(percent, next);
+            TurnManager.sort();
+            System.out.println("【" + getName() + "】的下次行动延后 " + suffix);
+            return;
+        }
+        TurnEntry present = FightTurnPastListener.getPresentTurn();
+        if (present == null) {
+            // 既没有待执行的回合、也不在任何回合里（理论上到不了这里），只能放弃延后
             System.out.println("【" + getName() + "】时间轴上没有待执行的回合，延后未生效");
             return;
         }
-        TurnManager.delayByPercent(percent, next);
-        System.out.println("【" + getName() + "】的下次行动延后 " + Math.round(percent.doubleValue() * 100) + "%");
+        BigDecimal needTime = BigDecimal.valueOf(10000)
+                .divide(BigDecimal.valueOf(getSpeed()), 10, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.ONE.add(percent));
+        TurnManager.getTurns().add(new TurnEntry(this, needTime, TurnManager.getPresentTime()));
+        TurnManager.sort();
+        present.setActionSignal(ActionSignal.SKIP_WITHOUT_NEW_TURN);
+        System.out.println("【" + getName() + "】的下次行动延后 " + suffix);
     }
 }

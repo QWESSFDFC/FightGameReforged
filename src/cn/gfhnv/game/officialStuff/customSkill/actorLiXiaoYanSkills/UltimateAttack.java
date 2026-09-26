@@ -48,7 +48,9 @@ public class UltimateAttack extends Skill {
         MemorizedHp memorizedHp = new MemorizedHp();
         memorizedHp.setLiXiaoYanEventListener(new DamageEventListener());
         EventBus.register(memorizedHp.getLiXiaoYanEventListener());
-        user.addEffect(memorizedHp.setOrigin("self"));
+        // origin 记施加者实体的 UUID（而不是字面量 "self"）：同一个人重复放大招时，
+        // Effect#equals（id + origin）会认出"还是同一条"，合并刷新而不是叠第二条
+        user.addEffect(memorizedHp.setOrigin(user.getUUID()));
         System.out.printf("生命值锁定生效中");
         if (user instanceof ActorLiXiaoYan) {
             ((ActorLiXiaoYan) user).setIgnition(((ActorLiXiaoYan) user).getIgnition() + 1);

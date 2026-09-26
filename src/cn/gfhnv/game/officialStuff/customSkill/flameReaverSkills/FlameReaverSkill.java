@@ -1,6 +1,7 @@
 package cn.gfhnv.game.officialStuff.customSkill.flameReaverSkills;
 
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.officialStuff.customEntity.summons.BrokenContainer;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.thinkingSystem.Tag;
@@ -80,6 +81,27 @@ public abstract class FlameReaverSkill extends Skill {
             return new ArrayList<>();
         }
         return new ArrayList<>(fight.getOpponentList(user));
+    }
+
+    /**
+     * 共祭那一轮的<b>共同目标</b>：容器正在"与 BOSS 一同攻击"时，用 BOSS 指定的那批；
+     * 其余情况（容器自己回合里正常出手）用控制器给的目标。
+     * <p>
+     * 为什么要有这条：容器的招式是"用自己的控制器出手"的，目标也就由控制器随机挑 ——
+     * 于是同一轮共祭里几只容器各打各的（用户 2026-09 实测指出："一同发起攻击时应该攻击相同目标"）。
+     *
+     * @param given 控制器给的目标列表
+     * @param user  技能使用者
+     * @return 实际要打的目标列表
+     */
+    protected static List<LivingThing> jointTargetsOr(List<LivingThing> given, LivingThing user) {
+        if (user instanceof BrokenContainer container) {
+            List<LivingThing> joint = container.getJointTargets();
+            if (joint != null && !joint.isEmpty()) {
+                return joint;
+            }
+        }
+        return given;
     }
 
     /**

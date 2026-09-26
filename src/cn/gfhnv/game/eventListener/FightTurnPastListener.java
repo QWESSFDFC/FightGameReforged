@@ -40,6 +40,39 @@ public class FightTurnPastListener {
     }
 
     /**
+     * 覆盖"当前正在执行的回合条目"。
+     * <p>
+     * 正式流程里这个字段只由回合循环自己维护（取下一个回合时写入），
+     * 但<b>技能需要在"自己的回合里"读到这个上下文</b>：例如盗火行者的
+     * {@code FlameReaver#delayNextOwnTurn} —— 那时时间轴上还没有它的下个条目，
+     * 只能靠改本回合的信号来阻止回合循环再排一条。
+     * 自测要构造这种上下文就得能把这一格塞进去，所以留了这个入口。
+     *
+     * @param turn 正在执行的回合条目；{@code null} 表示"不在任何回合里"
+     */
+    public static void setPresentTurn(TurnEntry turn) {
+        presentTurn = turn;
+    }
+
+    /**
+     * 取实体的<b>短标识</b>（UUID 前 6 位），只用于日志。
+     * <p>
+     * 同一个模板会被复制成多个实例：镜像对局里两边都叫"至黑之剑，盗火行者"，
+     * 一场里还会同时存在好几只同名容器 —— 光看名字分不出"这条日志是哪一个"。
+     * UUID 是每个实例独有的，取前 6 位既够区分，又不会把回合头撑得太长。
+     *
+     * @param thing 实体；可为 {@code null}
+     * @return 短标识；拿不到 UUID 时返回 {@code ??????}
+     */
+    private static String shortUuid(LivingThing thing) {
+        if (thing == null || thing.getUUID() == null) {
+            return "??????";
+        }
+        String uuid = thing.getUUID();
+        return uuid.length() <= 6 ? uuid : uuid.substring(0, 6);
+    }
+
+    /**
      * @return 是否正在驱动回合循环
      */
     public boolean isDriving() {
@@ -140,8 +173,13 @@ public class FightTurnPastListener {
                 presentTurn.getLivingThing().recoverManaEveryTurn();
                 System.out.println();
                 World.turnTimer++;
-                System.out.println("现在是" + presentTurn.getLivingThing().getName() + "的回合");
-                System.out.println("状态:HP:" + presentTurn.getLivingThing().getHp() + "/" + presentTurn.getLivingThing().getHpMax());
+                System.out.println("现在是" + presentTurn.getLivingThing().getName()
+                        + "#" + shortUuid(presentTurn.getLivingThing()) + "的回合");
+                if(fightPastOneTurnEvent.getFight().getFighterList().contains(presentTurn.getLivingThing()))
+                    System.out.print("这是我方");
+                else System.out.print("这是敌方");
+                System.out.printf("状态:");
+                System.out.println("HP:" + presentTurn.getLivingThing().getHp() + "/" + presentTurn.getLivingThing().getHpMax());
                 System.out.println("能量");
                 System.out.println("金" + presentTurn.getLivingThing().getMetalMana().getAmount() + "/" + presentTurn.getLivingThing().getMetalMana().getAmountMax());
                 System.out.println("木" + presentTurn.getLivingThing().getWoodMana().getAmount() + "/" + presentTurn.getLivingThing().getWoodMana().getAmountMax());

@@ -97,9 +97,10 @@ public class FateDrawsNear extends FlameReaverSkill {
                 long lost = Math.max(0, hpBefore.get(i) - target.getHp());
                 double rate = target.getHpMax() > 0 ? (double) lost / target.getHpMax() : MIN_EROSION_RATE;
                 rate = Math.max(MIN_EROSION_RATE, Math.min(MAX_EROSION_RATE, rate));
-                target.addEffect(new Erosion(rate, EROSION_LAST_TIME).setOrigin(user.getUUID()));
+                // 按目标合并：同一个目标身上只留一条【侵蚀】，重复击中只刷新（见 Erosion#applyTo）
+                Erosion applied = Erosion.applyTo(target, rate, EROSION_LAST_TIME, user.getUUID());
                 System.out.println(target.getName() + "感染了【侵蚀】（每回合流失已损失生命值的 "
-                        + Math.round(rate * 100) + "%，持续 " + EROSION_LAST_TIME + " 回合）");
+                        + Math.round(applied.getRate() * 100) + "%，持续 " + applied.getLastTime() + " 回合）");
             }
         }
         if (user instanceof FlameReaver reaver) {

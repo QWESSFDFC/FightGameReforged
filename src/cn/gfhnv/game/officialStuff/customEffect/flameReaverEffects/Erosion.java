@@ -84,6 +84,60 @@ public class Erosion extends Effect {
     }
 
     /**
+     * 取出目标身上的【侵蚀】（没有就返回 {@code null}）。
+     *
+     * @param target 生物；可为 {@code null}
+     * @return 效果实例
+     */
+    public static Erosion of(LivingThing target) {
+        if (target == null || target.getEntityEffectList() == null) {
+            return null;
+        }
+        for (Effect effect : target.getEntityEffectList()) {
+            if (effect instanceof Erosion erosion) {
+                return erosion;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 给目标施加【侵蚀】—— <b>同一个目标身上永远只有一条</b>。
+     * <p>
+     * 官方【侵蚀】是"被【将尽的命数】击中后，损失的生命值转化为持续伤害"这<b>一条</b>状态，
+     * 反复击中只会<b>刷新</b>它，不该并排堆好几条（堆了的话同一个回合会连跳好几次 —— 实测踩过：
+     * BOSS 本体与每只共祭容器各叠一条，一回合跳 5 次）。
+     * <p>
+     * 所以这里<b>按目标合并，不看 origin 是谁</b>：镜像对局（两边都是盗火行者）、
+     * 容器替 BOSS 出手、以后新增的来源，都只会刷新同一条。
+     * 合并取"不亏"的那一边：<b>强度取较大者、剩余回合取较长者</b>
+     * （被一次小伤害的侵蚀刷新时，不会把已经很强的那条冲淡）。
+     *
+     * @param target   被施加的目标
+     * @param rate     本次的强度（按已损失生命值比例）
+     * @param lastTime 本次的持续回合
+     * @param origin   施加者 UUID（只作记录，不参与合并判定）
+     * @return 目标身上那条【侵蚀】（合并后的实例）
+     */
+    public static Erosion applyTo(LivingThing target, double rate, int lastTime, String origin) {
+        if (target == null) {
+            return null;
+        }
+        Erosion existing = of(target);
+        if (existing != null) {
+            existing.setRate(Math.max(existing.getRate(), rate));
+            existing.setLastTime(Math.max(existing.getLastTime(), lastTime));
+            return existing;
+        }
+        Erosion fresh = new Erosion(rate, lastTime);
+        fresh.setOrigin(origin);
+        target.addEffect(fresh);
+        // addEffect 会按【类】把 id 补成注册表里的完整 id，可能换掉实例，所以重新取一次
+        Erosion applied = of(target);
+        return applied == null ? fresh : applied;
+    }
+
+    /**
      * 每回合结算一次侵蚀伤害。
      * <p>
      * 伤害来源是"自身已损失的生命值"，所以不会直接把人打死：

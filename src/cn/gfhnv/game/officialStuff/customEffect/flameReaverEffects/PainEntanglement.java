@@ -124,6 +124,9 @@ public class PainEntanglement extends Effect {
         PainEntanglement pain = of(thing);
         if (pain == null) {
             pain = new PainEntanglement();
+            // origin 记持有者（就是记账的那个实体）的 UUID，与其他机制性效果保持一致。
+            // 这里是直接进效果列表的（不走 addEffect，免得触发 initialEffect），所以 origin 要自己设。
+            pain.setOrigin(thing.getUUID());
             thing.getEntityEffectList().add(pain);
         }
         pain.setPain(pain.getPain() + amount);

@@ -54,6 +54,7 @@ public class SacrificeCloudOfDeath extends FlameReaverSkill {
 
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
-        attackAllTargets(user, enemies);
+        // 共祭那一轮打 BOSS 指定的共同目标（不是控制器随机挑的），其余情况照旧
+        attackAllTargets(user, jointTargetsOr(enemies, user));
     }
 }
