@@ -1,6 +1,7 @@
 package cn.gfhnv.game.officialStuff;
 
 import cn.gfhnv.game.effect.Effect;
+import cn.gfhnv.game.entity.Entity;
 import cn.gfhnv.game.item.Item;
 import cn.gfhnv.game.mod.Mod;
 import cn.gfhnv.game.officialStuff.customEffect.actorLiXiaoYanEffects.MemorizedHp;
@@ -135,6 +136,30 @@ public class OfficialGameContent extends Mod {
             }
             for (Effect owned : mod.getEffects()) {
                 if (owned == effect) {
+                    return mod instanceof OfficialGameContent;
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
+     * 判断一个实体是不是<b>官方内容</b>。判据与 {@link #isOfficial(Item)} 相同，
+     * 只是查的是模组的<b>实体</b>表（{@code /summon} 的"能不能只写短名"看这个）。
+     *
+     * @param entity 实体；可为 {@code null}
+     * @return 是否为官方内容
+     */
+    public static boolean isOfficial(Entity entity) {
+        if (entity == null) {
+            return false;
+        }
+        for (Mod mod : World.getModList()) {
+            if (mod == null) {
+                continue;
+            }
+            for (Entity owned : mod.getEntityList()) {
+                if (owned == entity) {
                     return mod instanceof OfficialGameContent;
                 }
             }

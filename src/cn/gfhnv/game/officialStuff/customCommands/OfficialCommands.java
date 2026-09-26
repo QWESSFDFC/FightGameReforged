@@ -40,6 +40,7 @@ public final class OfficialCommands {
                 new DataCommand(),
                 new ExecuteCommand(),
                 new GiveCommand(),
+                new SummonCommand(),
                 new EndFightCommand(),
                 new HelpCommand(),
                 new HelpCommand.Alias("?")

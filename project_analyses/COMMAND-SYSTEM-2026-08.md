@@ -51,6 +51,8 @@ src/cn/gfhnv/game/officialStuff/customCommands/   ← 官方命令
 ├── EffectCommand.java           /effect 加/移除/查看效果（从效果注册表取模板）
 ├── ExecuteCommand.java          /execute as <目标> run <命令>（换个执行者再跑一条命令）
 ├── GiveCommand.java             /give <目标> <物品> [数量]（完整 id 谁都认；短名/类名只解析官方内容）
+├── SummonCommand.java           /summon <实体> [阵营]（2026-09-26 新增；阵营默认我方，规则与 /give 同源）
+├── DataCommand.java             /data get|merge|modify × entity|storage（2026-09-26 新增，见 NBT-AND-DATA-COMMAND-2026-09.md）
 ├── EndFightCommand.java         /endfight
 └── HelpCommand.java             /help 与 /?
 
@@ -134,10 +136,11 @@ CommandManager.describeState();                  // 当前状态（调试）
 | `/effect <目标> remove all` | 清空目标身上的全部效果（`*` 同义） |
 | `/execute as <目标> run <命令>` | 以指定对象的身份运行另一条命令（内层 `@s` 指向它） |
 | `/give <目标> <物品> [数量]` | 发物品；**官方物品**可写短名/类名，**模组物品必须写完整 id**（见下），数量默认 1 |
+| `/summon <实体> [阵营]` | 往当前战斗里召唤一个生物；阵营 `our`（默认）/ `enemy`（也接受 `ally`/`foe`/`我方`/`敌方`）。名字规则同 `/give` |
 | `/endfight` | 强制结束战斗（默认按玩家胜利结算，会发奖励） |
 | `/endfight lose` | 强制结束战斗并按失败结算 |
 
-**名字的命名空间规则（2026-09 起，`/give` 与 `/effect` 共用同一套）**：
+**名字的命名空间规则（2026-09 起，`/give`、`/effect` 与 `/summon` 共用同一套）**：
 
 | 写法 | 例子 | 谁能匹配 |
 |---|---|---|
@@ -212,6 +215,33 @@ CommandManager.describeState();                  // 当前状态（调试）
   （这就是 `ANiceSword.copy()` 必须走拷贝构造器的原因）；
 - 背包格子不够：能发多少发多少，回显里说明有几个没发出去；
   目标没有背包格子（普通虫子、冰虫子没初始化背包）→ 直接报错。
+
+**`/summon <实体> [阵营]`**（2026-09-26 新增）：往**当前战斗**里召唤一个生物。
+
+```
+/summon CommonInsect                 不写阵营 = 我方（默认）
+/summon commonInsect enemy           丢到对面去
+/summon CommonInsect 敌方             中文别名也认（cmd.exe 打不出中文，Git Bash / VS Code 终端可以）
+/summon completeContainer            同类的另一条模板：短名精确区分
+/summon drunkenSword:drunkenSwordsman  模组角色：必须带模组前缀
+```
+
+- **名字规则与 `/give` 同源**（完整 id 谁都认；短名/类名只解析官方内容，写模组的短名会提示该写什么），
+  但多了一层优先级：**完整 id > 短名 > 类名**。
+  原因很实际：【残破容器】与【完整容器】是同一个类 `BrokenContainer`，短名不同、**类名相同** ——
+  两层同优先级的话 `/summon brokenContainer` 会被后者的类名撞成"假歧义"。
+- **阵营**：`our`（默认）/ `ally` 与我方同义，`enemy` / `foe` 与敌方同义，
+  另外接受中文 `我方` / `敌方`（与 `/endfight` 的 `win`/`胜利` 是同一套做法）。
+  写别的会报错并告诉你可填什么。
+- **不在战斗里直接报错**（"现在不在战斗中，没法召唤"），不会静默什么都不做 ——
+  本命令是往 `Fight` 的两个阵营列表里放东西，没有战斗就没有地方放。
+- 召唤的是**注册表模板的 `copy()` 副本**，所以反复召唤互不影响；
+  副本走 `Fight#addFighter/addEnemy` 入列（**id 补全**与**排进时间轴**都在那里面），
+  之后**显式补一次入场初始化**（`setParticipateFight` + `whenFightStart`）——
+  `whenFightStart` 只在开局由 `FightStartEventListener` 遍历一次，中途加入的实体收不到
+  （与 `FlameReaver#summonContainer` 同款处理，自测有一条断言盯着）。
+- 实体类没重写 `copy()` 时，报错会说明是哪个类（而不是把 `RuntimeException` 甩到控制台）。
+- **不做数量/强度限制**：给自己叫一只 BOSS、给对面塞一只虫皇都可以，这是调试性质的命令。
 
 **实体选择器**（写在需要目标的位置）：
 
@@ -381,13 +411,26 @@ System.console() = 可用       console.charset() = UTF-8   isTerminal = true
    - 轮到你行动时用一次物品 → 只消耗一件（另外 3 件还在），并挂上对应效果（`/effect @s list` 能看到）
    - `/give @e[type=CommonInsect] aNiceSword` → 报错「目标没有背包格子」（虫子没初始化背包）
    - `/give @s noSuchItem` → 报错并列出可用物品（现在应当列出 9 件）
-10. 故意写错，确认报错信息带定位与用法：
+10. **summon 命令**（战斗中；2026-09-26 新增）：
+    - `/summon CommonInsect` → 提示「已在我方召唤 commonInsect（普通虫子），HP 4670/4670」，
+      用 `/list` 能看到场上多了一只，而且**下个回合它真的会行动**（时间轴已排好）
+    - `/summon commonInsect enemy` → 换成敌方；`/list` 里它站在对面（攻击行会标 `（敌方）`）
+    - `/summon CommonInsect 敌方` → 中文别名（在 Git Bash / VS Code 终端里试；cmd 打不出中文）
+    - `/summon completeContainer` → 召唤【完整容器】（20000 血），与 `brokenContainer`（12000 血）能区分开
+    - `/summon BrokenContainer` → 也能用（忽略大小写命中短名 `brokenContainer`）
+    - `/summon NoSuchEntity` → 报错并列出可用实体（9 条：playerOne … completeContainer）
+    - `/summon CommonInsect 中间派` → 报错「只能填 our 或 enemy（也接受 我方/敌方）」
+    - `/summon drunkenSword:drunkenSwordsman` → 模组角色（**装了醉剑仙模组才有**）；
+      写短名 `drunkenSwordsman` 会被拒绝并提示该写的完整 id
+    - 对自己人用 `/hurt` 或者让召唤物打一架，确认它**不会打自己人**
+      （召唤物进的是召唤者那一侧的阵营列表，见 `Fight#getOpponentList` 的口径）
+11. 故意写错，确认报错信息带定位与用法：
    - `/nosuch` → `未知的命令：nosuch。你是不是想输入：...`
    - `/kill` → `命令不完整：/kill <目标>`
    - `/kill @e[bad=1]` → `未知的筛选键「bad」...`
    - `/hurt @s abc` → `「abc」不是一个合法的长整数: ...<--[HERE]`
    - `/effect @s add frozen(1` → `构造函数参数没有用右括号闭合：frozen(1`
-11. 输入普通文本 `yes` / `no` / `next` / `数字`，确认一切与改动前一样。
+12. 输入普通文本 `yes` / `no` / `next` / `数字`，确认一切与改动前一样。
 
 ## 五、已经踩过的坑
 

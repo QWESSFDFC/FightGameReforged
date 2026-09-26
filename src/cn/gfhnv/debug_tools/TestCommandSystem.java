@@ -12,6 +12,7 @@ import cn.gfhnv.game.data.NbtTag;
 import cn.gfhnv.game.data.Snbt;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entityController.FixOrderController;
+import cn.gfhnv.game.entityController.UniversalController;
 import cn.gfhnv.game.event.DamageEvent;
 import cn.gfhnv.game.interfaces.IModifyDamage;
 import cn.gfhnv.game.inventory.Slot;
@@ -25,9 +26,11 @@ import cn.gfhnv.game.officialStuff.customEntity.players.PlayerOne;
 import cn.gfhnv.game.officialStuff.customEntity.summons.BrokenContainer;
 import cn.gfhnv.game.officialStuff.customItem.ANiceSword;
 import cn.gfhnv.game.skill.Skill;
+import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.command.*;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.fight.TargetStrategies;
+import cn.gfhnv.game.system.fight.TurnManager;
 import cn.gfhnv.game.world.World;
 
 import java.util.ArrayList;
@@ -89,6 +92,7 @@ public class TestCommandSystem {
         testDataCommand();
         testDataModify();
         testDataFiltersAndStorage();
+        testSummonCommand();
 
         System.out.println("========== 自测结束：通过 " + passes + " 条，失败 " + failures + " 条 ==========");
         if (failures > 0) {
@@ -292,6 +296,18 @@ public class TestCommandSystem {
         run("hurt @s abc", false);
         run("hurt @s 1 2", false);
         run("kill @e[type=根本没有这个类型]", false);
+
+        /* 参数节点的报错不能被吞成笼统的「无法继续解析」。
+         * 典型场景：选择器少写了 @（用户实测踩过），这时选择器自己那句
+         * 「实体选择器必须以 @ 开头」才是最该看到的。 */
+        String missingAt = errorOf("data modify entity s hp set 1");
+        check("少写 @ 的选择器：报的是选择器自己的原因，而不是「无法继续解析」",
+                missingAt.contains("@") && !missingAt.contains("无法继续解析"));
+        // 反过来：输入已经读完时仍然要说「命令不完整 + 完整用法」，不能被参数报错顶掉
+        String giveMissingItem = errorOf("give @s");
+        check("命令不完整：用法提示没有被参数报错顶掉",
+                giveMissingItem.contains("命令不完整")
+                        && giveMissingItem.contains("/give <目标> <物品>"));
 
         check("前缀 # 与 / 等价（不执行也不崩）", CommandManager.isCommand("#help"));
         check("普通输入不会被当成命令", !CommandManager.isCommand("yes"));
@@ -1982,13 +1998,145 @@ public class TestCommandSystem {
     }
 
     /**
+     * {@code /summon}：默认我方、可指定敌方、命名空间规则、入场初始化补齐。
+     * <p>
+     * 放在最后跑：它会把两个探测实体注册进 {@code World}（实体注册表），
+     * 后面的用例再查"可用实体"列表就会被它们污染。
+     */
+    private static void testSummonCommand() {
+        section("召唤：/summon");
+
+        FlameReaver boss = new FlameReaver(150);
+        ActorLiXiaoYan hero = new ActorLiXiaoYan(125);
+        List<LivingThing> enemies = new ArrayList<>();
+        enemies.add(boss);
+        List<LivingThing> fighters = new ArrayList<>();
+        fighters.add(hero);
+        Fight fight = new Fight(enemies, new ArrayList<>(), fighters);
+
+        LivingThing previous = CommandManager.getPlayer();
+        CommandManager.setPlayer(hero);
+
+        int fightersBefore = fight.getFighterList().size();
+        int enemiesBefore = fight.getEnemiesList().size();
+        int turnsBefore = TurnManager.getTurns().size();
+
+        /* ① 不写阵营 = 我方 */
+        run("summon CommonInsect", fight, true);
+        check("summon：不写阵营时默认加进我方", fight.getFighterList().size() == fightersBefore + 1);
+        check("summon：敌方列表没被顺手加人", fight.getEnemiesList().size() == enemiesBefore);
+        LivingThing summoned = fight.getFighterList().get(fight.getFighterList().size() - 1);
+        check("summon：召唤出来的副本被补成完整 id",
+                "game_official_content:commonInsect".equals(lastFighterId(fight)));
+        boolean isTemplateItself = false;
+        for (LivingThing registered : World.getLivingEntityList()) {
+            if (registered == summoned) {
+                isTemplateItself = true;
+            }
+        }
+        check("summon：召唤的是注册表模板的副本，不是模板本身", !isTemplateItself);
+        check("summon：进了 allEntities", fight.getAllEntities().contains(summoned));
+        check("summon：排进了时间轴（下个回合就能行动）", TurnManager.getTurns().size() == turnsBefore + 1);
+        check("summon：接上了战斗上下文（participateFight）", summoned.getParticipateFight() == fight);
+
+        /* ② 指定阵营：英文与中文都认 */
+        run("summon commonInsect enemy", fight, true);
+        check("summon：enemy 进敌方列表", fight.getEnemiesList().size() == enemiesBefore + 1);
+        run("summon CommonInsect 敌方", fight, true);
+        check("summon：中文「敌方」也认", fight.getEnemiesList().size() == enemiesBefore + 2);
+        run("summon CommonInsect 我方", fight, true);
+        check("summon：中文「我方」也认", fight.getFighterList().size() == fightersBefore + 2);
+        run("summon CommonInsect ally", fight, true);
+        check("summon：ally 也当我方", fight.getFighterList().size() == fightersBefore + 3);
+
+        /* ③ 错误分支与名字的三种写法 */
+        run("summon", fight, false);
+        run("summon NoSuchEntity", fight, false);
+        String badSide = errorOf("summon CommonInsect 中间派", fight);
+        check("summon：阵营填错时报错里给出可填的值", badSide.contains("our") && badSide.contains("enemy"));
+        // 类名写法：BrokenContainer 忽略大小写正好等于短名 brokenContainer，于是命中残破容器
+        run("summon BrokenContainer", fight, true);
+        check("summon：类名写法可用（命中短名与它忽略大小写相同的那条）",
+                "game_official_content:brokenContainer".equals(lastFighterId(fight)));
+        run("summon brokenContainer", fight, true);
+        check("summon：短名精确命中残破容器",
+                "game_official_content:brokenContainer".equals(lastFighterId(fight)));
+        run("summon completeContainer", fight, true);
+        check("summon：同一类的另一条模板也能用短名召唤（不会被类名层挤掉）",
+                "game_official_content:completeContainer".equals(lastFighterId(fight)));
+
+        /* ④ 命名空间规则：短名/类名只解析官方内容，模组实体必须写完整 id */
+        Mod summonProbeMod = new Mod("entityTestMod") {
+        };
+        ProbeSummonEntity sameNameAsOfficial = new ProbeSummonEntity();
+        sameNameAsOfficial.setId("commonInsect");   // 与官方虫子同短名（不同类，所以不会抢它的 id）
+        summonProbeMod.addEntity(sameNameAsOfficial);
+        ProbeSummonEntity modOnly = new ProbeSummonEntity();
+        modOnly.setId("modOnlySummon");             // 短名唯一，只能靠完整 id 拿到
+        summonProbeMod.addEntity(modOnly);
+        World.addMod(summonProbeMod);
+        summonProbeMod.registerItself();
+
+        int fightersBeforeProbe = fight.getFighterList().size();
+        ProbeSummonEntity.fightStartCalls = 0;
+        run("summon commonInsect", fight, true);
+        check("summon：短名只解析官方内容（模组同名实体不参与，因此不算歧义）",
+                "game_official_content:commonInsect".equals(lastFighterId(fight)));
+        String modShortName = errorOf("summon modOnlySummon", fight);
+        check("summon：模组实体写短名会被拒绝并提示该写的完整 id",
+                modShortName.contains("entityTestMod:modOnlySummon"));
+        run("summon entityTestMod:modOnlySummon", fight, true);
+        check("summon：模组实体写完整 id 可以召唤",
+                fight.getFighterList().size() == fightersBeforeProbe + 2);
+        check("summon：入场时补调了 whenFightStart（中途加入的实体收不到框架那一次）",
+                ProbeSummonEntity.fightStartCalls == 1);
+        // 用类名找同类模板：两个探针的短名都跟类名不一样，于是按类名命中 2 个，
+        // 报错里把两个可写的完整 id 都列出来（写哪一个都能召唤成功）
+        String ambiguous = errorOf("summon ProbeSummonEntity", fight);
+        check("summon：一个名字命中同类的多条模板时，报错里列出全部可写的完整 id",
+                ambiguous.contains("entityTestMod:commonInsect")
+                        && ambiguous.contains("entityTestMod:modOnlySummon"));
+
+        /* ⑤ 不在战斗里要明确报错，而不是静默什么都不做 */
+        CommandManager.clearCurrentFight();
+        String noFight = errorOf("summon CommonInsect");
+        check("summon：不在战斗里时明确报错", noFight.contains("不在战斗中"));
+
+        CommandManager.setPlayer(previous);
+    }
+
+    /**
+     * @param fight 战斗
+     * @return 最后加进我方阵营的那个实体的 id；我方列表为空时返回 {@code null}
+     */
+    private static String lastFighterId(Fight fight) {
+        List<LivingThing> fighters = fight.getFighterList();
+        return fighters.isEmpty() ? null : fighters.get(fighters.size() - 1).getId();
+    }
+
+    /**
      * 执行一条命令并检查「成功/失败」是否符合预期。
      *
      * @param command  命令文本（可带前缀）
      * @param expected 期望是否成功
      */
     private static void run(String command, boolean expected) {
-        CommandResult result = CommandManager.executeResult(command);
+        run(command, null, expected);
+    }
+
+    /**
+     * 同上，但显式指定命令所属的战斗。
+     * <p>
+     * {@code fight} 传 {@code null} 时沿用 {@link CommandSource} 里登记的那一场
+     * —— 所以"当前战斗"是有粘性的：想测"没有战斗"的情况，先
+     * {@link CommandManager#clearCurrentFight()}。
+     *
+     * @param command  命令文本（可带前缀）
+     * @param fight    当前战斗；{@code null} 表示沿用已登记的那一场
+     * @param expected 期望是否成功
+     */
+    private static void run(String command, Fight fight, boolean expected) {
+        CommandResult result = CommandManager.executeResult(command, fight);
         System.out.println("  >>> " + command + "  =>  " + result);
         if (result.isSuccess() == expected) {
             passes++;
@@ -2004,7 +2152,18 @@ public class TestCommandSystem {
      * @return 错误文本
      */
     private static String errorOf(String command) {
-        CommandResult result = CommandManager.executeResult(command);
+        return errorOf(command, null);
+    }
+
+    /**
+     * 同上，但显式指定命令所属的战斗。
+     *
+     * @param command 命令文本
+     * @param fight   当前战斗；{@code null} 表示沿用已登记的那一场
+     * @return 错误文本
+     */
+    private static String errorOf(String command, Fight fight) {
+        CommandResult result = CommandManager.executeResult(command, fight);
         System.out.println("  >>> " + command + "  =>  " + result);
         return result.getError() == null ? "" : result.getError().getMessage();
     }
@@ -2296,6 +2455,53 @@ public class TestCommandSystem {
                 }
             }
             log.add(builder.toString());
+        }
+    }
+
+    /**
+     * 自测用的"模组实体"探针：验证 {@code /summon} 的命名空间规则与"入场初始化补调"。
+     * <p>
+     * 它被注册两次（见 {@code testSummonCommand}）：一次短名叫 {@code commonInsect}
+     * （与官方虫子同名，用来验证"短名只解析官方内容"），一次叫 {@code modOnlySummon}
+     * （短名唯一，用来验证"模组实体必须写完整 id"）。
+     * <p>
+     * {@link #fightStartCalls} 是静态计数器：召唤出来的是 {@code copy()} 的副本，
+     * 计数放在实例上就统计不到了。
+     */
+    public static class ProbeSummonEntity extends LivingThing {
+
+        /**
+         * {@link #whenFightStart(Fight)} 被调用的次数。
+         */
+        public static int fightStartCalls = 0;
+
+        /**
+         * 构造探针实体。
+         */
+        public ProbeSummonEntity() {
+            super("召唤探针", "summonProbe", 0.0, 0.0, 0.0, 0.0, 0.0,
+                    100, 1L, "insect", 10, 10, 10, ElementSort.FIRE);
+            // 控制器不能为 null：LivingThing 的拷贝构造器会照着它重建一个（见 TIPS §5.5）
+            this.setController(new UniversalController(new ArrayList<>(), this));
+        }
+
+        /**
+         * 复制构造器。参数类型必须写成 {@link ProbeSummonEntity}，否则 {@link #copy()} 会调到自己。
+         *
+         * @param other 被复制的实体
+         */
+        public ProbeSummonEntity(ProbeSummonEntity other) {
+            super(other);
+        }
+
+        @Override
+        public LivingThing copy() {
+            return new ProbeSummonEntity(this);
+        }
+
+        @Override
+        public void whenFightStart(Fight fight) {
+            fightStartCalls++;
         }
     }
 

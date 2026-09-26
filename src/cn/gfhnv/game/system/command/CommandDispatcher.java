@@ -399,6 +399,7 @@ public class CommandDispatcher {
 
             // 2) 再试参数子节点
             CommandNode argumentMatch = null;
+            CommandSyntaxException argumentFailure = null;
             for (CommandNode child : current.getChildren()) {
                 if (child.isLiteralNode()) {
                     continue;
@@ -418,11 +419,24 @@ public class CommandDispatcher {
                     // 会把 latest.log 刷满噪音。排查中文选择器这类问题时把 setDebugParsing(true) 打开。
                     debug("在 " + current.getName() + " 下试参数「" + child.getName() + "」失败："
                             + e.getRawMessage() + "，剩余输入=「" + fork.getRemaining() + "」");
+                    if (argumentFailure == null) {
+                        argumentFailure = e;
+                    }
                     context.getArguments().clear();
                     context.getArguments().putAll(snapshot);
                 }
             }
             if (argumentMatch == null) {
+                // 「有参数子节点、但一个都吃不下」时把<b>具体原因</b>报出去，
+                // 否则上层只会给一句笼统的「命令无法继续解析，剩余输入…」——
+                // 典型场景是选择器少写了 @，而选择器自己那句
+                // 「实体选择器必须以 @ 开头」恰恰是最有用的那句（字面量子节点早就是这么做的，
+                // 见上面的 parseFailureOf；这里补上参数子节点的对称处理）。
+                // ⚠️ 但**输入已经读完**（只剩空白）时不能抛：那属于「命令不完整」，
+                // 交给上层给出「（用法：/give <目标> <物品> [数量]）」比某个参数自己的报错有用得多。
+                if (argumentFailure != null && !reader.getRemaining().isBlank()) {
+                    throw argumentFailure;
+                }
                 return null;
             }
             current = argumentMatch;
