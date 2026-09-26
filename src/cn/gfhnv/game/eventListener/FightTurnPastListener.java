@@ -9,6 +9,7 @@ import cn.gfhnv.game.event.FightEndEvent;
 import cn.gfhnv.game.event.FightPastOneTurnEvent;
 import cn.gfhnv.game.interfaces.ISpecialAction;
 import cn.gfhnv.game.skill.Skill;
+import cn.gfhnv.game.system.command.CommandManager;
 import cn.gfhnv.game.system.fight.ActionSignal;
 import cn.gfhnv.game.system.fight.TurnEntry;
 import cn.gfhnv.game.system.fight.TurnManager;
@@ -192,13 +193,16 @@ public class FightTurnPastListener {
                 System.out.println();
                 World.turnTimer++;
                 LivingThing actor = presentTurn.getLivingThing();
-                // 阵营判据统一走 Fight#sideNameOf：攻击行、侵蚀行用的是同一个方法，
-                // 别在这里再自己判一遍（两套口径迟早会漂）。
-                String actorSide = fightPastOneTurnEvent.getFight().sideNameOf(actor);
+                // 阵营判据统一走 Fight#isOurSide：回合头、攻击行、侵蚀行、命令系统的 @s 跟随
+                // 用的是同一个方法，别在这里再自己 contains 一遍（两套口径迟早会漂）。
+                boolean ourSide = fightPastOneTurnEvent.getFight().isOurSide(actor);
+                // 命令系统的"执行者"跟着当前行动者走：多角色队伍里，@s 才不会一直指向
+                // 选人时最后选的那个角色（2026-09 实测：酒剑仙回合里 /give @s 发给了白厄）。
+                CommandManager.followActor(actor, ourSide);
                 // 回合头 + 状态压成两行（以前是"回合头 + 我方/敌方 + 状态 + 能量 + 五行各一行"= 7 行，
                 // 每回合都刷一遍太费眼睛）。用户自己加的"我方/敌方"信息并进回合头，别丢。
                 System.out.println(ConsoleColor.cyan("─── 现在是 " + actor.getName() + "#" + shortUuid(actor)
-                        + "（" + actorSide + "）的回合 ───"));
+                        + "（" + (ourSide ? "我方" : "敌方") + "）的回合 ───"));
                 System.out.println("HP " + actor.getHp() + "/" + actor.getHpMax() + "   能量 金" + manaOf(actor.getMetalMana())
                         + " 木" + manaOf(actor.getWoodMana())
                         + " 水" + manaOf(actor.getWaterMana())

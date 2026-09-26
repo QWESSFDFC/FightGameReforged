@@ -343,6 +343,27 @@ public final class CommandManager {
     }
 
     /**
+     * 让"当前玩家"跟着<b>正在行动的那个我方角色</b>走。
+     * <p>
+     * <b>为什么需要它</b>：{@link #setPlayer(LivingThing)} 只在 {@code GameMain} 的选人流程里调用，
+     * 多角色队伍里<b>最后选的那个会一直占着"玩家"的位置</b>。于是你在酒剑仙的回合里敲
+     * {@code /give @s drunkenSword:osmanthusWine}，东西会发给别人
+     * （2026-09 实测踩到：日志里 {@code @s} 一直解析成白厄/卡厄斯兰那）。
+     * <p>
+     * <b>为什么带 ownSide 参数</b>：敌人的回合不该把 {@code @s} 改成敌人 ——
+     * 否则你在敌方回合顺手敲一句 {@code /hurt @s 100} 就会打到对面身上。
+     * 判据由调用方给（回合循环用 {@code Fight#isOurSide}），这里不重复判断阵营。
+     *
+     * @param actor   当前行动者；{@code null} 时什么都不做
+     * @param ownSide 该行动者是否属于我方
+     */
+    public static void followActor(LivingThing actor, boolean ownSide) {
+        if (actor != null && ownSide) {
+            setPlayer(actor);
+        }
+    }
+
+    /**
      * 标记「战斗开始」，并把这场战斗登记为当前战斗。
      * <p>
      * 建议在 {@code FightStartEventListener} 里调用；即使不调用，

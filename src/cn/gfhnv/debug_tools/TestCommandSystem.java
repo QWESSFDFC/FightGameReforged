@@ -1,6 +1,15 @@
 package cn.gfhnv.debug_tools;
 
 import cn.gfhnv.game.damage.DamageCalculate;
+import cn.gfhnv.game.data.DataBridge;
+import cn.gfhnv.game.data.DataPath;
+import cn.gfhnv.game.data.DataStorage;
+import cn.gfhnv.game.data.NbtCompound;
+import cn.gfhnv.game.data.NbtInt;
+import cn.gfhnv.game.data.NbtList;
+import cn.gfhnv.game.data.NbtLong;
+import cn.gfhnv.game.data.NbtTag;
+import cn.gfhnv.game.data.Snbt;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entityController.FixOrderController;
 import cn.gfhnv.game.event.DamageEvent;
@@ -11,7 +20,9 @@ import cn.gfhnv.game.mod.Mod;
 import cn.gfhnv.game.officialStuff.customEffect.universalEffects.Taunt;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.CommonInsect;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.FlameReaver;
+import cn.gfhnv.game.officialStuff.customEntity.players.ActorLiXiaoYan;
 import cn.gfhnv.game.officialStuff.customEntity.players.PlayerOne;
+import cn.gfhnv.game.officialStuff.customEntity.summons.BrokenContainer;
 import cn.gfhnv.game.officialStuff.customItem.ANiceSword;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.command.*;
@@ -73,6 +84,11 @@ public class TestCommandSystem {
         testFixOrderController();
         testDamageReduction();
         testFlameReaverFactions();
+        testActorLiXiaoYan();
+        testFollowActor();
+        testDataCommand();
+        testDataModify();
+        testDataFiltersAndStorage();
 
         System.out.println("========== 自测结束：通过 " + passes + " 条，失败 " + failures + " 条 ==========");
         if (failures > 0) {
@@ -1648,6 +1664,324 @@ public class TestCommandSystem {
     }
 
     /**
+     * 李晓焰的【燃点】修复 + {@code World#fullIdOf} 的"同类多模板"问题（2026-09）。
+     * <p>
+     * 三处症状里，这里能断言的是两处（燃点下限、同类多模板 id）；
+     * "大招在 7 层时倒扣额外伤害"与"重复开大泄漏监听器"属于技能内部行为，
+     * 靠"加算/减算都用 wasHigh 快照"和"监听器绑定自己的效果实例"这两个写法保证，自测覆盖不到。
+     */
+    private static void testActorLiXiaoYan() {
+        section("李晓焰：燃点下限与同类多模板 id 归一");
+
+        ActorLiXiaoYan li = new ActorLiXiaoYan(125);
+
+        // 免死会一次扣掉 MEMORIZE_COST 层：扣完必须夹在 0
+        // （旧代码只夹上限，副本挨打时会把自己算成"模板值 − 10"，实测出现过 −7）
+        li.setIgnition(ActorLiXiaoYan.MEMORIZE_TRIGGER);
+        li.setIgnition(li.getIgnition() - ActorLiXiaoYan.MEMORIZE_COST);
+        check("燃点扣到 0 而不是负数", li.getIgnition() == 0);
+        li.setIgnition(-5);
+        check("燃点被显式设成负数时夹到 0", li.getIgnition() == 0);
+
+        // 上限随血量变化：满血 10，半血以下 15（getIgnitionMax 与 setIgnition 必须用同一判据）
+        li.setHp(li.getHpMax());
+        check("满血时燃点上限 = IGNITION_MAX", li.getIgnitionMax() == ActorLiXiaoYan.IGNITION_MAX);
+        li.setHp(li.getHpMax() / 4);
+        check("低血时燃点上限 = LOW_HP_IGNITION_MAX", li.getIgnitionMax() == ActorLiXiaoYan.LOW_HP_IGNITION_MAX);
+        li.setIgnition(100);
+        check("低血时燃点能一路设到上限", li.getIgnition() == ActorLiXiaoYan.LOW_HP_IGNITION_MAX);
+
+        // 同一个类注册两条模板（【残破容器】/【完整容器】）时，
+        // 运行时实例必须按"短名相同"补全 id，不能拿同类第一条硬套
+        FlameReaver owner = new FlameReaver(150);
+        BrokenContainer broken = new BrokenContainer(owner);
+        BrokenContainer complete = new BrokenContainer(owner, BrokenContainer.Kind.COMPLETE);
+        check("残破容器 id 归一到 brokenContainer",
+                World.fullIdOf(broken).endsWith(":brokenContainer"));
+        check("完整容器 id 归一到 completeContainer（不被同类第一条盖掉）",
+                World.fullIdOf(complete).endsWith(":completeContainer"));
+    }
+
+    /**
+     * 命令系统的 {@code @s} / {@code @p} 要跟着"当前行动者"走（2026-09 实测问题）。
+     * <p>
+     * 背景：{@link CommandManager#setPlayer} 只在 {@code GameMain} 的选人流程里调用，
+     * 多角色队伍里<b>最后选的那个会一直占着"玩家"的位置</b> —— 日志里表现为
+     * "酒剑仙的回合里敲 {@code /give @s …}，东西发给了白厄/卡厄斯兰那"。
+     */
+    private static void testFollowActor() {
+        section("命令系统的 @s 跟随当前行动者");
+
+        LivingThing previous = CommandManager.getPlayer();
+        LivingThing ourFighter = new PlayerOne(125).copy();
+        LivingThing enemy = new CommonInsect(150L).copy();
+
+        CommandManager.setPlayer(ourFighter);
+        CommandManager.followActor(enemy, true);
+        check("我方行动者接手后，@s 指向它", CommandManager.getPlayer() == enemy);
+        CommandManager.followActor(ourFighter, false);
+        check("敌方回合不改 @s（否则 /hurt @s 会打到对面）", CommandManager.getPlayer() == enemy);
+        CommandManager.followActor(null, true);
+        check("行动者为 null 时不动 @s", CommandManager.getPlayer() == enemy);
+
+        CommandManager.setPlayer(previous);
+    }
+
+    /**
+     * NBT 数据层与 {@code /data} 命令（2026-09 新增）。
+     * <p>
+     * 覆盖三层：<b>SNBT 文本</b>（能不能解析/原样写回）、<b>路径</b>（{@code a.b[0].c}）、
+     * <b>反射桥</b>（哪些字段进数据、写回会不会被 setter 钳制），最后跑两条真命令。
+     * <p>
+     * 这里特意断言了"<b>行为对象不进数据</b>"（{@code controller}/{@code force}）——
+     * 那是这套设计最容易失控的地方：一旦让反射漫游进 controller 与闭包，
+     * {@code /data get @s} 会变成几千行的内部实现倾倒。
+     */
+    private static void testDataCommand() {
+        section("NBT 数据层与 /data 命令");
+
+        // ① SNBT：解析、后缀、原样写回
+        NbtTag parsed = Snbt.parse("{hp:20L,name:\"白厄\",alive:1b,rate:0.25d,list:[1,2,{x:3}]}");
+        check("SNBT 能解析复合标签", parsed instanceof NbtCompound);
+        NbtCompound compound = (NbtCompound) parsed;
+        check("SNBT 的 20L 是长整", compound.get("hp") instanceof NbtLong && compound.get("hp").asLong() == 20L);
+        check("SNBT 的字符串", "白厄".equals(compound.get("name").asString()));
+        check("SNBT 的 1b 能当布尔读", compound.get("alive") != null && compound.get("alive").asBoolean());
+        check("SNBT 的 0.25d 是双精度", compound.get("rate") != null && compound.get("rate").asDouble() == 0.25d);
+        check("SNBT 的嵌套列表有 3 个元素",
+                compound.get("list") instanceof NbtList list && list.size() == 3);
+        check("SNBT 原样写回（键顺序与后缀都保留）",
+                "{hp:20L,name:\"白厄\",alive:1b,rate:0.25d,list:[1,2,{x:3}]}".equals(parsed.toSnbt()));
+        check("裸词当字符串（放宽，MC 要求加引号）", "hello".equals(Snbt.parse("hello").asString()));
+        check("true 当字节 1", Snbt.parse("true").asLong() == 1L);
+        expectSyntaxError("残缺的 SNBT 会报错（{hp:}）", () -> Snbt.parse("{hp:}"));
+        expectSyntaxError("没闭合的复合标签会报错", () -> Snbt.parse("{hp:1"));
+
+        // ② 路径
+        NbtCompound tree = Snbt.parseCompound("{a:{b:[{c:1L},{c:2L}]}}");
+        DataPath path = DataPath.parse("a.b[1].c");
+        check("路径解析出 4 段", path.segments().size() == 4);
+        check("路径能取到列表元素里的字段", path.get(tree) != null && path.get(tree).asLong() == 2L);
+        check("路径不存在时返回 null", DataPath.parse("a.x").get(tree) == null);
+        check("下标越界时返回 null", DataPath.parse("a.b[9]").get(tree) == null);
+        expectSyntaxError("空下标会报错", () -> DataPath.parse("a[]"));
+
+        // ③ 反射桥：读（数据 vs 行为）
+        ActorLiXiaoYan probe = new ActorLiXiaoYan(125);
+        NbtCompound data = DataBridge.toCompound(probe);
+        check("数据里有 hp", data.get("hp") != null && data.get("hp").asLong() == probe.getHp());
+        check("数据里有子类字段 ignition", data.get("ignition") != null && data.get("ignition").asLong() == probe.getIgnition());
+        check("数据里有 name", data.get("name") != null && probe.getName().equals(data.get("name").asString()));
+        check("uuid 可见（只读，因为它是 final）", data.get("uuid") != null);
+        check("controller 不进数据（行为不是数据）", data.get("controller") == null);
+        check("物理对象不进数据", data.get("force") == null && data.get("velocity") == null);
+        check("战斗引用不进数据", data.get("participateFight") == null);
+        // 这条盯着一个踩过的坑：DataBridge 里若定义了一个叫 Slot 的内部类型，
+        // 会把 import 的 inventory.Slot 遮住，背包就 dump 成空壳了。
+        check("背包格照常进数据（Slot 没被同名内部类遮掉）",
+                data.get("inventory") instanceof NbtCompound inventory && inventory.get("slots") instanceof NbtList slots
+                        && slots.size() == 63);
+        // 这条盯着"参数节点被挂两次"：data 下不该出现游离的「值」子节点。
+        check("/data 下没有游离的「值」子节点",
+                !CommandManager.getDispatcher().getCommandNode("data").getChildrenNames().contains("值"));
+
+        // ④ 反射桥：写（能走 setter 就被 setter 的钳制管住）
+        probe.setHp(probe.getHpMax());
+        DataBridge.merge(probe, Snbt.parseCompound("{hp:99999999}"));
+        check("写 hp 会被 setHp 钳到生命上限", probe.getHp() == probe.getHpMax());
+        DataBridge.merge(probe, Snbt.parseCompound("{ignition:99}"));
+        check("写 ignition 会被夹到上限", probe.getIgnition() == probe.getIgnitionMax());
+        DataBridge.merge(probe, Snbt.parseCompound("{ignition:-5}"));
+        check("写 ignition 负数会被夹到 0", probe.getIgnition() == 0);
+        expectSyntaxError("写不存在的字段会报错", () -> DataBridge.merge(probe, Snbt.parseCompound("{noSuchField:1}")));
+        expectSyntaxError("写 final 字段（uuid）会被拒绝", () -> DataBridge.merge(probe, Snbt.parseCompound("{uuid:\"x\"}")));
+
+        // ⑤ 命令层（走真实解析与执行）
+        LivingThing previous = CommandManager.getPlayer();
+        CommandManager.setPlayer(probe);
+        run("data get entity @s", true);
+        run("data get entity @s hp", true);
+        run("data get entity @s noSuchThing", false);
+        run("data merge entity @s {hp:1}", true);
+        check("命令写入真的生效了", probe.getHp() == 1L);
+        run("data merge entity @s {hp: 2}", true);
+        check("带空格的 NBT 也能解析（readBalanced）", probe.getHp() == 2L);
+        run("data merge entity @s {noSuchField:1}", false);
+        run("data merge entity @s {", false);
+        run("data get entity @e[type=ThisTypeDoesNotExist]", false);
+        run("data", false);
+        CommandManager.setPlayer(previous);
+    }
+
+    /**
+     * {@code /data modify}：改到路径深处（列表元素里的字段、映射、标量列表的增删）。
+     * <p>
+     * 这里刻意<b>不</b>去改 {@code skills[...]}：{@code controller} 不在"数据对象"名单里
+     * （它是行为不是数据），所以技能表本来就不可达 —— 这是设计，不是 bug。
+     */
+    private static void testDataModify() {
+        section("NBT 路径写入与 /data modify");
+
+        LivingThing previous = CommandManager.getPlayer();
+        ActorLiXiaoYan probe = new ActorLiXiaoYan(125);
+        CommandManager.setPlayer(probe);
+
+        // ① 深处写入：列表元素里的字段（manas[3] = 火法力）
+        run("data modify entity @s manas[3].amount set 100", true);
+        check("modify set 能改到 manas[3].amount", probe.getManas().get(3).getAmount() == 100.0d);
+        run("data modify entity @s hp set 1", true);
+        check("modify set 走 setter（hp 被钳制后确实是 1）", probe.getHp() == 1L);
+        run("data modify entity @s ignition set 7", true);
+        check("modify set 改 ignition", probe.getIgnition() == 7);
+        run("data modify entity @s ignition set 12345", true);
+        check("modify set 同样被 setIgnition 夹住", probe.getIgnition() == probe.getIgnitionMax());
+
+        // ② 给身上挂一个效果，再改"效果列表里的元素"
+        run("effect @s add frozen", true);
+        check("测试前提：身上有一个效果", probe.getEntityEffectList().size() == 1);
+        run("data modify entity @s entityEffectList[0].level set 3", true);
+        check("modify set 能改到 effects[0].level", probe.getEntityEffectList().get(0).getLevel() == 3);
+
+        // ③ 标量列表允许增删（枚举也算标量）；对象列表必须被拒
+        int tagsBefore = probe.getEntityEffectList().get(0).getEffectTagsList().size();
+        run("data modify entity @s entityEffectList[0].effectTagsList append POSITIVE", true);
+        check("modify append 往枚举列表里加了一个",
+                probe.getEntityEffectList().get(0).getEffectTagsList().size() == tagsBefore + 1);
+        run("data modify entity @s entityEffectList[0].effectTagsList insert 0 POSITIVE", true);
+        check("modify insert 插到了开头",
+                probe.getEntityEffectList().get(0).getEffectTagsList().size() == tagsBefore + 2);
+        run("data modify entity @s entityEffectList[0].effectTagsList prepend POSITIVE", true);
+        check("modify prepend 也生效",
+                probe.getEntityEffectList().get(0).getEffectTagsList().size() == tagsBefore + 3);
+        run("data modify entity @s entityEffectList append {id:\"x\"}", false);
+
+        // ④ 各种"应该报错"的情况
+        run("data modify entity @s noSuch.path set 1", false);
+        run("data modify entity @s manas[99].amount set 1", false);
+        run("data modify entity @s manas set 1", false);
+        run("data modify entity @s ignition merge {x:1}", false);
+        run("data modify entity @s manas[3].amount set abc", false);
+        run("data modify entity @s", false);
+        run("data remove entity @s hp", false);
+
+        run("effect @s remove all", true);
+        CommandManager.setPlayer(previous);
+    }
+
+    /**
+     * {@code {k:v}} 过滤、{@code [a:b]} 切片、{@code nbt=} 选择器、{@code storage}、{@code execute if data}
+     * —— 2026-09-26 第二批（用户要的"MC 味道"剩下的部分）。
+     */
+    private static void testDataFiltersAndStorage() {
+        section("NBT 过滤/切片/storage/if data");
+
+        /* ① 路径：过滤与切片（纯标签层） */
+        NbtCompound tree = Snbt.parseCompound(
+                "{items:[{id:\"a\",n:1},{id:\"b\",n:2},{id:\"c\",n:3}]}");
+        DataPath filtered = DataPath.parse("items[{id:\"b\"}].n");
+        check("过滤 + 取字段", filtered.get(tree) != null && filtered.get(tree).asLong() == 2);
+        check("过滤没命中 → null", DataPath.parse("items[{id:\"z\"}]").get(tree) == null);
+        check("切片 [0:2] 拿到前两个",
+                DataPath.parse("items[0:2]").get(tree) instanceof NbtList first && first.size() == 2);
+        check("切片 [1:] 拿到后两个",
+                DataPath.parse("items[1:]").get(tree) instanceof NbtList rest && rest.size() == 2);
+        check("切片 [:] 拿到全部",
+                DataPath.parse("items[:]").get(tree) instanceof NbtList all && all.size() == 3);
+        expectSyntaxError("过滤只支持单键", () -> DataPath.parse("items[{id:\"a\",n:1}]"));
+        DataPath.parse("items[{id:\"a\"}].n").setIn(tree, new NbtInt(99));
+        check("过滤路径能定位到元素并写进去", DataPath.parse("items[{id:\"a\"}].n").get(tree).asLong() == 99);
+        expectSyntaxError("切片只能读不能写", () -> DataPath.parse("items[0:1]").setIn(tree, new NbtInt(1)));
+
+        /* ② storage（内存里的全局数据） */
+        DataStorage.clear();
+        run("data merge storage aiTest {count:1,name:\"测试\"}", true);
+        run("data get storage aiTest count", true);
+        run("data modify storage aiTest count set 7", true);
+        check("storage：set 生效", DataStorage.of("aiTest").get("count") != null
+                && DataStorage.of("aiTest").get("count").asLong() == 7);
+        check("storage：merge 保留没提到的键", "测试".equals(DataStorage.of("aiTest").get("name").asString()));
+        run("data merge storage aiTest {list:[]}", true);
+        run("data modify storage aiTest list append 1", true);
+        run("data modify storage aiTest list append 2", true);
+        check("storage：append 进了列表", DataStorage.of("aiTest").get("list") instanceof NbtList list
+                && list.size() == 2);
+        run("data modify storage aiTest list insert 0 0", true);
+        check("storage：insert 插到了开头",
+                DataStorage.of("aiTest").get("list") instanceof NbtList after
+                        && after.get(0).asLong() == 0 && after.size() == 3);
+        run("data get storage noSuchStore", false);
+        run("data get storage aiTest noSuchKey", false);
+        run("data modify storage aiTest count append 3", false);
+
+        /* ③ 选择器 nbt=：比的是"数据视图"，而且是标签精确比较 */
+        FlameReaver boss = new FlameReaver(150);
+        ActorLiXiaoYan hero = new ActorLiXiaoYan(125);
+        List<LivingThing> enemies = new ArrayList<>();
+        enemies.add(boss);
+        List<LivingThing> fighters = new ArrayList<>();
+        fighters.add(hero);
+        Fight fight = new Fight(enemies, new ArrayList<>(), fighters);
+
+        CommandResult byLevel = CommandManager.executeResult("list @e[nbt={level:125L}]", fight);
+        check("nbt=：按长整字段筛出 125 级的目标", byLevel.isSuccess() && byLevel.getResult() == 1);
+        // 注意：筛不到时选择器会报「没有选中任何生物」，所以这里断言的是"失败"而不是"影响 0 个"
+        CommandResult byInt = CommandManager.executeResult("list @e[nbt={level:125}]", fight);
+        check("nbt=：125 与 125L 不是同一个标签，所以筛不到（选择器报没选中）", !byInt.isSuccess());
+        CommandResult byGrow = CommandManager.executeResult("list @e[nbt={hpGrowNumber:58.0d}]", fight);
+        check("nbt=：按 double 字段筛", byGrow.isSuccess() && byGrow.getResult() == 1);
+        CommandResult byBoth = CommandManager.executeResult(
+                "list @e[type=ActorLiXiaoYan,nbt={hpGrowNumber:58.0d}]", fight);
+        check("nbt= 能和 type= 一起用（都对才选中）", byBoth.isSuccess() && byBoth.getResult() == 1);
+        CommandResult byMismatch = CommandManager.executeResult(
+                "list @e[type=FlameReaver,nbt={hpGrowNumber:58.0d}]", fight);
+        check("nbt= 与 type= 都写对才选中（BOSS 不是 58 成长）", !byMismatch.isSuccess());
+
+        /* ④ execute if data */
+        LivingThing previous = CommandManager.getPlayer();
+        CommandManager.setPlayer(hero);
+        long before = hero.getHp();
+        run("execute if data entity @s level run hurt @s 1", true);
+        check("if data：条件成立时内层命令真的跑了", hero.getHp() == before - 1);
+        run("execute if data entity @s noSuchField run hurt @s 1", true);
+        check("if data：条件不成立时内层命令没有跑", hero.getHp() == before - 1);
+        run("execute if data storage aiTest count run data modify storage aiTest count set 42", true);
+        check("if data storage：条件成立后存储位被改", DataStorage.of("aiTest").get("count").asLong() == 42);
+        run("execute if data storage aiTest noSuchKey run data modify storage aiTest count set 0", true);
+        check("if data storage：条件不成立时不改", DataStorage.of("aiTest").get("count").asLong() == 42);
+        run("execute if data entity @s", false);
+
+        /* ⑤ 实体侧：过滤读得到、切片只读不写 */
+        run("effect @s add frozen", true);
+        run("data get entity @s entityEffectList[{id:\"game_official_content:frozenEffect\"}].level", true);
+        run("data get entity @s manas[0:2]", true);
+        run("data modify entity @s manas[0:2] set 1", false);
+        run("data get entity @s manas[{amount:516.0d}].amount", true);
+        run("effect @s remove all", true);
+
+        /* ⑥ 路径走不通时，报错要说清"断在哪一段、为什么"。
+         * 只说"没有数据 / 没有命中"的话，用的人分不清是字段名打错、下标越界，还是过滤没命中
+         * ——典型场景：想 /data modify 一个身上还没有的效果，报错看起来像是命令语法不对。
+         * 两条路要分别覆盖：/data get 走标签树，/data modify 走活对象。 */
+        run("effect @s add frozen", true);
+        String getMiss = errorOf("data get entity @s entityEffectList[{id:\"no:suchEffect\"}].level");
+        check("get 过滤没命中：报错里列出了该列表现有的 id",
+                getMiss.contains("game_official_content:frozenEffect"));
+        String modifyMiss = errorOf("data modify entity @s entityEffectList[{id:\"no:suchEffect\"}].level set 1");
+        check("modify 过滤没命中：报错里也列出了该列表现有的 id",
+                modifyMiss.contains("game_official_content:frozenEffect"));
+        String fieldMiss = errorOf("data get entity @s noSuchField");
+        check("get 字段名打错：报错里列出这一层有哪些键",
+                fieldMiss.contains("没有「noSuchField」") && fieldMiss.contains("uuid"));
+        String indexMiss = errorOf("data get entity @s manas[99].amount");
+        check("get 下标越界：报错里说出这个列表有几个元素", indexMiss.contains("5 个元素"));
+        // 反向确认：命中的那条不会因为多了这段提示而改变行为
+        run("data get entity @s entityEffectList[{id:\"game_official_content:frozenEffect\"}].level", true);
+        run("effect @s remove all", true);
+
+        CommandManager.setPlayer(previous);
+    }
+
+    /**
      * 执行一条命令并检查「成功/失败」是否符合预期。
      *
      * @param command  命令文本（可带前缀）
@@ -1661,6 +1995,18 @@ public class TestCommandSystem {
         } else {
             fail("命令「" + command + "」期望 " + (expected ? "成功" : "失败") + "，实际相反：" + result);
         }
+    }
+
+    /**
+     * 跑一条命令并返回它的错误文本（成功时返回空串），顺便打印一行。
+     *
+     * @param command 命令文本
+     * @return 错误文本
+     */
+    private static String errorOf(String command) {
+        CommandResult result = CommandManager.executeResult(command);
+        System.out.println("  >>> " + command + "  =>  " + result);
+        return result.getError() == null ? "" : result.getError().getMessage();
     }
 
     /**

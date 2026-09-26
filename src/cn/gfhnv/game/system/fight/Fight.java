@@ -36,12 +36,26 @@ public class Fight {
     }
 
     /**
+     * 判断一个实体是否属于<b>我方</b>（{@link #getFighterList()}）。
+     * <p>
+     * 这是"我方/敌方"的<b>唯一判据</b>：{@link #sideNameOf(LivingThing)} 与回合循环里的
+     * 命令系统 {@code @s} 跟随（{@code FightTurnPastListener}）都走它 ——
+     * 别在别处再 {@code contains} 一遍，两套口径迟早会漂。
+     *
+     * @param entity 实体；{@code null} 时返回 {@code false}
+     * @return 在我方阵营里则为 {@code true}
+     */
+    public boolean isOurSide(LivingThing entity) {
+        return entity != null && getFighterList() != null && getFighterList().contains(entity);
+    }
+
+    /**
      * 判断一个实体在这局战斗里属于哪一边 —— <b>用词与回合头完全一致</b>（{@code 我方}/{@code 敌方}）。
      * <p>
      * 回合头、攻击行、侵蚀行等所有"要标明对象来源"的输出都共用这一个方法，
      * 免得各处自己判、判出两套口径。
      * <p>
-     * 判据只有一条：在不在 {@link #getFighterList()} 里 —— 在就是我方。
+     * 判据只有一条：在不在 {@link #getFighterList()} 里 —— 在就是我方（见 {@link #isOurSide(LivingThing)}）。
      * 注意<b>两个阵营列表都没进去的实体也会被算成敌方</b>（{@link #getOpponentList(LivingThing)}
      * 的口径同样如此），所以召唤物必须加进召唤者那一侧，否则会被当成敌人打（见 TIPS_FOR_LLM §5.8）。
      *
@@ -52,8 +66,7 @@ public class Fight {
         if (entity == null) {
             return "";
         }
-        List<LivingThing> fighters = getFighterList();
-        return fighters != null && fighters.contains(entity) ? "我方" : "敌方";
+        return isOurSide(entity) ? "我方" : "敌方";
     }
 
     @Override

@@ -133,6 +133,65 @@ public class StringReader {
     }
 
     /**
+     * 读取一段「成对括号」文本：从当前字符开始，一直读到最外层 {@code {}} / {@code []} 闭合，
+     * 或遇到不在括号内的空白为止。<b>括号内的空格不会断开</b>，引号内的括号也不计数。
+     * <p>
+     * 给 {@code /data merge @s {hp: 20}} 这类"NBT 字面量"用（{@link #readWord()} 会在空格处断开，
+     * 所以那个方法读不了这种参数）。解析交给 {@code Snbt}，本方法只管取字符。
+     *
+     * @return 读到的文本（已去首尾空白）
+     * @throws CommandSyntaxException 输入已结束或括号没有闭合时抛出
+     */
+    public String readBalanced() throws CommandSyntaxException {
+        skipWhitespace();
+        if (cursor >= string.length()) {
+            throw CommandSyntaxException.expectedInput(this, "一段 NBT 文本");
+        }
+        int start = cursor;
+        int depth = 0;
+        char quote = '\0';
+        while (cursor < string.length()) {
+            char c = string.charAt(cursor);
+            if (quote != '\0') {
+                if (c == quote) {
+                    quote = '\0';
+                }
+                cursor++;
+                continue;
+            }
+            if (c == '"' || c == '\'') {
+                quote = c;
+                cursor++;
+                continue;
+            }
+            if (c == '{' || c == '[') {
+                depth++;
+                cursor++;
+                continue;
+            }
+            if (c == '}' || c == ']') {
+                depth--;
+                cursor++;
+                if (depth <= 0) {
+                    break;
+                }
+                continue;
+            }
+            if (depth == 0 && isWhitespace(c)) {
+                break;
+            }
+            cursor++;
+        }
+        if (quote != '\0') {
+            throw CommandSyntaxException.create("引号没有闭合：" + string.substring(start));
+        }
+        if (depth > 0) {
+            throw CommandSyntaxException.create("括号没有闭合：" + string.substring(start));
+        }
+        return string.substring(start, cursor).trim();
+    }
+
+    /**
      * 读取一个「词」：一段不含空白的连续字符。
      * <p>
      * 读取前会跳过前导空白。若已经没有内容可读，抛出

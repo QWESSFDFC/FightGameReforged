@@ -369,10 +369,11 @@ public class MyListener {
 **安全提醒**：模组源码是在**同一个 JVM、同一权限**下编译并立即执行的，没有沙箱
 （可以读写文件、联网、`System.exit`）。**安装模组 = 授予该模组与游戏同等的权限，请只加载你信得过的源码。**
 
-**给 AI 的提醒**：本项目的 AI 助手通常**不能编译、不能运行 java**（见 `TIPS_FOR_LLM.md` §0）。
-写完模组后请让用户：
-① 跑一次游戏看控制台；② 或在游戏里用 `/give @s <模组ID>:<物品>`、`/effect @s list`
-验证内容确实注册进去了（**模组内容只能写完整 id**，见下面第 6 节的命令说明）。
+**给 AI 的提醒**：2026-09-26 起，项目自带 JDK（`tool_for_llm/zulu-25`），
+AI 助手**可以**自己编译 `src` 与跑自测（见 `TIPS_FOR_LLM.md` §0），
+但**模组代码不在自测范围内**（`test-command-system.ps1` 只编 `src`），所以写完模组后仍请让用户：
+① 跑一次游戏看控制台；② 或在游戏里用 `/give @s <模组ID>:<物品>`、`/effect @s list`、
+`/data get entity @s` 验证内容确实注册进去了（**模组内容只能写完整 id**，见下面第 6 节的命令说明）。
 
 ---
 
@@ -409,7 +410,7 @@ $src  = $src.Replace('if (-not (Test-Path $root)) {', 'if ($false) {')
 |---|---|
 | `main.json` | 模组信息 |
 | `code/com/gfhnv/mods/drunkenSword/DrunkenSwordMod.java` | 主类：注册全部内容 |
-| `.../DrunkenSwordsman.java` | 角色「酒剑仙」（125 级、火属性、速度 130、生命/攻击/防御成长 34/32/12） |
+| `.../DrunkenSwordsman.java` | 角色「酒剑仙」（125 级、火属性、速度 130、生命/攻击/防御成长 34/32/12；**开局自带 `INITIAL_STACKS` 层醉意**，走 `whenFightStart`） |
 | `.../Drunkenness.java` | 【醉意】层数资源（`INFINITE` 效果，数值存 `level`，上限 10；每层还提供 2% 减伤） |
 | `.../Hangover.java` | 【宿醉】负面效果（2 回合、防御 −30%，进场上调/退场对称减回） |
 | `.../RaiseCup.java` | 普攻「举杯邀月」：单体 300%，自身 +2 层【醉意】，无消耗无冷却 |
@@ -418,7 +419,8 @@ $src  = $src.Replace('if (-not (Test-Path $root)) {', 'if ($false) {')
 | `.../OsmanthusWine.java` | 物品【桂花酿】：+4 层醉意，回 5% 最大生命 |
 | `.../SoberSoup.java` | 物品【醒酒汤】：清空醉意，每层回 4% 最大生命 |
 
-**玩法**：普攻垫层（每层还带 2% 减伤）→ 攒到 4 层以上放大招（满 10 层是 2900% 全体）→
+**玩法**：开局自带 2 层（`INITIAL_STACKS`）→ 普攻垫层（每层还带 2% 减伤）→
+攒到 4 层以上放大招（满 10 层是 2900% 全体）→
 打光醉意等于把护甲也交出去，随后还有 2 回合【宿醉】（防御 −30%），所以要么先手秒人、要么先喝醒酒汤保命。
 三个技能都**没有冷却**（和官方角色一致），唯一的门槛是醉意层数与法力。
 **所有数值都是各文件顶部的 `public static final` 常量**，手感不对只改数字。

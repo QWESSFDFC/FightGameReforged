@@ -5,6 +5,7 @@ import cn.gfhnv.game.entity.Player;
 import cn.gfhnv.game.entityController.PlayerController;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
+import cn.gfhnv.game.system.fight.Fight;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -63,6 +64,21 @@ public class DrunkenSwordsman extends Player {
     public static final int INVENTORY_SLOTS = 63;
 
     /**
+     * 开局白送的【醉意】层数（{@link Drunkenness#MAX_STACKS} 以内）。
+     * <p>
+     * <b>给 0 也不等于"没有这条效果"</b>：{@link Drunkenness#add} 在层数为 0 时照样会把状态挂上身，
+     * 所以哪怕把这里改成 0，从第 1 回合起 {@code /effect list} 里就能看到这条资源，
+     * {@code /data modify entity @s entityEffectList[{id:"drunkenSword:drunkenness"}].level set N} 也就能改了
+     * ——【醉意】只能由玩法产生（{@code /effect} 施加不了角色专属效果），
+     * 开局挂一条可以免掉"必须先打一下普攻"这一步。
+     * <p>
+     * 数值取舍：大招的门槛是 {@link FrostSword#REQUIRED_STACKS} 层，
+     * 给到门槛就是"开局直接能开大"；给 {@value #INITIAL_STACKS} 层则保留了攒层的过程。
+     * 开局时是<b>补到</b>这个层数（已经够了就不动），不是每次都加一遍。
+     */
+    public static final int INITIAL_STACKS = 2;
+
+    /**
      * 构造酒剑仙。
      * <p>
      * {@code LivingThing} 构造器的参数顺序是：
@@ -110,5 +126,32 @@ public class DrunkenSwordsman extends Player {
     @Override
     public LivingThing copy() {
         return new DrunkenSwordsman(this);
+    }
+
+    /**
+     * 开局挂上【醉意】，层数补到 {@link #INITIAL_STACKS}。
+     * <p>
+     * <b>为什么放在这个钩子而不是构造器</b>：构造器在"注册表模板"和每次 {@code copy()} 时都会跑，
+     * 而模板是常驻的、会被反复复制，往它身上挂状态既不合适也不干净；
+     * 这个钩子只在<b>真正参战</b>时由 {@code FightStartEventListener} 调一次。
+     * 下一局也不用自己清：整场结束时框架会清空效果列表（{@code LivingThing#whenFightEnds}），
+     * 顺带调 {@link Drunkenness#whenLastTimeEnd} 把减伤来源摘掉。
+     * <p>
+     * <b>语义是"补到 N 层"而不是"+N 层"</b>：已经够了就什么都不做。
+     * 否则同一个实例被通知两次开局（或者以后加了"中途入场"之类的调用点）就会白送一份，
+     * 症状是"开局莫名其妙有 4 层"。层数比 {@link #INITIAL_STACKS} 多时也<b>不往下扣</b>——
+     * 这是"开局保底"，不该把已经攒起来的状态抹掉。
+     *
+     * @param fight 当前战斗上下文
+     */
+    @Override
+    public void whenFightStart(Fight fight) {
+        super.whenFightStart(fight);
+        int current = Drunkenness.stacksOf(this);
+        // of(...) == null 也要走一遍：Drunkenness#add 在层数为 0 时同样会把状态挂上身，
+        // 这样 INITIAL_STACKS 改成 0 时【醉意】依然存在于效果列表里（能被 /data 改、能被 /effect list 看到）
+        if (Drunkenness.of(this) == null || current < INITIAL_STACKS) {
+            Drunkenness.add(this, Math.max(0, INITIAL_STACKS - current));
+        }
     }
 }

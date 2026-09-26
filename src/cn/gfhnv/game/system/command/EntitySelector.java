@@ -51,6 +51,15 @@ public class EntitySelector {
      * 名字筛选（{@code name=}），{@code null} 表示不筛选。
      */
     private String nameFilter = null;
+
+    /**
+     * 数据筛选（{@code nbt={键:值}}），{@code null} 表示不筛选。
+     * <p>
+     * 只支持<b>单键</b>复合标签（与 {@code /data} 的过滤器同一套），匹配的是
+     * {@link cn.gfhnv.game.data.DataBridge} 给出的"数据视图"，所以
+     * {@code /data get} 里能看到的字段都能拿来筛。
+     */
+    private cn.gfhnv.game.data.NbtCompound nbtFilter = null;
     /**
      * 数量上限（{@code limit=}），负数表示不限制。
      */
@@ -126,8 +135,9 @@ public class EntitySelector {
                 case "name" -> selector.nameFilter = value;
                 case "limit", "count" -> selector.limit = parseLimit(value);
                 case "sort" -> selector.sort = parseSort(value);
+                case "nbt" -> selector.nbtFilter = parseNbtFilter(value);
                 default -> throw CommandSyntaxException.create(
-                        "未知的筛选键「" + key + "」，可用：type、name、limit、sort");
+                        "未知的筛选键「" + key + "」，可用：type、name、nbt、limit、sort");
             }
         }
         return selector;
@@ -358,7 +368,7 @@ public class EntitySelector {
         });
 
         // 筛选
-        candidates.removeIf(entity -> !matchesType(entity) || !matchesName(entity));
+        candidates.removeIf(entity -> !matchesType(entity) || !matchesName(entity) || !matchesNbt(entity));
 
         // 排序
         switch (kind) {
@@ -407,7 +417,7 @@ public class EntitySelector {
             }
             return "（当前战斗里的生物已经全部死亡，或者还没有加入任何生物）";
         }
-        if (typeFilter != null || nameFilter != null) {
+        if (typeFilter != null || nameFilter != null || nbtFilter != null) {
             StringBuilder filter = new StringBuilder();
             if (typeFilter != null) {
                 filter.append("type=").append(typeFilter);
@@ -417,6 +427,12 @@ public class EntitySelector {
                     filter.append(",");
                 }
                 filter.append("name=").append(nameFilter);
+            }
+            if (nbtFilter != null) {
+                if (filter.length() > 0) {
+                    filter.append(",");
+                }
+                filter.append("nbt=").append(nbtFilter.toSnbt());
             }
             return "（筛选条件 " + filter + " 没有命中，当前战斗里的生物有 "
                     + EntityArgumentType.describe(all) + "）";
@@ -450,6 +466,50 @@ public class EntitySelector {
         return false;
     }
 
+    /**
+     * 判断实体是否通过 {@code nbt={键:值}} 筛选。
+     * <p>
+     * 比的是"数据视图"（{@link cn.gfhnv.game.data.DataBridge#toCompound(Object)}），
+     * 所以 {@code /data get} 里能看到的字段都能筛；只写了的那几个键比，别的键不管。
+     *
+     * @param entity 实体
+     * @return 是否通过
+     */
+    private boolean matchesNbt(Entity entity) {
+        if (nbtFilter == null || nbtFilter.isEmpty()) {
+            return true;
+        }
+        if (entity == null) {
+            return false;
+        }
+        cn.gfhnv.game.data.NbtCompound data = cn.gfhnv.game.data.DataBridge.toCompound(entity);
+        for (String key : nbtFilter.keySet()) {
+            if (!nbtFilter.get(key).equals(data.get(key))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * 解析 {@code nbt={键:值}} 的筛选值。
+     *
+     * @param value 中括号里 {@code nbt=} 后面的原文
+     * @return 复合标签
+     * @throws CommandSyntaxException SNBT 写错了 / 不是单键
+     */
+    private static cn.gfhnv.game.data.NbtCompound parseNbtFilter(String value) throws CommandSyntaxException {
+        cn.gfhnv.game.data.NbtCompound compound;
+        try {
+            compound = cn.gfhnv.game.data.Snbt.parseCompound(value);
+        } catch (IllegalArgumentException e) {
+            throw CommandSyntaxException.create("nbt= 筛选写错了：" + e.getMessage());
+        }
+        if (compound.size() != 1) {
+            throw CommandSyntaxException.create("nbt= 筛选本版只支持单键（形如 nbt={coreflame:12}）");
+        }
+        return compound;
+    }
     /**
      * 判断实体是否通过 {@code name=} 筛选（支持 {@code *} 通配）。
      * <p>

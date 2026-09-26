@@ -1,5 +1,9 @@
 package cn.gfhnv.game.officialStuff.customCommands;
 
+import cn.gfhnv.game.data.DataBridge;
+import cn.gfhnv.game.data.DataPath;
+import cn.gfhnv.game.data.DataStorage;
+import cn.gfhnv.game.data.NbtCompound;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.system.command.*;
 
@@ -144,6 +148,98 @@ public class ExecuteCommand extends Command {
         ArgumentBuilder inner = run.argument("命令", StringArgumentType.greedyString());
         inner.executes(ExecuteCommand::runAs);
 
+        /* ---------------- if data（条件执行） ---------------- */
+        ArgumentBuilder ifBranch = ArgumentBuilder.literalBuilder("if");
+        root.addChild(ifBranch);
+        ArgumentBuilder ifData = ifBranch.literal("data");
+
+        // if data entity <目标> [路径] run <命令>
+        ArgumentBuilder ifEntity = ifData.literal("entity");
+        ArgumentBuilder ifTarget = ifEntity.argument("目标", EntityArgumentType.entities());
+        ArgumentBuilder ifNoPath = ifTarget.literal("run").argument("命令", StringArgumentType.greedyString());
+        ifNoPath.executes(ExecuteCommand::runIfEntity);
+        ArgumentBuilder ifPath = ifTarget.argument("路径", DataCommand::readPath);
+        ArgumentBuilder ifPathRun = ifPath.literal("run").argument("命令", StringArgumentType.greedyString());
+        ifPathRun.executes(ExecuteCommand::runIfEntity);
+
+        // if data storage <存储位> [路径] run <命令>
+        ArgumentBuilder ifStorage = ifData.literal("storage");
+        ArgumentBuilder ifStorageId = ifStorage.argument("存储位", WordArgumentType.word());
+        ArgumentBuilder ifStoragePath = ifStorageId.argument("路径", DataCommand::readPath);
+        ArgumentBuilder ifStorageRun = ifStoragePath.literal("run").argument("命令", StringArgumentType.greedyString());
+        ifStorageRun.executes(ExecuteCommand::runIfStorage);
+
         return root;
+    }
+
+    /**
+     * 执行 {@code if data entity …}：条件成立才跑内层命令。
+     *
+     * @param context 命令上下文
+     * @param source  命令来源
+     * @return 内层命令影响到的对象数；条件不成立返回 {@code 0}
+     * @throws CommandSyntaxException 内层命令失败
+     */
+    private static int runIfEntity(cn.gfhnv.game.system.command.CommandContext context,
+                                   cn.gfhnv.game.system.command.CommandSource source) throws CommandSyntaxException {
+        List<LivingThing> targets = context.getLivingThings("目标");
+        DataPath path = context.getArguments().containsKey("路径")
+                ? context.getArgument("路径", DataPath.class) : null;
+        String command = context.getArgument("命令", String.class);
+        boolean matched = false;
+        for (LivingThing target : targets) {
+            if (path == null || path.get(DataBridge.toCompound(target)) != null) {
+                matched = true;
+                break;
+            }
+        }
+        return runIf(matched, "if data entity", path, command, source);
+    }
+
+    /**
+     * 执行 {@code if data storage …}：条件成立才跑内层命令。
+     *
+     * @param context 命令上下文
+     * @param source  命令来源
+     * @return 内层命令影响到的对象数；条件不成立返回 {@code 0}
+     * @throws CommandSyntaxException 内层命令失败
+     */
+    private static int runIfStorage(cn.gfhnv.game.system.command.CommandContext context,
+                                    cn.gfhnv.game.system.command.CommandSource source) throws CommandSyntaxException {
+        String id = context.getArgument("存储位", String.class);
+        DataPath path = context.getArgument("路径", DataPath.class);
+        String command = context.getArgument("命令", String.class);
+        NbtCompound store = DataStorage.get(id);
+        boolean matched = store != null && path.get(store) != null;
+        return runIf(matched, "if data storage " + id, path, command, source);
+    }
+
+    /**
+     * 条件成立就跑内层命令，不成立就什么都不做（返回 0）。
+     *
+     * @param matched  条件是否成立
+     * @param what     条件描述（回显用）
+     * @param path     路径；{@code null} 表示"只看有没有这个目标"
+     * @param command  内层命令
+     * @param source   命令来源
+     * @return 内层命令影响到的对象数；条件不成立返回 {@code 0}
+     * @throws CommandSyntaxException 内层命令失败
+     */
+    private static int runIf(boolean matched, String what, DataPath path, String command,
+                             cn.gfhnv.game.system.command.CommandSource source) throws CommandSyntaxException {
+        if (!matched) {
+            source.sendMessage("条件不成立（" + what + (path == null ? "" : " " + path.describe())
+                    + "），后面的命令没有执行。");
+            return 0;
+        }
+        CommandSource inner = new CommandSource(source.getPlayer());
+        try {
+            int total = CommandManager.getDispatcher().execute(command, inner);
+            source.sendMessage("条件成立（" + what + (path == null ? "" : " " + path.describe())
+                    + "），已执行「" + brief(command) + "」，共影响 " + total + " 个对象。");
+            return total;
+        } catch (CommandSyntaxException e) {
+            throw CommandSyntaxException.create("条件成立后执行「" + brief(command) + "」失败：" + e.getRawMessage());
+        }
     }
 }

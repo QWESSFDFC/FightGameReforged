@@ -90,6 +90,11 @@ AI代码里面好像都标注了(作者DeepSeek)
 | `/effect <目标> add <效果>(参数,…)` | 按构造函数参数新建效果实例，如 `AttackEnhance(0.2,3)` |
 | `/effect <目标> remove <效果>\|all` | 移除某个效果，`all` 清空 |
 | `/execute as <目标> run <命令>` | **以指定对象的身份**运行另一条命令（内层 `@s` 指向它） |
+| `/data get entity <目标> [路径]` | 看实体的「数据」（NBT）：不给路径就 dump 全部，给路径只取一个值，如 `hp`、`effects[0].level` |
+| `/data merge entity <目标> <NBT>` | 按 NBT 合并改字段，如 `{hp:100}`、`{ignition:12}`（走 setter，所以会被钳制） |
+| `/data modify entity <目标> <路径> set\|merge\|append\|prepend\|insert <值>` | 改到深处：路径能带下标、`{k:v}` 过滤与 `[a:b]` 切片 |
+| `/data … storage <存储位> …` | 同一套操作作用在**内存里的全局数据**上（退出游戏就没了） |
+| `/execute if data entity\|storage … run <命令>` | 条件执行：那条数据存在才跑后面的命令 |
 | `/give <目标> <物品> [数量]` | 发物品（数量默认 1） |
 | `/endfight [win\|lose]` | 强制结束战斗（默认按玩家胜利结算） |
 
@@ -135,6 +140,49 @@ AI代码里面好像都标注了(作者DeepSeek)
 
 目标有多个时会**逐个各执行一次**，返回值是各次影响数之和；`execute` 自己套自己最多 8 层，
 超过会报错（不会递归到栈溢出）。
+
+### NBT 与 `/data`（实验性，模仿 MC）
+
+游戏对象可以像 MC 那样被"当数据看"——用一套 NBT 标签（复合/列表/数字/字符串）表示：
+
+```
+/data get entity @s                        dump 自己的全部数据（一整个复合标签）
+/data get entity @s hp                     只取一个字段
+/data get entity @e[type=FlameReaver] disasterPower
+/data get entity @s effects[0].level       列表里的元素也能取
+/data get entity @s inventory.slots[{slotNumber:0L}]     {k:v} 过滤：挑出字段匹配的那个元素
+/data get entity @s manas[0:2]             切片：取前两个（切片只能读）
+/data merge entity @s {hp:100}             改字段
+/data merge entity @s {ignition: 12}       括号里可以有空格
+/data modify entity @s manas[3].amount set 500        改到深处（路径带下标）
+/data modify entity @s effects[0].level set 3         列表元素里的字段也能改
+/data modify entity @s effects[0].effectTagsList append POSITIVE   往标量列表里塞一个
+/data merge storage 我的计数 {kill:1}       内存里的全局数据（退出就没了）
+/data modify storage 我的计数 kill set 5
+/execute if data entity @s hp run list     条件执行：有 hp 这个数据才跑
+/execute if data storage 我的计数 kill run hurt @s 1
+```
+
+选择器里也能按数据筛（`nbt=`），并且是**标签精确比较**：
+
+```
+@e[nbt={level:125L}]              按 long 字段筛（写 125 会当成 int，筛不到）
+@e[type=FlameReaver,nbt={phaseTwo:1b}]   type= 与 nbt= 都要满足
+```
+
+几条与 MC 一致/不一致的规矩：
+
+- 数字后缀沿用 MC：`20L`（长整）、`1b`（字节/布尔）、`0.25d`（双精度）；
+- **字符串可以不写引号**（`{name:白厄}` 能解析）——这条是放宽，方便手敲；
+- **只认"数据"不认"行为"**：controller、监听器、物理对象、事件回调这些**不会**出现在数据里，
+  否则 `@s` 会 dump 出几千行内部实现（技能表也因此改不到，它挂在 controller 上）；
+- **写回能走 setter 就走 setter**：`{hp:99999999}` 会被生命上限钳住，回显里能看到真实结果；
+- `final` 字段（如 `uuid`）只读；**对象列表不能增删**（效果请用 `/effect`），
+  标量列表（数字/字符串/枚举）可以用 `append`/`prepend`/`insert`；
+- **过滤只支持单键**、**切片只能读**、`/data remove` **没做**（想删东西用专门的命令）；
+- `storage` 是**内存**的：退出游戏就清空（存档这块明确不做）。
+
+细节与红线见 `TIPS_FOR_LLM.md` §5.10，可行性分析见 `project_analyses/NBT-AND-DATA-COMMAND-2026-09.md`。
 
 效果名可以写注册表里的 **id** 或**类名**（大小写不敏感）：`frozen`、`frozenEffect`、
 `damageEnhanceEffect`、`CriticalDMGEnhanceEffect(1,5)`、`taunt`（嘲讽：让对手优先打你，
@@ -371,12 +419,13 @@ FightGameReforged/
 │   │   │   ├── thinkingSystem/   # Tag / TagType / ThinkingController / ThinkingControllerAI（Utility AI）
 │   │   │   ├── ElementSort.java  # 金木水火土（+ UNIVERSAL）
 │   │   │   └── useItemSystem/    # 空包（"使用物品"的系统还没做，预留位置）
+│   │   ├── data/                 # NBT 数据层（NbtTag / Snbt / DataPath / DataBridge）—— /data 命令用它
 │   │   ├── utils/                # JSONHelper（org.json 薄封装）、ConsoleColor（ANSI 着色，不引第三方库）
 │   │   └── world/                # World：全局注册表（实体/物品/效果/模组/运行时对象）
 │   └── debug_tools/              # 调试与自测程序（不需要玩就能跑：命令系统自测、预期伤害试算、行动条实验）
 ├── mods/                # 外部模组目录（两个示例模组 + 「醉剑仙」完整示例；各模组的 bin/ 是编译产物）
 ├── config/gameConfig/   # TagConfig.json（AI Tag 权重）/ PropertyConfig.json
-├── project_analyses/    # 分析文档与命令系统说明（含历史轮次报告）
+├── project_analyses/    # 分析文档与命令系统说明（当前基准：PROJECT-ANALYSIS-2026-09.md；其余为历史轮次）
 ├── screenshots/         # 运行截图
 ├── out/                 # javac/gradle 的临时输出（自测脚本用它）
 ├── MODDING-GUIDE.md             # 模组编写指南（目录约定 / API / 模板 / 踩坑 / 完整示例）
@@ -400,8 +449,10 @@ FightGameReforged/
 | 加载外部模组 | `mod/ModLoader.java`、`mod/Mod.java` |
 | 想写一个自己的模组 | `MODDING-GUIDE.md`（完整指南）、`mods/drunkenSword/`（可照抄的示例） |
 | 命令怎么写 | `system/command/`、`officialStuff/customCommands/`、`project_analyses/COMMAND-SYSTEM-2026-08.md` |
+| NBT / 数据读写（`/data`） | `data/`（`NbtTag`/`Snbt`/`DataPath`/`DataBridge`）、`officialStuff/customCommands/DataCommand.java`、`TIPS_FOR_LLM.md` §5.10 |
 | AI 怎么做决策 | `system/thinkingSystem/`、`config/gameConfig/TagConfig.json` |
-| 想给项目做体检 | `project_analyses/`（最上面几份是历史轮次，注意看文档开头的时效说明） |
+| 想给项目做体检 | `project_analyses/PROJECT-ANALYSIS-2026-09.md`（**当前基准**，含旧缺陷的逐条复核）；其余几份是历史轮次，注意看文档开头的时效说明 |
+| 想做 NBT / `/data` 命令 / 存档 | `project_analyses/NBT-AND-DATA-COMMAND-2026-09.md`（可行性分析，**尚未实现**） |
 
 **写监听器前请先知道 EventBus 的三个特点**（踩坑预警）：
 

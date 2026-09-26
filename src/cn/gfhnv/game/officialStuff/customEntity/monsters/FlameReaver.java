@@ -39,7 +39,19 @@ import java.util.List;
  *     <li><b>分离的哀痛 / 幽冥的悼念</b>：见
  *     {@code CloudOfDeath}、{@code FateDrawsNear}、{@code TangledPathsOfMourning} 的注释。</li>
  * </ul>
- * 未实现（第二步）：完整容器、二阶段、【沉默的悲叹】、【镣锁】与【为我设奠】复活。
+ * <b>2026-09 已全部实现</b>（这里原来写着"未实现（第二步）：完整容器、二阶段、【沉默的悲叹】、【镣锁】与【为我设奠】复活"，
+ * 那句话已经过期，别再照它判断进度）：
+ * <ul>
+ *     <li><b>完整容器</b>：{@link BrokenContainer.Kind#COMPLETE}，击杀者拿【破容器之赏】+ 额外回合
+ *     （{@link #grantContainerReward}）；放着不管则被吸收并额外充能；</li>
+ *     <li><b>二阶段</b>：血量比例掉到 {@value #PHASE_TWO_HP_THRESHOLD} 以下时切换
+ *     （{@link #enterPhaseTwo}），获得 {@value #PHASE_TWO_DAMAGE_REDUCTION} 的免伤
+ *     ——它与层数减伤<b>分属两个来源键</b>，会同时生效；</li>
+ *     <li><b>【沉默的悲叹】</b>：{@code SilentLament} 蓄力，下一次行动放【莫因舍弃而哭泣】；</li>
+ *     <li><b>【镣锁】</b>：{@link LockedRite}，由二阶段的【迷失的共祭】给新召唤的容器挂上；</li>
+ *     <li><b>【为我设奠】复活</b>：{@link #tryReviveLocked} —— 处于【镣锁】的容器受到致命攻击时，
+ *     消耗 1 层【灾难之力】与一定比例生命值<b>重新召唤一只新的</b>（官方原文就是"重新召唤"，不是把原体捞回来）。</li>
+ * </ul>
  *
  * @author AI（DeepSeek）生成
  */

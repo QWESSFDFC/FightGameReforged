@@ -2,15 +2,19 @@
 # check-sources.ps1 -- static self-check for the Java sources.
 #
 # WHY THIS EXISTS
-#   The AI cannot compile (see TIPS_FOR_LLM.md section 0), so every javac error
-#   costs the user a full build round-trip. This script catches the CLASS of
-#   mistakes that kept slipping through:
+#   A fast, dependency-free first pass before spending a real javac run on it.
+#   It catches the CLASS of mistakes that kept slipping through:
 #     1. unbalanced braces (a bad multi-line edit truncating a method)
 #     2. a UTF-8 BOM in a .java file (javac chokes on it)
 #     3. a MISSING import (identifier used but neither imported, same-package,
 #        nested in this file, nor in java.lang)
 #     4. an UNUSED import (dead code left behind by refactors)
 #     5. a DUPLICATE field declaration (a bad edit pasting a block twice)
+#
+#   NOTE (2026-09-26): the AI CAN now compile -- the project ships a JDK in
+#   tool_for_llm\zulu-25 (see TIPS_FOR_LLM.md section 0). javac is the
+#   authority; this script stays useful because it is faster and because it
+#   also reports UNUSED imports, which javac does not.
 #
 #   It is deliberately pure ASCII: the project's .ps1 files are UTF-8-with-BOM,
 #   but Chinese text inside a script gets mangled by some consoles, so this one

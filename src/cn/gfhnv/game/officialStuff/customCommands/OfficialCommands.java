@@ -37,6 +37,7 @@ public final class OfficialCommands {
                 new ListCommand(),
                 new HurtCommand(),
                 new EffectCommand(),
+                new DataCommand(),
                 new ExecuteCommand(),
                 new GiveCommand(),
                 new EndFightCommand(),

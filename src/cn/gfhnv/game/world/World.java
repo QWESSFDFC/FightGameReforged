@@ -235,22 +235,43 @@ public class World {
     }
 
     /**
-     * 取出与指定类型相同的注册表模板的 id。
+     * 在注册表里找出"运行时对象的 id 应该补成哪一个完整 id"。
      * <p>
-     * 用<b>精确类型</b>比较（{@code ==}）而不是 {@code instanceof}：
-     * 要的就是「这个类自己的模板」，父类模板不算。
+     * <b>先按短名精确匹配，匹配不到才退回"同类第一条模板"</b>。
+     * 只按类取第一条是不够的：同一个类可以注册多种形态，例如【残破容器】与【完整容器】
+     * 都是 {@link cn.gfhnv.game.officialStuff.customEntity.summons.BrokenContainer}，
+     * 只按类取第一条会把完整容器的 id 改写成 {@code brokenContainer}，
+     * 于是按 id 找内容的地方（{@code /give}、选择器筛选、效果合并判定）全都指向了错的形态。
+     * <p>
+     * 退回按类匹配是为了兼容"id 由代码临时生成、注册表里没有同名模板"的运行时对象。
      *
-     * @param type   要查找的类型
-     * @param things 注册表列表（实体表或物品表）
-     * @return 模板的完整 id；找不到返回 {@code null}
+     * @param type    运行时对象的类型（精确比较，父类不算）
+     * @param shortId 运行时对象当前的 id（调用方已确认它不含 {@code :}）
+     * @param things  注册表列表
+     * @param idOf    从注册表元素上取 id 的方式
+     * @param <T>     注册表元素类型
+     * @return 完整 id；注册表里没有同类模板时返回 {@code null}
      */
-    private static String registeredIdOf(Class<?> type, List<? extends Thing> things) {
-        for (Thing thing : things) {
-            if (thing != null && thing.getClass() == type && thing.getId() != null) {
-                return thing.getId();
+    private static <T> String registeredIdOf(Class<?> type, String shortId, List<T> things,
+                                             java.util.function.Function<T, String> idOf) {
+        String sameId = null;
+        String sameClass = null;
+        for (T candidate : things) {
+            if (candidate == null || candidate.getClass() != type) {
+                continue;
+            }
+            String candidateId = idOf.apply(candidate);
+            if (candidateId == null) {
+                continue;
+            }
+            if (sameClass == null) {
+                sameClass = candidateId;
+            }
+            if (sameId == null && shortId != null && shortId.equals(shortIdOf(candidateId))) {
+                sameId = candidateId;
             }
         }
-        return null;
+        return sameId != null ? sameId : sameClass;
     }
 
     /**
@@ -275,7 +296,7 @@ public class World {
         if (id == null || id.indexOf(':') >= 0) {
             return id;
         }
-        String registered = registeredIdOf(entity.getClass(), entityList);
+        String registered = registeredIdOf(entity.getClass(), id, entityList, Thing::getId);
         return registered == null ? id : registered;
     }
 
@@ -294,7 +315,7 @@ public class World {
         if (id == null || id.indexOf(':') >= 0) {
             return id;
         }
-        String registered = registeredIdOf(item.getClass(), itemList);
+        String registered = registeredIdOf(item.getClass(), id, itemList, Thing::getId);
         return registered == null ? id : registered;
     }
 
@@ -313,12 +334,8 @@ public class World {
         if (id == null || id.indexOf(':') >= 0) {
             return id;
         }
-        for (Effect template : effectList) {
-            if (template != null && template.getClass() == effect.getClass() && template.getID() != null) {
-                return template.getID();
-            }
-        }
-        return id;
+        String registered = registeredIdOf(effect.getClass(), id, effectList, Effect::getID);
+        return registered == null ? id : registered;
     }
 
     /**
