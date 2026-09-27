@@ -34,7 +34,8 @@ public class Phainon extends Player {
      * 而不是去加减一个总减伤数字：减伤是<b>乘算</b>叠加的，
      * 手写 {@code set(getDamageAbsorbedPercent() + 0.75)} 会和别的减伤来源互相污染、重复计算。
      */
-    public static final Object SOULSCORCH_DAMAGE_REDUCTION = new Object();
+    public static final Object SOULSCORCH_DAMAGE_REDUCTION =
+            new cn.gfhnv.game.entity.DamageReductionSource("白厄·灾厄");
     private static boolean isListenerRegister = false;
     private final FightStartAndSelectEventListener fightStartAndSelectEventListener = new FightStartAndSelectEventListener();
     /**

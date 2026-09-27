@@ -57,16 +57,47 @@ public class TurnManager {
         EventBus.post(new FightPastOneTurnEvent(fight));
     }
 
+    /**
+     * 找某个生物「下一次<b>正常</b>行动」的时间轴条目。
+     * <p>
+     * <b>会跳过额外回合条目</b>（{@link TurnEntry#isExtra()} —— 白厄变身的连击、
+     * 击杀【完整容器】的奖励回合都是这种）。那些条目的 {@code needTime} 是 0、
+     * 排在 {@code presentTime} 上，天然是这个生物<b>最早</b>的一条；
+     * 如果直接把它当"下次行动"返回，调用方（改 {@code startTime}/{@code needTime}、
+     * 延后、冰冻）就会去改写别人的<b>奖励回合</b>本身 ——
+     * 「灾厄-弑魂焚诏」让敌方全体立即行动时会把对方手里的额外回合顶掉。
+     * <p>
+     * 一个正常条目都没有时退回额外回合条目（总比什么都没有强）；
+     * 连额外回合也没有就返回 {@code null} —— <b>调用方必须判空</b>。
+     * 正常的 {@code null} 场合有两种：
+     * <ol>
+     *     <li>该生物<b>正在自己的回合里</b>：回合循环要等本回合跑完（{@code lastExecuteList} 之后）
+     *     才给它排下一条，所以那一刻它不在时间轴上（见
+     *     {@link cn.gfhnv.game.eventListener.FightTurnPastListener}）；</li>
+     *     <li>战斗中途新召唤、还没排进时间轴的生物。</li>
+     * </ol>
+     *
+     * @param livingThing 目标生物（允许为 {@code null}）
+     * @return 下一次正常行动的条目；没有正常条目时退回额外回合条目；都没有则为 {@code null}
+     */
     public static TurnEntry getNextTurnOf(LivingThing livingThing) {
-        TurnEntry a;
+        if (livingThing == null || turns == null || turns.isEmpty()) {
+            return null;
+        }
         TurnManager.sort();
+        TurnEntry extraTurn = null;
         for (TurnEntry turn : turns) {
-            a = turn;
-            if (a.getLivingThing().equals(livingThing)) {
-                return a;
+            if (turn == null || !livingThing.equals(turn.getLivingThing())) {
+                continue;
+            }
+            if (!turn.isExtra()) {
+                return turn;
+            }
+            if (extraTurn == null) {
+                extraTurn = turn;
             }
         }
-        return null;
+        return extraTurn;
     }
 
     public static void advanceByPercent(BigDecimal percent, TurnEntry t) {

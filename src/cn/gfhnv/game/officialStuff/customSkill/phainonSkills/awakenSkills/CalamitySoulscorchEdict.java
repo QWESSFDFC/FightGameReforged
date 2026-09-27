@@ -4,6 +4,7 @@ import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.officialStuff.customEntity.players.Phainon;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.fight.Fight;
+import cn.gfhnv.game.system.fight.TurnEntry;
 import cn.gfhnv.game.system.fight.TurnManager;
 import cn.gfhnv.game.system.thinkingSystem.Tag;
 import cn.gfhnv.game.system.thinkingSystem.TagType;
@@ -53,9 +54,20 @@ public class CalamitySoulscorchEdict extends Skill {
         }
         willAct = new ArrayList<>(enemies);
         for (LivingThing e : enemies) {
-            TurnManager.getNextTurnOf(e).setStartTime(TurnManager.getPresentTime());
-            TurnManager.getNextTurnOf(e).setNeedTime(BigDecimal.ZERO);
-            TurnManager.getNextTurnOf(e).getLastExecuteList().add((fight1, user1) -> {
+            // 取「下一次【正常】行动」：getNextTurnOf 会跳过额外回合条目，
+            // 所以不会把对方手里的奖励回合（击杀完整容器 / 变身连击那类 needTime=0 的）顶掉。
+            TurnEntry nextTurn = TurnManager.getNextTurnOf(e);
+            if (nextTurn == null) {
+                // 时间轴上没有它的条目（战斗中途新召唤的，或它正在自己的回合里）：
+                // 现排一条 needTime=0 的，才真的做得到"立即行动"。
+                // 旧写法在这里对可能为 null 的返回值直接解引用 —— NPE 会把整局游戏带崩。
+                nextTurn = new TurnEntry(e, BigDecimal.ZERO, TurnManager.getPresentTime());
+                TurnManager.getTurns().add(nextTurn);
+            } else {
+                nextTurn.setStartTime(TurnManager.getPresentTime());
+                nextTurn.setNeedTime(BigDecimal.ZERO);
+            }
+            nextTurn.getLastExecuteList().add((fight1, user1) -> {
                 List<LivingThing> opponent = fight1.getOpponentList(user1);
 
                 for (LivingThing livingThing : opponent) {

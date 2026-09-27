@@ -10,6 +10,7 @@ import cn.gfhnv.game.data.NbtList;
 import cn.gfhnv.game.data.NbtLong;
 import cn.gfhnv.game.data.NbtTag;
 import cn.gfhnv.game.data.Snbt;
+import cn.gfhnv.game.entity.DamageReductionSource;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entityController.FixOrderController;
 import cn.gfhnv.game.entityController.UniversalController;
@@ -87,6 +88,7 @@ public class TestCommandSystem {
         testFixOrderController();
         testDamageReduction();
         testFlameReaverFactions();
+        testFlameReaverPhaseTwo();
         testActorLiXiaoYan();
         testFollowActor();
         testDataCommand();
@@ -923,6 +925,21 @@ public class TestCommandSystem {
             check("移除一个来源后只剩 50% 减伤",
                     Math.abs(target.getDamageTakenMultiplier() - 0.5) < 1e-9);
 
+            // 减伤来源要在 /data 里看得见（用户实测反馈过"只有 percent，看不出是谁给的"）
+            target.clearDamageReductions();
+            target.addDamageReduction(new DamageReductionSource("测试来源"), 0.25);
+            NbtCompound reductionDump = DataBridge.toCompound(target);
+            check("减伤来源在 /data 里带得出名字（不再是只有 percent）",
+                    reductionDump.get("damageReductions") instanceof NbtList reductions
+                            && reductions.size() == 1
+                            && reductions.get(0) instanceof NbtCompound first
+                            && "测试来源".equals(first.get("sourceName").asString())
+                            && Math.abs(first.get("percent").asDouble() - 0.25) < 1e-9);
+            // 按身份比较这一点不能被名字动摇：名字相同也是两个独立来源
+            target.addDamageReduction(new DamageReductionSource("测试来源"), 0.1);
+            check("同名但不同实例的来源仍然是两条（身份比较没被名字动摇）",
+                    target.getDamageReductions().size() == 2);
+
             // 兼容旧写法：setDamageAbsorbedPercent(0.75) → 少受 75%
             target.clearDamageReductions();
             target.setDamageAbsorbedPercent(0.75);
@@ -1223,6 +1240,113 @@ public class TestCommandSystem {
             cn.gfhnv.game.system.fight.TurnManager.getTurns()
                     .removeIf(t -> t != null && t.getLivingThing() == boss);
             cn.gfhnv.game.eventListener.FightTurnPastListener.setPresentTurn(null);
+
+            // ⑧ 时间轴条目查询（getNextTurnOf）的三条约定：跳过额外回合、判空、不崩
+            //    背景：旧实现返回「该实体排序后最早的一条」，而额外回合的 needTime=0，
+            //    天然最早 —— 于是「灾厄-弑魂焚诏」让敌方全体立即行动时，会把对方手里的
+            //    奖励回合（击杀完整容器 / 变身连击）当成「下次行动」顶掉。
+            cn.gfhnv.game.system.fight.TurnManager.getTurns()
+                    .removeIf(t -> t != null && t.getLivingThing() == hero);
+            check("getNextTurnOf：不在时间轴上的生物返回 null（调用方必须自己判空）",
+                    cn.gfhnv.game.system.fight.TurnManager.getNextTurnOf(hero) == null);
+            check("getNextTurnOf：参数为 null 时也返回 null，不再抛 NPE",
+                    cn.gfhnv.game.system.fight.TurnManager.getNextTurnOf(null) == null);
+
+            java.math.BigDecimal heroNeed = java.math.BigDecimal.valueOf(10000)
+                    .divide(java.math.BigDecimal.valueOf(hero.getSpeed()), 10, java.math.RoundingMode.HALF_UP);
+            cn.gfhnv.game.system.fight.TurnEntry heroNormal =
+                    new cn.gfhnv.game.system.fight.TurnEntry(hero, heroNeed, java.math.BigDecimal.ZERO);
+            cn.gfhnv.game.system.fight.TurnEntry heroExtra =
+                    new cn.gfhnv.game.system.fight.TurnEntry(hero, java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO)
+                            .setExtra(true);
+            cn.gfhnv.game.system.fight.TurnManager.getTurns().add(heroNormal);
+            cn.gfhnv.game.system.fight.TurnManager.getTurns().add(heroExtra);
+            cn.gfhnv.game.system.fight.TurnManager.sort();
+            check("额外回合的 needTime=0 确实排在同名生物的正常回合前面（这就是它会被顶掉的原因）",
+                    cn.gfhnv.game.system.fight.TurnManager.getTurns().indexOf(heroExtra)
+                            < cn.gfhnv.game.system.fight.TurnManager.getTurns().indexOf(heroNormal));
+            check("getNextTurnOf：跳过额外回合条目，返回的是正常那条",
+                    cn.gfhnv.game.system.fight.TurnManager.getNextTurnOf(hero) == heroNormal);
+
+            // ⑨ 灾厄-弑魂焚诏「使敌方全体立即行动」：目标没有条目时现排一条（旧写法直接 NPE）
+            cn.gfhnv.game.system.fight.TurnManager.getTurns()
+                    .removeIf(t -> t != null && t.getLivingThing() == hero);
+            cn.gfhnv.game.officialStuff.customSkill.phainonSkills.awakenSkills.CalamitySoulscorchEdict edict =
+                    new cn.gfhnv.game.officialStuff.customSkill.phainonSkills.awakenSkills.CalamitySoulscorchEdict();
+            boolean edictSurvived = true;
+            try {
+                edict.comeToEffect(fight, boss, new ArrayList<>(java.util.List.of(hero)));
+            } catch (RuntimeException e) {
+                edictSurvived = false;
+                System.out.println("  [诊断] 灾厄-弑魂焚诏 抛了 " + e);
+            }
+            check("灾厄-弑魂焚诏：目标不在时间轴上时现排一条，不再解引用 null（旧写法必 NPE）",
+                    edictSurvived);
+            cn.gfhnv.game.system.fight.TurnEntry scheduled =
+                    cn.gfhnv.game.system.fight.TurnManager.getNextTurnOf(hero);
+            check("灾厄-弑魂焚诏：现排的那条 needTime=0（才真的做得到「立即行动」）",
+                    scheduled != null && scheduled.getNeedTime().compareTo(java.math.BigDecimal.ZERO) == 0);
+
+            //    手里有额外回合时：改的必须是正常回合，额外回合条目一个字段都不能动
+            cn.gfhnv.game.system.fight.TurnManager.getTurns()
+                    .removeIf(t -> t != null && t.getLivingThing() == hero);
+            cn.gfhnv.game.system.fight.TurnEntry keepNormal =
+                    new cn.gfhnv.game.system.fight.TurnEntry(hero,
+                            heroNeed.multiply(java.math.BigDecimal.TWO), java.math.BigDecimal.ZERO);
+            cn.gfhnv.game.system.fight.TurnEntry keepExtra =
+                    new cn.gfhnv.game.system.fight.TurnEntry(hero, java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO)
+                            .setExtra(true);
+            cn.gfhnv.game.system.fight.TurnManager.getTurns().add(keepNormal);
+            cn.gfhnv.game.system.fight.TurnManager.getTurns().add(keepExtra);
+            edict.comeToEffect(fight, boss, new ArrayList<>(java.util.List.of(hero)));
+            check("灾厄-弑魂焚诏：被拉到 now 的是正常回合，额外回合条目原封不动",
+                    keepNormal.getNeedTime().compareTo(java.math.BigDecimal.ZERO) == 0
+                            && keepExtra.getNeedTime().compareTo(java.math.BigDecimal.ZERO) == 0
+                            && keepExtra.getStartTime().compareTo(java.math.BigDecimal.ZERO) == 0
+                            && cn.gfhnv.game.system.fight.TurnManager.getNextTurnOf(hero) == keepNormal);
+
+            // ⑩ 反击（灾厄-弑魂焚诏的反击）不再打尸体、不再在空表上炸
+            LivingThing counterProbe = new PlayerOne(125).copy();
+            counterProbe.setName("反击探针");
+            counterProbe.setHp(100);
+            long probeHpBefore = counterProbe.getHp();
+            LivingThing corpseProbe = new PlayerOne(125).copy();
+            corpseProbe.setName("尸体探针");
+            corpseProbe.setHp(0);
+            check("尸体探针确实被判定为已倒下（测试前提）", !corpseProbe.isAlive());
+
+            boolean counterSurvivedEmpty = true;
+            try {
+                new cn.gfhnv.game.officialStuff.customSkill.phainonSkills.awakenSkills.Counterattack()
+                        .comeToEffect(fight, counterProbe, new ArrayList<>());
+            } catch (RuntimeException e) {
+                counterSurvivedEmpty = false;
+                System.out.println("  [诊断] 反击空表抛了 " + e);
+            }
+            check("反击：敌方列表为空时不抛 NoSuchElementException（旧的 enemies.getFirst() 必炸）",
+                    counterSurvivedEmpty);
+
+            java.util.List<LivingThing> counterTargets = new ArrayList<>();
+            counterTargets.add(corpseProbe);
+            // 另外两只也全设成 0 血：这里刻意不放活人 —— hero / boss 是这场战斗的实体，
+            // 让它们挨一顿反击会污染后面用例的断言
+            for (int i = 0; i < 2; i++) {
+                LivingThing anotherCorpse = new PlayerOne(125).copy();
+                anotherCorpse.setName("尸体探针" + (i + 2));
+                anotherCorpse.setHp(0);
+                counterTargets.add(anotherCorpse);
+            }
+            java.util.List<LivingThing> counterTargetsSnapshot = new ArrayList<>(counterTargets);
+            new cn.gfhnv.game.officialStuff.customSkill.phainonSkills.awakenSkills.Counterattack()
+                    .comeToEffect(fight, counterProbe, counterTargets);
+            check("反击：不再就地 shuffle 调用方传进来的列表（现在只打自己抽的副本）",
+                    counterTargets.equals(counterTargetsSnapshot));
+            check("反击：目标全倒下时一个都不打（自身回血照旧生效，说明没在过滤处提前 return）",
+                    corpseProbe.getHp() == 0 && counterProbe.getHp() > probeHpBefore);
+
+            // 收尾：清掉这几个探测用的时间轴条目，别影响后面的用例
+            cn.gfhnv.game.system.fight.TurnManager.getTurns()
+                    .removeIf(t -> t != null && t.getLivingThing() == hero);
 
             // ⑧ 【侵蚀】按目标合并：不同来源重复施加只刷新同一条（否则一回合会连跳好几次）
             LivingThing erosionProbe = new PlayerOne(125).copy();
@@ -1680,6 +1804,77 @@ public class TestCommandSystem {
     }
 
     /**
+     * 盗火行者的<b>切阶段保护</b>（2026-09-26 用户要求）：
+     * 二阶段的触发从"血量比例掉到 50%"改成<b>血条第一次被清空</b> ——
+     * 那一发致命伤害被整个吃掉（不会死），生命回满，并拿到 70% 免伤。
+     * 保护<b>只有一次</b>：二阶段里再被清空血条就真的倒下。
+     */
+    private static void testFlameReaverPhaseTwo() {
+        section("盗火行者：切阶段保护（血条第一次清空时进二阶段）");
+        try {
+            cn.gfhnv.game.officialStuff.customEntity.monsters.FlameReaver reaver =
+                    new cn.gfhnv.game.officialStuff.customEntity.monsters.FlameReaver(125);
+            LivingThing attacker = new PlayerOne(125).copy();
+            attacker.setGetCriticalRATE(-1);   // 永不暴击，避免随机数干扰
+            Skill probe = new ProbeSkill("测伤", new ArrayList<>(), 1, 1.0);
+
+            check("前提：满血、且还没进二阶段（构造出来就是阶段一）",
+                    reaver.getHp() == reaver.getHpMax() && !reaver.isPhaseTwo());
+
+            // ① 血条打到 1，再来一发致死伤害 —— 应该被拦下并切成二阶段
+            reaver.setHp(1);
+            DamageEvent lethal = new DamageEvent(attacker, reaver, probe);
+            lethal.getDamage().setDamageAmount(9999L);
+            reaver.getDamage(lethal);
+            check("致命伤害被挡下：没死，而且进二阶段了",
+                    reaver.isPhaseTwo() && reaver.isAlive());
+            check("进二阶段时生命回满（不是锁 1 血）",
+                    reaver.getHp() == reaver.getHpMax());
+            check("进二阶段后拿到 70% 免伤（承伤倍率 0.3）",
+                    Math.abs(reaver.getDamageTakenMultiplier() - 0.3) < 1e-9);
+
+            // ② 试算必须是只读的：AI 预判一次不能就把这次保护花掉
+            cn.gfhnv.game.officialStuff.customEntity.monsters.FlameReaver anticipatedTarget =
+                    new cn.gfhnv.game.officialStuff.customEntity.monsters.FlameReaver(125);
+            anticipatedTarget.setHp(1);
+            DamageEvent anticipated = new DamageEvent(attacker, anticipatedTarget, probe);
+            anticipated.getDamage().setDamageAmount(9999L);
+            long anticipatedHp = anticipatedTarget.anticipating(() ->
+                    anticipatedTarget.modifyIncomingDamage(
+                            anticipatedTarget.getHp() - anticipated.getDamage().getDamageAmount(),
+                            anticipated));
+            check("试算期间只报「最多打到 1 血」：不切阶段、不回血",
+                    anticipatedHp == 1 && !anticipatedTarget.isPhaseTwo()
+                            && anticipatedTarget.getHp() == 1);
+            check("预判之后保护还在（试算没把它消费掉）",
+                    !anticipatedTarget.isPhaseTwo());
+            anticipatedTarget.getDamage(anticipated);
+            check("预判过之后真挨一下，才切阶段并回满",
+                    anticipatedTarget.isPhaseTwo()
+                            && anticipatedTarget.getHp() == anticipatedTarget.getHpMax());
+
+            // ③ 保护只有一次：二阶段里再被清空血条就真的倒下
+            reaver.setHp(1);
+            DamageEvent secondLethal = new DamageEvent(attacker, reaver, probe);
+            secondLethal.getDamage().setDamageAmount(9999L);
+            reaver.getDamage(secondLethal);
+            check("保护只有一次：二阶段里再被清空血条就真的倒下",
+                    !reaver.isAlive() && reaver.getHp() == 0);
+
+            // ④ 兜底路径：绕过伤害结算直接把血设成 0，updateSelf 也会补上切阶段
+            cn.gfhnv.game.officialStuff.customEntity.monsters.FlameReaver bypassed =
+                    new cn.gfhnv.game.officialStuff.customEntity.monsters.FlameReaver(125);
+            bypassed.setHp(0);
+            bypassed.updateSelf();
+            check("绕过伤害结算的扣血（直接 setHp(0)）也被 updateSelf 兜底切阶段并回满",
+                    bypassed.isPhaseTwo() && bypassed.getHp() == bypassed.getHpMax());
+        } catch (Exception e) {
+            check("盗火行者的切阶段逻辑不该抛异常，实际抛了：" + e, false);
+            e.printStackTrace();
+        }
+    }
+
+    /**
      * 李晓焰的【燃点】修复 + {@code World#fullIdOf} 的"同类多模板"问题（2026-09）。
      * <p>
      * 三处症状里，这里能断言的是两处（燃点下限、同类多模板 id）；
@@ -1788,6 +1983,19 @@ public class TestCommandSystem {
         check("数据里有 hp", data.get("hp") != null && data.get("hp").asLong() == probe.getHp());
         check("数据里有子类字段 ignition", data.get("ignition") != null && data.get("ignition").asLong() == probe.getIgnition());
         check("数据里有 name", data.get("name") != null && probe.getName().equals(data.get("name").asString()));
+        // 数据名是对外 API：Java 字段名难看时用 @DataField 改名（见 TIPS §5.10）
+        check("暴击率的数据名是 criticalRate（不是那个 getter 风格的 Java 字段名）",
+                data.get("criticalRate") != null && data.get("getCriticalRATE") == null);
+        check("存活标志的数据名是小写 alive（不是 Alive）",
+                data.get("alive") != null && data.get("Alive") == null);
+        check("改名之后照样能写（setter 是按 Java 字段名找的，所以 setGetCriticalRATE 仍然命中）",
+                DataBridge.merge(probe, Snbt.parseCompound("{criticalRate:0.5}")) == 1
+                        && probe.getGetCriticalRATE() == 0.5d);
+        check("效果列表与成长系数的数据名都换成了短名字",
+                DataBridge.dataNames(probe.getClass()).containsAll(List.of(
+                        "effects", "hpGrow", "attackGrow", "defenceGrow", "metalManaGrow")));
+        check("试算标志 anticipating 被 @NoData 排除（它只在试算期间为 true，dump 出来是噪音）",
+                !DataBridge.dataNames(probe.getClass()).contains("anticipating"));
         check("uuid 可见（只读，因为它是 final）", data.get("uuid") != null);
         check("controller 不进数据（行为不是数据）", data.get("controller") == null);
         check("物理对象不进数据", data.get("force") == null && data.get("velocity") == null);
@@ -1855,21 +2063,21 @@ public class TestCommandSystem {
         // ② 给身上挂一个效果，再改"效果列表里的元素"
         run("effect @s add frozen", true);
         check("测试前提：身上有一个效果", probe.getEntityEffectList().size() == 1);
-        run("data modify entity @s entityEffectList[0].level set 3", true);
+        run("data modify entity @s effects[0].level set 3", true);
         check("modify set 能改到 effects[0].level", probe.getEntityEffectList().get(0).getLevel() == 3);
 
         // ③ 标量列表允许增删（枚举也算标量）；对象列表必须被拒
         int tagsBefore = probe.getEntityEffectList().get(0).getEffectTagsList().size();
-        run("data modify entity @s entityEffectList[0].effectTagsList append POSITIVE", true);
+        run("data modify entity @s effects[0].effectTagsList append POSITIVE", true);
         check("modify append 往枚举列表里加了一个",
                 probe.getEntityEffectList().get(0).getEffectTagsList().size() == tagsBefore + 1);
-        run("data modify entity @s entityEffectList[0].effectTagsList insert 0 POSITIVE", true);
+        run("data modify entity @s effects[0].effectTagsList insert 0 POSITIVE", true);
         check("modify insert 插到了开头",
                 probe.getEntityEffectList().get(0).getEffectTagsList().size() == tagsBefore + 2);
-        run("data modify entity @s entityEffectList[0].effectTagsList prepend POSITIVE", true);
+        run("data modify entity @s effects[0].effectTagsList prepend POSITIVE", true);
         check("modify prepend 也生效",
                 probe.getEntityEffectList().get(0).getEffectTagsList().size() == tagsBefore + 3);
-        run("data modify entity @s entityEffectList append {id:\"x\"}", false);
+        run("data modify entity @s effects append {id:\"x\"}", false);
 
         // ④ 各种"应该报错"的情况
         run("data modify entity @s noSuch.path set 1", false);
@@ -1943,13 +2151,13 @@ public class TestCommandSystem {
         // 注意：筛不到时选择器会报「没有选中任何生物」，所以这里断言的是"失败"而不是"影响 0 个"
         CommandResult byInt = CommandManager.executeResult("list @e[nbt={level:125}]", fight);
         check("nbt=：125 与 125L 不是同一个标签，所以筛不到（选择器报没选中）", !byInt.isSuccess());
-        CommandResult byGrow = CommandManager.executeResult("list @e[nbt={hpGrowNumber:58.0d}]", fight);
+        CommandResult byGrow = CommandManager.executeResult("list @e[nbt={hpGrow:58.0d}]", fight);
         check("nbt=：按 double 字段筛", byGrow.isSuccess() && byGrow.getResult() == 1);
         CommandResult byBoth = CommandManager.executeResult(
-                "list @e[type=ActorLiXiaoYan,nbt={hpGrowNumber:58.0d}]", fight);
+                "list @e[type=ActorLiXiaoYan,nbt={hpGrow:58.0d}]", fight);
         check("nbt= 能和 type= 一起用（都对才选中）", byBoth.isSuccess() && byBoth.getResult() == 1);
         CommandResult byMismatch = CommandManager.executeResult(
-                "list @e[type=FlameReaver,nbt={hpGrowNumber:58.0d}]", fight);
+                "list @e[type=FlameReaver,nbt={hpGrow:58.0d}]", fight);
         check("nbt= 与 type= 都写对才选中（BOSS 不是 58 成长）", !byMismatch.isSuccess());
 
         /* ④ execute if data */
@@ -1968,7 +2176,7 @@ public class TestCommandSystem {
 
         /* ⑤ 实体侧：过滤读得到、切片只读不写 */
         run("effect @s add frozen", true);
-        run("data get entity @s entityEffectList[{id:\"game_official_content:frozenEffect\"}].level", true);
+        run("data get entity @s effects[{id:\"game_official_content:frozenEffect\"}].level", true);
         run("data get entity @s manas[0:2]", true);
         run("data modify entity @s manas[0:2] set 1", false);
         run("data get entity @s manas[{amount:516.0d}].amount", true);
@@ -1979,10 +2187,10 @@ public class TestCommandSystem {
          * ——典型场景：想 /data modify 一个身上还没有的效果，报错看起来像是命令语法不对。
          * 两条路要分别覆盖：/data get 走标签树，/data modify 走活对象。 */
         run("effect @s add frozen", true);
-        String getMiss = errorOf("data get entity @s entityEffectList[{id:\"no:suchEffect\"}].level");
+        String getMiss = errorOf("data get entity @s effects[{id:\"no:suchEffect\"}].level");
         check("get 过滤没命中：报错里列出了该列表现有的 id",
                 getMiss.contains("game_official_content:frozenEffect"));
-        String modifyMiss = errorOf("data modify entity @s entityEffectList[{id:\"no:suchEffect\"}].level set 1");
+        String modifyMiss = errorOf("data modify entity @s effects[{id:\"no:suchEffect\"}].level set 1");
         check("modify 过滤没命中：报错里也列出了该列表现有的 id",
                 modifyMiss.contains("game_official_content:frozenEffect"));
         String fieldMiss = errorOf("data get entity @s noSuchField");
@@ -1991,7 +2199,7 @@ public class TestCommandSystem {
         String indexMiss = errorOf("data get entity @s manas[99].amount");
         check("get 下标越界：报错里说出这个列表有几个元素", indexMiss.contains("5 个元素"));
         // 反向确认：命中的那条不会因为多了这段提示而改变行为
-        run("data get entity @s entityEffectList[{id:\"game_official_content:frozenEffect\"}].level", true);
+        run("data get entity @s effects[{id:\"game_official_content:frozenEffect\"}].level", true);
         run("effect @s remove all", true);
 
         CommandManager.setPlayer(previous);

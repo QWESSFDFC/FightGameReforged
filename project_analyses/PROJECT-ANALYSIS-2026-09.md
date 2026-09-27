@@ -1,6 +1,6 @@
 # FightGameReforged 项目分析（2026-09-26 版）
 
-> ✅ **当前基准文档**（2026-09-26 · 复核范围：`src/` 下全部 **200 个 Java 文件 / 29,377 行**、`mods/` 3 个模组、`config/`、`build.gradle` 与根目录脚本）。
+> ✅ **当前基准文档**（2026-09-26 · 复核范围：`src/` 下全部 **200 个 Java 文件 / 29,398 行**、`mods/` 3 个模组、`config/`、`build.gradle` 与根目录脚本）。
 > 它取代了这几份的整体分析定位：[`ANALYSIS-review4.md`](ANALYSIS-review4.md)（第 4 轮 · 118 文件 / ~8500 行）、
 > [`ANALYSIS-2026-08.md`](ANALYSIS-2026-08.md)、[`STATUS-2026-08-review2.md`](STATUS-2026-08-review2.md)、
 > [`STATUS-2026-08-review3.md`](STATUS-2026-08-review3.md)、[`ProjectStatus.txt`](ProjectStatus.txt)、[`ANALYSIS.md`](ANALYSIS.md)。
@@ -74,7 +74,7 @@
 | 依赖 | 仅 `org.json:json:20240303`（自测脚本用本地 `lib/json-20231013.jar`，`lib/` 已 gitignore） |
 | 入口 | `cn.gfhnv.game.GameStarter` → `GameMain.main` |
 | 源码根 | `src/`（不是 `src/main/java`，见 `build.gradle` 的 `srcDirs`） |
-| 代码量 | `src` **200 文件 / 29,377 行**；`mods` 12 文件 / 750 行 |
+| 代码量 | `src` **200 文件 / 29,398 行**；`mods` 12 文件 / 750 行 |
 | 与 2026-08 对比 | review4 那轮是 118 文件 / ~8500 行 → **+81 文件 / +17,800 行（≈3.1 倍）**，增量几乎全在命令系统、盗火行者、自测、模组与 NBT 数据层 |
 | 许可 | MIT（`LICENSE.txt`），作者不接受 PR |
 
@@ -105,7 +105,7 @@
 | 行数 | 文件 | 备注 |
 |---|---|---|
 | 2180 | `entity/LivingThing.java` | 属性、伤害、效果、打印、控制器全在这里；**改任何战斗行为都会碰它** |
-| 2597 | `debug_tools/TestCommandSystem.java` | **414 条断言**（含 NBT/`/data` 的 113 条、`/summon` 的 28 条；`check`/`run`/`expectSyntaxError` 共 200+ 调用点，部分在循环里） |
+| 2605 | `debug_tools/TestCommandSystem.java` | **417 条断言**（含 NBT/`/data` 的 113 条、`/summon` 的 28 条；`check`/`run`/`expectSyntaxError` 共 200+ 调用点，部分在循环里） |
 | 865 | `officialStuff/customEntity/monsters/FlameReaver.java` | 一个 BOSS 的完整状态机 |
 | 719 | `officialStuff/customCommands/EffectCommand.java` | `/effect` 的参数、候选与命名空间校验 |
 | 642 | `system/command/EntitySelector.java` | `@s`/`@p`/`@e[type=…]` 选择器与中文编码兜底 |
@@ -191,7 +191,11 @@
 - 进入战斗时 `TurnManager.init(fight)` 给每个实体排一条；**中途加入的实体**由 `Fight.addFighter/addEnemy`
   补一条（`Fight.java:64-83`，入列前会 `World.applyRegisteredId` 补全 id）。
 - 调速 API：`advanceByPercent/advanceByAmount`（提前）、`delayByPercent/delayByAmount`（延后）、
-  `getNextTurnOf(entity)`（找某个实体"下一次行动"的条目，找不到返回 `null`）。
+  `getNextTurnOf(entity)`（找某个实体"下一次**正常**行动"的条目，找不到返回 `null`）。
+  **2026-09-26 改了语义**：会跳过额外回合条目（`isExtra()`，白厄变身连击 / 击杀完整容器的奖励）——
+  那些条目 `needTime=0`、排在 `presentTime` 上，天然是该实体最早的一条，旧实现直接返回它，
+  于是调用方（`CalamitySoulscorchEdict` 的"使敌方全体立即行动"、延后、冰冻）会把别人的**奖励回合**顶掉。
+  只剩额外回合时仍退回它；`livingThing == null` 或 `turns` 为空时短路返回 `null`。
 - `getPresentTime()` **不会返回 `null`**（兜底 `ZERO`），原因写在它的 javadoc 里：手动加实体的场合没人调 `init()`，
   而 `sort()` 会对 `startTime` 做加法。
 
@@ -338,7 +342,7 @@
 | `DAMAGE_REDUCTION_PER_LAYER` | 0.25 | 每层减伤（**同一来源**按 `layers × 0.25`，2 层 = 50%，不是相乘的 43.75%） |
 | `CONTAINER_LIMIT` | **0** | 场上容器上限；`0` = 不限制（2026-09 用户指定取消上限） |
 | `COMPLETE_CONTAINER_CHANCE` | 0.34 | 召唤时出【完整容器】的概率 |
-| `PHASE_TWO_HP_THRESHOLD` | 0.5 | 血量 ≤50% 切二阶段 |
+| ~~`PHASE_TWO_HP_THRESHOLD`~~ **已删** | — | 原为 0.5（血量 ≤50% 切二阶段）。**2026-09-26 用户要求改成"血条第一次被清空"**，常量删除；改由 `FlameReaver#phaseTwoDeathWard()` 挂在伤害修正器链上：`newHp <= 0` 且未进二阶段时拦下那一击 → `enterPhaseTwo()`（生命回满 + 免伤）。`updateSelf` 保留一条兜底（绕过伤害结算的直接扣血）。保护只有一次 |
 | `PHASE_TWO_DAMAGE_REDUCTION` | 0.7 | 二阶段免伤（**另一个来源**，与层数减伤乘算） |
 | `JOINT_ATTACK_TARGETS` | 3 | 共祭"一同攻击"的共同目标数上限（官方"主目标及相邻"的映射） |
 
@@ -460,7 +464,7 @@
 | 7 | §4.7 `canUse()` 有副作用（扣蓝） | ❌ **仍在** | `RestorationHealthSkill.java:37` 在判定里扣蓝；`PlayerController.java:118` + `:184` 一次施法会走 2~3 次扣费路径 → **一次治疗实扣约 3 倍**。"蓝扣光必死循环"不成立（还能改选别的技能），但技能全不可用时 `while(true)` 没有出口 |
 | 8 | §4.8 `Skill.extraDamage` 只增不减 | ⚠️ **部分修复** | 整数除法与"加算/减算配对"已修（`CommonAttack.java:24-45`、`PyrohemicPumping.java:41-58`）；但**全项目仍无重置点**，`PyrohemicPumping.java:34` 的 `×1.5` 没有上限 —— 与 `Skill.java:46` 注释"伤害计算后重置为零"**自相矛盾** |
 | 9 | §4.9 `DamageEvent` 从未被 `post` | ✅ **已修复** | `LivingThing.java:1903-1904`（`makeDamage` 里 post），`DamageEventListener` 现在真的会被调用；"每受击 +1 燃点"链路已通 |
-| 10 | §4.10 白厄觉醒数值污染 / "永久无敌" | ⚠️ **部分修复** | 无敌已修（`CalamitySoulscorchEdict.java:50` + 同源幂等 + 比例夹到 `[0,1]`；`Counterattack.java:35` 按来源移除）；**未修**：`Counterattack.java:55` 硬编码 `setAtkMagnification(1)`、`:52` 的 `enemies.getFirst()` 遇空表必炸、`CalamitySoulscorchEdict.java:56-57` 对可能为 `null` 的 `getNextTurnOf()` 直接解引用 |
+| 10 | §4.10 白厄觉醒数值污染 / "永久无敌" | ⚠️ **部分修复** | 无敌已修（`CalamitySoulscorchEdict.java:50` + 同源幂等 + 比例夹到 `[0,1]`；`Counterattack.java` 按来源移除）；**2026-09-26 又修两条**：`Counterattack` 的 `enemies.getFirst()` 遇空表必炸 → 已加 `isAlive()` 过滤 + 空表 `break`（顺带不再就地 `shuffle` 调用方的列表）；`CalamitySoulscorchEdict` 对可能为 `null` 的 `getNextTurnOf()` 直接解引用 → 现在"没有条目就现排一条 `needTime=0` 的"；**仍未修**：`Counterattack` 硬编码 `setAtkMagnification(1)` |
 | 11 | §4.11 `copy()` 出来的实例丢一半状态 | ⚠️ **部分修复** | 已复制：技能（逐技能 `copy()`）、`showSpecialMes`、`damageModifiers`、`damageReductions`；**未复制**：攻/防/速/生/暴的 Enhance 类字段、五元素穿透与增伤、`individualMultipleArea`、`extraDamage`（`LivingThing.java:111-170`） |
 | 12 | §5.2 `Inventory` 空背包判定与奖励 | ⚠️ **部分修复** | 堆叠改为按注册表 id 判等（`Item.java:122-137`）、`ANiceSword` 已重写 `copy()`（`:22`/`:33`）；**未修**：`FightEndEventListener.java:45-55` 仍给**每个存活角色**发全部奖励（3 人 2 奖励 = 6 份） |
 | 13 | §5.6 `isAlive()` 有副作用 | ❌ **仍在**（旧描述偏重） | `LivingThing.java:1586-1591`：HP ≤ 0 时会复位 `ActionSignal` 并清 `specialAction`；并不是旧文档说的"每回合无条件抹掉" |
@@ -542,7 +546,7 @@
 | 脚本 | 做什么 | 现状 |
 |---|---|---|
 | `check-sources.ps1` | **静态**自查：括号平衡、UTF-8 BOM、缺 import、多余 import、字段重复（可选：重复方法签名） | 纯 ASCII（避免中文在控制台被搞坏）、不写任何文件；跑一次 = `Java files: 183` + `CHECK OK` |
-| `test-command-system.ps1` | `javac` 全量编译 `src` 到 `out/cmdtest` → 跑 `cn.gfhnv.debug_tools.TestCommandSystem` | 编译成功即"全量编译检查"；断言基线 **414/0**（301 由用户实跑确认，之后 AI 又加 113 条并自己跑过；需要 `lib/json-20231013.jar`） |
+| `test-command-system.ps1` | `javac` 全量编译 `src` 到 `out/cmdtest` → 跑 `cn.gfhnv.debug_tools.TestCommandSystem` | 编译成功即"全量编译检查"；断言基线 **417/0**（301 由用户实跑确认，之后 AI 又加 116 条并自己跑过；需要 `lib/json-20231013.jar`） |
 
 `check-sources.ps1` 是"快而窄"的第一道（括号 / BOM / import / 字段重复，比 javac 快，
 而且能报 javac 不报的"未使用 import"）；`test-command-system.ps1` 是"权威"那道
@@ -591,6 +595,7 @@
 | ✅ 已完成 | ~~NBT 数据层 + `/data`~~（用户要"图一乐"，分析见 `NBT-AND-DATA-COMMAND-2026-09.md`） | 新包 `game/data/` 15 文件 2572 行 + `DataCommand` 530 行 + `StringReader#readBalanced()`；`get` / `merge` / `modify`（set/merge/append/prepend/insert）× `entity`/`storage`；只 dump"数据"不 dump"行为"，写回走 setter 优先（`hp` 会被钳制） | 自测 252 → **379**（AI 已本地编译并跑过 379/0）；还支持路径 `{k:v}` 过滤与 `[a:b]` 切片、选择器 `nbt={…}`、`execute if data`、内存版 `storage`；路径走不通时会报出"过滤里有哪些取值 / 这一层有哪些键 / 下标越界几个"；`remove`（用户跳过）与存档**未做** |
 | ✅ 已完成 | ~~`/summon` 命令~~（用户："和 give 一样，模组需要长 id，可以选择生成在敌方还是我方，默认我方"） | `officialStuff/customCommands/SummonCommand.java`（311 行）+ `OfficialGameContent#isOfficial(Entity)` 重载。`/summon <实体> [阵营]`，阵营默认 `our`，可 `enemy`（也接受 `ally`/`foe`/`我方`/`敌方`）；名字规则与 `/give` 同源，**优先级 完整 id > 短名 > 类名**（残破/完整容器类名相同，不让类名撞出假歧义）；召唤的是 `copy()` 副本，走 `addFighter/addEnemy` 入列并显式补 `whenFightStart` + `setParticipateFight`；不在战斗里直接报错 | 自测 379 → **412**（`testSummonCommand` 28 条，AI 已跑过 412/0） |
 | ✅ 已完成 | ~~参数子节点的报错被吞~~（用户实测：`/data modify entity s …` 少写 `@`，报的却是笼统的「无法继续解析」） | `CommandDispatcher#parseNodes` 第 2 步：**参数节点存在但全失败、且还有没消化掉的输入** → 抛这个具体原因；**输入读完** → 不抛，继续走「命令不完整 + `getSuggestedUsage()`」。与字面量子节点早有的 `parseFailureOf` 对称 | 顺带变好：`kill @e[bad=1]`、`hurt @s abc`、`give @s aNiceSword 0`、`data merge entity @s {`；自测 +2 条，基线 412 → **414** |
+| ✅ 已完成 | ~~数据键名不合理~~（用户："感觉有些键名字不合理，比如 getCriticalRATE 等"） | `LivingThing` 里给两个字段加了 `@DataField`：`getCriticalRATE` → **`criticalRate`**、`Alive` → **`alive`**（这两个注解做出来之后**第一次真正被用上**）。写回不受影响 —— `DataBridge#trySetter` 是按 **Java 字段名**拼 setter 的，所以 `setGetCriticalRATE` 照样命中；**Java 侧一个字没动** | 自测 +3 条，基线 414 → **417**；「字段好像不全」的四种原因与"永远 dump 不出来的 12 个键"记进 `TIPS_FOR_LLM.md` **§5.10.1** |
 | ★★★ | 模组系统的 4 个崩溃级缺陷（§6.3 前 4 行） | 坏模组 `Error` 穿透 = 启动即崩；`return` 当 `continue` = 后面所有模组静默消失；`invokeWhenLoaded` 无兜底 = 写错一行游戏起不来；loader 提前 close = 运行期隐患 | 都在 `ModLoader` / `GameStartEventListener` / `EventBus`，**改动集中、可自测** |
 | ✅ 已完成 | ~~李晓焰燃点三连~~（§6.4 N1/N2 + §6.2 内容层新发现） | 2026-09-26 修完：免死读 `victim.getIgnition()` + `setIgnition` 夹下限；监听器只在无锁定时注册并绑定自己的效果实例；大招改用 `wasHigh` 快照配对。顺带把三个技能的魔数收进常量组 | 这轮 +7 条断言（连同后面 `@s` 的 3 条，总基线 252 → **262**） |
 | ✅ 已完成 | ~~`World.applyRegisteredId` 按 class 归一 id~~（§6.3） | 2026-09-26 改成"**先短名精确匹配**，匹配不到再退回同类第一条"（实体/物品/效果共用），完整容器不再被写成 `brokenContainer` | 新增 2 条断言；语义变化只影响"同类多模板"这一种情况 |
@@ -631,7 +636,7 @@
 # ① 静态自查（AI 也能跑）：应当输出 Java files: 183 + CHECK OK
 powershell -ExecutionPolicy Bypass -File .\check-sources.ps1
 
-# ② 全量编译 + 自测（用户执行）：应当 通过 414 / 失败 0
+# ② 全量编译 + 自测（用户执行）：应当 通过 417 / 失败 0
 powershell -ExecutionPolicy Bypass -File .\test-command-system.ps1
 
 # ③ 打包后进游戏（用户执行）

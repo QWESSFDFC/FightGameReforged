@@ -59,8 +59,13 @@ public class Drunkenness extends Effect {
      * 用<b>对象身份</b>区分来源（{@code LivingThing} 内部是 {@code ==} 比较），
      * 所以全项目共用一个静态实例就够了；{@code LivingThing} 的复制构造器会把
      * 这个引用一起带过去，副本身上的减伤仍然算同一个来源。
+     * <p>
+     * 用 {@code DamageReductionSource} 而不是 {@code new Object()}：
+     * 它带一个名字，于是 {@code /data get entity @s damageReductions} 里能直接看到
+     * {@code {sourceName:"醉意",percent:0.04d}}，而不是只有一串百分比。
      */
-    public static final Object DRUNKENNESS_DAMAGE_REDUCTION = new Object();
+    public static final Object DRUNKENNESS_DAMAGE_REDUCTION =
+            new cn.gfhnv.game.entity.DamageReductionSource("醉意");
 
     /**
      * 构造 0 层的【醉意】。注册表里的模板用的就是它。

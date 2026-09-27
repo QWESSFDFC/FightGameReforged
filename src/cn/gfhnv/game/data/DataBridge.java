@@ -286,7 +286,7 @@ public final class DataBridge {
      * 沿路径写一个值（末段仍然<b>setter 优先</b>）。
      * <p>
      * 与 {@link #merge(Object, NbtCompound)} 的区别：那个只能改根对象上的字段，
-     * 这个能改到 {@code entityEffectList[0].level} 这种深处。
+     * 这个能改到 {@code effects[0].level} 这种深处。
      *
      * @param root  根对象
      * @param path  路径

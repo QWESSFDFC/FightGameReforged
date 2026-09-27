@@ -1,5 +1,7 @@
 package cn.gfhnv.game.entity;
 
+import cn.gfhnv.game.data.DataField;
+import cn.gfhnv.game.data.NoData;
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entityController.FixOrderController;
 import cn.gfhnv.game.entityController.PlayerController;
@@ -57,7 +59,7 @@ public class LivingThing extends Entity {
      * <p>
      * 只有 {@link #setDamageAbsorbedPercent(double)} 用它，用来兼容旧写法（直接设置一个总减伤）。
      */
-    private static final Object BASE_DAMAGE_REDUCTION = new Object();
+    private static final DamageReductionSource BASE_DAMAGE_REDUCTION = new DamageReductionSource("基础减伤");
     /**
      * 减伤来源（<b>乘算叠加</b>）：承伤倍率 = Π(1 − 每个减伤)，见 {@link #getDamageTakenMultiplier()}。
      */
@@ -65,20 +67,57 @@ public class LivingThing extends Entity {
     private final List<IModifyDamage> damageModifiers = new ArrayList<>();
     public long extraDamage = 0;
     private IShowSpecialMes showSpecialMes;
-    private double fireResistance, waterResistance, metalResistance, woodResistance, dirtResistance, criticalDMG, getCriticalRATE;
+    private double fireResistance, waterResistance, metalResistance, woodResistance, dirtResistance, criticalDMG;
+    /**
+     * 暴击率（基础值；实际暴击率见 {@link #getCriticalRATE()}，还会叠加 {@code criticalRateEnhance*}）。
+     * <p>
+     * Java 字段名是历史遗留的 getter 风格写法，<b>对外的数据名用 {@link DataField} 改成了
+     * {@code criticalRate}</b> —— 数据名是对外 API（见 TIPS §5.10），别把注解删了。
+     */
+    @DataField("criticalRate")
+    private double getCriticalRATE;
     private long hp, defence, speed, attack, hpMax;
+    /**
+     * 是否存活。<b>对外数据名是小写 {@code alive}</b>（Java 字段名首字母大写是历史写法）。
+     */
+    @DataField("alive")
     private boolean Alive = true;
+    /**
+     * 身上的效果列表。<b>对外数据名是 {@code effects}</b>（Java 字段名 {@code entityEffectList} 又长又绕）。
+     */
+    @DataField("effects")
     private List<Effect> entityEffectList = new ArrayList<>();
     private double penetration = 0;//全属性穿透
     private double metalPenetration, woodPenetration, waterPenetration, firePenetration, dirtPenetration;
+    /**
+     * 生命成长系数。<b>对外数据名是 {@code hpGrow}</b>（{@code Number} 是多余的）。
+     */
+    @DataField("hpGrow")
     private double hpGrowNumber;
+    /**
+     * 攻击成长系数。<b>对外数据名是 {@code attackGrow}</b>（顺带把自造缩写 {@code atk} 展开，
+     * 与 {@code attack} 字段保持一致）。
+     */
+    @DataField("attackGrow")
     private double atkGrowNumber;
+    /**
+     * 防御成长系数。<b>对外数据名是 {@code defenceGrow}</b>（{@code dfk} 是自造缩写）。
+     */
+    @DataField("defenceGrow")
     private double dfkGrowNumber;
     private ElementSort elementSort;
+    /**
+     * 金法力成长系数。<b>对外数据名是 {@code metalManaGrow}</b>（下面四个同理）。
+     */
+    @DataField("metalManaGrow")
     private double metalManaGrowNumber;
+    @DataField("woodManaGrow")
     private double woodManaGrowNumber;
+    @DataField("waterManaGrow")
     private double waterManaGrowNumber;
+    @DataField("fireManaGrow")
     private double fireManaGrowNumber;
+    @DataField("dirtManaGrow")
     private double dirtManaGrowNumber;
     private double attackEnhancePercent, defenceEnhancePercent, speedEnhancePercent, hpEnhancePercent, criticalDMGEnhancePercent, criticalDMGEnhanceAmount, criticalRateEnhancePercent, criticalRateEnhanceAmount;
     private long attackEnhanceAmount, defenceEnhanceAmount, speedEnhanceAmount, hpEnhanceAmount;
@@ -93,7 +132,11 @@ public class LivingThing extends Entity {
     private double individualMultipleArea = 1;
     /**
      * 是否正在做伤害试算（只读预测）。见 {@link #modifyIncomingDamage}。
+     * <p>
+     * <b>不进 {@code /data}</b>：它只在 {@link #anticipating(Supplier)} 期间为 {@code true}，
+     * 是"正在进行中的动作"而不是状态，dump 出来纯属噪音。
      */
+    @NoData
     private boolean anticipating = false;
 
     public LivingThing() {
@@ -1502,8 +1545,40 @@ public class LivingThing extends Entity {
         removeDamageReduction(source);
         double clamped = Math.max(0, Math.min(1, percent));
         if (clamped > 0) {
-            damageReductions.add(new DamageReduction(source, clamped));
+            damageReductions.add(new DamageReduction(source, describeReductionSource(source), clamped));
         }
+    }
+
+    /**
+     * 给一个减伤来源起个<b>能看懂的名字</b>，好让 {@code /data} 里看得见"这条减伤是谁给的"。
+     * <p>
+     * {@link #getDamageReductions()} 里的 {@code source} 是按对象身份比较的键，往往是个
+     * 匿名对象，{@code DataBridge} 会把它跳过，于是 {@code /data} 里只剩 {@code {percent:0.04d}} ——
+     * 完全看不出是【醉意】还是药水（用户 2026-09 实测反馈过）。
+     * <p>
+     * 取名顺序：本项目自己的 {@link DamageReductionSource} → 有效果/技能/物品就读它们的 id/名字
+     * → 是字符串就直接用 → 都不认识就退回类名。它<b>只用于显示</b>，不参与任何判断。
+     *
+     * @param source 减伤来源；调用方已保证非 {@code null}
+     * @return 可读名字
+     */
+    private static String describeReductionSource(Object source) {
+        if (source instanceof DamageReductionSource named) {
+            return named.toString();
+        }
+        if (source instanceof Effect effect) {
+            return effect.getID() == null ? effect.getClass().getSimpleName() : effect.getID();
+        }
+        if (source instanceof Skill skill) {
+            return skill.getName() == null ? skill.getClass().getSimpleName() : skill.getName();
+        }
+        if (source instanceof cn.gfhnv.game.item.Item item) {
+            return item.getId() == null ? item.getClass().getSimpleName() : item.getId();
+        }
+        if (source instanceof CharSequence text) {
+            return text.toString();
+        }
+        return source.getClass().getSimpleName();
     }
 
     /**
@@ -2171,10 +2246,17 @@ public class LivingThing extends Entity {
 
     /**
      * 一个减伤来源（{@link LivingThing#getDamageReductions()} 的元素）。
+     * <p>
+     * {@code source} 是<b>按对象身份</b>比较的键（加/删都靠它，见
+     * {@link #addDamageReduction(Object, double)}），它本身往往不是"数据对象"
+     * （最常见的是一句 {@code new Object()}），所以 {@code /data} 里看不到它。
+     * 为此额外带一个<b>可读的名字</b> {@code sourceName}：
+     * 它只是给人看的，不参与任何判断。
      *
-     * @param source  来源对象（按身份区分）
-     * @param percent 减伤比例（已夹到 [0,1]）
+     * @param source     来源对象（按身份区分；{@code /data} 看不到）
+     * @param sourceName 来源的可读名字（给 {@code /data} 看）
+     * @param percent    减伤比例（已夹到 [0,1]）
      */
-    public record DamageReduction(Object source, double percent) {
+    public record DamageReduction(Object source, String sourceName, double percent) {
     }
 }

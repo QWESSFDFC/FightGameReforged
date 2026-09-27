@@ -2,7 +2,9 @@ package cn.gfhnv.game.officialStuff.customEntity.monsters;
 
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entityController.FixOrderController;
+import cn.gfhnv.game.event.DamageEvent;
 import cn.gfhnv.game.eventListener.FightTurnPastListener;
+import cn.gfhnv.game.interfaces.IModifyDamage;
 import cn.gfhnv.game.officialStuff.customEffect.flameReaverEffects.ContainerReward;
 import cn.gfhnv.game.officialStuff.customEffect.flameReaverEffects.LockedRite;
 import cn.gfhnv.game.officialStuff.customEffect.flameReaverEffects.PainEntanglement;
@@ -44,9 +46,12 @@ import java.util.List;
  * <ul>
  *     <li><b>完整容器</b>：{@link BrokenContainer.Kind#COMPLETE}，击杀者拿【破容器之赏】+ 额外回合
  *     （{@link #grantContainerReward}）；放着不管则被吸收并额外充能；</li>
- *     <li><b>二阶段</b>：血量比例掉到 {@value #PHASE_TWO_HP_THRESHOLD} 以下时切换
- *     （{@link #enterPhaseTwo}），获得 {@value #PHASE_TWO_DAMAGE_REDUCTION} 的免伤
- *     ——它与层数减伤<b>分属两个来源键</b>，会同时生效；</li>
+ *     <li><b>二阶段</b>：<b>血条第一次被清空</b>时切换（{@link #enterPhaseTwo}）——
+ *     第一发致命伤害会被 {@link #phaseTwoDeathWard()} 拦下，所以它<b>不可能被一击秒掉</b>，
+ *     一定会进二阶段，并且切换时生命<b>回满</b>；进入后获得
+ *     {@value #PHASE_TWO_DAMAGE_REDUCTION} 的免伤
+ *     ——它与层数减伤<b>分属两个来源键</b>，会同时生效。保护只有一次，
+ *     二阶段之后再被打到 0 才会真的倒下；</li>
  *     <li><b>【沉默的悲叹】</b>：{@code SilentLament} 蓄力，下一次行动放【莫因舍弃而哭泣】；</li>
  *     <li><b>【镣锁】</b>：{@link LockedRite}，由二阶段的【迷失的共祭】给新召唤的容器挂上；</li>
  *     <li><b>【为我设奠】复活</b>：{@link #tryReviveLocked} —— 处于【镣锁】的容器受到致命攻击时，
@@ -60,7 +65,8 @@ public class FlameReaver extends LivingThing {
     /**
      * 减伤来源键：【永别的决绝】的层数减伤。用固定键，方便"层数变化时重设"而不是累加。
      */
-    public static final Object DAMAGE_REDUCTION_KEY = new Object();
+    public static final Object DAMAGE_REDUCTION_KEY =
+            new cn.gfhnv.game.entity.DamageReductionSource("永别的决绝");
 
     /**
      * 减伤来源键：二阶段的【高额免伤】。
@@ -68,7 +74,8 @@ public class FlameReaver extends LivingThing {
      * 与 {@link #DAMAGE_REDUCTION_KEY} <b>分开</b>：两者会同时存在（层数减伤 + 阶段免伤），
      * 而"同一来源键重复添加是幂等的"，共用一个键会互相覆盖。
      */
-    public static final Object PHASE_TWO_REDUCTION_KEY = new Object();
+    public static final Object PHASE_TWO_REDUCTION_KEY =
+            new cn.gfhnv.game.entity.DamageReductionSource("二阶段免伤");
 
     /* ---------------- 可调数值（初版，进游戏手感不对就改这里） ---------------- */
 
@@ -123,9 +130,13 @@ public class FlameReaver extends LivingThing {
     private static final double COMPLETE_CONTAINER_CHANCE = 0.34;
 
     /**
-     * 二阶段触发血量比例（掉到这个比例以下就切换阶段）。
+     * 二阶段的触发条件：<b>血条第一次被清空</b>（2026-09-26 起不再用血量比例阈值）。
+     * <p>
+     * 实现挂在伤害修正器上（{@link #phaseTwoDeathWard()}）：任何会把生命打到
+     * {@code <= 0} 的伤害都会被拦下，改为立刻切阶段并把生命回满 ——
+     * 所以盗火行者不可能被一击秒掉，一定能进二阶段。
+     * 保护<b>只有一次</b>：{@code phaseTwo} 置位后那个修正器就不再拦。
      */
-    private static final double PHASE_TWO_HP_THRESHOLD = 0.5;
 
     /**
      * 二阶段的【高额免伤】（乘算叠加到其他减伤上，所以 0.7 表示"只受 30%"）。
@@ -176,6 +187,9 @@ public class FlameReaver extends LivingThing {
 
     public FlameReaver(FlameReaver other) {
         super(other);
+        // 二阶段的「切阶段保护」。super(other) 会把原体的修正器链一并复制过来，
+        // 所以这里必须用 set（清空 + 只留这一个），否则副本身上会挂两条同样的保护
+        this.setModifyDamage(phaseTwoDeathWard());
         this.disasterPower = other.disasterPower;
         this.damageReductionLayers = other.damageReductionLayers;
         // 【苦痛缠绕】是效果，已由 super(other) 的复制构造器一并复制（效果列表被复制）
@@ -223,6 +237,8 @@ public class FlameReaver extends LivingThing {
         controller.setSkipUnusable(true);
         controller.setRotationByName(rotationNames());
         this.setController(controller);
+        // 二阶段的「切阶段保护」：血条第一次被清空时拦下那一击并切阶段（见 phaseTwoDeathWard）
+        this.setModifyDamage(phaseTwoDeathWard());
     }
 
     /**
@@ -985,35 +1001,74 @@ public class FlameReaver extends LivingThing {
     }
 
     /**
-     * 每回合检查一次是否该进入二阶段。
+     * 每回合检查一次，<b>兜底</b>切阶段。
      * <p>
-     * <b>为什么用 {@code updateSelf} 而不是监听受伤事件</b>：本项目没有"血量变化"的专门事件
-     * （{@code HpLossEvent} 只是通知，扣血路径分散），而这个钩子每回合都会被调用，
-     * 判一次血量足够及时，且不会在伤害结算中途改变减伤状态。
+     * 正常路径是伤害修正器（{@link #phaseTwoDeathWard()}）在挨打那一刻就切换；
+     * 这里只兜"绕过伤害结算"的扣血（{@code /kill}、直接 {@code setHp(0)} 之类），
+     * 保证"一定能进二阶段"。
      * <p>
      * 注意它<b>每个回合对全场所有实体</b>都会调用，不是只给自己 —— 这里只读自己的血量，所以没问题。
      */
     @Override
     public void updateSelf() {
         super.updateSelf();
-        if (!phaseTwo && getHpMax() > 0 && (double) getHp() / getHpMax() <= PHASE_TWO_HP_THRESHOLD) {
+        if (!phaseTwo && getHpMax() > 0 && getHp() <= 0) {
             enterPhaseTwo();
         }
     }
 
     /**
-     * 进入二阶段：获得【高额免伤】并把轮转换成二阶段表（多出蓄力与大招）。
+     * 进入二阶段：<b>生命回满</b> + 获得【高额免伤】，并把轮转换成二阶段表（多出蓄力与大招）。
+     * <p>
+     * 回血放在这里而不是修正器里，是为了让兜底路径（{@link #updateSelf}）拿到同样的效果。
+     * 重复调用是安全的：修正器那边判了 {@code !phaseTwo}，兜底这边也判了。
      * <p>
      * 官方阶段二是"躲到后排 + 召唤分身顶在前面"；本项目按用户决定改成<b>高额免伤</b>。
      */
     private void enterPhaseTwo() {
         this.phaseTwo = true;
+        this.setHp(getHpMax());
         this.addDamageReduction(PHASE_TWO_REDUCTION_KEY, PHASE_TWO_DAMAGE_REDUCTION);
-        System.out.println(ConsoleColor.yellow("【" + getName() + "】进入二阶段：获得高额免伤（"
+        System.out.println(ConsoleColor.yellow("【" + getName()
+                + "】挡下致命一击，进入二阶段：生命回满，并获得高额免伤（"
                 + Math.round(PHASE_TWO_DAMAGE_REDUCTION * 100) + "%）"));
         if (getController() instanceof FixOrderController controller) {
             controller.setRotationByName(rotationNames());
         }
+    }
+
+    /**
+     * 二阶段的「切阶段保护」修正器：把<b>第一发致命伤害整个吃掉</b>，改为进入二阶段。
+     * <p>
+     * 挂在伤害修正器链上（见构造器）。走到这里时 {@code newHp} 已经是"当前生命 − 伤害"，
+     * 所以 {@code newHp <= 0} 就等价于"这一击会清空血条"。
+     * 触发后生命回满、拿到高额免伤；{@code phaseTwo} 置位后本修正器不再拦，二阶段该倒就倒。
+     * <p>
+     * <b>试算期间只算数、不改状态</b>（{@link LivingThing#isAnticipating()}）：
+     * 返回 1 表示"这一下最多把它打到 1 血"。既不会让 AI 靠"看一眼"把这次保护花掉，
+     * 也不会让它因为预判到"打完会回满"而算出负数伤害。这个约定与白厄的免死一致。
+     *
+     * @return 伤害修正器
+     */
+    private IModifyDamage phaseTwoDeathWard() {
+        return new IModifyDamage() {
+            @Override
+            public long damageModify(long newHp, DamageEvent da) {
+                // 认对象一律取事件里的挨打者，不要捕获构造它的那个实例：
+                // 副本的阶段状态可能和原体不同步（与 Phainon#soulscorchDeathWard 同一个理由）
+                if (da.getAttackedEntity() instanceof FlameReaver reaver
+                        && !reaver.isPhaseTwo()
+                        && newHp <= 0) {
+                    if (reaver.isAnticipating()) {
+                        return 1;
+                    }
+                    reaver.enterPhaseTwo();
+                    // 生命已经被回满了：把"当前生命"原样交回去，等于这一击被整个吃掉
+                    return reaver.getHp();
+                }
+                return newHp;
+            }
+        };
     }
 
     /**
