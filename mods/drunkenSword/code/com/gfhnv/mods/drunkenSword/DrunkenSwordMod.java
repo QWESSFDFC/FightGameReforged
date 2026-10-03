@@ -21,6 +21,21 @@ import cn.gfhnv.game.mod.ModInformation;
  * <p>
  * 内容 id 会由 {@link Mod#addEntity}/{@link Mod#addItem}/{@link Mod#addEffect} 自动带上
  * {@value #MOD_ID} 前缀，所以运行时完整 id 形如 {@code drunkenSword:drunkenSwordsman}。
+ * <p>
+ * <b>关于配置</b>：这个模组<b>没有</b>实现 {@code cn.gfhnv.game.mod.config.ModDataAware}，
+ * 所以游戏不会给它读配置，也不会有任何提示 —— 它现在全部用代码里的默认值，行为与本模组发布时一致。
+ * 想让玩家能调（例如初始【醉意】层数）就按 `MODDING-GUIDE.md` 的 §4.7 走：
+ * <pre>
+ * &#64;ModConfig(id = "drunkenSword")
+ * public class DrunkenSwordMod extends Mod implements ModDataAware {
+ *     private static int initialStacks = 2;
+ *     &#64;Override public void applyConfig(ModConfigDocument cfg) {
+ *         initialStacks = cfg.getInt("initialStacks", 2);   // 读 config/data/drunkenSword.json
+ *     }
+ *     // …invokeWhenLoaded() 里把 initialStacks 传进 DrunkenSwordsman
+ * }
+ * </pre>
+ * 注意<b>模组不能自带配置文件</b>：配置永远放在游戏自己的 {@code config/data/drunkenSword.json}。
  *
  * @author AI（DeepSeek）生成
  */

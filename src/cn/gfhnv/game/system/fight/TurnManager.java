@@ -21,12 +21,26 @@ public class TurnManager {
         turns.removeIf(entry -> !entry.getLivingThing().isAlive());
     }
 
+    /**
+     * 重排时间轴。排序键<b>按优先级从高到低</b>：
+     * <ol>
+     *     <li>时间（{@code startTime + needTime}）升序 —— 谁先到谁先动；</li>
+     *     <li><b>优先级降序</b>（{@link TurnEntry#getPriority()}）—— 时间打平时先看它；</li>
+     *     <li>速度降序 —— 优先级也打平时快的先动（{@link #init} 里全体都在
+     *     {@code presentTime} 起步时用的就是这一档）。</li>
+     * </ol>
+     * <p>
+     * 第 2 条是 2026-10-03 加的：击杀【完整容器】的奖励回合和受益者的下一回合一样都排在
+     * {@code presentTime} 上，原先时间打平时只按速度排，会被场上更快的单位抢先执行 ——
+     * 看起来像"奖励没生效"。现在奖励回合带 {@link TurnEntry#PRIORITY_EXTRA}，同时间必定先动。
+     */
     public static void sort() {
         if (turns == null || turns.isEmpty()) {
             return;
         }
         turns.sort(Comparator
                 .comparing((TurnEntry t) -> t.getStartTime().add(t.getNeedTime()))
+                .thenComparing(TurnEntry::getPriority, Comparator.reverseOrder())
                 .thenComparing(t -> t.getLivingThing().getSpeed(), Comparator.reverseOrder())
         );
     }

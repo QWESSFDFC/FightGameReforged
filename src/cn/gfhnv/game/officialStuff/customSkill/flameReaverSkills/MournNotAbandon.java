@@ -3,10 +3,13 @@ package cn.gfhnv.game.officialStuff.customSkill.flameReaverSkills;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.FlameReaver;
 import cn.gfhnv.game.skill.Skill;
+import cn.gfhnv.game.skill.SkillCoefficientTunable;
 import cn.gfhnv.game.system.fight.Fight;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 【莫因舍弃而哭泣】—— 二阶段的大招。
@@ -23,17 +26,26 @@ import java.util.List;
  *
  * @author AI（DeepSeek）生成
  */
-public class MournNotAbandon extends FlameReaverSkill {
+public class MournNotAbandon extends FlameReaverSkill implements SkillCoefficientTunable {
+
+    /**
+     * 具名系数：起手那一记全体伤害的倍率。
+     */
+    private static final String COEFF_OPENING_MAGNIFICATION = "openingMagnification";
+    /**
+     * 具名系数：每一层【灾难之力】换来的追加段数倍率。
+     */
+    private static final String COEFF_DAMAGE_PER_STACK = "damagePerStackMagnification";
 
     /**
      * 起手那一记全体伤害的倍率。
      */
-    private static final double OPENING_MAGNIFICATION = 1.2;
+    private double openingMagnification = 1.2;
 
     /**
      * 每一层【灾难之力】换来的追加段数倍率。
      */
-    private static final double DAMAGE_PER_STACK_MAGNIFICATION = 1.0;
+    private double damagePerStackMagnification = 1.0;
 
     /**
      * 构造技能：全体目标，倍率在 {@link #comeToEffect} 里动态设置。
@@ -49,6 +61,25 @@ public class MournNotAbandon extends FlameReaverSkill {
      */
     public MournNotAbandon(MournNotAbandon other) {
         super(other);
+        this.openingMagnification = other.openingMagnification;
+        this.damagePerStackMagnification = other.damagePerStackMagnification;
+    }
+
+    @Override
+    public Map<String, Double> coefficientValues() {
+        Map<String, Double> values = new LinkedHashMap<>();
+        values.put(COEFF_OPENING_MAGNIFICATION, openingMagnification);
+        values.put(COEFF_DAMAGE_PER_STACK, damagePerStackMagnification);
+        return values;
+    }
+
+    @Override
+    public void setCoefficientValue(String name, double value) {
+        switch (name) {
+            case COEFF_OPENING_MAGNIFICATION -> this.openingMagnification = value;
+            case COEFF_DAMAGE_PER_STACK -> this.damagePerStackMagnification = value;
+            default -> throw new IllegalArgumentException("莫因舍弃而哭泣没有叫「" + name + "」的具名系数");
+        }
     }
 
     @Override
@@ -78,13 +109,13 @@ public class MournNotAbandon extends FlameReaverSkill {
         int stacks = reaver.consumeDisasterPower(reaver.getDisasterPower());
 
         // 第一段：起手全体伤害
-        this.setAtkMagnification(OPENING_MAGNIFICATION);
+        this.setAtkMagnification(openingMagnification);
         System.out.println(reaver.getName() + "施放【莫因舍弃而哭泣】，消耗 " + stacks + " 层【灾难之力】");
         System.out.println("  ——起手全体——");
         attackAllTargets(user, fightingSideOf(fight, user));
 
         // 第二段：按消耗的层数追加多段
-        this.setAtkMagnification(DAMAGE_PER_STACK_MAGNIFICATION);
+        this.setAtkMagnification(damagePerStackMagnification);
         for (int i = 0; i < stacks; i++) {
             List<LivingThing> targets = new ArrayList<>(fightingSideOf(fight, user));
             if (targets.isEmpty()) {

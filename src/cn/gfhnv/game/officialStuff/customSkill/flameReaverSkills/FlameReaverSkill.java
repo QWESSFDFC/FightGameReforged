@@ -105,6 +105,30 @@ public abstract class FlameReaverSkill extends Skill {
     }
 
     /**
+     * 把一组生物的名字拼成一行（诊断用）。
+     * <p>
+     * 参数写成 {@code List<? extends LivingThing>}：既能接 {@code List<BrokenContainer>}
+     * （泛型不协变，写死 {@code List<LivingThing>} 会编译不过），又能调用 {@link LivingThing#getName()}。
+     *
+     * @param things 生物列表
+     * @return 形如 {@code [甲, 乙]} 的字符串
+     */
+    protected static String describeNames(List<? extends LivingThing> things) {
+        if (things == null) {
+            return "null";
+        }
+        StringBuilder builder = new StringBuilder("[");
+        for (int i = 0; i < things.size(); i++) {
+            if (i > 0) {
+                builder.append(", ");
+            }
+            LivingThing each = things.get(i);
+            builder.append(each == null ? "null" : each.getName());
+        }
+        return builder.append(']').toString();
+    }
+
+    /**
      * 对每个目标各打一次。
      * <p>
      * <b>只在"目标里混进了自己人"时才提示</b>：盗火行者会召唤同阵营的【残破容器】，
@@ -156,29 +180,5 @@ public abstract class FlameReaverSkill extends Skill {
                 return;
             }
         }
-    }
-
-    /**
-     * 把一组生物的名字拼成一行（诊断用）。
-     * <p>
-     * 参数写成 {@code List<? extends LivingThing>}：既能接 {@code List<BrokenContainer>}
-     * （泛型不协变，写死 {@code List<LivingThing>} 会编译不过），又能调用 {@link LivingThing#getName()}。
-     *
-     * @param things 生物列表
-     * @return 形如 {@code [甲, 乙]} 的字符串
-     */
-    protected static String describeNames(List<? extends LivingThing> things) {
-        if (things == null) {
-            return "null";
-        }
-        StringBuilder builder = new StringBuilder("[");
-        for (int i = 0; i < things.size(); i++) {
-            if (i > 0) {
-                builder.append(", ");
-            }
-            LivingThing each = things.get(i);
-            builder.append(each == null ? "null" : each.getName());
-        }
-        return builder.append(']').toString();
     }
 }

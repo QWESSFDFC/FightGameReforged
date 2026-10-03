@@ -15,11 +15,28 @@ public class CommonAttack extends cn.gfhnv.game.officialStuff.customSkill.univer
 
     public CommonAttack() {
         super(1, 0, 0, 1);
+        // 显式 id：本类与母类 cn.gfhnv.game.officialStuff.customSkill.universalSkill.CommonAttack
+        // 的【类名一模一样】，都按类名派生的话会得到同一个 commonAttack → 注册表直接报撞名。
+        // 这里写死一个短 id 把两者分开（前缀由注册器补成 game_official_content:liXiaoYanCommonAttack）。
+        this.setId("liXiaoYanCommonAttack");
+    }
+
+    /**
+     * 复制构造器。
+     * <p>
+     * {@link #copy()} 必须走这里，不能返回 {@code new CommonAttack()}：那样会把
+     * 母类构造器里的出厂数值重新装一遍，于是打在模板上的配置（{@code SkillData.json}）
+     * <b>永远传不到选人时复制出去的副本</b>。
+     *
+     * @param other 被复制的技能
+     */
+    public CommonAttack(CommonAttack other) {
+        super(other);
     }
 
     @Override
     public CommonAttack copy() {
-        return new CommonAttack();
+        return new CommonAttack(this);
     }
 
 
@@ -28,8 +45,8 @@ public class CommonAttack extends cn.gfhnv.game.officialStuff.customSkill.univer
         // 加算与减算必须用「同一时刻」的燃点判断（这里用 wasHigh 快照），
         // 否则会出现「加过却按未加成扣除」或「没加也扣」的配平错误。
         boolean wasHigh = false;
-        if (user instanceof ActorLiXiaoYan li && li.getIgnition() >= ActorLiXiaoYan.HIGH_IGNITION) {
-            setExtraDamage((long) (this.getExtraDamage() + user.getHpMax() * ActorLiXiaoYan.HIGH_IGNITION_BONUS_RATE));
+        if (user instanceof ActorLiXiaoYan li && li.getIgnition() >= ActorLiXiaoYan.Rule.highIgnition()) {
+            setExtraDamage((long) (this.getExtraDamage() + user.getHpMax() * ActorLiXiaoYan.Rule.highIgnitionBonusRate()));
             wasHigh = true;
         }
 
@@ -46,7 +63,7 @@ public class CommonAttack extends cn.gfhnv.game.officialStuff.customSkill.univer
 
         // 只扣回「确实加过」的那一次（wasHigh 为 true 才扣），保证加算减算严格配对
         if (wasHigh) {
-            setExtraDamage((long) (this.getExtraDamage() - user.getHpMax() * ActorLiXiaoYan.HIGH_IGNITION_BONUS_RATE));
+            setExtraDamage((long) (this.getExtraDamage() - user.getHpMax() * ActorLiXiaoYan.Rule.highIgnitionBonusRate()));
         }
     }
 }

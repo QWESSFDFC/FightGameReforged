@@ -1,24 +1,8 @@
 package cn.gfhnv.game.officialStuff.customCommands;
 
-import cn.gfhnv.game.data.DataBridge;
-import cn.gfhnv.game.data.DataPath;
-import cn.gfhnv.game.data.DataStorage;
-import cn.gfhnv.game.data.NbtCompound;
-import cn.gfhnv.game.data.NbtList;
-import cn.gfhnv.game.data.NbtTag;
-import cn.gfhnv.game.data.Snbt;
+import cn.gfhnv.game.data.*;
 import cn.gfhnv.game.entity.Entity;
-import cn.gfhnv.game.system.command.ArgumentBuilder;
-import cn.gfhnv.game.system.command.Command;
-import cn.gfhnv.game.system.command.CommandContext;
-import cn.gfhnv.game.system.command.CommandNode;
-import cn.gfhnv.game.system.command.CommandSource;
-import cn.gfhnv.game.system.command.CommandSyntaxException;
-import cn.gfhnv.game.system.command.EntityArgumentType;
-import cn.gfhnv.game.system.command.IntegerArgumentType;
-import cn.gfhnv.game.system.command.LiteralCommandNode;
-import cn.gfhnv.game.system.command.StringReader;
-import cn.gfhnv.game.system.command.WordArgumentType;
+import cn.gfhnv.game.system.command.*;
 
 import java.util.List;
 
@@ -57,6 +41,243 @@ public class DataCommand extends Command {
      */
     public DataCommand() {
         super("data");
+    }
+
+    /**
+     * 往 {@code modify entity <目标> <路径>} 底下挂一条"塞元素"的分支。
+     * <p>
+     * <b>没有返回值</b>：节点在 {@code parent.literal(...)} 时就挂好了，调用方不需要（也不应该）
+     * 再把它挂到别处。
+     *
+     * @param parent     父节点
+     * @param literal    {@code append} / {@code prepend}
+     * @param fixedIndex 固定插入位置
+     */
+    private static void addEntityListOperation(ArgumentBuilder parent, String literal, int fixedIndex) {
+        ArgumentBuilder value = parent.literal(literal).argument("值", DataCommand::readTag);
+        value.executes((context, source) -> {
+            List<Entity> entities = requireEntities(context, "目标");
+            DataPath path = context.getArgument("路径", DataPath.class);
+            NbtTag tag = context.getArgument("值", NbtTag.class);
+            for (Entity entity : entities) {
+                runEntityListOperation(entity, path, literal, fixedIndex, tag, source);
+            }
+            return entities.size();
+        });
+    }
+
+    /* ------------------------------------------------------------------
+     * 实体：列表增删
+     * ------------------------------------------------------------------ */
+
+    /**
+     * 往 {@code modify storage <存储位> <路径>} 底下挂一条"塞元素"的分支。
+     *
+     * @param parent     父节点
+     * @param literal    {@code append} / {@code prepend}
+     * @param fixedIndex 固定插入位置
+     */
+    private static void addStorageListOperation(ArgumentBuilder parent, String literal, int fixedIndex) {
+        ArgumentBuilder value = parent.literal(literal).argument("值", DataCommand::readTag);
+        value.executes((context, source) -> {
+            String id = context.getArgument("存储位", String.class);
+            DataPath path = context.getArgument("路径", DataPath.class);
+            NbtTag tag = context.getArgument("值", NbtTag.class);
+            NbtCompound store = DataStorage.of(id);
+            int before = listSizeOf(path.get(store));
+            int position = fixedIndex == Integer.MAX_VALUE ? before : fixedIndex;
+            try {
+                path.insertIn(store, position, tag);
+            } catch (IllegalArgumentException e) {
+                throw CommandSyntaxException.create("存储位「" + id + "」：" + e.getMessage());
+            }
+            source.sendMessage("存储位「" + id + "」的 " + path.describe() + " " + literal + "："
+                    + before + " → " + listSizeOf(path.get(store)) + " 个元素");
+            return 1;
+        });
+    }
+
+    /**
+     * 对实体执行一次列表插入并回显"元素个数变化"。
+     *
+     * @param entity 目标实体
+     * @param path   路径（指向列表）
+     * @param what   操作名（回显用）
+     * @param index  插入位置；{@link Integer#MAX_VALUE} 表示追加到末尾
+     * @param value  元素
+     * @param source 输出
+     * @throws CommandSyntaxException 路径不是标量列表 / 下标越界
+     */
+    private static void runEntityListOperation(Entity entity, DataPath path, String what, int index, NbtTag value,
+                                               CommandSource source) throws CommandSyntaxException {
+        int before = listSizeAt(entity, path);
+        int position = index == Integer.MAX_VALUE ? before : index;
+        try {
+            DataBridge.insertAt(entity, path, position, value);
+        } catch (IllegalArgumentException e) {
+            throw CommandSyntaxException.create(EntityArgumentType.nameOf(entity) + "：" + e.getMessage());
+        }
+        source.sendMessage(EntityArgumentType.nameOf(entity) + " 的 " + path.describe()
+                + " " + what + "：" + before + " → " + listSizeAt(entity, path) + " 个元素");
+    }
+
+    /**
+     * @param context  命令上下文
+     * @param argument 参数名
+     * @return 选中的实体
+     * @throws CommandSyntaxException 一个都没选中
+     */
+    private static List<Entity> requireEntities(CommandContext context, String argument) throws CommandSyntaxException {
+        List<Entity> entities = context.getEntities(argument);
+        if (entities.isEmpty()) {
+            throw CommandSyntaxException.create("没有选中任何实体（用 /list 看看场上有谁）");
+        }
+        return entities;
+    }
+
+    /* ------------------------------------------------------------------
+     * 小工具
+     * ------------------------------------------------------------------ */
+
+    /**
+     * 把"补丁里那几个键的旧值 → 新值"拼成一段回显。
+     * <p>
+     * 重新读一遍而不是直接回显补丁：{@code setHp} 这类 setter 会钳制数值，
+     * 回显真实结果才能看出"你写的 999999 被夹成了 7392"。
+     *
+     * @param before 合并前的数据
+     * @param after  合并后的数据
+     * @param patch  补丁
+     * @return 文本
+     */
+    private static String describeChanges(NbtCompound before, NbtCompound after, NbtCompound patch) {
+        StringBuilder builder = new StringBuilder();
+        for (String key : patch.keySet()) {
+            if (builder.length() > 0) {
+                builder.append('、');
+            }
+            NbtTag oldValue = before.get(key);
+            NbtTag newValue = after.get(key);
+            builder.append(key).append('：').append(oldValue == null ? "（无）" : oldValue.toSnbt())
+                    .append(" → ").append(newValue == null ? "（无）" : newValue.toSnbt());
+        }
+        return builder.length() == 0 ? "（空补丁）" : builder.toString();
+    }
+
+    /**
+     * @param root 根对象
+     * @param path 路径
+     * @return 路径指向的列表有几个元素；不是列表返回 {@code -1}
+     */
+    private static int listSizeAt(Object root, DataPath path) {
+        try {
+            return listSizeOf(DataBridge.valueAt(root, path));
+        } catch (IllegalArgumentException e) {
+            return -1;
+        }
+    }
+
+    /**
+     * 数一个值里有几个元素。
+     * <p>
+     * <b>两种都要认</b>：实体那条路拿到的是<b>活的</b> {@code java.util.List}（反射读出来的字段值），
+     * storage 那条路拿到的是 {@link NbtList}。2026-09 只认后者，导致
+     * {@code /data modify entity … append} 一律报"下标 -1 越界"（自测抓到）。
+     *
+     * @param value 值（活列表 / 标签列表 / 别的什么）
+     * @return 元素个数；不是列表返回 {@code -1}
+     */
+    private static int listSizeOf(Object value) {
+        if (value instanceof NbtList tagList) {
+            return tagList.size();
+        }
+        return value instanceof List<?> list ? list.size() : -1;
+    }
+
+    /**
+     * 浅拷贝一份复合标签（回显"合并前"的样子；只拷一层就够，因为合并只会动到这一层）。
+     *
+     * @param source 原标签
+     * @return 新复合标签
+     */
+    private static NbtCompound copyOf(NbtCompound source) {
+        NbtCompound copy = new NbtCompound();
+        for (String key : source.keySet()) {
+            copy.put(key, source.get(key));
+        }
+        return copy;
+    }
+
+    /**
+     * 读路径上的值并转成标签（回显"旧值"用；取不到返回 {@code null}）。
+     *
+     * @param root 根对象
+     * @param path 路径
+     * @return 标签；路径不通时返回 {@code null}
+     */
+    private static NbtTag readTagAt(Object root, DataPath path) {
+        try {
+            return DataBridge.toTag(DataBridge.valueAt(root, path));
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    /**
+     * @param tag 标签
+     * @return 显示文本（{@code null} 显示成"（无）"）
+     */
+    private static String text(NbtTag tag) {
+        return tag == null ? "（无）" : tag.toSnbt();
+    }
+
+    /**
+     * 解析路径参数（{@code hp}、{@code manas[0].amount}、{@code slots[{slotNumber:0L}]}）。
+     * <p>
+     * <b>公开</b>是为了让 {@code /execute if data …} 复用同一条路径语法（别在那边再写一份）。
+     *
+     * @param reader 输入读取器
+     * @return 路径
+     * @throws CommandSyntaxException 路径语法错误
+     */
+    public static DataPath readPath(StringReader reader) throws CommandSyntaxException {
+        String text = reader.readWord();
+        try {
+            return DataPath.parse(text);
+        } catch (IllegalArgumentException e) {
+            throw CommandSyntaxException.at(reader, e.getMessage());
+        }
+    }
+
+    /**
+     * 解析 NBT 参数（{@code {hp:20}}，允许括号内带空格）。
+     *
+     * @param reader 输入读取器
+     * @return 复合标签
+     * @throws CommandSyntaxException SNBT 语法错误 / 根不是复合标签
+     */
+    private static NbtCompound readCompound(StringReader reader) throws CommandSyntaxException {
+        NbtTag tag = readTag(reader);
+        if (!(tag instanceof NbtCompound compound)) {
+            throw CommandSyntaxException.at(reader, "这里需要一个复合标签（用 { } 包起来），实际拿到的是 " + tag.type());
+        }
+        return compound;
+    }
+
+    /**
+     * 解析任意 NBT 值（数字 / 字符串 / 列表 / 复合标签），供 {@code modify ... set} 用。
+     *
+     * @param reader 输入读取器
+     * @return 标签
+     * @throws CommandSyntaxException SNBT 语法错误
+     */
+    private static NbtTag readTag(StringReader reader) throws CommandSyntaxException {
+        String text = reader.readBalanced();
+        try {
+            return Snbt.parse(text);
+        } catch (IllegalArgumentException e) {
+            throw CommandSyntaxException.at(reader, e.getMessage());
+        }
     }
 
     /**
@@ -289,242 +510,5 @@ public class DataCommand extends Command {
 
         root.addChild(modify);
         return root;
-    }
-
-    /* ------------------------------------------------------------------
-     * 实体：列表增删
-     * ------------------------------------------------------------------ */
-
-    /**
-     * 往 {@code modify entity <目标> <路径>} 底下挂一条"塞元素"的分支。
-     * <p>
-     * <b>没有返回值</b>：节点在 {@code parent.literal(...)} 时就挂好了，调用方不需要（也不应该）
-     * 再把它挂到别处。
-     *
-     * @param parent     父节点
-     * @param literal    {@code append} / {@code prepend}
-     * @param fixedIndex 固定插入位置
-     */
-    private static void addEntityListOperation(ArgumentBuilder parent, String literal, int fixedIndex) {
-        ArgumentBuilder value = parent.literal(literal).argument("值", DataCommand::readTag);
-        value.executes((context, source) -> {
-            List<Entity> entities = requireEntities(context, "目标");
-            DataPath path = context.getArgument("路径", DataPath.class);
-            NbtTag tag = context.getArgument("值", NbtTag.class);
-            for (Entity entity : entities) {
-                runEntityListOperation(entity, path, literal, fixedIndex, tag, source);
-            }
-            return entities.size();
-        });
-    }
-
-    /**
-     * 往 {@code modify storage <存储位> <路径>} 底下挂一条"塞元素"的分支。
-     *
-     * @param parent     父节点
-     * @param literal    {@code append} / {@code prepend}
-     * @param fixedIndex 固定插入位置
-     */
-    private static void addStorageListOperation(ArgumentBuilder parent, String literal, int fixedIndex) {
-        ArgumentBuilder value = parent.literal(literal).argument("值", DataCommand::readTag);
-        value.executes((context, source) -> {
-            String id = context.getArgument("存储位", String.class);
-            DataPath path = context.getArgument("路径", DataPath.class);
-            NbtTag tag = context.getArgument("值", NbtTag.class);
-            NbtCompound store = DataStorage.of(id);
-            int before = listSizeOf(path.get(store));
-            int position = fixedIndex == Integer.MAX_VALUE ? before : fixedIndex;
-            try {
-                path.insertIn(store, position, tag);
-            } catch (IllegalArgumentException e) {
-                throw CommandSyntaxException.create("存储位「" + id + "」：" + e.getMessage());
-            }
-            source.sendMessage("存储位「" + id + "」的 " + path.describe() + " " + literal + "："
-                    + before + " → " + listSizeOf(path.get(store)) + " 个元素");
-            return 1;
-        });
-    }
-
-    /**
-     * 对实体执行一次列表插入并回显"元素个数变化"。
-     *
-     * @param entity 目标实体
-     * @param path   路径（指向列表）
-     * @param what   操作名（回显用）
-     * @param index  插入位置；{@link Integer#MAX_VALUE} 表示追加到末尾
-     * @param value  元素
-     * @param source 输出
-     * @throws CommandSyntaxException 路径不是标量列表 / 下标越界
-     */
-    private static void runEntityListOperation(Entity entity, DataPath path, String what, int index, NbtTag value,
-                                               CommandSource source) throws CommandSyntaxException {
-        int before = listSizeAt(entity, path);
-        int position = index == Integer.MAX_VALUE ? before : index;
-        try {
-            DataBridge.insertAt(entity, path, position, value);
-        } catch (IllegalArgumentException e) {
-            throw CommandSyntaxException.create(EntityArgumentType.nameOf(entity) + "：" + e.getMessage());
-        }
-        source.sendMessage(EntityArgumentType.nameOf(entity) + " 的 " + path.describe()
-                + " " + what + "：" + before + " → " + listSizeAt(entity, path) + " 个元素");
-    }
-
-    /* ------------------------------------------------------------------
-     * 小工具
-     * ------------------------------------------------------------------ */
-
-    /**
-     * @param context  命令上下文
-     * @param argument 参数名
-     * @return 选中的实体
-     * @throws CommandSyntaxException 一个都没选中
-     */
-    private static List<Entity> requireEntities(CommandContext context, String argument) throws CommandSyntaxException {
-        List<Entity> entities = context.getEntities(argument);
-        if (entities.isEmpty()) {
-            throw CommandSyntaxException.create("没有选中任何实体（用 /list 看看场上有谁）");
-        }
-        return entities;
-    }
-
-    /**
-     * 把"补丁里那几个键的旧值 → 新值"拼成一段回显。
-     * <p>
-     * 重新读一遍而不是直接回显补丁：{@code setHp} 这类 setter 会钳制数值，
-     * 回显真实结果才能看出"你写的 999999 被夹成了 7392"。
-     *
-     * @param before 合并前的数据
-     * @param after  合并后的数据
-     * @param patch  补丁
-     * @return 文本
-     */
-    private static String describeChanges(NbtCompound before, NbtCompound after, NbtCompound patch) {
-        StringBuilder builder = new StringBuilder();
-        for (String key : patch.keySet()) {
-            if (builder.length() > 0) {
-                builder.append('、');
-            }
-            NbtTag oldValue = before.get(key);
-            NbtTag newValue = after.get(key);
-            builder.append(key).append('：').append(oldValue == null ? "（无）" : oldValue.toSnbt())
-                    .append(" → ").append(newValue == null ? "（无）" : newValue.toSnbt());
-        }
-        return builder.length() == 0 ? "（空补丁）" : builder.toString();
-    }
-
-    /**
-     * @param root 根对象
-     * @param path 路径
-     * @return 路径指向的列表有几个元素；不是列表返回 {@code -1}
-     */
-    private static int listSizeAt(Object root, DataPath path) {
-        try {
-            return listSizeOf(DataBridge.valueAt(root, path));
-        } catch (IllegalArgumentException e) {
-            return -1;
-        }
-    }
-
-    /**
-     * 数一个值里有几个元素。
-     * <p>
-     * <b>两种都要认</b>：实体那条路拿到的是<b>活的</b> {@code java.util.List}（反射读出来的字段值），
-     * storage 那条路拿到的是 {@link NbtList}。2026-09 只认后者，导致
-     * {@code /data modify entity … append} 一律报"下标 -1 越界"（自测抓到）。
-     *
-     * @param value 值（活列表 / 标签列表 / 别的什么）
-     * @return 元素个数；不是列表返回 {@code -1}
-     */
-    private static int listSizeOf(Object value) {
-        if (value instanceof NbtList tagList) {
-            return tagList.size();
-        }
-        return value instanceof List<?> list ? list.size() : -1;
-    }
-
-    /**
-     * 浅拷贝一份复合标签（回显"合并前"的样子；只拷一层就够，因为合并只会动到这一层）。
-     *
-     * @param source 原标签
-     * @return 新复合标签
-     */
-    private static NbtCompound copyOf(NbtCompound source) {
-        NbtCompound copy = new NbtCompound();
-        for (String key : source.keySet()) {
-            copy.put(key, source.get(key));
-        }
-        return copy;
-    }
-
-    /**
-     * 读路径上的值并转成标签（回显"旧值"用；取不到返回 {@code null}）。
-     *
-     * @param root 根对象
-     * @param path 路径
-     * @return 标签；路径不通时返回 {@code null}
-     */
-    private static NbtTag readTagAt(Object root, DataPath path) {
-        try {
-            return DataBridge.toTag(DataBridge.valueAt(root, path));
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
-    }
-
-    /**
-     * @param tag 标签
-     * @return 显示文本（{@code null} 显示成"（无）"）
-     */
-    private static String text(NbtTag tag) {
-        return tag == null ? "（无）" : tag.toSnbt();
-    }
-
-    /**
-     * 解析路径参数（{@code hp}、{@code manas[0].amount}、{@code slots[{slotNumber:0L}]}）。
-     * <p>
-     * <b>公开</b>是为了让 {@code /execute if data …} 复用同一条路径语法（别在那边再写一份）。
-     *
-     * @param reader 输入读取器
-     * @return 路径
-     * @throws CommandSyntaxException 路径语法错误
-     */
-    public static DataPath readPath(StringReader reader) throws CommandSyntaxException {
-        String text = reader.readWord();
-        try {
-            return DataPath.parse(text);
-        } catch (IllegalArgumentException e) {
-            throw CommandSyntaxException.at(reader, e.getMessage());
-        }
-    }
-
-    /**
-     * 解析 NBT 参数（{@code {hp:20}}，允许括号内带空格）。
-     *
-     * @param reader 输入读取器
-     * @return 复合标签
-     * @throws CommandSyntaxException SNBT 语法错误 / 根不是复合标签
-     */
-    private static NbtCompound readCompound(StringReader reader) throws CommandSyntaxException {
-        NbtTag tag = readTag(reader);
-        if (!(tag instanceof NbtCompound compound)) {
-            throw CommandSyntaxException.at(reader, "这里需要一个复合标签（用 { } 包起来），实际拿到的是 " + tag.type());
-        }
-        return compound;
-    }
-
-    /**
-     * 解析任意 NBT 值（数字 / 字符串 / 列表 / 复合标签），供 {@code modify ... set} 用。
-     *
-     * @param reader 输入读取器
-     * @return 标签
-     * @throws CommandSyntaxException SNBT 语法错误
-     */
-    private static NbtTag readTag(StringReader reader) throws CommandSyntaxException {
-        String text = reader.readBalanced();
-        try {
-            return Snbt.parse(text);
-        } catch (IllegalArgumentException e) {
-            throw CommandSyntaxException.at(reader, e.getMessage());
-        }
     }
 }

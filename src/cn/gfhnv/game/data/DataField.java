@@ -10,10 +10,10 @@ import java.lang.annotation.Target;
  * <p>
  * 默认规则是"**数据对象的所有字段都暴露**"（见 {@link DataBridge}），所以这个注解只用在两种情况：
  * <ul>
- *     <li>Java 字段名不好看/会误导 —— 现成例子都在 {@link cn.gfhnv.game.entity.LivingThing}：
- *     {@code entityEffectList} → {@code effects}、{@code hpGrowNumber} → {@code hpGrow}、
- *     {@code getCriticalRATE} → {@code criticalRate}、{@code Alive} → {@code alive}；</li>
- *     <li>想给某个字段起个稳定的对外名字（**数据名是对外 API**：改名会让 {@code /data} 脚本与存档失效）。</li>
+ *     <li>Java 字段名不好看/会误导 —— 现成例子在 {@link cn.gfhnv.game.entity.LivingThing}：
+ *     {@code entityEffectList} → {@code effects}；</li>
+ *     <li>想给某个字段起个稳定的对外名字（**数据名是对外 API**：改名会让 {@code /data} 脚本与存档失效）——
+ *     用了它的字段名一改，注解就该跟着删（Java 名 == 数据名时它只是重复劳动）。</li>
  * </ul>
  * 想排除某个字段用 {@link NoData}。
  * <p>

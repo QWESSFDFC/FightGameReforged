@@ -12,7 +12,7 @@ import cn.gfhnv.game.skill.Skill;
  * 计算流程：
  * <ol>
  *     <li>发布 {@link CalculateDamageGetStatusEvent}（允许外部在计算前修改攻击者/目标状态）；</li>
- *     <li>判定是否暴击（依据攻击者暴击率 {@code getGetCriticalRATE()}，暴击时伤害乘上爆伤 {@code getCriticalDMG()}）；</li>
+ *     <li>判定是否暴击（依据攻击者暴击率 {@code getCriticalRate()}，暴击时伤害乘上爆伤 {@code getCriticalDMG()}）；</li>
  *     <li>根据攻击者元素属性（金木水火土）取对应的目标抗性、元素增伤与元素穿透；</li>
  *     <li>计算目标有效防御（考虑目标自身的防御削减 {@code getDefenseLoss()}，
  *     以及攻击者身上由 {@link cn.gfhnv.game.interfaces.IDefenceIgnore} 效果汇总出来的无视防御）；</li>
@@ -41,6 +41,25 @@ import cn.gfhnv.game.skill.Skill;
 public class DamageCalculate {
 
     /**
+     * 等级防御系数（公式里的 {@code ×10}）。
+     * <p>
+     * <b>只读一次</b>：这是伤害计算的热路径，不能每次 {@code GameRules.getDouble(...)}
+     * 做一次 Map 查询。取值时机是"本类第一次被加载"，而规则表在游戏启动最开始就加载并冻结了
+     * （见 {@code ConfigLoader#loadGameRules()}），所以这里读到的一定是最终值。
+     * <p>
+     * 出厂值 {@value cn.gfhnv.game.system.configLoadingSystem.RuleDefaults#FORMULA_LEVEL_DEFENCE_FACTOR}；
+     * 改写它 = 让 {@code PROJECT-ANALYSIS-2026-09.md} §4.2 那套"每 1.0 倍率 ≈ 880 伤害"的标定作废。
+     */
+    private static final double LEVEL_DEFENCE_FACTOR = cn.gfhnv.game.system.configLoadingSystem.GameRules
+            .getDouble(cn.gfhnv.game.system.configLoadingSystem.DataKeys.Rule.Formula.LEVEL_DEFENCE_FACTOR);
+
+    /**
+     * 等级防御常数（公式里的 {@code +200}），同上只读一次。
+     */
+    private static final double LEVEL_DEFENCE_BASE = cn.gfhnv.game.system.configLoadingSystem.GameRules
+            .getDouble(cn.gfhnv.game.system.configLoadingSystem.DataKeys.Rule.Formula.LEVEL_DEFENCE_BASE);
+
+    /**
      * 计算一次攻击造成的最终伤害值（不实际结算，仅返回数值）。
      *
      * @param attacker     攻击者（技能使用者）
@@ -50,7 +69,7 @@ public class DamageCalculate {
      */
     public static long calculate(LivingThing attacker, LivingThing targetEntity, Skill skill) {
         EventBus.post(new CalculateDamageGetStatusEvent(attacker, targetEntity));
-        double criticalRate = attacker.getGetCriticalRATE();
+        double criticalRate = attacker.getCriticalRate();
         double criticalDamageEnhance = 1;
         if (Math.random() <= criticalRate) criticalDamageEnhance += attacker.getCriticalDMG();
         double resistance = 0;
@@ -117,7 +136,8 @@ public class DamageCalculate {
                 * (1 + enhance)
                 * resistanceMultiplier
                 * damageTakenMultiplier
-                * ((level * 10 + 200) / (level * 10 + 200 + targetDefence))
+                * ((level * LEVEL_DEFENCE_FACTOR + LEVEL_DEFENCE_BASE)
+                / (level * LEVEL_DEFENCE_FACTOR + LEVEL_DEFENCE_BASE + targetDefence))
                 * individualMultipleArea
                 * criticalDamageEnhance;
         // 伤害永不为负：负数会被 LivingThing#getDamage 当成治疗

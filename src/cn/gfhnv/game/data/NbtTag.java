@@ -15,6 +15,41 @@ package cn.gfhnv.game.data;
 public abstract class NbtTag {
 
     /**
+     * 把一个 Java 数值/字符串包成最合适的标签。
+     *
+     * @param value 值
+     * @return 标签（{@code int} 装得下就是 {@link NbtInt}，否则 {@link NbtLong}）
+     */
+    public static NbtTag of(long value) {
+        return value >= Integer.MIN_VALUE && value <= Integer.MAX_VALUE
+                ? new NbtInt((int) value) : new NbtLong(value);
+    }
+
+    /**
+     * @param value 双精度值
+     * @return 双精度标签
+     */
+    public static NbtTag of(double value) {
+        return new NbtDouble(value);
+    }
+
+    /**
+     * @param value 布尔值
+     * @return 字节标签（{@code 1b} / {@code 0b}）
+     */
+    public static NbtTag of(boolean value) {
+        return new NbtByte(value);
+    }
+
+    /**
+     * @param value 字符串；{@code null} 当作空串
+     * @return 字符串标签
+     */
+    public static NbtTag of(String value) {
+        return new NbtString(value == null ? "" : value);
+    }
+
+    /**
      * @return 这个标签的类型
      */
     public abstract NbtTagType type();
@@ -66,40 +101,5 @@ public abstract class NbtTag {
     @Override
     public String toString() {
         return toSnbt();
-    }
-
-    /**
-     * 把一个 Java 数值/字符串包成最合适的标签。
-     *
-     * @param value 值
-     * @return 标签（{@code int} 装得下就是 {@link NbtInt}，否则 {@link NbtLong}）
-     */
-    public static NbtTag of(long value) {
-        return value >= Integer.MIN_VALUE && value <= Integer.MAX_VALUE
-                ? new NbtInt((int) value) : new NbtLong(value);
-    }
-
-    /**
-     * @param value 双精度值
-     * @return 双精度标签
-     */
-    public static NbtTag of(double value) {
-        return new NbtDouble(value);
-    }
-
-    /**
-     * @param value 布尔值
-     * @return 字节标签（{@code 1b} / {@code 0b}）
-     */
-    public static NbtTag of(boolean value) {
-        return new NbtByte(value);
-    }
-
-    /**
-     * @param value 字符串；{@code null} 当作空串
-     * @return 字符串标签
-     */
-    public static NbtTag of(String value) {
-        return new NbtString(value == null ? "" : value);
     }
 }

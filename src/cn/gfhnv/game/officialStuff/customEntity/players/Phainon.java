@@ -20,6 +20,7 @@ import cn.gfhnv.game.system.fight.ActionSignal;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.fight.TurnEntry;
 import cn.gfhnv.game.system.fight.TurnManager;
+import cn.gfhnv.game.world.World;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -156,7 +157,7 @@ public class Phainon extends Player {
                         }
 
                         if (!availableTargets.isEmpty())
-                            new LastAttack().comeToEffect(fight, phainon, availableTargets);
+                            World.prototypeCopyOf(LastAttack.class).comeToEffect(fight, phainon, availableTargets);
                     });
                 }
                 return newHp;

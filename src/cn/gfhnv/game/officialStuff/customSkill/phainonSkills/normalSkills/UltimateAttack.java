@@ -15,6 +15,7 @@ import cn.gfhnv.game.system.fight.TurnManager;
 import cn.gfhnv.game.system.mana.Mana;
 import cn.gfhnv.game.system.thinkingSystem.Tag;
 import cn.gfhnv.game.system.thinkingSystem.TagType;
+import cn.gfhnv.game.world.World;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -32,6 +33,24 @@ public class UltimateAttack extends Skill {
         this.getTags().put(TagType.ATTACK, new Tag(10));
     }
 
+    /**
+     * 复制构造器。
+     * <p>
+     * {@link #copy()} 必须走这里，不能返回 {@code new UltimateAttack()}：那样会把
+     * 冷却/消耗/权重还原成构造器里的出厂值，于是打在模板上的配置（{@code SkillData.json}）
+     * <b>永远传不到选人时复制出去的副本</b>。
+     * <p>
+     * {@code awakeEndListener} 只在自己的构造器里新建一个：它是<b>无状态</b>的监听器
+     * （真正的状态都在 {@link Phainon} 身上），而且只在变身时被 {@code EventBus} 注册一次，
+     * 所以每个副本各持一个不会重复触发。
+     *
+     * @param other 被复制的技能
+     */
+    public UltimateAttack(UltimateAttack other) {
+        super(other);
+        this.awakeEndListener = new AwakeEndListener();
+    }
+
     public AwakeEndListener getAwakeEndListener() {
         return awakeEndListener;
     }
@@ -42,7 +61,7 @@ public class UltimateAttack extends Skill {
 
     @Override
     public Skill copy() {
-        return new cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.UltimateAttack();
+        return new cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.UltimateAttack(this);
     }
 
     @Override
@@ -65,9 +84,11 @@ public class UltimateAttack extends Skill {
             ((Phainon) user).setAwaken(true);
             ((Phainon) user).setCoreflame(((Phainon) user).getCoreflame() - 12);
             List<Skill> awakenSkills = new ArrayList<>();
-            awakenSkills.add(new AwakenCommonAttack());
-            awakenSkills.add(new CalamitySoulscorchEdict());
-            awakenSkills.add(new FoundationStardeathVerdict());
+            // 觉醒技能一律取"注册表原型"的副本：配置（SkillData.json）打在原型上，
+            // 只有 copy() 出来的副本才带着那些值（原型本身全场共用，不能直接拿去用）。
+            awakenSkills.add(World.prototypeCopyOf(AwakenCommonAttack.class));
+            awakenSkills.add(World.prototypeCopyOf(CalamitySoulscorchEdict.class));
+            awakenSkills.add(World.prototypeCopyOf(FoundationStardeathVerdict.class));
             user.getController().setSkills(awakenSkills);
             EventBus.register(awakeEndListener);
             user.getController().setActionSignal(ActionSignal.WITHOUT_NEW_TURN);
@@ -92,7 +113,7 @@ public class UltimateAttack extends Skill {
                 if (user1 instanceof Phainon) {
                     if (FightTurnPastListener.getPresentTurn().isExtra() && ((Phainon) user1).isAwaken() && ((Phainon) user1).getSoulscorch() > 0) {
                         List<LivingThing> anticipateEnemies = fight1.getOpponentList(user1);
-                        new Counterattack().comeToEffect(fight1, user1, anticipateEnemies);
+                        World.prototypeCopyOf(Counterattack.class).comeToEffect(fight1, user1, anticipateEnemies);
                     }
                 }
             }).setActionSignal(ActionSignal.WITHOUT_NEW_TURN);
@@ -107,7 +128,7 @@ public class UltimateAttack extends Skill {
             if (user1 instanceof Phainon) {
                 if (FightTurnPastListener.getPresentTurn().isExtra() && ((Phainon) user1).isAwaken() && ((Phainon) user1).getSoulscorch() > 0) {
                     List<LivingThing> anticipateEnemies = fight1.getOpponentList(user1);
-                    new Counterattack().comeToEffect(fight1, user1, anticipateEnemies);
+                    World.prototypeCopyOf(Counterattack.class).comeToEffect(fight1, user1, anticipateEnemies);
                 }
             }
 
@@ -119,7 +140,8 @@ public class UltimateAttack extends Skill {
             if (user1 instanceof Phainon phainon) {
                 phainon.setExtraTurns(phainon.getExtraTurns() - 1);
                 phainon.setCoreflame(phainon.getCoreflame() + 3);
-                if (!availableTargets.isEmpty()) new LastAttack().comeToEffect(fight1, user1, availableTargets);
+                if (!availableTargets.isEmpty())
+                    World.prototypeCopyOf(LastAttack.class).comeToEffect(fight1, user1, availableTargets);
             }
 
         });

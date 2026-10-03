@@ -3,9 +3,12 @@ package cn.gfhnv.game.officialStuff.customSkill.flameReaverSkills;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.FlameReaver;
 import cn.gfhnv.game.skill.Skill;
+import cn.gfhnv.game.skill.SkillCoefficientTunable;
 import cn.gfhnv.game.system.fight.Fight;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 【却是必要的苦难】—— 盗火行者的大招。
@@ -14,15 +17,24 @@ import java.util.List;
  * <b>随后</b>对我方全体造成<b>少量</b>伤害。
  * 层数越多，前面的段数越多 —— 这就是"灾难之力"的兑现方式。
  * <p>
- * 本项目：段数 = 消耗掉的层数（不设上限，按用户决定），每段
- * {@value #DAMAGE_PER_STACK_MAGNIFICATION} 倍攻击力，
- * 收尾那一击 {@value #FINISH_MAGNIFICATION} 倍。
+ * 本项目：段数 = 消耗掉的层数（不设上限，按用户决定），每段 {@code 1.0} 倍攻击力、
+ * 收尾那一击 {@code 1.2} 倍 —— 两个倍率都是可配的具名系数
+ * （{@code damagePerStackMagnification} / {@code finishMagnification}）。
  * <p>
  * 没有灾难之力时也放得出来（只是只有收尾那一击），否则轮转会被卡住。
  *
  * @author AI（DeepSeek）生成
  */
-public class NecessarySuffering extends FlameReaverSkill {
+public class NecessarySuffering extends FlameReaverSkill implements SkillCoefficientTunable {
+
+    /**
+     * 具名系数：每一层【灾难之力】换来的那一段伤害的倍率。
+     */
+    private static final String COEFF_DAMAGE_PER_STACK = "damagePerStackMagnification";
+    /**
+     * 具名系数：收尾那一击的倍率。
+     */
+    private static final String COEFF_FINISH_MAGNIFICATION = "finishMagnification";
 
     /**
      * 每一层【灾难之力】换来的那一段伤害的倍率。
@@ -36,12 +48,12 @@ public class NecessarySuffering extends FlameReaverSkill {
      * <b>标尺（用户给的，按原游戏手感）</b>：普通攻击 200~300，600~1000 已属"怪物高伤害"。
      * 大招落高伤档：{@code 1.0 × 923 ≈ 923}。
      */
-    private static final double DAMAGE_PER_STACK_MAGNIFICATION = 1.0;
+    private double damagePerStackMagnification = 1.0;
 
     /**
      * 收尾那一击的倍率（比单段略重，保持"按层数多段 + 一记收尾"的层次）。
      */
-    private static final double FINISH_MAGNIFICATION = 1.2;
+    private double finishMagnification = 1.2;
 
     /**
      * 构造技能：全体目标，倍率在 {@link #comeToEffect} 里按段数动态设置。
@@ -57,6 +69,25 @@ public class NecessarySuffering extends FlameReaverSkill {
      */
     public NecessarySuffering(NecessarySuffering other) {
         super(other);
+        this.damagePerStackMagnification = other.damagePerStackMagnification;
+        this.finishMagnification = other.finishMagnification;
+    }
+
+    @Override
+    public Map<String, Double> coefficientValues() {
+        Map<String, Double> values = new LinkedHashMap<>();
+        values.put(COEFF_DAMAGE_PER_STACK, damagePerStackMagnification);
+        values.put(COEFF_FINISH_MAGNIFICATION, finishMagnification);
+        return values;
+    }
+
+    @Override
+    public void setCoefficientValue(String name, double value) {
+        switch (name) {
+            case COEFF_DAMAGE_PER_STACK -> this.damagePerStackMagnification = value;
+            case COEFF_FINISH_MAGNIFICATION -> this.finishMagnification = value;
+            default -> throw new IllegalArgumentException("却是必要的苦难没有叫「" + name + "」的具名系数");
+        }
     }
 
     @Override
@@ -86,7 +117,7 @@ public class NecessarySuffering extends FlameReaverSkill {
         System.out.println(reaver.getName() + "施放【却是必要的苦难】，消耗 " + stacks + " 层【灾难之力】");
 
         // 第一段：按消耗的层数打多段少量伤害
-        this.setAtkMagnification(DAMAGE_PER_STACK_MAGNIFICATION);
+        this.setAtkMagnification(damagePerStackMagnification);
         for (int i = 0; i < stacks; i++) {
             List<LivingThing> targets = fightingSideOf(fight, user);
             if (targets.isEmpty()) {
@@ -97,7 +128,7 @@ public class NecessarySuffering extends FlameReaverSkill {
         }
 
         // 第二段：随后补一次全体伤害
-        this.setAtkMagnification(FINISH_MAGNIFICATION);
+        this.setAtkMagnification(finishMagnification);
         System.out.println("  ——收尾一击——");
         attackAllTargets(user, fightingSideOf(fight, user));
 

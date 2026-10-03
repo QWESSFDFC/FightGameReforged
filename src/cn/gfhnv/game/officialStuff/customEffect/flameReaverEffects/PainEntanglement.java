@@ -64,27 +64,6 @@ public class PainEntanglement extends Effect {
         }
     }
 
-    @Override
-    public Effect copy() {
-        return new PainEntanglement(this);
-    }
-
-    /**
-     * @return 当前账本数值（还没回收的生命值）
-     */
-    public long getPain() {
-        return getLevel();
-    }
-
-    /**
-     * 覆盖账本数值。
-     *
-     * @param pain 账本数值
-     */
-    public void setPain(long pain) {
-        this.setLevel((int) Math.max(0, Math.min(Integer.MAX_VALUE, pain)));
-    }
-
     /**
      * 把实体身上的【苦痛缠绕】效果取出来（没有就返回 {@code null}）。
      *
@@ -152,6 +131,27 @@ public class PainEntanglement extends Effect {
         long taken = Math.min(pain.getPain(), want);
         pain.setPain(pain.getPain() - taken);
         return taken;
+    }
+
+    @Override
+    public Effect copy() {
+        return new PainEntanglement(this);
+    }
+
+    /**
+     * @return 当前账本数值（还没回收的生命值）
+     */
+    public long getPain() {
+        return getLevel();
+    }
+
+    /**
+     * 覆盖账本数值。
+     *
+     * @param pain 账本数值
+     */
+    public void setPain(long pain) {
+        this.setLevel((int) Math.max(0, Math.min(Integer.MAX_VALUE, pain)));
     }
 
     /**

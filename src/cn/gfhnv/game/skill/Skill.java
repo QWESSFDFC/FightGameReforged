@@ -35,6 +35,23 @@ import java.util.Map;
 public class Skill {
     private String name;
     private String description;
+    /**
+     * 技能的 id：登记进 {@link cn.gfhnv.game.world.World} 技能注册表时落库，
+     * 形如 {@code game_official_content:awakenCommonAttack}。
+     * <p>
+     * <b>取值口径（与 {@code Mod#addEntity/addItem/addEffect} 同一套）</b>：
+     * <ul>
+     *     <li><b>显式 id 优先</b>：类自己写了就用它（{@code setId("liXiaoYanCommonAttack")}），
+     *     带 {@code :} 的当作完整 id 原样保留；</li>
+     *     <li><b>没写就按类名派生</b>：类名首字母小写（{@code AwakenCommonAttack} →
+     *     {@code awakenCommonAttack}），再加 {@code 模组id:} 前缀；</li>
+     *     <li><b>派生出来撞名 → 注册时直接报错</b>（fail loud）：同一个完整 id 落到两个
+     *     不同的类上时必须显式写 id —— 项目里就有两对（{@code universalSkill.CommonAttack}
+     *     与 {@code actorLiXiaoYanSkills.CommonAttack}、两边的 {@code UltimateAttack}）。</li>
+     * </ul>
+     * {@code null} 表示"还没登记过、也没显式写"，不是注册表里的 id。
+     */
+    private String id;
     private double hpMagnification = 0;
     private double atkMagnification = 0;
     private double defMagnification = 0;
@@ -55,6 +72,7 @@ public class Skill {
     public Skill(Skill skill) {
         this.name = skill.getName();
         this.description = skill.getDescription();
+        this.id = skill.getId();
         this.hpMagnification = skill.getHpMagnification();
         this.atkMagnification = skill.getAtkMagnification();
         this.defMagnification = skill.getDefMagnification();
@@ -117,6 +135,29 @@ public class Skill {
      */
     public void setForEnemies(boolean forEnemies) {
         isForEnemies = forEnemies;
+    }
+
+    /**
+     * @return 技能的 id（形如 {@code game_official_content:awakenCommonAttack}）；
+     * 既没显式写、也没登记进注册表时返回 {@code null}
+     * @see #id 取值口径
+     */
+    public String getId() {
+        return id;
+    }
+
+    /**
+     * 设置技能的 id。
+     * <p>
+     * 两条用法：<b>类自己在构造器里写死一个显式短 id</b>（类名派生会撞名时才需要，
+     * 例如两个包的 {@code CommonAttack}），或者由注册器
+     * （{@link cn.gfhnv.game.mod.Mod#addSkill} / {@link cn.gfhnv.game.world.World}）
+     * 落库时补成完整 id。带 {@code :} 的值被当作完整 id 原样保留。
+     *
+     * @param id 技能 id
+     */
+    public void setId(String id) {
+        this.id = id;
     }
 
     /**

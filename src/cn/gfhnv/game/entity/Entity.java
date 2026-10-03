@@ -208,9 +208,9 @@ public class Entity extends Thing {
     public void setLevel(long level) {
         this.level = level;
         if (this instanceof LivingThing) {
-            this.transToLivingTing().setHp((long) ((level - 1) * this.transToLivingTing().getHpGrowNumber() + 200));
-            this.transToLivingTing().setDefence((long) ((level - 1) * this.transToLivingTing().getDfkGrowNumber() + 200));
-            this.transToLivingTing().setAttack((long) (110 + this.transToLivingTing().getAtkGrowNumber() * (level - 1)));
+            this.transToLivingTing().setHp((long) ((level - 1) * this.transToLivingTing().getHpGrow() + 200));
+            this.transToLivingTing().setDefence((long) ((level - 1) * this.transToLivingTing().getDefenceGrow() + 200));
+            this.transToLivingTing().setAttack((long) (110 + this.transToLivingTing().getAttackGrow() * (level - 1)));
             ((LivingThing) this).setHpMax(this.transToLivingTing().getHp());
             this.transToLivingTing().initialMana();
         }

@@ -23,12 +23,29 @@ public class UltimateAttack extends Skill {
         this.setCoolDown(4);
         this.setConsumedMana(new Mana(300, ElementSort.FIRE));
         this.getTags().put(TagType.ATTACK, new Tag(5));
+        // 显式 id：本类与 cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.UltimateAttack
+        // 的【类名一模一样】，都按类名派生的话会得到同一个 ultimateAttack → 注册表直接报撞名。
+        // 这里写死一个短 id 把两者分开（前缀由注册器补成 game_official_content:liXiaoYanUltimateAttack）。
+        this.setId("liXiaoYanUltimateAttack");
     }
 
 
+    /**
+     * 复制构造器。
+     * <p>
+     * {@link #copy()} 必须走这里，不能返回 {@code new UltimateAttack()}：那样会把
+     * 倍率/冷却/消耗还原成构造器里的出厂值，于是打在模板上的配置（{@code SkillData.json}）
+     * <b>永远传不到选人时复制出去的副本</b>。
+     *
+     * @param other 被复制的技能
+     */
+    public UltimateAttack(UltimateAttack other) {
+        super(other);
+    }
+
     @Override
     public Skill copy() {
-        return new UltimateAttack();
+        return new UltimateAttack(this);
     }
 
     @Override
@@ -38,8 +55,8 @@ public class UltimateAttack extends Skill {
         boolean wasHigh = false;
         if (user instanceof ActorLiXiaoYan li) {
             li.setMemorizedRate((double) user.getHp() / user.getHpMax());
-            if (li.getIgnition() >= ActorLiXiaoYan.HIGH_IGNITION) {
-                setExtraDamage((long) (getExtraDamage() + user.getHpMax() * ActorLiXiaoYan.HIGH_IGNITION_BONUS_RATE));
+            if (li.getIgnition() >= ActorLiXiaoYan.Rule.highIgnition()) {
+                setExtraDamage((long) (getExtraDamage() + user.getHpMax() * ActorLiXiaoYan.Rule.highIgnitionBonusRate()));
                 wasHigh = true;
             }
         }
@@ -58,7 +75,7 @@ public class UltimateAttack extends Skill {
         // 旧代码用一个无条件置真的 enhanced 标记来判"该不该扣"，燃点恰好 7 层时
         // 会出现「没加也扣」——这一击净减 0.5 × 生命上限 的额外伤害，而且会一直留在技能实例上。
         if (wasHigh) {
-            setExtraDamage((long) (getExtraDamage() - user.getHpMax() * ActorLiXiaoYan.HIGH_IGNITION_BONUS_RATE));
+            setExtraDamage((long) (getExtraDamage() - user.getHpMax() * ActorLiXiaoYan.Rule.highIgnitionBonusRate()));
         }
     }
 

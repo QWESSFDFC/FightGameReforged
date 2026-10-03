@@ -1,0 +1,346 @@
+{
+  "skills": {
+    "game_official_content:insectBoss#分裂": {
+      "hpMagnification": 0,
+      "aims": 0,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": {
+        "amount": 100,
+        "element": "UNIVERSAL"
+      },
+      "coolDown": 10,
+      "atkMagnification": 0,
+      "tags": {"ATTACK": 5}
+    },
+    "game_official_content:flameReaver#沉默的悲叹": {
+      "hpMagnification": 0,
+      "aims": 0,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "coolDown": 0,
+      "atkMagnification": 0,
+      "tags": {"ATTACK": 3}
+    },
+    "game_official_content:flameReaver#幽冥的悼念": {
+      "hpMagnification": 0,
+      "aims": 0,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "coolDown": 0,
+      "atkMagnification": 0,
+      "tags": {"ATTACK": 3}
+    },
+    "game_official_content:phainon#战技:黎明创世,地辟天开": {
+      "hpMagnification": 0,
+      "aims": 3,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": {
+        "amount": 120,
+        "element": "FIRE"
+      },
+      "coolDown": 0,
+      "atkMagnification": 3,
+      "tags": {"ATTACK": 5}
+    },
+    "game_official_content:playerOne#普通攻击": {
+      "hpMagnification": 0,
+      "aims": 1,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "coolDown": 0,
+      "atkMagnification": 1,
+      "tags": {"ATTACK": 1}
+    },
+    "game_official_content:actorLiXiaoYan#普通攻击": {
+      "hpMagnification": 1,
+      "aims": 1,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "coolDown": 0,
+      "atkMagnification": 0,
+      "tags": {"ATTACK": 1}
+    },
+    "game_official_content:flameReaver#相混的道途": {
+      "hpMagnification": 0,
+      "aims": 0,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "coolDown": 0,
+      "atkMagnification": 0,
+      "tags": {"ATTACK": 3}
+    },
+    "game_official_content:phainon#灾厄-弑魂焚诏的反击": {
+      "hpMagnification": 0,
+      "extraHitMagnification": 0.3,
+      "extraHits": 6,
+      "aims": -1,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "magnificationPerStack": 0.2,
+      "healRatio": 0.2,
+      "coolDown": 0,
+      "atkMagnification": 1,
+      "tags": {"ATTACK": 1}
+    },
+    "game_official_content:actorLiXiaoYan#灼血泵动": {
+      "hpMagnification": 2,
+      "aims": 1,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": {
+        "amount": 20,
+        "element": "FIRE"
+      },
+      "coolDown": 1,
+      "atkMagnification": 0,
+      "tags": {"ATTACK": 3}
+    },
+    "game_official_content:commonInsect#普通攻击": {
+      "hpMagnification": 0,
+      "aims": 1,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "coolDown": 0,
+      "atkMagnification": 0.3,
+      "tags": {"ATTACK": 1}
+    },
+    "game_official_content:phainon#普通攻击-创生-血棘渡亡": {
+      "hpMagnification": 0,
+      "aims": 3,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "scourgeGain": 4,
+      "healRatio": 0.2,
+      "coolDown": 0,
+      "atkMagnification": 3,
+      "tags": {"ATTACK": 1}
+    },
+    "game_official_content:flameReaver#却是必要的苦难": {
+      "hpMagnification": 0,
+      "aims": -1,
+      "finishMagnification": 1.2,
+      "damagePerStackMagnification": 1,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "coolDown": 0,
+      "atkMagnification": 1,
+      "tags": {"ATTACK": 3}
+    },
+    "game_official_content:completeContainer#共祭 · 亡死的黑云": {
+      "hpMagnification": 0,
+      "aims": 3,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "coolDown": 0,
+      "atkMagnification": 0.12,
+      "tags": {"ATTACK": 3}
+    },
+    "game_official_content:brokenContainer#共祭 · 将尽的命数": {
+      "hpMagnification": 0,
+      "aims": -1,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "coolDown": 0,
+      "atkMagnification": 0.1,
+      "tags": {"ATTACK": 3}
+    },
+    "game_official_content:phainon#最后一击": {
+      "hpMagnification": 0,
+      "aims": -1,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": {
+        "amount": 0,
+        "element": "UNIVERSAL"
+      },
+      "coolDown": 0,
+      "atkMagnification": 13,
+      "tags": {"ATTACK": 1}
+    },
+    "game_official_content:flameReaver#亡死的黑云": {
+      "hpMagnification": 0,
+      "aims": 3,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "coolDown": 0,
+      "atkMagnification": 0.3,
+      "tags": {"ATTACK": 3}
+    },
+    "game_official_content:insectBoss#普通攻击": {
+      "hpMagnification": 0,
+      "aims": 2,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "coolDown": 0,
+      "atkMagnification": 1,
+      "tags": {"ATTACK": 1}
+    },
+    "game_official_content:playerOne#枪射击": {
+      "hpMagnification": 0,
+      "aims": 2,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": {
+        "amount": 10,
+        "element": "UNIVERSAL"
+      },
+      "coolDown": 1,
+      "atkMagnification": 7.5,
+      "tags": {"ATTACK": 5}
+    },
+    "game_official_content:phainon#大招:永劫燔世,其将背负": {
+      "hpMagnification": 0,
+      "aims": 0,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": {
+        "amount": 0,
+        "element": "UNIVERSAL"
+      },
+      "coolDown": 0,
+      "atkMagnification": 0,
+      "tags": {"ATTACK": 10}
+    },
+    "game_official_content:phainon#灾厄-弑魂焚诏": {
+      "hpMagnification": 0,
+      "aims": -1,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "soulscorchGain": 1,
+      "absorbDamageReduction": 0.75,
+      "coolDown": 0,
+      "atkMagnification": 0,
+      "tags": {"ATTACK": 1}
+    },
+    "game_official_content:iceInsect#冰冻": {
+      "hpMagnification": 0,
+      "aims": 2,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": {
+        "amount": 10,
+        "element": "WATER"
+      },
+      "coolDown": 2,
+      "atkMagnification": 7.5,
+      "tags": {"ATTACK": 1}
+    },
+    "game_official_content:phainon#普通攻击:逐火救世,行则将至": {
+      "hpMagnification": 0,
+      "aims": 1,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "coolDown": 0,
+      "atkMagnification": 1,
+      "tags": {"ATTACK": 1}
+    },
+    "game_official_content:actorLiXiaoYan#过载·白炽化": {
+      "hpMagnification": 4,
+      "aims": 3,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": {
+        "amount": 300,
+        "element": "FIRE"
+      },
+      "coolDown": 4,
+      "atkMagnification": 0,
+      "tags": {"ATTACK": 5}
+    },
+    "game_official_content:completeContainer#共祭 · 将尽的命数": {
+      "hpMagnification": 0,
+      "aims": -1,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "coolDown": 0,
+      "atkMagnification": 0.1,
+      "tags": {"ATTACK": 3}
+    },
+    "game_official_content:brokenContainer#共祭 · 亡死的黑云": {
+      "hpMagnification": 0,
+      "aims": 3,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "coolDown": 0,
+      "atkMagnification": 0.12,
+      "tags": {"ATTACK": 3}
+    },
+    "game_official_content:iceInsect#普通攻击": {
+      "hpMagnification": 0,
+      "aims": 1,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "coolDown": 0,
+      "atkMagnification": 0.3,
+      "tags": {"ATTACK": 1}
+    },
+    "game_official_content:flameReaver#莫因舍弃而哭泣": {
+      "hpMagnification": 0,
+      "openingMagnification": 1.2,
+      "aims": -1,
+      "damagePerStackMagnification": 1,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "coolDown": 0,
+      "atkMagnification": 1,
+      "tags": {"ATTACK": 3}
+    },
+    "game_official_content:playerOne#生命值恢复": {
+      "hpMagnification": 0.1,
+      "aims": 3,
+      "defMagnification": 0,
+      "forEnemies": false,
+      "consumedMana": null,
+      "neededManaScale": 90,
+      "coolDown": 1,
+      "atkMagnification": 0.9,
+      "tags": {"HEAL": 1}
+    },
+    "game_official_content:flameReaver#将尽的命数": {
+      "hpMagnification": 0,
+      "aims": -1,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "coolDown": 0,
+      "atkMagnification": 0.25,
+      "tags": {"ATTACK": 3}
+    },
+    "game_official_content:phainon#支柱-死星天裁": {
+      "hpMagnification": 0,
+      "aims": -1,
+      "finishMagnification": 6,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "scourgeCostCap": 4,
+      "hitsPerScourge": 6,
+      "healRatio": 0.2,
+      "coolDown": 0,
+      "atkMagnification": 0.45,
+      "tags": {"ATTACK": 5}
+    }
+  },
+  "version": 1
+}

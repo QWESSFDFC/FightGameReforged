@@ -1,6 +1,8 @@
 package cn.gfhnv.game.entity;
 
 import cn.gfhnv.game.data.DataField;
+import cn.gfhnv.game.data.DataFlatten;
+import cn.gfhnv.game.data.NoConfig;
 import cn.gfhnv.game.data.NoData;
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entityController.FixOrderController;
@@ -15,6 +17,9 @@ import cn.gfhnv.game.interfaces.IModifyDamage;
 import cn.gfhnv.game.interfaces.IShowSpecialMes;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
+import cn.gfhnv.game.system.configLoadingSystem.DataKeys;
+import cn.gfhnv.game.system.configLoadingSystem.GameRules;
+import cn.gfhnv.game.system.configLoadingSystem.RuleDefaults;
 import cn.gfhnv.game.system.fight.ActionSignal;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.fight.TurnEntry;
@@ -39,7 +44,7 @@ import java.util.function.Supplier;
  * 核心特性：
  * <ul>
  *     <li><b>战斗属性</b>：生命值（hp）、攻击（attack）、防御（defence）、速度（speed）、生命上限（hpMax）、
- *     暴击率/爆伤（getCriticalRATE / criticalDMG）；</li>
+ *     暴击率/爆伤（criticalRate / criticalDMG）；</li>
  *     <li><b>五行系统</b>：拥有金木水火土五种元素抗性、穿透与元素法力（{@link Mana}），
  *     伤害计算时根据元素属性（{@link ElementSort}）取对应抗性/增伤/穿透；</li>
  *     <li><b>效果列表</b>：可携带多个 {@link Effect}（Buff/Debuff），由 {@link #addEffect} 管理叠加；</li>
@@ -55,6 +60,21 @@ import java.util.function.Supplier;
  */
 public class LivingThing extends Entity {
     /**
+     * 那 12 个 {@code *Enhance*} 运行时加成共同的 {@code @NoConfig} 理由。
+     * <p>
+     * <b>为什么 12 个字段共用一句话</b>：它们的生命周期完全一样（效果加减 → 结束清零 → 不复制），
+     * 逐字抄 12 遍只会让"改一个忘十一个"更容易。真正的依据写在
+     * {@link #clearTemporaryAttributes()} 的 javadoc 与复制构造器上。
+     * <p>
+     * <b>这句话必须是真的</b>（{@code @NoConfig} 的纪律：写不出真理由就不该挡）——
+     * 两条依据：① 复制构造器只带面板属性、不带这 12 个；② {@link #clearTemporaryAttributes()}
+     * 每局结束把它们清零。所以"配在注册表模板上"对任何一局战斗都不生效。
+     */
+    static final String ENHANCE_REASON =
+            "运行时加成：由效果与技能\"进来加、走时减\"（战斗结束还会清零），且复制构造器不带"
+                    + " → 配在模板上不生效，要加请用效果/技能";
+
+    /**
      * 「基础减伤」在 {@link #damageReductions} 里的来源键。
      * <p>
      * 只有 {@link #setDamageAbsorbedPercent(double)} 用它，用来兼容旧写法（直接设置一个总减伤）。
@@ -65,70 +85,132 @@ public class LivingThing extends Entity {
      */
     private final List<DamageReduction> damageReductions = new ArrayList<>();
     private final List<IModifyDamage> damageModifiers = new ArrayList<>();
+    /**
+     * 属性组件：五行组（5 抗性 + 5 单元素穿透 + 5 元素增伤 + 5 法力成长系数）与
+     * 全局组（{@code penetration} 全属性穿透、{@code enhance} 全属性增伤、{@code criticalDMG} 暴击伤害）。
+     * <p>
+     * <b>{@code @DataFlatten} 是关键</b>：它让组件的字段被<b>无前缀</b>并进本对象的复合标签，
+     * 所以 {@code /data get entity @s} 里看到的仍是 {@code fireResistance}、{@code penetration}、
+     * {@code metalManaGrow}…… 与这些字段还写在本类里时逐个字符一致（数据名是对外 API，见 TIPS §5.10）。
+     * <p>
+     * 本类保留全部 public getter/setter —— 它们的方法名是 460 个调用点与模组依赖的 API，
+     * 只是转发到本组件。
+     */
+    @DataFlatten
+    private final AttributeProfile attributes = new AttributeProfile();
+    /**
+     * 单次额外伤害（{@code LivingThing} 这一侧的字段）。
+     * <p>
+     * <b>不进配置文件</b>（{@code @NoConfig}）：<b>死字段</b> —— 参与伤害公式却
+     * <b>全项目零写入点</b>（永远是 0）。活着的那一套是 {@code Skill#extraDamage}，
+     * 是另一个字段。允许配置它等于给用户一个"写了没反应"的键。
+     */
+    @NoConfig("死字段：全项目零写入点（活的那套是 Skill#extraDamage），配了不会有任何反应")
     public long extraDamage = 0;
     private IShowSpecialMes showSpecialMes;
-    private double fireResistance, waterResistance, metalResistance, woodResistance, dirtResistance, criticalDMG;
     /**
-     * 暴击率（基础值；实际暴击率见 {@link #getCriticalRATE()}，还会叠加 {@code criticalRateEnhance*}）。
+     * 暴击率（基础值；实际暴击率见 {@link #getCriticalRate()}，还会叠加 {@code criticalRateEnhance*}）。
      * <p>
-     * Java 字段名是历史遗留的 getter 风格写法，<b>对外的数据名用 {@link DataField} 改成了
-     * {@code criticalRate}</b> —— 数据名是对外 API（见 TIPS §5.10），别把注解删了。
+     * 对外数据名就是 {@code criticalRate}（Java 名与数据名一致，所以不需要 {@code @DataField}）。
      */
-    @DataField("criticalRate")
-    private double getCriticalRATE;
+    private double criticalRate;
     private long hp, defence, speed, attack, hpMax;
     /**
-     * 是否存活。<b>对外数据名是小写 {@code alive}</b>（Java 字段名首字母大写是历史写法）。
+     * 是否存活。<b>对外数据名是 {@code alive}</b>（与 Java 字段名一致，所以不需要 {@code @DataField}）。
+     * <p>
+     * <b>不进配置文件</b>（{@code @NoConfig}）：存活与否是<b>战斗结果</b>，不是模板属性 ——
+     * 允许在 {@code EntityData.json} 里写它等于允许"注册表里的模板一开始就是死的"。
+     * {@code /data merge} 照旧能改（调试要用）。
      */
-    @DataField("alive")
-    private boolean Alive = true;
+    @NoConfig("存活与否是战斗结果，不是模板属性；写在 EntityData.json 里等于让模板一开始就是死的")
+    private boolean alive = true;
     /**
      * 身上的效果列表。<b>对外数据名是 {@code effects}</b>（Java 字段名 {@code entityEffectList} 又长又绕）。
+     * <p>
+     * <b>不进配置文件</b>：对象列表加元素要构造合法的游戏对象（还得补 id、走合并语义），
+     * 该用 {@code /effect} 或角色自己的构造函数，配置里写不了。
      */
+    @NoConfig("对象列表：加元素要构造合法对象并补 id，请用 /effect 或角色自己的构造函数")
     @DataField("effects")
     private List<Effect> entityEffectList = new ArrayList<>();
-    private double penetration = 0;//全属性穿透
-    private double metalPenetration, woodPenetration, waterPenetration, firePenetration, dirtPenetration;
     /**
-     * 生命成长系数。<b>对外数据名是 {@code hpGrow}</b>（{@code Number} 是多余的）。
+     * 生命成长系数。<b>对外数据名是 {@code hpGrow}</b>（与 Java 字段名一致，所以不需要 {@code @DataField}）。
      */
-    @DataField("hpGrow")
-    private double hpGrowNumber;
+    private double hpGrow;
     /**
      * 攻击成长系数。<b>对外数据名是 {@code attackGrow}</b>（顺带把自造缩写 {@code atk} 展开，
      * 与 {@code attack} 字段保持一致）。
      */
-    @DataField("attackGrow")
-    private double atkGrowNumber;
+    private double attackGrow;
     /**
      * 防御成长系数。<b>对外数据名是 {@code defenceGrow}</b>（{@code dfk} 是自造缩写）。
      */
-    @DataField("defenceGrow")
-    private double dfkGrowNumber;
+    private double defenceGrow;
     private ElementSort elementSort;
     /**
-     * 金法力成长系数。<b>对外数据名是 {@code metalManaGrow}</b>（下面四个同理）。
+     * 12 个 {@code *Enhance*} 运行时加成：8 个百分比（本行）+ 4 个固定值（下一行）。
+     * <p>
+     * <b>不进配置文件</b>（{@code @NoConfig}，理由见 {@link #ENHANCE_REASON}）：
+     * 它们不是模板属性 —— 效果与技能"进来加、走时减"（{@code AttackEnhance} /
+     * {@code HpEnhanceEffect} / {@code CriticalRateEnhanceEffect} …，白厄变身也自己加减），
+     * 战斗结束由 {@link #clearTemporaryAttributes()} 兜底清零；而且<b>复制构造器不带它们</b>
+     * （副本只带面板属性），所以配在注册表模板上对任何一局战斗都不生效。要加请用效果/技能。
      */
-    @DataField("metalManaGrow")
-    private double metalManaGrowNumber;
-    @DataField("woodManaGrow")
-    private double woodManaGrowNumber;
-    @DataField("waterManaGrow")
-    private double waterManaGrowNumber;
-    @DataField("fireManaGrow")
-    private double fireManaGrowNumber;
-    @DataField("dirtManaGrow")
-    private double dirtManaGrowNumber;
+    @NoConfig(ENHANCE_REASON)
     private double attackEnhancePercent, defenceEnhancePercent, speedEnhancePercent, hpEnhancePercent, criticalDMGEnhancePercent, criticalDMGEnhanceAmount, criticalRateEnhancePercent, criticalRateEnhanceAmount;
+    /**
+     * 12 个 {@code *Enhance*} 里那 4 个"固定值"（同一批，见上一行）。
+     */
+    @NoConfig(ENHANCE_REASON)
     private long attackEnhanceAmount, defenceEnhanceAmount, speedEnhanceAmount, hpEnhanceAmount;
+    /**
+     * 元素法力列表（一个实体可以拥有多个 Mana）。
+     * <p>
+     * <b>不进配置文件</b>：法力上限跟元素走，由 {@code initialMana()} 从元素属性算出来；
+     * 单条法力该用 {@code /data modify manas[0].amount} 那类写法调，
+     * 而不是让模板的整张法力表被配置覆盖（那会让"换元素后法力没跟着变"）。
+     */
+    @NoConfig("法力表由元素属性经 initialMana() 算出来；要调单条法力请用 /data modify manas[0].amount")
     private List<Mana> manas = new ArrayList<>();//一个实体可以拥有多个Mana
-    private double enhance;//全属性
-    private double metalDamageEnhance, woodDamageEnhance, waterDamageEnhance, fireDamageEnhance, dirtDamageEnhance;
     private double defenseLoss;
+    /**
+     * 当前战斗引用。
+     * <p>
+     * <b>不进配置文件</b>：这是<b>运行期上下文</b>，不是模板属性；注册表模板本来就是 {@code null}，
+     * 写进配置没有任何可生效的对象。
+     */
+    @NoConfig("运行期上下文（当前战斗引用），注册表模板上本来就是 null，配置里写它没有意义")
     private Fight participateFight;
+    /**
+     * 当前回合条目。
+     * <p>
+     * <b>不进配置文件</b>：同 {@link #participateFight}，是运行期上下文，不是模板属性。
+     */
+    @NoConfig("运行期上下文（当前回合），不是模板属性")
     private TurnEntry presentTurn;
+    /**
+     * 行动控制器（技能表住在里面）。
+     * <p>
+     * <b>不进配置文件</b>：控制器带技能列表与 AI 状态，是<b>行为对象</b>不是数据
+     * （{@code /data get} 里刻意跳过它，见 {@code notes_for_llm/70-DATA.md} §5.10.1）。
+     */
+    @NoConfig("行为对象（带技能表与 AI 状态），/data 那边也刻意不 dump")
     private UniversalController controller;
     private String description;
+    /**
+     * 单次攻击的独立倍率区。
+     * <p>
+     * <b>面板属性</b>：{@link #LivingThing(LivingThing) 复制构造器}会带它、
+     * {@link #clearTemporaryAttributes()} 不清它。
+     * <p>
+     * <b>不进配置文件</b>（{@code @NoConfig}）：它由<b>角色自己的构造器</b>按玩法算出来
+     * （{@code ActorLiXiaoYan} 按燃点算），是<b>派生值</b>而不是可调旋钮 ——
+     * 放开它等于让配置覆盖角色自己的算法（还会让默认配置文件多出一个键）。
+     * <b>这一条是"判断"，不是"配了没用"</b>：与上面那 22 个临时属性不同，
+     * 它真的会被副本带进战斗，所以理由必须写成"为什么不开放"。
+     */
+    @NoConfig("派生面板倍率：由角色构造器按玩法算出来（副本会带、战斗结束不清）——"
+            + "开放它等于让配置覆盖角色自己的算法，要改请改那个角色的构造器")
     private double individualMultipleArea = 1;
     /**
      * 是否正在做伤害试算（只读预测）。见 {@link #modifyIncomingDamage}。
@@ -153,36 +235,30 @@ public class LivingThing extends Entity {
      */
     public LivingThing(LivingThing other) {
         super(other.getName(), other.getId(), other.getLevel());
-        this.fireResistance = other.fireResistance;
-        this.waterResistance = other.waterResistance;
-        this.metalResistance = other.metalResistance;
         this.elementSort = other.elementSort;
-        this.woodResistance = other.woodResistance;
-        this.dirtResistance = other.dirtResistance;
+        // 属性组件里"面板属性"的那一半（五行组 5 抗性 + 5 法力成长，全局组 penetration / enhance / criticalDMG）
+        // 跟着副本走；五行组的 5 单元素穿透 / 5 元素增伤是临时属性，刻意不带过去（见 AttributeProfile#copyFrom）。
+        this.attributes.copyFrom(other.attributes);
         this.description = other.description;
         this.speed = other.speed;
         this.setType(other.getType());
-        this.Alive = other.Alive;
+        this.alive = other.alive;
         this.defenseLoss = other.defenseLoss;
-        this.enhance = other.enhance;
-        this.setHpGrowNumber(other.getHpGrowNumber());
-        this.setAtkGrowNumber(other.getAtkGrowNumber());
-        this.setDfkGrowNumber(other.getDfkGrowNumber());
-        this.setMetalManaGrowNumber(other.getMetalManaGrowNumber());
-        this.setWoodManaGrowNumber(other.getWoodManaGrowNumber());
-        this.setWaterManaGrowNumber(other.getWaterManaGrowNumber());
-        this.setFireManaGrowNumber(other.getFireManaGrowNumber());
-        this.setDirtManaGrowNumber(other.getDirtManaGrowNumber());
+        this.setHpGrow(other.getHpGrow());
+        this.setAttackGrow(other.getAttackGrow());
+        this.setDefenceGrow(other.getDefenceGrow());
         this.hp = other.hp;
         this.defence = other.defence;
         this.attack = other.attack;
         this.hpMax = other.hpMax;
         this.setShowSpecialMes(other.getShowSpecialMes());
         this.damageModifiers.addAll(other.damageModifiers);
-        this.criticalDMG = other.criticalDMG;
-        this.getCriticalRATE = other.getCriticalRATE;
+        this.criticalRate = other.criticalRate;
         this.entityEffectList = new ArrayList<>(other.entityEffectList);
-        this.penetration = other.penetration;
+        // 【面板属性】要复制，且**不**在 whenFightEnds() 的清零表里 ——
+        // 它由角色自己的构造器按【燃点】算出来（ActorLiXiaoYan:122/224），不是效果给的临时加成。
+        // 复制构造器与 clearTemporaryAttributes() 是互补的两张表，改一个记得看另一个。
+        this.individualMultipleArea = other.individualMultipleArea;
         this.damageReductions.addAll(other.damageReductions);
         this.participateFight = null;
         this.presentTurn = null;
@@ -233,58 +309,57 @@ public class LivingThing extends Entity {
     public LivingThing(String name, String id, double fireResistance, double waterResistance, double metalResistance, double woodResistance, double dirtResistance, long speed, long l, String type, double hp, double atk, double defence, ElementSort yu) {
         super(name, id, l);
         this.elementSort = yu;
-        this.setHpGrowNumber(hp);
-        this.setAtkGrowNumber(atk);
-        this.setDfkGrowNumber(defence);
-        this.fireResistance = fireResistance;
-        this.waterResistance = waterResistance;
-        this.metalResistance = metalResistance;
-        this.woodResistance = woodResistance;
-        this.dirtResistance = dirtResistance;
+        this.setHpGrow(hp);
+        this.setAttackGrow(atk);
+        this.setDefenceGrow(defence);
+        this.attributes.setFireResistance(fireResistance);
+        this.attributes.setWaterResistance(waterResistance);
+        this.attributes.setMetalResistance(metalResistance);
+        this.attributes.setWoodResistance(woodResistance);
+        this.attributes.setDirtResistance(dirtResistance);
         this.setType(type);
-        Alive = true;
+        alive = true;
         this.speed = speed;
         this.defenseLoss = 0;
-        this.enhance = 0;
-        this.hp = (long) ((l - 1) * getHpGrowNumber() + 200);
-        this.defence = (long) ((l - 1) * getDfkGrowNumber() + 200);
-        this.attack = (long) (110 + getAtkGrowNumber() * (l - 1));
+        this.hp = (long) ((l - 1) * getHpGrow() + formulaHpBase());
+        this.defence = (long) ((l - 1) * getDefenceGrow() + formulaDefenceBase());
+        this.attack = (long) (formulaAttackBase() + getAttackGrow() * (l - 1));
         this.hpMax = this.hp;
         switch (this.getElementSort()) {
             case METAL -> {
-                this.setMetalManaGrowNumber(20);
-                this.setWoodManaGrowNumber(4);
-                this.setWaterManaGrowNumber(10);
-                this.setFireManaGrowNumber(1);
-                this.setDirtManaGrowNumber(10);
+                this.setMetalManaGrow(20);
+                this.setWoodManaGrow(4);
+                this.setWaterManaGrow(10);
+                this.setFireManaGrow(1);
+                this.setDirtManaGrow(10);
             }
             case WOOD -> {
-                this.setMetalManaGrowNumber(1);
-                this.setWoodManaGrowNumber(20);
-                this.setWaterManaGrowNumber(10);
-                this.setFireManaGrowNumber(10);
-                this.setDirtManaGrowNumber(4);
+                this.setMetalManaGrow(1);
+                this.setWoodManaGrow(20);
+                this.setWaterManaGrow(10);
+                this.setFireManaGrow(10);
+                this.setDirtManaGrow(4);
             }
             case WATER -> {
-                this.setMetalManaGrowNumber(10);
-                this.setWoodManaGrowNumber(10);
-                this.setWaterManaGrowNumber(20);
-                this.setFireManaGrowNumber(4);
-                this.setDirtManaGrowNumber(1);
+                this.setMetalManaGrow(10);
+                this.setWoodManaGrow(10);
+                this.setWaterManaGrow(20);
+                this.setFireManaGrow(4);
+                this.setDirtManaGrow(1);
             }
             case FIRE -> {
-                this.setMetalManaGrowNumber(4);
-                this.setWoodManaGrowNumber(10);
-                this.setWaterManaGrowNumber(1);
-                this.setFireManaGrowNumber(20);
-                this.setDirtManaGrowNumber(10);
+                this.setMetalManaGrow(4);
+                this.setWoodManaGrow(10);
+                this.setWaterManaGrow(1);
+                this.setFireManaGrow(20);
+                this.setDirtManaGrow(10);
             }
             case DIRT -> {
-                this.setMetalManaGrowNumber(10);
-                this.setWoodManaGrowNumber(1);
-                this.setWaterManaGrowNumber(4);
-                this.setFireManaGrowNumber(10);
-                this.setDirtManaGrowNumber(20);
+                this.setMetalManaGrow(10);
+                this.setWoodManaGrow(1);
+                this.setWaterManaGrow(4);
+                this.setFireManaGrow(10);
+                this.setDirtManaGrow(20);
             }
         }
         this.initialMana();
@@ -311,6 +386,76 @@ public class LivingThing extends Entity {
     public LivingThing(long speed) {
         this.speed = speed;
 
+    }
+
+    /**
+     * @return 面板生命公式的基数（默认 {@value RuleDefaults#FORMULA_HP_BASE}，
+     * 可在 {@code GameRules.json} 的 {@code formula.hpBase} 改；改它 = 重新标定）
+     */
+    private static long formulaHpBase() {
+        return GameRules.getLong(DataKeys.Rule.Formula.HP_BASE);
+    }
+
+    /**
+     * @return 面板防御公式的基数（默认 {@value RuleDefaults#FORMULA_DEFENCE_BASE}）
+     */
+    private static long formulaDefenceBase() {
+        return GameRules.getLong(DataKeys.Rule.Formula.DEFENCE_BASE);
+    }
+
+    /**
+     * @return 面板攻击公式的基数（默认 {@value RuleDefaults#FORMULA_ATTACK_BASE}）
+     */
+    private static long formulaAttackBase() {
+        return GameRules.getLong(DataKeys.Rule.Formula.ATTACK_BASE);
+    }
+
+    /**
+     * @return 主元素法力的基数（默认 {@value cn.gfhnv.game.system.configLoadingSystem.RuleDefaults#MANA_MAIN_BASE}）
+     */
+    private static long manaMainBase() {
+        return cn.gfhnv.game.system.configLoadingSystem.GameRules
+                .getLong(cn.gfhnv.game.system.configLoadingSystem.DataKeys.Rule.Mana.MAIN_BASE);
+    }
+
+    /**
+     * @return 其余元素法力的基数（默认 {@value cn.gfhnv.game.system.configLoadingSystem.RuleDefaults#MANA_OTHER_BASE}）
+     */
+    private static long manaOtherBase() {
+        return cn.gfhnv.game.system.configLoadingSystem.GameRules
+                .getLong(cn.gfhnv.game.system.configLoadingSystem.DataKeys.Rule.Mana.OTHER_BASE);
+    }
+
+    /**
+     * 给一个减伤来源起个<b>能看懂的名字</b>，好让 {@code /data} 里看得见"这条减伤是谁给的"。
+     * <p>
+     * {@link #getDamageReductions()} 里的 {@code source} 是按对象身份比较的键，往往是个
+     * 匿名对象，{@code DataBridge} 会把它跳过，于是 {@code /data} 里只剩 {@code {percent:0.04d}} ——
+     * 完全看不出是【醉意】还是药水（用户 2026-09 实测反馈过）。
+     * <p>
+     * 取名顺序：本项目自己的 {@link DamageReductionSource} → 有效果/技能/物品就读它们的 id/名字
+     * → 是字符串就直接用 → 都不认识就退回类名。它<b>只用于显示</b>，不参与任何判断。
+     *
+     * @param source 减伤来源；调用方已保证非 {@code null}
+     * @return 可读名字
+     */
+    private static String describeReductionSource(Object source) {
+        if (source instanceof DamageReductionSource named) {
+            return named.toString();
+        }
+        if (source instanceof Effect effect) {
+            return effect.getID() == null ? effect.getClass().getSimpleName() : effect.getID();
+        }
+        if (source instanceof Skill skill) {
+            return skill.getName() == null ? skill.getClass().getSimpleName() : skill.getName();
+        }
+        if (source instanceof cn.gfhnv.game.item.Item item) {
+            return item.getId() == null ? item.getClass().getSimpleName() : item.getId();
+        }
+        if (source instanceof CharSequence text) {
+            return text.toString();
+        }
+        return source.getClass().getSimpleName();
     }
 
     /**
@@ -536,7 +681,7 @@ public class LivingThing extends Entity {
      * @return 金元素穿透
      */
     public double getMetalPenetration() {
-        return metalPenetration;
+        return attributes.getMetalPenetration();
     }
 
     /**
@@ -545,7 +690,7 @@ public class LivingThing extends Entity {
      * @param metalPenetration 金元素穿透
      */
     public void setMetalPenetration(double metalPenetration) {
-        this.metalPenetration = metalPenetration;
+        this.attributes.setMetalPenetration(metalPenetration);
     }
 
     /**
@@ -564,44 +709,48 @@ public class LivingThing extends Entity {
     /**
      * 初始化五行法力。主元素法力上限为 {@code 成长 * (等级-1) + 200}，其余元素为
      * {@code 成长 * (等级-1) + 20}。
+     * <p>
+     * 那两个基数可以在 {@code config/gameConfig/GameRules.json} 的 {@code mana} 段里改
+     * （{@code mainBase} / {@code otherBase}）；不写就用 {@link RuleDefaults} 里的出厂值，
+     * 与本方法原来的字面量逐字相等。
      */
     public void initialMana() {
         this.manas = new ArrayList<>();
         switch (this.getElementSort()) {
             case METAL -> {
-                manas.add(new Mana(this.metalManaGrowNumber * (this.getLevel() - 1) + 200, ElementSort.METAL));
-                manas.add(new Mana(this.woodManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.WOOD));
-                manas.add(new Mana(this.waterManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.WATER));
-                manas.add(new Mana(this.fireManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.FIRE));
-                manas.add(new Mana(this.dirtManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.DIRT));
+                manas.add(new Mana(this.attributes.getMetalManaGrow() * (this.getLevel() - 1) + manaMainBase(), ElementSort.METAL));
+                manas.add(new Mana(this.attributes.getWoodManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WOOD));
+                manas.add(new Mana(this.attributes.getWaterManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WATER));
+                manas.add(new Mana(this.attributes.getFireManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.FIRE));
+                manas.add(new Mana(this.attributes.getDirtManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.DIRT));
             }
             case WOOD -> {
-                manas.add(new Mana(this.metalManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.METAL));
-                manas.add(new Mana(this.woodManaGrowNumber * (this.getLevel() - 1) + 200, ElementSort.WOOD));
-                manas.add(new Mana(this.waterManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.WATER));
-                manas.add(new Mana(this.fireManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.FIRE));
-                manas.add(new Mana(this.dirtManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.DIRT));
+                manas.add(new Mana(this.attributes.getMetalManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.METAL));
+                manas.add(new Mana(this.attributes.getWoodManaGrow() * (this.getLevel() - 1) + manaMainBase(), ElementSort.WOOD));
+                manas.add(new Mana(this.attributes.getWaterManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WATER));
+                manas.add(new Mana(this.attributes.getFireManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.FIRE));
+                manas.add(new Mana(this.attributes.getDirtManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.DIRT));
             }
             case WATER -> {
-                manas.add(new Mana(this.metalManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.METAL));
-                manas.add(new Mana(this.woodManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.WOOD));
-                manas.add(new Mana(this.waterManaGrowNumber * (this.getLevel() - 1) + 200, ElementSort.WATER));
-                manas.add(new Mana(this.fireManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.FIRE));
-                manas.add(new Mana(this.dirtManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.DIRT));
+                manas.add(new Mana(this.attributes.getMetalManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.METAL));
+                manas.add(new Mana(this.attributes.getWoodManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WOOD));
+                manas.add(new Mana(this.attributes.getWaterManaGrow() * (this.getLevel() - 1) + manaMainBase(), ElementSort.WATER));
+                manas.add(new Mana(this.attributes.getFireManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.FIRE));
+                manas.add(new Mana(this.attributes.getDirtManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.DIRT));
             }
             case FIRE -> {
-                manas.add(new Mana(this.metalManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.METAL));
-                manas.add(new Mana(this.woodManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.WOOD));
-                manas.add(new Mana(this.waterManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.WATER));
-                manas.add(new Mana(this.fireManaGrowNumber * (this.getLevel() - 1) + 200, ElementSort.FIRE));
-                manas.add(new Mana(this.dirtManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.DIRT));
+                manas.add(new Mana(this.attributes.getMetalManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.METAL));
+                manas.add(new Mana(this.attributes.getWoodManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WOOD));
+                manas.add(new Mana(this.attributes.getWaterManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WATER));
+                manas.add(new Mana(this.attributes.getFireManaGrow() * (this.getLevel() - 1) + manaMainBase(), ElementSort.FIRE));
+                manas.add(new Mana(this.attributes.getDirtManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.DIRT));
             }
             case DIRT -> {
-                manas.add(new Mana(this.metalManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.METAL));
-                manas.add(new Mana(this.woodManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.WOOD));
-                manas.add(new Mana(this.waterManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.WATER));
-                manas.add(new Mana(this.fireManaGrowNumber * (this.getLevel() - 1) + 20, ElementSort.FIRE));
-                manas.add(new Mana(this.dirtManaGrowNumber * (this.getLevel() - 1) + 200, ElementSort.DIRT));
+                manas.add(new Mana(this.attributes.getMetalManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.METAL));
+                manas.add(new Mana(this.attributes.getWoodManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WOOD));
+                manas.add(new Mana(this.attributes.getWaterManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WATER));
+                manas.add(new Mana(this.attributes.getFireManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.FIRE));
+                manas.add(new Mana(this.attributes.getDirtManaGrow() * (this.getLevel() - 1) + manaMainBase(), ElementSort.DIRT));
             }
         }
 
@@ -614,31 +763,31 @@ public class LivingThing extends Entity {
     public void recoverManaEveryTurn() {
         for (Mana mana : manas) {
             if (mana.getElementSort().equals(ElementSort.METAL)) {
-                mana.setAmount(mana.getAmount() + this.getLevel() / 100.00 * this.getMetalManaGrowNumber() + 100);
+                mana.setAmount(mana.getAmount() + this.getLevel() / 100.00 * this.getMetalManaGrow() + 100);
             }
             if (this.getElementSort().equals(ElementSort.METAL)) {
                 mana.setAmount(mana.getAmount() + this.getLevel());
             }
             if (mana.getElementSort().equals(ElementSort.WOOD)) {
-                mana.setAmount(mana.getAmount() + this.getLevel() / 100.00 * this.getWoodManaGrowNumber() + 100);
+                mana.setAmount(mana.getAmount() + this.getLevel() / 100.00 * this.getWoodManaGrow() + 100);
             }
             if (this.getElementSort().equals(ElementSort.WOOD)) {
                 mana.setAmount(mana.getAmount() + this.getLevel());
             }
             if (mana.getElementSort().equals(ElementSort.WATER)) {
-                mana.setAmount(mana.getAmount() + this.getLevel() / 100.00 * this.getWaterManaGrowNumber() + 100);
+                mana.setAmount(mana.getAmount() + this.getLevel() / 100.00 * this.getWaterManaGrow() + 100);
             }
             if (this.getElementSort().equals(ElementSort.WATER)) {
                 mana.setAmount(mana.getAmount() + this.getLevel());
             }
             if (mana.getElementSort().equals(ElementSort.FIRE)) {
-                mana.setAmount(mana.getAmount() + this.getLevel() / 100.00 * this.getFireManaGrowNumber() + 100);
+                mana.setAmount(mana.getAmount() + this.getLevel() / 100.00 * this.getFireManaGrow() + 100);
             }
             if (this.getElementSort().equals(ElementSort.FIRE)) {
                 mana.setAmount(mana.getAmount() + this.getLevel());
             }
             if (mana.getElementSort().equals(ElementSort.DIRT)) {
-                mana.setAmount(mana.getAmount() + this.getLevel() / 100.00 * this.getDirtManaGrowNumber() + 100);
+                mana.setAmount(mana.getAmount() + this.getLevel() / 100.00 * this.getDirtManaGrow() + 100);
             }
             if (this.getElementSort().equals(ElementSort.DIRT)) {
                 mana.setAmount(mana.getAmount() + this.getLevel());
@@ -667,49 +816,49 @@ public class LivingThing extends Entity {
     /**
      * @return 生命成长系数
      */
-    public double getHpGrowNumber() {
-        return hpGrowNumber;
+    public double getHpGrow() {
+        return hpGrow;
     }
 
     /**
      * 设置生命成长系数。
      *
-     * @param hpGrowNumber 生命成长系数
+     * @param hpGrow 生命成长系数
      */
-    public void setHpGrowNumber(double hpGrowNumber) {
-        this.hpGrowNumber = hpGrowNumber;
+    public void setHpGrow(double hpGrow) {
+        this.hpGrow = hpGrow;
     }
 
     /**
      * @return 攻击成长系数
      */
-    public double getAtkGrowNumber() {
-        return atkGrowNumber;
+    public double getAttackGrow() {
+        return attackGrow;
     }
 
     /**
      * 设置攻击成长系数。
      *
-     * @param atkGrowNumber 攻击成长系数
+     * @param attackGrow 攻击成长系数
      */
-    public void setAtkGrowNumber(double atkGrowNumber) {
-        this.atkGrowNumber = atkGrowNumber;
+    public void setAttackGrow(double attackGrow) {
+        this.attackGrow = attackGrow;
     }
 
     /**
      * @return 防御成长系数
      */
-    public double getDfkGrowNumber() {
-        return dfkGrowNumber;
+    public double getDefenceGrow() {
+        return defenceGrow;
     }
 
     /**
      * 设置防御成长系数。
      *
-     * @param dfkGrowNumber 防御成长系数
+     * @param defenceGrow 防御成长系数
      */
-    public void setDfkGrowNumber(double dfkGrowNumber) {
-        this.dfkGrowNumber = dfkGrowNumber;
+    public void setDefenceGrow(double defenceGrow) {
+        this.defenceGrow = defenceGrow;
     }
 
     /**
@@ -731,88 +880,88 @@ public class LivingThing extends Entity {
     /**
      * @return 金法力成长系数
      */
-    public double getMetalManaGrowNumber() {
-        return metalManaGrowNumber;
+    public double getMetalManaGrow() {
+        return attributes.getMetalManaGrow();
     }
 
     /**
      * 设置金法力成长系数。
      *
-     * @param metalManaGrowNumber 金法力成长系数
+     * @param metalManaGrow 金法力成长系数
      */
-    public void setMetalManaGrowNumber(double metalManaGrowNumber) {
-        this.metalManaGrowNumber = metalManaGrowNumber;
+    public void setMetalManaGrow(double metalManaGrow) {
+        this.attributes.setMetalManaGrow(metalManaGrow);
     }
 
     /**
      * @return 木法力成长系数
      */
-    public double getWoodManaGrowNumber() {
-        return woodManaGrowNumber;
+    public double getWoodManaGrow() {
+        return attributes.getWoodManaGrow();
     }
 
     /**
      * 设置木法力成长系数。
      *
-     * @param woodManaGrowNumber 木法力成长系数
+     * @param woodManaGrow 木法力成长系数
      */
-    public void setWoodManaGrowNumber(double woodManaGrowNumber) {
-        this.woodManaGrowNumber = woodManaGrowNumber;
+    public void setWoodManaGrow(double woodManaGrow) {
+        this.attributes.setWoodManaGrow(woodManaGrow);
     }
 
     /**
      * @return 水法力成长系数
      */
-    public double getWaterManaGrowNumber() {
-        return waterManaGrowNumber;
+    public double getWaterManaGrow() {
+        return attributes.getWaterManaGrow();
     }
 
     /**
      * 设置水法力成长系数。
      *
-     * @param waterManaGrowNumber 水法力成长系数
+     * @param waterManaGrow 水法力成长系数
      */
-    public void setWaterManaGrowNumber(double waterManaGrowNumber) {
-        this.waterManaGrowNumber = waterManaGrowNumber;
+    public void setWaterManaGrow(double waterManaGrow) {
+        this.attributes.setWaterManaGrow(waterManaGrow);
     }
 
     /**
      * @return 火法力成长系数
      */
-    public double getFireManaGrowNumber() {
-        return fireManaGrowNumber;
+    public double getFireManaGrow() {
+        return attributes.getFireManaGrow();
     }
 
     /**
      * 设置火法力成长系数。
      *
-     * @param fireManaGrowNumber 火法力成长系数
+     * @param fireManaGrow 火法力成长系数
      */
-    public void setFireManaGrowNumber(double fireManaGrowNumber) {
-        this.fireManaGrowNumber = fireManaGrowNumber;
+    public void setFireManaGrow(double fireManaGrow) {
+        this.attributes.setFireManaGrow(fireManaGrow);
     }
 
     /**
      * @return 土法力成长系数
      */
-    public double getDirtManaGrowNumber() {
-        return dirtManaGrowNumber;
+    public double getDirtManaGrow() {
+        return attributes.getDirtManaGrow();
     }
 
     /**
      * 设置土法力成长系数。
      *
-     * @param dirtManaGrowNumber 土法力成长系数
+     * @param dirtManaGrow 土法力成长系数
      */
-    public void setDirtManaGrowNumber(double dirtManaGrowNumber) {
-        this.dirtManaGrowNumber = dirtManaGrowNumber;
+    public void setDirtManaGrow(double dirtManaGrow) {
+        this.attributes.setDirtManaGrow(dirtManaGrow);
     }
 
     /**
      * @return 土元素穿透
      */
     public double getDirtPenetration() {
-        return dirtPenetration;
+        return attributes.getDirtPenetration();
     }
 
     /**
@@ -821,7 +970,7 @@ public class LivingThing extends Entity {
      * @param dirtPenetration 土元素穿透
      */
     public void setDirtPenetration(double dirtPenetration) {
-        this.dirtPenetration = dirtPenetration;
+        this.attributes.setDirtPenetration(dirtPenetration);
     }
 
     /**
@@ -844,7 +993,7 @@ public class LivingThing extends Entity {
      * @return 火元素穿透
      */
     public double getFirePenetration() {
-        return firePenetration;
+        return attributes.getFirePenetration();
     }
 
     /**
@@ -853,14 +1002,14 @@ public class LivingThing extends Entity {
      * @param firePenetration 火元素穿透
      */
     public void setFirePenetration(double firePenetration) {
-        this.firePenetration = firePenetration;
+        this.attributes.setFirePenetration(firePenetration);
     }
 
     /**
      * @return 水元素穿透
      */
     public double getWaterPenetration() {
-        return waterPenetration;
+        return attributes.getWaterPenetration();
     }
 
     /**
@@ -869,14 +1018,14 @@ public class LivingThing extends Entity {
      * @param waterPenetration 水元素穿透
      */
     public void setWaterPenetration(double waterPenetration) {
-        this.waterPenetration = waterPenetration;
+        this.attributes.setWaterPenetration(waterPenetration);
     }
 
     /**
      * @return 木元素穿透
      */
     public double getWoodPenetration() {
-        return woodPenetration;
+        return attributes.getWoodPenetration();
     }
 
     /**
@@ -885,7 +1034,7 @@ public class LivingThing extends Entity {
      * @param woodPenetration 木元素穿透
      */
     public void setWoodPenetration(double woodPenetration) {
-        this.woodPenetration = woodPenetration;
+        this.attributes.setWoodPenetration(woodPenetration);
     }
 
     /**
@@ -927,7 +1076,7 @@ public class LivingThing extends Entity {
      * @return 金元素伤害增强
      */
     public double getMetalDamageEnhance() {
-        return metalDamageEnhance;
+        return attributes.getMetalDamageEnhance();
     }
 
     /**
@@ -936,14 +1085,14 @@ public class LivingThing extends Entity {
      * @param metalDamageEnhance 金元素伤害增强
      */
     public void setMetalDamageEnhance(double metalDamageEnhance) {
-        this.metalDamageEnhance = metalDamageEnhance;
+        this.attributes.setMetalDamageEnhance(metalDamageEnhance);
     }
 
     /**
      * @return 木元素伤害增强
      */
     public double getWoodDamageEnhance() {
-        return woodDamageEnhance;
+        return attributes.getWoodDamageEnhance();
     }
 
     /**
@@ -952,14 +1101,14 @@ public class LivingThing extends Entity {
      * @param woodDamageEnhance 木元素伤害增强
      */
     public void setWoodDamageEnhance(double woodDamageEnhance) {
-        this.woodDamageEnhance = woodDamageEnhance;
+        this.attributes.setWoodDamageEnhance(woodDamageEnhance);
     }
 
     /**
      * @return 水元素伤害增强
      */
     public double getWaterDamageEnhance() {
-        return waterDamageEnhance;
+        return attributes.getWaterDamageEnhance();
     }
 
     /**
@@ -968,14 +1117,14 @@ public class LivingThing extends Entity {
      * @param waterDamageEnhance 水元素伤害增强
      */
     public void setWaterDamageEnhance(double waterDamageEnhance) {
-        this.waterDamageEnhance = waterDamageEnhance;
+        this.attributes.setWaterDamageEnhance(waterDamageEnhance);
     }
 
     /**
      * @return 火元素伤害增强
      */
     public double getFireDamageEnhance() {
-        return fireDamageEnhance;
+        return attributes.getFireDamageEnhance();
     }
 
     /**
@@ -984,14 +1133,14 @@ public class LivingThing extends Entity {
      * @param fireDamageEnhance 火元素伤害增强
      */
     public void setFireDamageEnhance(double fireDamageEnhance) {
-        this.fireDamageEnhance = fireDamageEnhance;
+        this.attributes.setFireDamageEnhance(fireDamageEnhance);
     }
 
     /**
      * @return 土元素伤害增强
      */
     public double getDirtDamageEnhance() {
-        return dirtDamageEnhance;
+        return attributes.getDirtDamageEnhance();
     }
 
     /**
@@ -1000,7 +1149,7 @@ public class LivingThing extends Entity {
      * @param dirtDamageEnhance 土元素伤害增强
      */
     public void setDirtDamageEnhance(double dirtDamageEnhance) {
-        this.dirtDamageEnhance = dirtDamageEnhance;
+        this.attributes.setDirtDamageEnhance(dirtDamageEnhance);
     }
 
     /**
@@ -1081,7 +1230,7 @@ public class LivingThing extends Entity {
      * @return 当前生物实例
      */
     public LivingThing facSetFireResistance(double fireResistance) {
-        this.fireResistance = fireResistance;
+        this.attributes.setFireResistance(fireResistance);
         return this;
     }
 
@@ -1092,7 +1241,7 @@ public class LivingThing extends Entity {
      * @return 当前生物实例
      */
     public LivingThing facSetWaterResistance(double waterResistance) {
-        this.waterResistance = waterResistance;
+        this.attributes.setWaterResistance(waterResistance);
         return this;
     }
 
@@ -1103,7 +1252,7 @@ public class LivingThing extends Entity {
      * @return 当前生物实例
      */
     public LivingThing facSetMetalResistance(double metalResistance) {
-        this.metalResistance = metalResistance;
+        this.attributes.setMetalResistance(metalResistance);
         return this;
     }
 
@@ -1114,7 +1263,7 @@ public class LivingThing extends Entity {
      * @return 当前生物实例
      */
     public LivingThing facSetWoodResistance(double woodResistance) {
-        this.woodResistance = woodResistance;
+        this.attributes.setWoodResistance(woodResistance);
         return this;
     }
 
@@ -1125,7 +1274,7 @@ public class LivingThing extends Entity {
      * @return 当前生物实例
      */
     public LivingThing facSetDirtResistance(double dirtResistance) {
-        this.dirtResistance = dirtResistance;
+        this.attributes.setDirtResistance(dirtResistance);
         return this;
     }
 
@@ -1147,18 +1296,18 @@ public class LivingThing extends Entity {
      * @return 当前生物实例
      */
     public LivingThing facSetCriticalDMG(double criticalDMG) {
-        this.criticalDMG = criticalDMG;
+        this.attributes.setCriticalDMG(criticalDMG);
         return this;
     }
 
     /**
      * 链式设置基础暴击率。
      *
-     * @param criticalRATE 基础暴击率
+     * @param criticalRate 基础暴击率
      * @return 当前生物实例
      */
-    public LivingThing facSetCriticalRATE(double criticalRATE) {
-        this.getCriticalRATE = criticalRATE;
+    public LivingThing facSetCriticalRate(double criticalRate) {
+        this.criticalRate = criticalRate;
         return this;
     }
 
@@ -1169,7 +1318,7 @@ public class LivingThing extends Entity {
      * @return 当前生物实例
      */
     public LivingThing facSetAlive(boolean alive) {
-        this.Alive = alive;
+        this.alive = alive;
         return this;
     }
 
@@ -1180,7 +1329,7 @@ public class LivingThing extends Entity {
      * @return 当前生物实例
      */
     public LivingThing facSetChuantong(double chuantong) {
-        this.penetration = chuantong;
+        this.attributes.setPenetration(chuantong);
         return this;
     }
 
@@ -1246,7 +1395,7 @@ public class LivingThing extends Entity {
      * @return 当前生物实例
      */
     public LivingThing facSetEnhance(double enhance) {
-        this.enhance = enhance;
+        this.attributes.setEnhance(enhance);
         return this;
     }
 
@@ -1308,7 +1457,7 @@ public class LivingThing extends Entity {
      * @return 火抗性
      */
     public double getFireResistance() {
-        return fireResistance;
+        return attributes.getFireResistance();
     }
 
     /**
@@ -1317,14 +1466,14 @@ public class LivingThing extends Entity {
      * @param fireResistance 火抗性
      */
     public void setFireResistance(double fireResistance) {
-        this.fireResistance = fireResistance;
+        this.attributes.setFireResistance(fireResistance);
     }
 
     /**
      * @return 水抗性
      */
     public double getWaterResistance() {
-        return waterResistance;
+        return attributes.getWaterResistance();
     }
 
     /**
@@ -1333,14 +1482,14 @@ public class LivingThing extends Entity {
      * @param waterResistance 水抗性
      */
     public void setWaterResistance(double waterResistance) {
-        this.waterResistance = waterResistance;
+        this.attributes.setWaterResistance(waterResistance);
     }
 
     /**
      * @return 金抗性
      */
     public double getMetalResistance() {
-        return metalResistance;
+        return attributes.getMetalResistance();
     }
 
     /**
@@ -1349,14 +1498,14 @@ public class LivingThing extends Entity {
      * @param metalResistance 金抗性
      */
     public void setMetalResistance(double metalResistance) {
-        this.metalResistance = metalResistance;
+        this.attributes.setMetalResistance(metalResistance);
     }
 
     /**
      * @return 木抗性
      */
     public double getWoodResistance() {
-        return woodResistance;
+        return attributes.getWoodResistance();
     }
 
     /**
@@ -1365,14 +1514,14 @@ public class LivingThing extends Entity {
      * @param woodResistance 木抗性
      */
     public void setWoodResistance(double woodResistance) {
-        this.woodResistance = woodResistance;
+        this.attributes.setWoodResistance(woodResistance);
     }
 
     /**
      * @return 土抗性
      */
     public double getDirtResistance() {
-        return dirtResistance;
+        return attributes.getDirtResistance();
     }
 
     /**
@@ -1381,23 +1530,23 @@ public class LivingThing extends Entity {
      * @param dirtResistance 土抗性
      */
     public void setDirtResistance(double dirtResistance) {
-        this.dirtResistance = dirtResistance;
+        this.attributes.setDirtResistance(dirtResistance);
     }
 
     /**
      * @return 最终暴击率（基础暴击率 × (1 + 暴击率增强百分比) + 暴击率增强固定值）
      */
-    public double getGetCriticalRATE() {
-        return getCriticalRATE * (1 + criticalRateEnhancePercent) + criticalRateEnhanceAmount;
+    public double getCriticalRate() {
+        return criticalRate * (1 + criticalRateEnhancePercent) + criticalRateEnhanceAmount;
     }
 
     /**
      * 设置基础暴击率。
      *
-     * @param getCriticalRATE 基础暴击率
+     * @param criticalRate 基础暴击率
      */
-    public void setGetCriticalRATE(double getCriticalRATE) {
-        this.getCriticalRATE = getCriticalRATE;
+    public void setCriticalRate(double criticalRate) {
+        this.criticalRate = criticalRate;
     }
 
     /**
@@ -1429,9 +1578,62 @@ public class LivingThing extends Entity {
      * @return 带阵营的名字
      */
     public String getNameWithSide() {
-        Fight fight = getParticipateFight();
-        String side = fight == null ? "" : fight.sideNameOf(this);
+        String side = sideName();
         return side.isEmpty() ? getName() : getName() + "（" + ConsoleColor.dim(side) + "）";
+    }
+
+    /**
+     * 名字后面跟上短标识，例如 {@code 至黑之剑，盗火行者#0a1b2c}。
+     * <p>
+     * 格式与回合头（{@code FightTurnPastListener}）逐字一致 —— 短标识本身来自
+     * {@link Thing#getShortUuid()}，回合头也调它，所以两处永远是同一个值
+     * （同名同阵营的镜像对局里，只有这一串能分出"这条日志是哪一个实例"）。
+     * <p>
+     * 与 {@link #getNameWithSide()} 是<b>两个维度</b>：阵营说"自己人还是对面"，
+     * 短标识说"是哪一只"。攻击行这类点名双方、还可能出现同名实例的输出两个都要，
+     * 写法是 {@code 名字#短标识（阵营）}，见 {@link #getNameWithUuidAndSide()}。
+     * <p>
+     * <b>本方法不着色</b>：它给"整行包一个颜色"的地方用（回合头把整行包在青色里），
+     * 自带颜色的话内层的复位会把整行青色掐断。按段着色的战斗日志行请用
+     * {@link #getNameWithUuidAndSide()}（那里的短标识自己带颜色）。
+     *
+     * @return 带短标识的名字
+     */
+    public String getNameWithUuid() {
+        return getName() + "#" + getShortUuid();
+    }
+
+    /**
+     * 名字后面跟上短标识与阵营，例如 {@code 至黑之剑，盗火行者#0a1b2c（我方）}。
+     * <p>
+     * 回合头的格式（{@code ─── 现在是 名字#短标识（我方）的回合 ───}），攻击行这类
+     * <b>按段着色</b>的行复用它。短标识在前、阵营在后：先认出"是哪一只"，再看它站哪边。
+     * <p>
+     * 颜色照 {@code 60-COMBAT.md} 的 §5.5.2：<b>短标识青</b>（用户 2026-10-03 要求
+     * "和回合头一样"，回合头整行是青的，所以短标识取同一个青）、
+     * <b>阵营灰</b>（免得抢伤害数字与技能名的注意力）、名字本身不上色
+     * （与其它日志行一致，别在这里另起一套）。
+     *
+     * @return 带短标识与阵营的名字
+     */
+    public String getNameWithUuidAndSide() {
+        String side = sideName();
+        return getName() + shortUuidTag() + (side.isEmpty() ? "" : "（" + ConsoleColor.dim(side) + "）");
+    }
+
+    /**
+     * @return {@code #短标识}，按回合头的颜色上色（青）；关闭着色时原样返回
+     */
+    private String shortUuidTag() {
+        return ConsoleColor.cyan("#" + getShortUuid());
+    }
+
+    /**
+     * @return 这一侧的显示名（{@code 我方} / {@code 敌方}）；不在战斗里时返回空串
+     */
+    private String sideName() {
+        Fight fight = getParticipateFight();
+        return fight == null ? "" : fight.sideNameOf(this);
     }
 
     /**
@@ -1550,38 +1752,6 @@ public class LivingThing extends Entity {
     }
 
     /**
-     * 给一个减伤来源起个<b>能看懂的名字</b>，好让 {@code /data} 里看得见"这条减伤是谁给的"。
-     * <p>
-     * {@link #getDamageReductions()} 里的 {@code source} 是按对象身份比较的键，往往是个
-     * 匿名对象，{@code DataBridge} 会把它跳过，于是 {@code /data} 里只剩 {@code {percent:0.04d}} ——
-     * 完全看不出是【醉意】还是药水（用户 2026-09 实测反馈过）。
-     * <p>
-     * 取名顺序：本项目自己的 {@link DamageReductionSource} → 有效果/技能/物品就读它们的 id/名字
-     * → 是字符串就直接用 → 都不认识就退回类名。它<b>只用于显示</b>，不参与任何判断。
-     *
-     * @param source 减伤来源；调用方已保证非 {@code null}
-     * @return 可读名字
-     */
-    private static String describeReductionSource(Object source) {
-        if (source instanceof DamageReductionSource named) {
-            return named.toString();
-        }
-        if (source instanceof Effect effect) {
-            return effect.getID() == null ? effect.getClass().getSimpleName() : effect.getID();
-        }
-        if (source instanceof Skill skill) {
-            return skill.getName() == null ? skill.getClass().getSimpleName() : skill.getName();
-        }
-        if (source instanceof cn.gfhnv.game.item.Item item) {
-            return item.getId() == null ? item.getClass().getSimpleName() : item.getId();
-        }
-        if (source instanceof CharSequence text) {
-            return text.toString();
-        }
-        return source.getClass().getSimpleName();
-    }
-
-    /**
      * 移除一个减伤来源。
      *
      * @param source 来源（与添加时是同一个对象）
@@ -1625,7 +1795,7 @@ public class LivingThing extends Entity {
      * @return 全属性穿透
      */
     public double getPenetration() {
-        return penetration;
+        return attributes.getPenetration();
     }
 
     /**
@@ -1634,7 +1804,7 @@ public class LivingThing extends Entity {
      * @param penetration 全属性穿透
      */
     public void setPenetration(double penetration) {
-        this.penetration = penetration;
+        this.attributes.setPenetration(penetration);
     }
 
     /**
@@ -1662,12 +1832,12 @@ public class LivingThing extends Entity {
         if (getHp() <= 0) {
             this.getController().setActionSignal(ActionSignal.NORMAL);
             this.getController().setSpecialAction(null);
-            Alive = false;
+            alive = false;
         }
         if (getHp() > 0) {
-            Alive = true;
+            alive = true;
         }
-        return Alive;
+        return alive;
     }
 
     /**
@@ -1676,14 +1846,14 @@ public class LivingThing extends Entity {
      * @param b {@code true} 存活，{@code false} 死亡
      */
     public void setAlive(boolean b) {
-        this.Alive = b;
+        this.alive = b;
     }
 
     /**
      * @return 全属性增伤百分比
      */
     public double getEnhance() {
-        return enhance;
+        return attributes.getEnhance();
     }
 
     /**
@@ -1692,7 +1862,7 @@ public class LivingThing extends Entity {
      * @param enhance 全属性增伤百分比
      */
     public void setEnhance(double enhance) {
-        this.enhance = enhance;
+        this.attributes.setEnhance(enhance);
     }
 
     /**
@@ -1786,33 +1956,33 @@ public class LivingThing extends Entity {
     /**
      * 链式设置生命成长系数。
      *
-     * @param hpGrowNumber 生命成长系数
+     * @param hpGrow 生命成长系数
      * @return 当前生物实例
      */
-    public LivingThing facSetHpGrowNumber(double hpGrowNumber) {
-        this.setHpGrowNumber(hpGrowNumber);
+    public LivingThing facSetHpGrow(double hpGrow) {
+        this.setHpGrow(hpGrow);
         return this;
     }
 
     /**
      * 链式设置攻击成长系数。
      *
-     * @param atkGrowNumber 攻击成长系数
+     * @param attackGrow 攻击成长系数
      * @return 当前生物实例
      */
-    public LivingThing facSetAtkGrowNumber(double atkGrowNumber) {
-        this.setAtkGrowNumber(atkGrowNumber);
+    public LivingThing facSetAttackGrow(double attackGrow) {
+        this.setAttackGrow(attackGrow);
         return this;
     }
 
     /**
      * 链式设置防御成长系数。
      *
-     * @param dfkGrowNumber 防御成长系数
+     * @param defenceGrow 防御成长系数
      * @return 当前生物实例
      */
-    public LivingThing facSetDfkGrowNumber(double dfkGrowNumber) {
-        this.setDfkGrowNumber(dfkGrowNumber);
+    public LivingThing facSetDefenceGrow(double defenceGrow) {
+        this.setDefenceGrow(defenceGrow);
         return this;
     }
 
@@ -1830,55 +2000,55 @@ public class LivingThing extends Entity {
     /**
      * 链式设置金法力成长系数。
      *
-     * @param metalManaGrowNumber 金法力成长系数
+     * @param metalManaGrow 金法力成长系数
      * @return 当前生物实例
      */
-    public LivingThing facSetMetalManaGrowNumber(double metalManaGrowNumber) {
-        this.setMetalManaGrowNumber(metalManaGrowNumber);
+    public LivingThing facSetMetalManaGrow(double metalManaGrow) {
+        this.setMetalManaGrow(metalManaGrow);
         return this;
     }
 
     /**
      * 链式设置木法力成长系数。
      *
-     * @param woodManaGrowNumber 木法力成长系数
+     * @param woodManaGrow 木法力成长系数
      * @return 当前生物实例
      */
-    public LivingThing facSetWoodManaGrowNumber(double woodManaGrowNumber) {
-        this.setWoodManaGrowNumber(woodManaGrowNumber);
+    public LivingThing facSetWoodManaGrow(double woodManaGrow) {
+        this.setWoodManaGrow(woodManaGrow);
         return this;
     }
 
     /**
      * 链式设置水法力成长系数。
      *
-     * @param waterManaGrowNumber 水法力成长系数
+     * @param waterManaGrow 水法力成长系数
      * @return 当前生物实例
      */
-    public LivingThing facSetWaterManaGrowNumber(double waterManaGrowNumber) {
-        this.setWaterManaGrowNumber(waterManaGrowNumber);
+    public LivingThing facSetWaterManaGrow(double waterManaGrow) {
+        this.setWaterManaGrow(waterManaGrow);
         return this;
     }
 
     /**
      * 链式设置火法力成长系数。
      *
-     * @param fireManaGrowNumber 火法力成长系数
+     * @param fireManaGrow 火法力成长系数
      * @return 当前生物实例
      */
-    public LivingThing facSetFireManaGrowNumber(double fireManaGrowNumber) {
-        this.setFireManaGrowNumber(fireManaGrowNumber);
+    public LivingThing facSetFireManaGrow(double fireManaGrow) {
+        this.setFireManaGrow(fireManaGrow);
         return this;
     }
 
     /**
      * 链式设置土法力成长系数。
      *
-     * @param dirtManaGrowNumber 土法力成长系数
+     * @param dirtManaGrow 土法力成长系数
      * @return 当前生物实例
      */
-    public LivingThing facSetDirtManaGrowNumber(double dirtManaGrowNumber) {
-        this.setDirtManaGrowNumber(dirtManaGrowNumber);
+    public LivingThing facSetDirtManaGrow(double dirtManaGrow) {
+        this.setDirtManaGrow(dirtManaGrow);
         return this;
     }
 
@@ -1942,7 +2112,60 @@ public class LivingThing extends Entity {
     }
 
     /**
-     * 把生物重置为"可再次参战"：重置回合、补满生命、清除效果、重置技能冷却并恢复法力。
+     * 把【临时属性】清零。整场结束时由 {@link #whenFightEnds()} 调用。
+     * <p>
+     * <b>这张表和复制构造器是互补的</b>：复制构造器<b>只带面板属性</b>
+     * （{@code individualMultipleArea} 与 {@link AttributeProfile#copyFrom} 带的那一批），
+     * 剩下的一次性加成全部在这里清零。
+     * 改一个记得看另一个 —— 这正是 {@code ENTITY-ATTRIBUTE-SPLIT-2026-10.md}
+     * 第二节说的"把生命周期规则从靠记性变成靠结构"。
+     * <p>
+     * 这些字段按<b>谁在写</b>分三类（2026-10-03 逐个查过写入点）：
+     * <ol>
+     *     <li><b>效果写的</b>（12 个 {@code *Enhance*}）：{@code AttackEnhance}、
+     *     {@code DefenseEnhanceEffect}、{@code SpeedEnhanceEffect}、{@code HpEnhanceEffect}、
+     *     {@code CriticalDMGEnhanceEffect}、{@code CriticalRateEnhanceEffect} ——
+     *     每个都是"进来加、走时减"的成对写法；白厄变身（{@code UltimateAttack} /
+     *     {@code AwakeEndListener}）也自己加减这几笔。
+     *     正常情况效果离场就已经减回去了，这里清一遍是<b>兜底</b>：
+     *     效果没走完 {@code whenLastTimeEnd}、或战斗在变身中途结束时，残留会渗进下一局。</li>
+     *     <li><b>预留未接线</b>（10 个五元素穿透 / 五元素增伤）：全项目<b>一个写入点都没有</b>，
+     *     只被 {@code DamageCalculate} 读来加算。清零对现状是 no-op，
+     *     写在这里是为了"将来接线时自动落进临时属性这一侧"。</li>
+     *     <li><b>死字段</b>（{@code extraDamage}）：{@code LivingThing} 这一侧的
+     *     {@code extraDamage} 参与伤害公式却<b>从无写入点</b>（永远是 0）；
+     *     活的那套是 {@code Skill#extraDamage}，是另一个字段。同样先清零占位。</li>
+     * </ol>
+     * <p>
+     * <b>故意不在表里的</b>：{@code individualMultipleArea}（面板·派生，由角色构造器算，
+     * 清了会永久削弱该角色）、属性组件里的面板属性（5 抗性 / 5 法力成长 /
+     * {@code penetration} / {@code enhance} / {@code criticalDMG} —— 它们跟着副本走）与
+     * {@code anticipating}（只读试算标志，每回合自己复位）。
+     * 减伤（{@code damageReductions}）也不在这张表里 —— 它不是标量属性，
+     * 由 {@link #whenFightEnds()} 在效果收尾之后单独 {@link #clearDamageReductions()}。
+     */
+    private void clearTemporaryAttributes() {
+        // ① 效果写的临时加成（成对加减）
+        this.attackEnhancePercent = 0;
+        this.attackEnhanceAmount = 0;
+        this.defenceEnhancePercent = 0;
+        this.defenceEnhanceAmount = 0;
+        this.speedEnhancePercent = 0;
+        this.speedEnhanceAmount = 0;
+        this.hpEnhancePercent = 0;
+        this.hpEnhanceAmount = 0;
+        this.criticalDMGEnhancePercent = 0;
+        this.criticalDMGEnhanceAmount = 0;
+        this.criticalRateEnhancePercent = 0;
+        this.criticalRateEnhanceAmount = 0;
+        // ② 五元素穿透 / 五元素增伤（组件里的临时属性；抗性与法力成长不在这张表里，它们跟着副本走）
+        this.attributes.resetTemporary();
+        // ③ 死字段（活的那套在 Skill#extraDamage 上）
+        this.extraDamage = 0;
+    }
+
+    /**
+     * 把生物重置为"可再次参战"：重置回合、补满生命、清除效果、清掉临时属性、重置技能冷却并恢复法力。
      * <p>
      * <b>只应在整场战斗结束时调用</b>（{@code FightEndEventListener}）。
      * 单个生物死亡离场时请用 {@link #whenLeaveFight(Fight)} ——
@@ -1953,8 +2176,18 @@ public class LivingThing extends Entity {
 
         setPresentTurn(null);
         setHp((long) getHpMax());
+        clearTemporaryAttributes();
+        // 顺序要紧：**先**让每个效果自己收尾（它们在自己的 whenLastTimeEnd 里摘掉挂上去的减伤），
+        // **再**统一打扫剩下的。反过来的话，效果收尾时看到的是已经被清空的列表。
         for (Effect effect : getEntityEffectList()) effect.whenLastTimeEnd(this);
         this.setEntityEffectList(new ArrayList<>());
+        // 效果走完之后再扫一遍减伤：技能/机制挂上来的那些**不走效果生命周期**，
+        // 战斗结束时没人摘，留着会渗进下一局 —— 最典型的是白厄【灾厄】那 75%
+        // （`CalamitySoulscorchEdict` 挂、`Counterattack` 摘），变身打到一半战斗结束就带走了。
+        // 清空是安全的：生产环境里**没有"构造期就永久挂着"的减伤**
+        // （`BASE_DAMAGE_REDUCTION` 只有旧写法 `setDamageAbsorbedPercent` 会加，而它没人调），
+        // 层数减伤与二阶段免伤由 FlameReaver 在自己的 whenFightStart 重新挂，醉意由效果自己摘。
+        this.clearDamageReductions();
         for (Skill skill : getController().getSkills()) skill.setNowCoolDown(0);
         for (Mana mana : getManas()) mana.setAmount(mana.getAmountMax());
     }
@@ -1962,7 +2195,7 @@ public class LivingThing extends Entity {
     /**
      * 使用技能对目标造成伤害（构造 {@link DamageEvent} 并调用目标的 {@link #getDamage}）。
      * <p>
-     * <b>攻击行的打印统一在这里做</b>：{@code A（我方）攻击了B（敌方）  -伤害  → HP 当前/上限  【技能名】}。
+     * <b>攻击行的打印统一在这里做</b>：{@code A#短标识（我方）攻击了B#短标识（敌方）  -伤害  → HP 当前/上限  【技能名】}。
      * 以前是"各技能自己 print 前缀 + makeDamage 打伤害 + getDamage 打剩余 HP"三段拼的，
      * 结果<b>只要哪个技能漏了那句 print，日志里就会冒出一行没有主语的 "  -1109  → HP …"</b>
      * （实测踩过：{@code Counterattack} 的 6 次追加攻击）。收进来之后谁也漏不了，
@@ -1985,18 +2218,23 @@ public class LivingThing extends Entity {
     }
 
     /**
-     * 打印一行攻击日志：{@code A（我方）攻击了B（敌方）  -伤害  → HP 当前/上限  【技能名】}。
+     * 打印一行攻击日志：{@code A#短标识（我方）攻击了B#短标识（敌方）  -伤害  → HP 当前/上限  【技能名】}。
      * <p>
-     * 伤害标红、剩余 HP 标灰、技能名标青、阵营标灰（着色能否生效见
-     * {@link cn.gfhnv.game.utils.ConsoleColor}；不支持 ANSI 的控制台会自动退化成纯文本）。
+     * 伤害标红、剩余 HP 标灰、技能名标青、<b>短标识标青</b>（与回合头同色）、阵营标灰
+     * （着色能否生效见 {@link cn.gfhnv.game.utils.ConsoleColor}；不支持 ANSI 的控制台会自动
+     * 退化成纯文本）。
+     * <p>
+     * 攻守双方<b>都带阵营与短标识</b>，与回合头同一套格式（见 {@link #getNameWithUuidAndSide()}）：
+     * 同名生物不只分属两边，镜像对局里两边还可能<b>同名同阵营</b>（各有一只【残破容器】、
+     * 两边都是"至黑之剑，盗火行者"），光有阵营仍然分不出谁打谁。
      *
      * @param attacked 被打的目标
      * @param skill    使用的技能；可为 {@code null}
      * @param damage   实际掉血量
      */
     private void printAttackLine(LivingThing attacked, Skill skill, long damage) {
-        StringBuilder line = new StringBuilder(getNameWithSide()).append("攻击了")
-                .append(attacked.getNameWithSide());
+        StringBuilder line = new StringBuilder(getNameWithUuidAndSide()).append("攻击了")
+                .append(attacked.getNameWithUuidAndSide());
         line.append("  ").append(ConsoleColor.red("-" + damage));
         line.append("  ").append(ConsoleColor.dim(
                 "→ HP " + attacked.getHp() + "/" + attacked.getHpMax()));
@@ -2068,7 +2306,7 @@ public class LivingThing extends Entity {
      * @return 最终暴击伤害倍率加成
      */
     public double getCriticalDMG() {
-        return criticalDMG * (1 + criticalDMGEnhancePercent) + criticalDMGEnhanceAmount;
+        return attributes.getCriticalDMG() * (1 + criticalDMGEnhancePercent) + criticalDMGEnhanceAmount;
     }
 
     /**
@@ -2077,7 +2315,7 @@ public class LivingThing extends Entity {
      * @param criticalDMG 基础暴击伤害倍率加成
      */
     public void setCriticalDMG(double criticalDMG) {
-        this.criticalDMG = criticalDMG;
+        this.attributes.setCriticalDMG(criticalDMG);
     }
 
     /**

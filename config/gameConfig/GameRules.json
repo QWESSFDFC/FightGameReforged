@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "formula": {
+    "hpBase": 200,
+    "defenceBase": 200,
+    "attackBase": 110,
+    "levelDefenceFactor": 10,
+    "levelDefenceBase": 200
+  },
+  "mana": {
+    "mainBase": 200,
+    "otherBase": 20
+  },
+  "flameReaver": {
+    "summonHpCostRate": 0.03,
+    "disasterPowerAttackBonus": 0.08,
+    "damageReductionLayers": 2,
+    "damageReductionPerLayer": 0.25,
+    "containerLimit": 0,
+    "completeContainerChance": 0.34,
+    "phaseTwoDamageReduction": 0.7,
+    "baseHpMax": 80000,
+    "containerHpRatio": 0.15,
+    "containerAttackRatio": 0.4,
+    "completeContainerHpRatio": 0.25
+  },
+  "insectBoss": {
+    "baseHpMax": 80000
+  },
+  "actorLiXiaoYan": {
+    "ignitionMax": 10,
+    "lowHpIgnitionMax": 15,
+    "lowHpThreshold": 0.5,
+    "highIgnition": 8,
+    "highIgnitionBonusRate": 0.6,
+    "areaPerIgnition": 0.04,
+    "memorizeTrigger": 10,
+    "memorizeCost": 10,
+    "memorizeHealRate": 0.3,
+    "resetIgnition": 3
+  }
+}

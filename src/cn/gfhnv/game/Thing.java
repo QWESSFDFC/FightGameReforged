@@ -1,5 +1,6 @@
 package cn.gfhnv.game;
 
+import cn.gfhnv.game.data.NoConfig;
 import cn.gfhnv.game.system.physics.Vector;
 import cn.gfhnv.game.system.physics.type.Acceleration;
 import cn.gfhnv.game.system.physics.type.Force;
@@ -30,6 +31,13 @@ import java.util.UUID;
  * @author gfhnv
  */
 public class Thing {
+    /**
+     * 实例唯一标识（判等用）。
+     * <p>
+     * <b>不进配置文件</b>（且是 {@code final}，{@code /data merge} 也写不了）：
+     * 改掉它会毁掉判等与选择器。
+     */
+    @NoConfig("身份键：final，改掉会毁掉判等与选择器")
     private final String uuid;
     private Map<TagType, Tag> tags = new EnumMap<>(TagType.class);
     private double mass = 1;
@@ -37,6 +45,13 @@ public class Thing {
     private Velocity velocity = new Velocity(0, 0, 0);
     private Acceleration acceleration = new Acceleration(0, 0, 0);
     private Position position = new Position(0, 0, 0);
+    /**
+     * 注册表标识（{@code 模组id:内容id}）。
+     * <p>
+     * <b>不进配置文件</b>：配置文件的<b>键</b>就是它（{@code {"entities":{"<id>":{…}}}}），
+     * 允许在值里再改一次 = 让一条配置改到另一个模板头上。
+     */
+    @NoConfig("注册表标识：配置文件的键就是它，值里再改会让补丁落到别的模板上")
     private String id;
 
     /**
@@ -86,6 +101,26 @@ public class Thing {
      */
     public String getUUID() {
         return uuid;
+    }
+
+    /**
+     * 取实例的<b>短标识</b>（UUID 前 6 位），只用于日志。
+     * <p>
+     * 同一个模板会被复制成多个实例：镜像对局里两边都叫"至黑之剑，盗火行者"，一场里还会同时存在
+     * 好几只同名容器 —— 光看名字分不出"这条日志是哪一个"。UUID 是每个实例独有的，取前 6 位
+     * 既够区分，又不会把日志撑长。
+     * <p>
+     * 放在基类上是刻意的：回合头（{@code FightTurnPastListener}）、攻击行
+     * （{@link cn.gfhnv.game.entity.LivingThing#getNameWithUuid()}）与其它战斗日志要的是<b>同一个</b>
+     * 短标识，各写一份实现迟早一真一假。
+     *
+     * @return 短标识；拿不到 UUID 时返回 {@code ??????}
+     */
+    public String getShortUuid() {
+        if (uuid == null) {
+            return "??????";
+        }
+        return uuid.length() <= 6 ? uuid : uuid.substring(0, 6);
     }
 
     /**

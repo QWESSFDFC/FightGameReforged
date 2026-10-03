@@ -56,9 +56,22 @@ public class PyrohemicPumping extends Skill {
         this.getTags().put(TagType.ATTACK, new Tag(3));
     }
 
+    /**
+     * 复制构造器。
+     * <p>
+     * {@link #copy()} 必须走这里，不能返回 {@code new PyrohemicPumping()}：那样会把
+     * 倍率/冷却/消耗还原成构造器里的出厂值，于是打在模板上的配置（{@code SkillData.json}）
+     * <b>永远传不到选人时复制出去的副本</b>。
+     *
+     * @param other 被复制的技能
+     */
+    public PyrohemicPumping(PyrohemicPumping other) {
+        super(other);
+    }
+
     @Override
     public Skill copy() {
-        return new PyrohemicPumping();
+        return new PyrohemicPumping(this);
     }
 
     @Override
@@ -78,8 +91,8 @@ public class PyrohemicPumping extends Skill {
         // 注意：清零之后就**不能**再靠"上一回合的残留"来放大低血收益了 ——
         // 所以低血的 ×1.5 是乘在"高燃点加成"上的；没到高燃点线时它是 0 × 1.5 = 0。
         long bonus = 0;
-        if (user instanceof ActorLiXiaoYan li && li.getIgnition() >= ActorLiXiaoYan.HIGH_IGNITION) {
-            bonus += (long) (user.getHpMax() * ActorLiXiaoYan.HIGH_IGNITION_BONUS_RATE);
+        if (user instanceof ActorLiXiaoYan li && li.getIgnition() >= ActorLiXiaoYan.Rule.highIgnition()) {
+            bonus += (long) (user.getHpMax() * ActorLiXiaoYan.Rule.highIgnitionBonusRate());
         }
         if (lowHp) {
             bonus = (long) (bonus * LOW_HP_MULTIPLIER);

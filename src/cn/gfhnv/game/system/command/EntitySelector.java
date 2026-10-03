@@ -339,6 +339,26 @@ public class EntitySelector {
     }
 
     /**
+     * 解析 {@code nbt={键:值}} 的筛选值。
+     *
+     * @param value 中括号里 {@code nbt=} 后面的原文
+     * @return 复合标签
+     * @throws CommandSyntaxException SNBT 写错了 / 不是单键
+     */
+    private static cn.gfhnv.game.data.NbtCompound parseNbtFilter(String value) throws CommandSyntaxException {
+        cn.gfhnv.game.data.NbtCompound compound;
+        try {
+            compound = cn.gfhnv.game.data.Snbt.parseCompound(value);
+        } catch (IllegalArgumentException e) {
+            throw CommandSyntaxException.create("nbt= 筛选写错了：" + e.getMessage());
+        }
+        if (compound.size() != 1) {
+            throw CommandSyntaxException.create("nbt= 筛选本版只支持单键（形如 nbt={coreflame:12}）");
+        }
+        return compound;
+    }
+
+    /**
      * 按当前选择器设置，从上下文里求解出具体实体列表。
      * <p>
      * 结果会写入 {@link #getTargets()}。
@@ -491,25 +511,6 @@ public class EntitySelector {
         return true;
     }
 
-    /**
-     * 解析 {@code nbt={键:值}} 的筛选值。
-     *
-     * @param value 中括号里 {@code nbt=} 后面的原文
-     * @return 复合标签
-     * @throws CommandSyntaxException SNBT 写错了 / 不是单键
-     */
-    private static cn.gfhnv.game.data.NbtCompound parseNbtFilter(String value) throws CommandSyntaxException {
-        cn.gfhnv.game.data.NbtCompound compound;
-        try {
-            compound = cn.gfhnv.game.data.Snbt.parseCompound(value);
-        } catch (IllegalArgumentException e) {
-            throw CommandSyntaxException.create("nbt= 筛选写错了：" + e.getMessage());
-        }
-        if (compound.size() != 1) {
-            throw CommandSyntaxException.create("nbt= 筛选本版只支持单键（形如 nbt={coreflame:12}）");
-        }
-        return compound;
-    }
     /**
      * 判断实体是否通过 {@code name=} 筛选（支持 {@code *} 通配）。
      * <p>

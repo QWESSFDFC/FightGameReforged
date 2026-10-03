@@ -56,7 +56,8 @@
    想让别人写模组，这是地基。
 2. **`FightEndEventListener.java:45-55` 的奖励按人头重复发放**（§8.1）—— 3 人 2 奖励 = 发 6 份，
    玩家可见；是"设计还是 bug"需要你拍板（多人时想发几份）。
-3. **两类潜伏型问题**：`whenFightEnds` 不清 `damageReductions`（§6.4 N3）、
+3. **潜伏型问题**：~~`whenFightEnds` 不清 `damageReductions`（§6.4 N3）~~ ✅ **已修**
+   （2026-09-26，在效果收尾之后清空，见 N3 那行）；**下面这些还在**：
    白厄注销的是副本监听器（N4）、`Effect.copy()` 与效果列表浅拷贝（§6.2 §6.11）
    —— 现在没炸是因为没人踩，但都属于"一旦有人写带状态的效果就会连环出问题"。
 
@@ -186,8 +187,12 @@
 
 ### 2.3 时间轴（`TurnManager` / `TurnEntry`）
 
-- `TurnEntry(行动者, needTime, startTime)`，排序键是 **`startTime + needTime`**，同时间按**速度降序**
-  （`TurnManager.java:28-31`）；`needTime = 10000 / 速度`（`RoundingMode.HALF_UP`，10 位小数）。
+- `TurnEntry(行动者, needTime, startTime)`，排序键是 **`startTime + needTime`**，同时间按
+  **优先级降序**（`TurnEntry#getPriority`，**2026-10-03 新增**），再同则按**速度降序**。
+  优先级是给"击杀完整容器的奖励回合"加的：它和受益者的下一回合都排在 `presentTime` 上，
+  原先只按速度排会被场上更快的单位抢先，看起来像奖励没生效（`PRIORITY_EXTRA = 100`）。
+  **优先级只在时间打平时起作用，压不过时间。**
+  `needTime = 10000 / 速度`（`RoundingMode.HALF_UP`，10 位小数）。
 - 进入战斗时 `TurnManager.init(fight)` 给每个实体排一条；**中途加入的实体**由 `Fight.addFighter/addEnemy`
   补一条（`Fight.java:64-83`，入列前会 `World.applyRegisteredId` 补全 id）。
 - 调速 API：`advanceByPercent/advanceByAmount`（提前）、`delayByPercent/delayByAmount`（延后）、
@@ -257,7 +262,7 @@
 | `TurnManager.nextTurn(fight)` | 定义在 `TurnManager.java:56`，**没有任何调用方**（已核实）；推进由回合循环自己 `continue` |
 | `system/useItemSystem/` | 空包；实际物品逻辑写在 `PlayerController.useItem()`，`UniversalController.useItem()` 是空方法 |
 | `FixOrderController` | ✅ **已上线**：盗火行者与容器按预设顺序出招（`setSkipUnusable(true)`，用不了就顺延）；`copy()` 的控制器重建表也认它，不会降级成随机 |
-| `debug_tools/TestAnticipateDamage` | 入口写成 `static void main()`（`:13`，缺 `public` 和 `String[] args`）→ **不能用 `java` 直接跑**（已核实） |
+| ~~`debug_tools/TestAnticipateDamage`~~ | 入口写成 `static void main()`（`:13`，缺 `public` 和 `String[] args`）→ **不能用 `java` 直接跑**（已核实）。**2026-10-03 晚整文件删除**：全项目零引用（只有文档提到它），而入口本身也启动不了 —— 删后 `src` 227 → 226 |
 
 这些都不影响正常游玩，但**在对外宣传"有 AI 决策系统"之前得先接线**。
 
@@ -465,7 +470,7 @@
 | 8 | §4.8 `Skill.extraDamage` 只增不减 | ⚠️ **部分修复** | 整数除法与"加算/减算配对"已修（`CommonAttack.java:24-45`、`PyrohemicPumping.java:41-58`）；但**全项目仍无重置点**，`PyrohemicPumping.java:34` 的 `×1.5` 没有上限 —— 与 `Skill.java:46` 注释"伤害计算后重置为零"**自相矛盾** |
 | 9 | §4.9 `DamageEvent` 从未被 `post` | ✅ **已修复** | `LivingThing.java:1903-1904`（`makeDamage` 里 post），`DamageEventListener` 现在真的会被调用；"每受击 +1 燃点"链路已通 |
 | 10 | §4.10 白厄觉醒数值污染 / "永久无敌" | ⚠️ **部分修复** | 无敌已修（`CalamitySoulscorchEdict.java:50` + 同源幂等 + 比例夹到 `[0,1]`；`Counterattack.java` 按来源移除）；**2026-09-26 又修两条**：`Counterattack` 的 `enemies.getFirst()` 遇空表必炸 → 已加 `isAlive()` 过滤 + 空表 `break`（顺带不再就地 `shuffle` 调用方的列表）；`CalamitySoulscorchEdict` 对可能为 `null` 的 `getNextTurnOf()` 直接解引用 → 现在"没有条目就现排一条 `needTime=0` 的"；**仍未修**：`Counterattack` 硬编码 `setAtkMagnification(1)` |
-| 11 | §4.11 `copy()` 出来的实例丢一半状态 | ⚠️ **部分修复** | 已复制：技能（逐技能 `copy()`）、`showSpecialMes`、`damageModifiers`、`damageReductions`；**未复制**：攻/防/速/生/暴的 Enhance 类字段、五元素穿透与增伤、`individualMultipleArea`、`extraDamage`（`LivingThing.java:111-170`） |
+| 11 | §4.11 `copy()` 出来的实例丢一半状态 | ✅ **已按设计结案**（2026-10-03） | 已复制：技能、`showSpecialMes`、`damageModifiers`、`damageReductions`、**`individualMultipleArea`（新补）**；**刻意不复制**的 23 个是「临时属性」——用户拍板它们是一次性的，并按 `clearTemporaryAttributes()` 在 `whenFightEnds()` 里清零（① 效果成对加减的 12 个 `*Enhance*`；② 五元素穿透/增伤 10 个，全项目零写入点；③ `extraDamage` 死字段，活的那套在 `Skill#extraDamage`）。**规则：不是面板属性的一律清零，面板属性一律复制** |
 | 12 | §5.2 `Inventory` 空背包判定与奖励 | ⚠️ **部分修复** | 堆叠改为按注册表 id 判等（`Item.java:122-137`）、`ANiceSword` 已重写 `copy()`（`:22`/`:33`）；**未修**：`FightEndEventListener.java:45-55` 仍给**每个存活角色**发全部奖励（3 人 2 奖励 = 6 份） |
 | 13 | §5.6 `isAlive()` 有副作用 | ❌ **仍在**（旧描述偏重） | `LivingThing.java:1586-1591`：HP ≤ 0 时会复位 `ActionSignal` 并清 `specialAction`；并不是旧文档说的"每回合无条件抹掉" |
 
@@ -484,7 +489,7 @@
 | 9a | §6.9 觉醒 `extraAbilityTier` 永久残留 | ✅ **已修复** | `Phainon.java:56` 记 `appliedExtraAbilityTier`，回滚量与累计施加量一致（`:291-293`、`:347-349`） |
 | 9b | §6.9 第二局白厄没有火种 | ✅ **已修复** | 每局角色是注册表模板的副本，模板 `coreflame = 15`、开战 `:328-329` 再 +1 |
 | 9c | §6.9 锁血中断导致终结技跑第二次、`extraTurns = -1` | ✅ **已修复** | `Phainon.java:148` 先 `clearAwakenExtraTurns()`（按引用从时间轴摘除）、`:142` 的 `pendingLastAttack` 防重复排队；`LastAttack.java:33-34` 还夹了 `Math.min(7, extraTurns)` |
-| 9d | §6.9 "+75% 减伤"不在收尾回滚 | ❌ **仍在** | 加：`CalamitySoulscorchEdict.java:50`；删：只有 `Counterattack.java:33-36`。觉醒一次反击都没发生就结束时，减伤留到战斗结束（`whenFightEnds` 也不清 `damageReductions`，见 §6.4 N3） |
+| 9d | §6.9 "+75% 减伤"不在收尾回滚 | ✅ **已修复**（2026-10-03） | 加：`CalamitySoulscorchEdict.java:51`；删：`Counterattack.java:36`。觉醒一次反击都没发生就结束时，那 75% 现在由 `whenFightEnds()` 统一清掉（原来的兜底缺口见 §6.4 N3，同批修完） |
 | 9e | §6.9 `extraTurns` 不在 `whenFightEnds` 复位 | ❌ **仍在** | `Phainon.java:288-320` 全段没有 `setExtraTurns(0)`，唯一清零点是 `AwakeEndListener.java:35`（依赖事件被派发到） |
 | 10 | §6.10 燃点监听器每次开大都注册 | ✅ **已修复**（2026-09-26） | 原症状：每次开大都 `EventBus.register(new DamageEventListener())`，而 `LivingThing#addEffect` 合并同 `id + origin` 效果时会**丢弃新实例** → 第 N 次开大后每次受击 +N 层燃点。现在只在"身上没有锁定效果"时注册，且监听器绑定自己的效果实例、发现它不在身上就自注销（`UltimateAttack#applyMemorizedHp` + `DamageEventListener`） |
 | 11 | §6.11 内容层死代码清单 | ⚠️ **部分修复** | 已活：通用强化效果、9 种药水、无视防御钩子、`SkipTurn`、`isInfinity` 效果；仍死：`EffectTags` 的 `SKIP_ACTION`/`CAUSE_DAMAGE` 全项目零引用、`POSITIVE` 只写不读、`LivingThing.extraDamage` 无写入点、`Effect.copy()` 运行期零调用（`LivingThing.java:141` 效果列表仍是浅拷贝） |
@@ -527,11 +532,11 @@
 |---|---|---|---|
 | N1 | 李晓焰"燃点 ≥10 免死"触发后燃点被设成**负数** | `ActorLiXiaoYan.java:59` 的 `setIgnition(ignition - 10)` 读的是闭包外层（模板实例）的 `ignition`，而 modifier 是引用共享的（`LivingThing.java:138` `damageModifiers.addAll`） | 副本触发免死后燃点变成 `3 − 10 = −7`，此后攒层数要重新爬 —— **✅ 2026-09-26 已修**：改读 `victim.getIgnition()`，并给 `setIgnition` 补上下限夹取（原来只夹上限） |
 | N2 | 重复开大会**泄漏监听器**，并使"每受击 +N 燃点"变成 N 倍 | `actorLiXiaoYanSkills/UltimateAttack.java:49` 每次都 `EventBus.register(new DamageEventListener())`，而 `LivingThing.java:1430-1432` 在已有 `MemorizedHp` 时会丢弃新效果；`EventBus.java:100-102` 是按身份注销 | 第 N 次开大后，每次受击燃点 +N —— **✅ 2026-09-26 已修**：只在没有锁定时注册 + 监听器绑定自己的效果实例、失联即自注销 |
-| N3 | `whenFightEnds()` **不清减伤** | `LivingThing.java:1876-1885`；`AwakeEndListener.java:23` / `Phainon.java:298` 只把 `absorbDamage` 置 false | 觉醒期间一次反击都没发生就结束战斗时，弑魂焚诏的 75% 减伤会一直挂到战斗结束 |
+| N3 | `whenFightEnds()` **不清减伤** | ✅ **已修复**（2026-10-03）：`whenFightEnds()` 现在在**效果收尾之后**调 `clearDamageReductions()` | 原来觉醒期间一次反击都没发生就结束战斗时，弑魂焚诏的 75% 会一直挂着。清空前已核实：生产环境**没有构造期永久减伤**（`BASE_DAMAGE_REDUCTION` 只有旧写法 `setDamageAbsorbedPercent` 会加，而它没人调），层数减伤/二阶段免伤由 `FlameReaver.whenFightStart` 重挂、醉意由效果自己摘。**同批还清了 23 个"临时属性"**（见 §6.1 第 11 条） |
 | N4 | `Phainon.java:316` 注销的可能是**副本**监听器 | 它从 `getController().getSkills()` 里取 `AwakeEndListener`，而 `UniversalController.setSkills`（`:95-101`）与 `UltimateAttack.copy()` 都会换实例 | 觉醒被打断的场景下注销不掉，监听器泄漏 |
 | N5 | 模组物品忘了重写 `copy()` 时，玩家只看到"输入错误" | `Item.java:182-184` 现在是 `throw new RuntimeException(...)`，而 `GameMain.java:250` 选奖励时对每个注册物品调 `copy()`，异常被 `:266` 的 `catch (Exception)` 吞掉 | 真正的报错原因（"请重写 copy()"）永远到不了玩家眼前 —— 这正是 `MODDING-GUIDE.md` 反复强调要重写 `copy()` 的原因 |
 | N6 | `mods/drunkenSword/main.json` 里的 `"modID"` 是**死字段** | `ModLoader.java:65-69` 只读 `name`/`author`/`description`/`mainClass`/`version`；真前缀来自 `DrunkenSwordMod.java:45` 的 `super(MOD_ID, modInfo)`。而 `MODDING-GUIDE.md:74` 还把它当成"允许的多余键"的示例 | 照抄示例会以为改 json 就能改命名空间 |
-| N7 | `ConfigLoader` 的写读编码不一致 | `ConfigLoader.java:166` 用平台默认字符集 `getBytes()` 写出，`:124` 用 UTF-8 读回 | 当前默认配置全是 ASCII 所以无害；一旦默认值里出现中文，程序会把自己写的文件读成乱码 |
+| N7 | `ConfigLoader` 的写读编码不一致 | ✅ **已修复**（2026-10-03）：`:166` 写盘改为显式 `StandardCharsets.UTF_8`（原来 `getBytes()` 走平台默认 = 中文 Windows 的 GBK，而 `:124` 读的是 UTF-8 → **自己写的文件自己读成乱码**） | 修之前默认配置全是 ASCII 所以没暴露；做「实体数据外部加载」时默认值里出现中文 `description`，必然触发。**同批还把"一个坏键作废整份配置"改成逐项容错**（报错能定位到「文件:行 键「x」：原因」） |
 | N8 | **`@s` / `@p` 指向的不是"当前操作的角色"**（2026-09-26 由用户实跑日志发现） | `CommandManager.setPlayer` 只在 `GameMain.java:177-178` 的选人流程里调用，多角色队伍里**最后选的角色一直占位**；战斗中的输入（`PlayerController.nextLine`）不会切换它 | 实测：酒剑仙的回合里 `/give @s drunkenSword:osmanthusWine` 发给了白厄/卡厄斯兰那（同一 uuid `#512d5d`）—— **✅ 已修**：回合循环调 `CommandManager.followActor(actor, side)`，只在我方回合把我方行动者设为 `@s`（§3.1） |
 | N9 | 已死目标仍会被打一下，日志出现 `-0  → HP 0/12000` | `LivingThing#makeDamage` 不检查目标是否已死；同一批反击的目标列表是"出手前"算好的（用户日志里【灾厄-弑魂焚诏的反击】打了两下 0 血残破容器） | 纯观感问题（伤害确实是 0），但"打尸体"的日志很扎眼；**未修**（要不要"跳过已死目标"是行为决定，等用户拍板） |
 
@@ -596,7 +601,8 @@
 | ✅ 已完成 | ~~`/summon` 命令~~（用户："和 give 一样，模组需要长 id，可以选择生成在敌方还是我方，默认我方"） | `officialStuff/customCommands/SummonCommand.java`（311 行）+ `OfficialGameContent#isOfficial(Entity)` 重载。`/summon <实体> [阵营]`，阵营默认 `our`，可 `enemy`（也接受 `ally`/`foe`/`我方`/`敌方`）；名字规则与 `/give` 同源，**优先级 完整 id > 短名 > 类名**（残破/完整容器类名相同，不让类名撞出假歧义）；召唤的是 `copy()` 副本，走 `addFighter/addEnemy` 入列并显式补 `whenFightStart` + `setParticipateFight`；不在战斗里直接报错 | 自测 379 → **412**（`testSummonCommand` 28 条，AI 已跑过 412/0） |
 | ✅ 已完成 | ~~参数子节点的报错被吞~~（用户实测：`/data modify entity s …` 少写 `@`，报的却是笼统的「无法继续解析」） | `CommandDispatcher#parseNodes` 第 2 步：**参数节点存在但全失败、且还有没消化掉的输入** → 抛这个具体原因；**输入读完** → 不抛，继续走「命令不完整 + `getSuggestedUsage()`」。与字面量子节点早有的 `parseFailureOf` 对称 | 顺带变好：`kill @e[bad=1]`、`hurt @s abc`、`give @s aNiceSword 0`、`data merge entity @s {`；自测 +2 条，基线 412 → **414** |
 | ✅ 已完成 | ~~数据键名不合理~~（用户："感觉有些键名字不合理，比如 getCriticalRATE 等"） | `LivingThing` 里给两个字段加了 `@DataField`：`getCriticalRATE` → **`criticalRate`**、`Alive` → **`alive`**（这两个注解做出来之后**第一次真正被用上**）。写回不受影响 —— `DataBridge#trySetter` 是按 **Java 字段名**拼 setter 的，所以 `setGetCriticalRATE` 照样命中；**Java 侧一个字没动** | 自测 +3 条，基线 414 → **417**；「字段好像不全」的四种原因与"永远 dump 不出来的 12 个键"记进 `TIPS_FOR_LLM.md` **§5.10.1** |
-| ★★★ | 模组系统的 4 个崩溃级缺陷（§6.3 前 4 行） | 坏模组 `Error` 穿透 = 启动即崩；`return` 当 `continue` = 后面所有模组静默消失；`invokeWhenLoaded` 无兜底 = 写错一行游戏起不来；loader 提前 close = 运行期隐患 | 都在 `ModLoader` / `GameStartEventListener` / `EventBus`，**改动集中、可自测** |
+| ✅ 已完成 | ~~**外部数据加载**（实体 / 技能 / 魔法数字 / 模组配置）~~（用户："接着写数据（实体数据、技能数据、一些魔法数字等）外部加载，参考现在的 tags 加载，模组数据加载给一个接口，配置文件规定在 `config` 目录下"） | 2026-10-03 **五个阶段全部落地**：`config/gameConfig/` 下 4 份文件（`EntityData` 实体数值 / `SkillData` 技能数值 / `GameRules` 魔法数字与 BOSS 旋钮 / `EntityData.default` 出厂参考副本）+ `config/data/<模组id>.json` 模组配置；新增 `@ModConfig` + 可选接口 `ModDataAware`（**现有 3 个模组一个字没改**）；`/data` 键名**一个都没变**（配置键直接复用数据名） | 自测 542 → **630**（AI 已本地编译并跑过 630/0，`check-sources.ps1` 214 文件 CHECK OK）。设计 / schema / 分阶段路线与**全部踩坑**见 `EXTERNAL-DATA-LOADING-2026-10.md`（其中两条推翻了原设计：技能类 `copy()` 返回新实例会让配置传不到副本；`static final X = GameRules.getXxx(...)` 这种"类加载时读一次"不安全）。**手感需要用户进游戏验**（改 `config/` 里的数再打一局） |
+| ★★★ | 模组系统的 4 个崩溃级缺陷（§6.3 前 4 行） | 坏模组 `Error` 穿透 = 启动即崩；`return` 当 `continue` = 后面所有模组静默消失；`invokeWhenLoaded` 无兜底 = 写错一行游戏起不来；loader 提前 close = 运行期隐患 | 都在 `ModLoader` / `GameStartEventListener` / `EventBus`，**改动集中、可自测**。⚠️ 2026-10-03 外部数据加载**新堵了一条同类路径**：模组配置的 `applyConfig` 裹了 `try/catch (Throwable)`，见上面的「外部数据加载」一行 |
 | ✅ 已完成 | ~~李晓焰燃点三连~~（§6.4 N1/N2 + §6.2 内容层新发现） | 2026-09-26 修完：免死读 `victim.getIgnition()` + `setIgnition` 夹下限；监听器只在无锁定时注册并绑定自己的效果实例；大招改用 `wasHigh` 快照配对。顺带把三个技能的魔数收进常量组 | 这轮 +7 条断言（连同后面 `@s` 的 3 条，总基线 252 → **262**） |
 | ✅ 已完成 | ~~`World.applyRegisteredId` 按 class 归一 id~~（§6.3） | 2026-09-26 改成"**先短名精确匹配**，匹配不到再退回同类第一条"（实体/物品/效果共用），完整容器不再被写成 `brokenContainer` | 新增 2 条断言；语义变化只影响"同类多模板"这一种情况 |
 | ✅ 已完成 | ~~**加强李晓焰**~~（用户拍板 A 套餐，2026-09-26） | 顺手治好了那条手感问题：燃点改为**攒到上限为止**（10 / 血少 15）——普攻原来在 7 层就净零，导致"高燃点加成（≥8）"与"10 层免死"几乎只能靠挨打触发；另外高燃点额外伤害 0.5 → **0.6 ×生命上限**（三个技能改为共用常量）、战技自伤 20% → **15%**、防御成长 3 → **5（572 → 820）** | 全部旋钮集中在 `ActorLiXiaoYan` 顶部常量组；自测断言覆盖下限/上限行为，**攒层速度与免死频率要进游戏验证** |
@@ -673,7 +679,7 @@ Get-ChildItem .\src -Recurse -Filter *.java -File |
 | `game.system.configLoadingSystem` / `logSystem` / `mana` / `physics` | 配置加载、日志、法力、物理（其余为小类） |
 | `game.damage` / `game.interfaces` / `game.annotation` | 伤害计算与接口、注解 |
 | `game.officialStuff` | 官方内容（见 §1.4）；`OfficialGameContent` 是统一注册入口 |
-| `debug_tools` | `TestCommandSystem`、`TestAnticipateDamage`、`actionBarTest/*` |
+| `debug_tools` | `TestCommandSystem`、`actionBarTest/*`（`TestAnticipateDamage` 已于 2026-10-03 删除） |
 
 ---
 

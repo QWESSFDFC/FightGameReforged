@@ -59,6 +59,25 @@ public class SacrificeFateDrawsNear extends FlameReaverSkill {
         super(other);
     }
 
+    /**
+     * 【侵蚀】的 origin：<b>记施加者的 UUID</b>（{@link cn.gfhnv.game.effect.Effect#equals}
+     * 用 id + origin 判等，同一个来源重复施加会合并刷新，而不是叠出第二条）。
+     * <p>
+     * 共祭是"容器与盗火行者<b>一同</b>施放"（官方原文），出手的虽然是容器，
+     * 但这一击算 BOSS 给的 —— 所以这里取容器回引的 BOSS UUID。
+     * 直接记容器自己的 UUID 会让每只共祭容器各叠一条【侵蚀】：同一个目标一回合跳 5 次
+     * （实测踩过，日志里连续五行 `【侵蚀】…`）。
+     *
+     * @param user 施放者（共祭时是【残破容器】/【完整容器】）
+     * @return 用于 origin 的 UUID
+     */
+    private static String erosionOriginOf(LivingThing user) {
+        if (user instanceof BrokenContainer container && container.getOwner() != null) {
+            return container.getOwner().getUUID();
+        }
+        return user.getUUID();
+    }
+
     @Override
     public Skill copy() {
         return new SacrificeFateDrawsNear(this);
@@ -97,24 +116,5 @@ public class SacrificeFateDrawsNear extends FlameReaverSkill {
             System.out.println(target.getNameWithSide() + "感染了【侵蚀】（每回合流失已损失生命值的 "
                     + Math.round(applied.getRate() * 100) + "%，持续 " + applied.getLastTime() + " 回合）");
         }
-    }
-
-    /**
-     * 【侵蚀】的 origin：<b>记施加者的 UUID</b>（{@link cn.gfhnv.game.effect.Effect#equals}
-     * 用 id + origin 判等，同一个来源重复施加会合并刷新，而不是叠出第二条）。
-     * <p>
-     * 共祭是"容器与盗火行者<b>一同</b>施放"（官方原文），出手的虽然是容器，
-     * 但这一击算 BOSS 给的 —— 所以这里取容器回引的 BOSS UUID。
-     * 直接记容器自己的 UUID 会让每只共祭容器各叠一条【侵蚀】：同一个目标一回合跳 5 次
-     * （实测踩过，日志里连续五行 `【侵蚀】…`）。
-     *
-     * @param user 施放者（共祭时是【残破容器】/【完整容器】）
-     * @return 用于 origin 的 UUID
-     */
-    private static String erosionOriginOf(LivingThing user) {
-        if (user instanceof BrokenContainer container && container.getOwner() != null) {
-            return container.getOwner().getUUID();
-        }
-        return user.getUUID();
     }
 }

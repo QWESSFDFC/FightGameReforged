@@ -26,40 +26,10 @@ public final class DataPath {
      * 报错时最多列出几种"该键实际出现过的取值"。
      */
     private static final int MAX_PRESENT_VALUES = 8;
-
-    /**
-     * 列表过滤段：{@code [{k:v}]}。
-     *
-     * @param key   要比的字段名
-     * @param value 期望的值
-     */
-    public record Filter(String key, NbtTag value) {
-
-        @Override
-        public String toString() {
-            return "{" + key + ":" + value.toSnbt() + "}";
-        }
-    }
-
-    /**
-     * 列表切片段：{@code [start:end]}（{@code null} 表示省略那一端）。
-     *
-     * @param start 起始下标（含）；{@code null} 表示从头
-     * @param end   结束下标（不含）；{@code null} 表示到末尾
-     */
-    public record Slice(Integer start, Integer end) {
-
-        @Override
-        public String toString() {
-            return "[" + (start == null ? "" : start) + ":" + (end == null ? "" : end) + "]";
-        }
-    }
-
     /**
      * 原文本（报错与回显用）。
      */
     private final String source;
-
     /**
      * 段列表：{@code String} / {@code Integer} / {@link Filter} / {@link Slice}。
      */
@@ -217,6 +187,119 @@ public final class DataPath {
     }
 
     /**
+     * 列出一层复合标签里有哪些键（报错用，字段名打错时最有用）。
+     *
+     * @param compound 复合标签
+     * @return 键清单（截断）
+     */
+    private static String presentKeys(NbtCompound compound) {
+        List<String> keys = new ArrayList<>(compound.values().keySet());
+        if (keys.isEmpty()) {
+            return "（一个都没有）";
+        }
+        if (keys.size() > MAX_PRESENT_VALUES) {
+            return String.join("、", keys.subList(0, MAX_PRESENT_VALUES)) + " …（共 " + keys.size() + " 个）";
+        }
+        return String.join("、", keys);
+    }
+
+    /**
+     * 过滤没命中时，列出这个键在列表里<b>实际出现过哪些值</b>（报错用）。
+     * <p>
+     * "没有命中"有两种原因：路径写错了，或者<b>你要找的那条根本不在列表里</b>
+     * （典型：身上还没有那个效果）。光说"没有命中"会让人以为是语法问题，
+     * 把现有取值报出来，一眼就能分辨。
+     *
+     * @param list 被过滤的列表
+     * @param key  过滤用的键
+     * @return 取值清单（去重、截断）
+     */
+    static String presentValues(NbtList list, String key) {
+        List<String> seen = new ArrayList<>();
+        for (NbtTag element : list.values()) {
+            if (!(element instanceof NbtCompound compound)) {
+                continue;
+            }
+            NbtTag value = compound.get(key);
+            if (value == null) {
+                continue;
+            }
+            String text = value.toSnbt();
+            if (!seen.contains(text)) {
+                seen.add(text);
+            }
+        }
+        if (seen.isEmpty()) {
+            return "元素里没有「" + key + "」这个键";
+        }
+        if (seen.size() > MAX_PRESENT_VALUES) {
+            return String.join("、", seen.subList(0, MAX_PRESENT_VALUES)) + " …（共 " + seen.size() + " 种）";
+        }
+        return String.join("、", seen);
+    }
+
+    /**
+     * 按过滤段挑元素：一个命中就是它本身，多个命中打包成列表，没有命中返回 {@code null}。
+     *
+     * @param list   列表
+     * @param filter 过滤条件
+     * @return 命中的元素 / 元素列表 / {@code null}
+     */
+    private static NbtTag filterOf(NbtList list, Filter filter) {
+        List<NbtTag> matched = new ArrayList<>();
+        for (NbtTag element : list.values()) {
+            if (element instanceof NbtCompound compound && filter.value().equals(compound.get(filter.key()))) {
+                matched.add(element);
+            }
+        }
+        if (matched.isEmpty()) {
+            return null;
+        }
+        if (matched.size() == 1) {
+            return matched.get(0);
+        }
+        NbtList result = new NbtList();
+        matched.forEach(result::add);
+        return result;
+    }
+
+    /**
+     * 递归合并：两边都是复合标签就往下合，否则整体替换。
+     *
+     * @param target 目标复合标签
+     * @param patch  补丁
+     */
+    private static void mergeTag(NbtCompound target, NbtCompound patch) {
+        for (Map.Entry<String, NbtTag> entry : patch.values().entrySet()) {
+            NbtTag existing = target.get(entry.getKey());
+            if (existing instanceof NbtCompound existingCompound
+                    && entry.getValue() instanceof NbtCompound patchCompound) {
+                mergeTag(existingCompound, patchCompound);
+            } else {
+                target.put(entry.getKey(), entry.getValue());
+            }
+        }
+    }
+
+    /**
+     * 按切片段取子列表（两端都会夹到合法范围）。
+     *
+     * @param list  列表
+     * @param slice 切片
+     * @return 新的列表标签（元素是同一批标签对象）
+     */
+    private static NbtList sliceOf(NbtList list, Slice slice) {
+        int size = list.size();
+        int from = slice.start() == null ? 0 : Math.max(0, Math.min(size, slice.start()));
+        int to = slice.end() == null ? size : Math.max(0, Math.min(size, slice.end()));
+        NbtList result = new NbtList();
+        for (int i = from; i < to; i++) {
+            result.add(list.get(i));
+        }
+        return result;
+    }
+
+    /**
      * @return 段列表（{@code String} / {@code Integer} / {@link Filter} / {@link Slice}），只读
      */
     public List<Object> segments() {
@@ -321,96 +404,6 @@ public final class DataPath {
     }
 
     /**
-     * 走一遍路径的结果：要么拿到值，要么拿到"为什么拿不到"。
-     *
-     * @param value  值；失败时为 {@code null}
-     * @param reason 失败原因；成功时为 {@code null}
-     */
-    private record Walk(NbtTag value, String reason) {
-    }
-
-    /**
-     * 列出一层复合标签里有哪些键（报错用，字段名打错时最有用）。
-     *
-     * @param compound 复合标签
-     * @return 键清单（截断）
-     */
-    private static String presentKeys(NbtCompound compound) {
-        List<String> keys = new ArrayList<>(compound.values().keySet());
-        if (keys.isEmpty()) {
-            return "（一个都没有）";
-        }
-        if (keys.size() > MAX_PRESENT_VALUES) {
-            return String.join("、", keys.subList(0, MAX_PRESENT_VALUES)) + " …（共 " + keys.size() + " 个）";
-        }
-        return String.join("、", keys);
-    }
-
-    /**
-     * 过滤没命中时，列出这个键在列表里<b>实际出现过哪些值</b>（报错用）。
-     * <p>
-     * "没有命中"有两种原因：路径写错了，或者<b>你要找的那条根本不在列表里</b>
-     * （典型：身上还没有那个效果）。光说"没有命中"会让人以为是语法问题，
-     * 把现有取值报出来，一眼就能分辨。
-     *
-     * @param list 被过滤的列表
-     * @param key  过滤用的键
-     * @return 取值清单（去重、截断）
-     */
-    static String presentValues(NbtList list, String key) {
-        List<String> seen = new ArrayList<>();
-        for (NbtTag element : list.values()) {
-            if (!(element instanceof NbtCompound compound)) {
-                continue;
-            }
-            NbtTag value = compound.get(key);
-            if (value == null) {
-                continue;
-            }
-            String text = value.toSnbt();
-            if (!seen.contains(text)) {
-                seen.add(text);
-            }
-        }
-        if (seen.isEmpty()) {
-            return "元素里没有「" + key + "」这个键";
-        }
-        if (seen.size() > MAX_PRESENT_VALUES) {
-            return String.join("、", seen.subList(0, MAX_PRESENT_VALUES)) + " …（共 " + seen.size() + " 种）";
-        }
-        return String.join("、", seen);
-    }
-
-    /**
-     * 按过滤段挑元素：一个命中就是它本身，多个命中打包成列表，没有命中返回 {@code null}。
-     *
-     * @param list   列表
-     * @param filter 过滤条件
-     * @return 命中的元素 / 元素列表 / {@code null}
-     */
-    private static NbtTag filterOf(NbtList list, Filter filter) {
-        List<NbtTag> matched = new ArrayList<>();
-        for (NbtTag element : list.values()) {
-            if (element instanceof NbtCompound compound && filter.value().equals(compound.get(filter.key()))) {
-                matched.add(element);
-            }
-        }
-        if (matched.isEmpty()) {
-            return null;
-        }
-        if (matched.size() == 1) {
-            return matched.get(0);
-        }
-        NbtList result = new NbtList();
-        matched.forEach(result::add);
-        return result;
-    }
-
-    /* ------------------------------------------------------------------
-     * 在标签树上写（storage 用；实体那条路走 DataBridge 的活对象导航）
-     * ------------------------------------------------------------------ */
-
-    /**
      * 在标签树里写一个值。
      * <p>
      * 末段规则：键 → 覆盖/新建；下标 → 替换（等于 {@code size()} 就是追加）；
@@ -457,6 +450,10 @@ public final class DataPath {
         }
         compound.put(String.valueOf(last), value);
     }
+
+    /* ------------------------------------------------------------------
+     * 在标签树上写（storage 用；实体那条路走 DataBridge 的活对象导航）
+     * ------------------------------------------------------------------ */
 
     /**
      * 在标签树里合并一段补丁（路径指向的必须是复合标签；根路径就是根自己）。
@@ -567,38 +564,39 @@ public final class DataPath {
     }
 
     /**
-     * 递归合并：两边都是复合标签就往下合，否则整体替换。
+     * 列表过滤段：{@code [{k:v}]}。
      *
-     * @param target 目标复合标签
-     * @param patch  补丁
+     * @param key   要比的字段名
+     * @param value 期望的值
      */
-    private static void mergeTag(NbtCompound target, NbtCompound patch) {
-        for (Map.Entry<String, NbtTag> entry : patch.values().entrySet()) {
-            NbtTag existing = target.get(entry.getKey());
-            if (existing instanceof NbtCompound existingCompound
-                    && entry.getValue() instanceof NbtCompound patchCompound) {
-                mergeTag(existingCompound, patchCompound);
-            } else {
-                target.put(entry.getKey(), entry.getValue());
-            }
+    public record Filter(String key, NbtTag value) {
+
+        @Override
+        public String toString() {
+            return "{" + key + ":" + value.toSnbt() + "}";
         }
     }
 
     /**
-     * 按切片段取子列表（两端都会夹到合法范围）。
+     * 列表切片段：{@code [start:end]}（{@code null} 表示省略那一端）。
      *
-     * @param list  列表
-     * @param slice 切片
-     * @return 新的列表标签（元素是同一批标签对象）
+     * @param start 起始下标（含）；{@code null} 表示从头
+     * @param end   结束下标（不含）；{@code null} 表示到末尾
      */
-    private static NbtList sliceOf(NbtList list, Slice slice) {
-        int size = list.size();
-        int from = slice.start() == null ? 0 : Math.max(0, Math.min(size, slice.start()));
-        int to = slice.end() == null ? size : Math.max(0, Math.min(size, slice.end()));
-        NbtList result = new NbtList();
-        for (int i = from; i < to; i++) {
-            result.add(list.get(i));
+    public record Slice(Integer start, Integer end) {
+
+        @Override
+        public String toString() {
+            return "[" + (start == null ? "" : start) + ":" + (end == null ? "" : end) + "]";
         }
-        return result;
+    }
+
+    /**
+     * 走一遍路径的结果：要么拿到值，要么拿到"为什么拿不到"。
+     *
+     * @param value  值；失败时为 {@code null}
+     * @param reason 失败原因；成功时为 {@code null}
+     */
+    private record Walk(NbtTag value, String reason) {
     }
 }

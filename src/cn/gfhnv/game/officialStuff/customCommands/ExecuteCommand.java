@@ -127,52 +127,6 @@ public class ExecuteCommand extends Command {
     }
 
     /**
-     * 构建命令树：{@code execute as <目标> run <命令>}。
-     * <p>
-     * 一层一个变量地搭：{@code as} → {@code <目标>} → {@code run} → {@code <命令>}，
-     * 最内层的 {@code <命令>} 是贪婪字符串（吃掉 {@code run} 后面的整行），
-     * 由执行体再交给调度器解析，这样 {@code run} 后面写什么命令都不用在树里再描述一遍。
-     *
-     * @return 命令根节点
-     */
-    @Override
-    protected CommandNode buildNode() {
-        LiteralCommandNode root = node();
-
-        // 第一层只能用静态工厂建：literal() / argument() 是 ArgumentBuilder 的方法，
-        // 命令根节点（LiteralCommandNode）只有 addChild 这类节点方法。
-        ArgumentBuilder as = ArgumentBuilder.literalBuilder("as");
-        root.addChild(as);
-        ArgumentBuilder target = as.argument("目标", EntityArgumentType.entities());
-        ArgumentBuilder run = target.literal("run");
-        ArgumentBuilder inner = run.argument("命令", StringArgumentType.greedyString());
-        inner.executes(ExecuteCommand::runAs);
-
-        /* ---------------- if data（条件执行） ---------------- */
-        ArgumentBuilder ifBranch = ArgumentBuilder.literalBuilder("if");
-        root.addChild(ifBranch);
-        ArgumentBuilder ifData = ifBranch.literal("data");
-
-        // if data entity <目标> [路径] run <命令>
-        ArgumentBuilder ifEntity = ifData.literal("entity");
-        ArgumentBuilder ifTarget = ifEntity.argument("目标", EntityArgumentType.entities());
-        ArgumentBuilder ifNoPath = ifTarget.literal("run").argument("命令", StringArgumentType.greedyString());
-        ifNoPath.executes(ExecuteCommand::runIfEntity);
-        ArgumentBuilder ifPath = ifTarget.argument("路径", DataCommand::readPath);
-        ArgumentBuilder ifPathRun = ifPath.literal("run").argument("命令", StringArgumentType.greedyString());
-        ifPathRun.executes(ExecuteCommand::runIfEntity);
-
-        // if data storage <存储位> [路径] run <命令>
-        ArgumentBuilder ifStorage = ifData.literal("storage");
-        ArgumentBuilder ifStorageId = ifStorage.argument("存储位", WordArgumentType.word());
-        ArgumentBuilder ifStoragePath = ifStorageId.argument("路径", DataCommand::readPath);
-        ArgumentBuilder ifStorageRun = ifStoragePath.literal("run").argument("命令", StringArgumentType.greedyString());
-        ifStorageRun.executes(ExecuteCommand::runIfStorage);
-
-        return root;
-    }
-
-    /**
      * 执行 {@code if data entity …}：条件成立才跑内层命令。
      *
      * @param context 命令上下文
@@ -217,11 +171,11 @@ public class ExecuteCommand extends Command {
     /**
      * 条件成立就跑内层命令，不成立就什么都不做（返回 0）。
      *
-     * @param matched  条件是否成立
-     * @param what     条件描述（回显用）
-     * @param path     路径；{@code null} 表示"只看有没有这个目标"
-     * @param command  内层命令
-     * @param source   命令来源
+     * @param matched 条件是否成立
+     * @param what    条件描述（回显用）
+     * @param path    路径；{@code null} 表示"只看有没有这个目标"
+     * @param command 内层命令
+     * @param source  命令来源
      * @return 内层命令影响到的对象数；条件不成立返回 {@code 0}
      * @throws CommandSyntaxException 内层命令失败
      */
@@ -241,5 +195,51 @@ public class ExecuteCommand extends Command {
         } catch (CommandSyntaxException e) {
             throw CommandSyntaxException.create("条件成立后执行「" + brief(command) + "」失败：" + e.getRawMessage());
         }
+    }
+
+    /**
+     * 构建命令树：{@code execute as <目标> run <命令>}。
+     * <p>
+     * 一层一个变量地搭：{@code as} → {@code <目标>} → {@code run} → {@code <命令>}，
+     * 最内层的 {@code <命令>} 是贪婪字符串（吃掉 {@code run} 后面的整行），
+     * 由执行体再交给调度器解析，这样 {@code run} 后面写什么命令都不用在树里再描述一遍。
+     *
+     * @return 命令根节点
+     */
+    @Override
+    protected CommandNode buildNode() {
+        LiteralCommandNode root = node();
+
+        // 第一层只能用静态工厂建：literal() / argument() 是 ArgumentBuilder 的方法，
+        // 命令根节点（LiteralCommandNode）只有 addChild 这类节点方法。
+        ArgumentBuilder as = ArgumentBuilder.literalBuilder("as");
+        root.addChild(as);
+        ArgumentBuilder target = as.argument("目标", EntityArgumentType.entities());
+        ArgumentBuilder run = target.literal("run");
+        ArgumentBuilder inner = run.argument("命令", StringArgumentType.greedyString());
+        inner.executes(ExecuteCommand::runAs);
+
+        /* ---------------- if data（条件执行） ---------------- */
+        ArgumentBuilder ifBranch = ArgumentBuilder.literalBuilder("if");
+        root.addChild(ifBranch);
+        ArgumentBuilder ifData = ifBranch.literal("data");
+
+        // if data entity <目标> [路径] run <命令>
+        ArgumentBuilder ifEntity = ifData.literal("entity");
+        ArgumentBuilder ifTarget = ifEntity.argument("目标", EntityArgumentType.entities());
+        ArgumentBuilder ifNoPath = ifTarget.literal("run").argument("命令", StringArgumentType.greedyString());
+        ifNoPath.executes(ExecuteCommand::runIfEntity);
+        ArgumentBuilder ifPath = ifTarget.argument("路径", DataCommand::readPath);
+        ArgumentBuilder ifPathRun = ifPath.literal("run").argument("命令", StringArgumentType.greedyString());
+        ifPathRun.executes(ExecuteCommand::runIfEntity);
+
+        // if data storage <存储位> [路径] run <命令>
+        ArgumentBuilder ifStorage = ifData.literal("storage");
+        ArgumentBuilder ifStorageId = ifStorage.argument("存储位", WordArgumentType.word());
+        ArgumentBuilder ifStoragePath = ifStorageId.argument("路径", DataCommand::readPath);
+        ArgumentBuilder ifStorageRun = ifStoragePath.literal("run").argument("命令", StringArgumentType.greedyString());
+        ifStorageRun.executes(ExecuteCommand::runIfStorage);
+
+        return root;
     }
 }

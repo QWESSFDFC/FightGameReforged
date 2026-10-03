@@ -1,0 +1,9 @@
+{
+  "name": "李晓焰加强",
+  "author": "gfhnv（代码由 AI/DeepSeek 生成）",
+  "description": "特殊机制模组：提高李晓焰的【燃点】上限（默认 +5，可在 config/data/liXiaoYanPlus.json 里调）。",
+  "mainClass": "com.gfhnv.mods.liXiaoYanPlus.LiXiaoYanPlusMod",
+  "version": "1.0",
+  "modID": "liXiaoYanPlus",
+  "guide": "模组编写说明见仓库根目录的 MODDING-GUIDE.md；本模组演示「用游戏留出的扩展点改官方角色」，见该文档的 §7.1。"
+}

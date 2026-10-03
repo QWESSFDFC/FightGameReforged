@@ -3,7 +3,7 @@
 > 这份文档同时面向**人类开发者**和**AI 助手**：正文按"怎么做"组织，需要的精确签名、
 > 行号、坑与自检手段都写进去了；第 8 节是给 AI 的压缩版契约，可以直接整段丢给 AI 当上下文。
 >
-> - 适用版本：**Java 25 + 当前源码**（`src/cn/gfhnv`，182 个 java 文件）；
+> - 适用版本：**Java 25 + 当前源码**（`src/cn/gfhnv`，215 个 java 文件）；
 > - 本文与源码不一致时，**以源码为准**；
 > - 配套阅读：
 >   [`README.md`](README.md)（怎么玩、各个系统在哪）、
@@ -14,6 +14,8 @@
 >
 > 官方示例：`mods/exampleModByGFHNV/`、`mods/abstractLaunchingWords/`（只打印一行，最小骨架）。
 > 完整实战示例：**`mods/drunkenSword/`**（新角色 + 2 效果 + 2 物品 + 3 个技能，见第 7 节）。
+> 特殊机制示例：**`mods/liXiaoYanPlus/`**（不新增任何内容，只提高官方角色李晓焰的【燃点】上限，
+> 演示"用扩展点改官方机制"，见 §7.1）。
 
 ---
 
@@ -54,6 +56,15 @@ public class mainClass extends Mod {
 ```
 
 改完源码 → **重启游戏**（没有热重载）→ 控制台会打印加载结果。
+
+想给模组加"玩家可调的数值"（初始层数、技能门槛、掉落概率……）→ 见 **§4.7 模组配置**：
+主类上加 `@ModConfig(id = "myModId")`、`implements ModDataAware`，配置读 `config/data/myModId.json`。
+配置分组名的优先级是 **注解 > `MOD_ID`**（不写注解就用 `MOD_ID`；两者都没有就跳过这个模组的配置）。
+**模组不能自带配置文件**（第 11 条坑），接口是**可选**的，不实现就一切照旧。
+
+> ⚠️ **`config/gameConfig/EntityData.json` / `SkillData.json` 里没有你的内容**（2026-10-03 起）：
+> 那两份是**游戏自己**的配置，只装官方内容。你的实体与技能的数值走
+> **你自己的** `config/data/<配置分组名>.json`。理由与代价见 §4.7 的第二条警告。
 
 ---
 
@@ -347,11 +358,184 @@ public class MyListener {
 
 ---
 
+## 4.7 模组配置（可选，2026-10-03 新增）
+
+想让玩家能调你模组的数值（初始层数、技能门槛、掉落概率……），用**注解 + 可选接口**：
+
+```java
+package com.gfhnv.mods.drunkenSword;
+
+import cn.gfhnv.game.mod.Mod;
+import cn.gfhnv.game.mod.ModInformation;
+import cn.gfhnv.game.mod.config.ModConfig;
+import cn.gfhnv.game.mod.config.ModConfigDocument;
+import cn.gfhnv.game.mod.config.ModDataAware;
+
+@ModConfig(id = "drunkenSword")          // 优先级：注解 > MOD_ID；不写注解就退回 Mod.getMOD_ID()
+public class DrunkenSwordMod extends Mod implements ModDataAware {
+
+    /** 玩家在配置里写的初始【醉意】层数（读不到就是 2）。 */
+    private static int initialStacks = 2;
+
+    public DrunkenSwordMod(ModInformation info) { super("drunkenSword", info); }
+
+    /** 游戏在加载你的内容之前调用一次；没有配置文件时也会调用（文档是空的）。 */
+    @Override
+    public void applyConfig(ModConfigDocument cfg) {
+        initialStacks = cfg.getInt("initialStacks", 2);   // 路径用 / 分隔，读不到就返回默认值
+    }
+
+    @Override
+    public void invokeWhenLoaded() {
+        addEntity(new DrunkenSwordsman(CHARACTER_LEVEL, initialStacks));
+        // ……
+    }
+}
+```
+
+玩家在 `config/data/drunkenSword.json` 里这么写：
+
+```json
+{
+  "version": 1,
+  "common": {
+    "entities": { "game_official_content:flameReaver": { "derived": { "hpMax": 90000 } } },
+    "skills": { "game_official_content:flameReaver#灾厄-弑魂焚诏": { "coolDown": 5 } }
+  },
+  "drunkenSword": {
+    "initialStacks": 4,
+    "skills": { "frostSword": { "requiredStacks": 3 } }
+  }
+}
+```
+> ⚠️ `common` 段只支持 **`entities` + `skills`** 两段（格式分别与
+> `config/gameConfig/EntityData.json` / `SkillData.json` 一样）。
+> **规则段做不到**：写 `"formula"` / `"mana"` / `"flameReaver"` / `"insectBoss"` /
+> `"actorLiXiaoYan"` 会在控制台得到一句明确的"这一段改不了"，原因见 §4.7 末尾。
+
+> ⚠️ **模组内容不会进游戏自己的那两份配置文件**（2026-10-03 起，用户要求）：
+> `config/gameConfig/EntityData.json` 与 `SkillData.json` **只装官方内容**
+> （判据是"谁注册的"：`ConfigDefaultWriter.isOfficialContent`）。
+> 你注册的实体与它们的技能**不会**被自愈写进去 —— 那两份是**游戏自己**的配置，
+> 混进别人的东西会让"删了模组以后剩下没人认领的死配置"。
+> 你的数值走**你自己的** `config/data/<配置分组名>.json`（就是这一节讲的那条路）。
+> **代价说清楚**：游戏**不会**替你生成模组那一段的样例值，
+> 你的旋钮要写进你的文档 / README；游戏侧的 `/data get entity <你的完整id>` 也能看当前值。
+> 附带好处：**游戏仍会应用**你在 `common.entities` / `common.skills` 里给模组内容写的补丁
+> （补丁按 id 找模板，与"生成哪一份"无关），所以 `common` 段照旧能当"改模组默认值"的入口。
+
+### 配置分组名怎么定（优先级：**注解 > `MOD_ID`**）
+
+配置文件是 `config/data/<配置分组名>.json`，文件里属于你的那一段也叫 `<配置分组名>`。
+这个分组名由 `ConfigLoader.resolveModConfigId(Mod)` 一个地方决定（两个加载入口都调它，不会两处不一致）：
+
+| 模组主类上 | 用的分组名 | 说明 |
+|---|---|---|
+| `@ModConfig(id = "drunkenSword")` | `drunkenSword` | `id` 的**首尾空白会被去掉**；**即使与 `MOD_ID` 不同也以注解为准**（配置文件名跟注解走） |
+| `@ModConfig(id = "   ")`（只有空白） | `MOD_ID` | 空白串不算"写了分组名"，与没写注解一样退回 `MOD_ID` |
+| 没写注解 | `MOD_ID` | 现有模组走的就是这条，行为与"注解被读取"之前完全一样 |
+| 没写注解 + `MOD_ID` 是 `null`/空串 | —— | 这个模组**拿不到配置**：打印一行提示后跳过它（不抛异常、不影响别的模组），它的 `applyConfig` 也不会被调用 |
+
+这个注解是**真的被反射读的**（`ConfigLoader.resolveModConfigId(Mod)` 里那句 `mod.getClass().getAnnotation(ModConfig.class)`），
+不是文档性的注解 —— 它带 `@Retention(RUNTIME)` 正是为此；也因为它**没有** `@Inherited`，
+注解要写在主类**自己**头上（写在父类上游戏读不到）。
+
+### 规则（六条）
+
+| # | 规则 |
+|---|---|
+| 1 | **配置文件在游戏自己的 `config/data/<配置分组名>.json`**，分组名默认就是模组 id（`MOD_ID`），写了 `@ModConfig(id = …)` 就以注解为准（**注解 > `MOD_ID`**，见上表）。**模组不能自带配置文件**（第 11 条坑：类加载器的 URL 里根本没有你的目录）。 |
+| 2 | **接口是可选的**：不实现 `ModDataAware` 就完全不读配置，游戏只打印一行"跳过"，**不报错**。现有模组一个字都不用改。 |
+| 3 | **`common` 段是共享区**：它是"模组对官方数值的调整"，会被当成一层补丁打给官方内容（在 `config/gameConfig/EntityData.json` **之后**应用，所以后者胜）。格式与 `EntityData.json` 完全一样。 |
+| 4 | **你自己那一段的字段名由你定**：游戏不校验、不映射、出错也不报 —— 那是你的旋钮。游戏只保证"路径查找 + 缺失返回默认值"。 |
+| 5 | **读不到别的模组的分组**：`ModConfigDocument` 只暴露"你自己的分组 + `common/`"。模组之间的配置互相隔离。 |
+| 6 | **没有配置文件时照样调用 `applyConfig`**，文档是空的（所有 `getXxx(path, 默认值)` 都返回你给的默认值）。不用写"有没有文件"的分支；也**不要**因为没配置就跳过 `invokeWhenLoaded()`（那会让内容整个消失）。 |
+
+### `ModConfigDocument` 速查
+
+| 方法 | 说明 |
+|---|---|
+| `getInt` / `getLong` / `getDouble` / `getBoolean` / `getString` | `(路径, 默认值)`；**读不到或类型不对一律返回默认值**，不抛异常 |
+| `getStringList(路径, 默认值)` | 读 JSON 数组的字符串（非字符串元素被跳过） |
+| `has(路径)` | 用户到底写没写这个路径（能区分"写了 0"和"没写"） |
+| `section(路径)` | 取一个子对象（不存在时返回空文档，用起来不用判空） |
+
+**路径两种写法等价**：`"initialStacks"` 与 `"drunkenSword/initialStacks"`（文档的根**就是**你自己那一段）；
+`"common/xxx"` 从共享区找。路径用 `/` 分隔，越界/不存在都返回默认值。
+
+### 首次运行自动生成默认配置（可选，2026-10-03 新增）
+
+实现了 `ModDataAware` 的模组可以再实现一个**可选**方法，让游戏在**配置文件不存在**时
+自动生成一份可改的默认配置 —— 玩家第一次运行就有一份能照着改的文件，不用自己去猜格式：
+
+```java
+@Override
+public java.util.Map<String, Object> defaultConfig() {
+    java.util.Map<String, Object> own = new java.util.LinkedHashMap<>();
+    own.put("ignitionBonus", DEFAULT_IGNITION_BONUS);
+    return own;   // 游戏会包成 {"version":1,"<分组名>":{...}} 写进 config/data/<分组名>.json
+}
+```
+
+- **返回 `Map` 而不是 `org.json.JSONObject`** —— 模组不该为了声明两个默认值而依赖 `org.json`。
+- **只在文件不存在时写**；已存在的文件**一个字节都不动**（玩家改过的值不会被覆盖）。
+- **不实现这个方法**（或返回 `null`）= 不生成，行为与以前完全一样 —— **现有模组零改动**。
+- 想恢复出厂值：删掉那个文件、重启游戏，会按你声明的默认值再生成。
+- **写盘归加载器管**（建目录、UTF-8、报错口径），模组只负责"声明默认值" ——
+  否则每个模组都要自己拼路径、自己建目录、自己处理编码。
+- 抛异常只中断**你自己**的默认配置，游戏与其它模组照常运行（与 `applyConfig` 同一个口径）。
+
+### 时机
+
+```
+GameStartEvent
+  └─ 逐个模组：ConfigLoader.loadModData(这个模组)   ← 你的 applyConfig 在这里被调用
+       ├─ 先打 common 段（如果写了）
+       └─ 再 applyConfig(你自己的那一段)
+  └─ 紧接着：你的 invokeWhenLoaded() → registerItself()
+```
+
+**每个模组各自 `try/catch (Throwable)`**：你的 `applyConfig` 抛异常只会跳过**你自己**的配置，
+其它模组与游戏照常（这是刻意堵住的"一个模组出错 → 后面的模组全不加载"那条路）。
+
+### 官方数值也能改（走共享区）
+
+改官方**实体 / 技能**数值，用 `common` 段 —— 格式与 `config/gameConfig/` 下对应的文件一模一样：
+
+```json
+{
+  "common": {
+    "entities": { "game_official_content:insectBoss": { "derived": { "hpMax": 50000 } } },
+    "skills":   { "game_official_content:insectBoss#分裂": { "coolDown": 5 } }
+  }
+}
+```
+
+⚠️ `common.entities` 必须带 **`entities` 这一层**（少了它只会打印一行"缺少 `entities` 这一层"，不生效）；
+`common.skills` 同理要带 `skills` 这一层。
+⚠️ 两个模组改同一条时**后面的赢**（模组加载顺序来自 `listFiles()`，不可复现）—— 所以别两个模组改同一个键。
+
+**❌ 规则（`GameRules`）改不了 —— 这是硬限制，不是漏做**：
+
+```json
+{ "common": { "flameReaver": { "containerLimit": 8 } } }   ← 不生效
+```
+
+`GameRules` 在游戏启动的**第一步**（造任何实体之前）就读进内存并 `freeze()` 了，
+而模组配置是在那之后的 `GameStartEvent` 里加载的；而且很多使用点是
+`static final X = GameRules.getDouble(...)`（类加载时读一次），表要是能中途变值，
+行为就取决于"哪个类先被加载"，这种 bug 无法复现。
+所以写规则段时控制台会明确说一句「这一段改不了」并告诉你该去哪儿改（`config/gameConfig/GameRules.json`），
+**不会静默忽略**。
+
+---
+
 ## 5. 踩坑清单（症状 → 原因 → 做法）
 
 | # | 症状 | 原因 | 做法 |
 |---|---|---|---|
 | 1 | 选完角色立刻 `RuntimeException: 请重写此方法..类xxx` | 实体/技能/物品没重写 `copy()` | 每个内容类都写 `copy()` + 本类参数的拷贝构造器 |
+| 1b | 数值改了却没生效（尤其是"配置里改了、游戏里还是老数值"） | `copy()` 里写的是 `return new MySkill();` —— 那会**重新装一遍构造器里的出厂值**，所以复制出来的副本永远是新数值 | `copy()` 必须走本类的拷贝构造器（`return new MySkill(this);`），并且**拷贝构造器里要把你自己的每个字段都复制一遍** |
 | 2 | 一进战斗就 NPE，栈里有你的 `canUse` | 控制器用 `canUse(fight, owner, null)` 探路 | `canUse` 里不要解引用 `enemies` |
 | 3 | 每回合刷 `这里写效果具体内容........请重写这个方法` | `Effect` 子类没重写 `comeIntoEffect` | 重写它（哪怕空实现） |
 | 4 | 效果叠了两条 / 数值改了却像换了个效果 | `Effect.equals` 只看 id + origin + 是否无限 | 数值放 `level`；不要靠新字段区分 |
@@ -365,6 +549,7 @@ public class MyListener {
 | 12 | 想覆盖游戏里的类（让 `World` 变成自己的） | 类加载是父优先委托，游戏类永远优先 | 不支持；只能新增内容 |
 | 13 | 改了源码没生效 | 没有热重载 | 重启游戏 |
 | 14 | 加载失败，`logs/latest.log` 里什么都没有 | `ModLoader` 全程只用 `System.out/err`，不写 `LogWriter`（见 ANALYSIS-2026-08 §8.2-7） | 看控制台输出 |
+| 15 | 想改官方角色/官方机制的数值，反射硬改私有字段"能跑"但一升级就静默失效 | 私有字段名**不在任何契约里**（`MODDING-GUIDE.md` 只把构造器、setter、`copy()` 写成 API），改名后没有任何提示，`src` 的自测也管不到模组 | 走**扩展点链**（§7.1 的 `IModifyIgnitionMax` / `IModifyDamage` / `damageReductions` / `IDefenceIgnore`），或用 `config/data/<你的modid>.json` 的 `common` 段；确实没有链的机制，就在 `src/` 里照 §7.1 的形状加一条（默认值必须逐位不变） |
 
 **安全提醒**：模组源码是在**同一个 JVM、同一权限**下编译并立即执行的，没有沙箱
 （可以读写文件、联网、`System.exit`）。**安装模组 = 授予该模组与游戏同等的权限，请只加载你信得过的源码。**
@@ -431,6 +616,80 @@ $src  = $src.Replace('if (-not (Test-Path $root)) {', 'if ($false) {')
 
 ---
 
+## 7.1 特殊机制模组：改官方角色的数值 / 上限（`mods/liXiaoYanPlus/`「李晓焰加强」）
+
+> **这是 2026-10-03 新增的一条路**：不动 `src/`、不反射、不新增内容，
+> 只把游戏留出来的**扩展点链**挂上一个修正器。
+
+| 文件 | 内容 |
+|---|---|
+| `main.json` | 模组信息（`modID` = `liXiaoYanPlus`） |
+| `code/com/gfhnv/mods/liXiaoYanPlus/LiXiaoYanPlusMod.java` | 主类：登记一个【燃点】上限修正器 + 读自己的配置 |
+
+主类全文就三件事（照抄这个骨架）：
+
+```java
+@ModConfig(id = LiXiaoYanPlusMod.MOD_ID)
+public class LiXiaoYanPlusMod extends Mod implements ModDataAware {
+
+    public static final String MOD_ID = "liXiaoYanPlus";
+    public static final int DEFAULT_IGNITION_BONUS = 5;
+    private static int ignitionBonus = DEFAULT_IGNITION_BONUS;
+
+    public LiXiaoYanPlusMod(ModInformation modInfo) { super(MOD_ID, modInfo); }
+
+    /** 游戏在 invokeWhenLoaded() 之前调用；没有配置文件时也会调用（文档是空的）。 */
+    @Override
+    public void applyConfig(ModConfigDocument cfg) {
+        ignitionBonus = cfg.getInt("ignitionBonus", DEFAULT_IGNITION_BONUS);
+    }
+
+    /** 只登记一个修正器：不改任何内容，只把上限抬高。 */
+    @Override
+    public void invokeWhenLoaded() {
+        ActorLiXiaoYan.addIgnitionMaxModifier((baseMax, owner) -> Math.max(0, baseMax + ignitionBonus));
+    }
+}
+```
+
+玩家想调加成，在游戏自己的 `config/data/liXiaoYanPlus.json` 里写（**模组不能自带配置文件**）：
+
+```json
+{ "version": 1, "liXiaoYanPlus": { "ignitionBonus": 8 } }
+```
+
+### 现有扩展点速查
+
+| 想影响什么 | 挂哪里 | 语义 |
+|---|---|---|
+| **【燃点】上限**（李晓焰） | `ActorLiXiaoYan.addIgnitionMaxModifier(IModifyIgnitionMax)` | 每次读上限依次过链；链为空 = 出厂值。`int modifyIgnitionMax(int baseMax, LivingThing owner)` |
+| 受到的伤害 | `thing.addModifyDamage(IModifyDamage)` / `setModifyDamage(...)` | 同上，`long damageModify(long newHp, DamageEvent da)` |
+| 减伤百分比 | `thing.addDamageReduction(来源对象, 0.2)` | **按来源对象身份**覆盖、多个来源乘算；传 0 摘掉 |
+| 无视防御 | 让效果实现 `IDefenceIgnore` | 伤害计算只认接口，不认具体是哪个效果（`IDefenceIgnore` 的类注释就是这么写的） |
+| 官方实体 / 技能的数值 | `config/data/<你的modid>.json` 的 **`common` 段** | 见 §4.7；**`common` 支持 `entities` + `skills`**（2026-10-03 起 `skills` 真的生效了），**但改不了 `GameRules`**（那张表在开局就冻结了，写规则段会得到一句明确报错） |
+| **模组内容自己的数值** | **也是** `config/data/<你的modid>.json`，写在**你自己的分组**那一段 | ⚠️ **不会**出现在 `config/gameConfig/EntityData.json` / `SkillData.json` 里（那两份只装官方内容，2026-10-03 起）—— 见 §4.7 的第二条警告 |
+| 官方角色的**其它**机制（没有现成链的） | ❌ 做不到 | 只能反射硬改私有字段 —— 字段名不在任何契约里、改名即静默失效、自测覆盖不到。**要长期做就在 `src/` 里加一条链**（照 `IModifyIgnitionMax` 的形状），别用反射 |
+
+### 三条纪律
+
+1. **数值默认值必须逐位不变**：链为空时 `effectiveIgnitionMax()` 返回的就是基准上限，
+   所以"没人挂修正器"与"没有这个扩展点"完全等价。加扩展点时自测第一条就钉这个；
+2. **修正器必须是纯函数**：每次读上限都会被调一次（`getIgnitionMax()` 与 `setIgnition()` 都走它），
+   在里面改角色状态会变成"读一次改一次"；
+3. **`mods/` 不在自测编译范围内**（见 §6 的表格）：新加的扩展点要在 `src/` 里有断言，
+   模组自己那份只能靠 `javac` 单编一次 + 进游戏看控制台。
+
+> ⚠️ **别指望自愈会给你生成样例值**（2026-10-03 起）：`config/gameConfig/EntityData.json` /
+> `SkillData.json` 只装官方内容（`ConfigDefaultWriter.isOfficialContent` 按"谁注册的"判），
+> 模组实体与它们的技能从那两份里被排除了。**你模组自己的旋钮要在你的文档里写清楚**；
+> 想知道当前值可以进游戏敲 `/data get entity <你的完整id>`（例如
+> `drunkenSword:drunkenSwordsman`）。`common` 段仍然能改模组内容（补丁按 id 找模板）。
+
+**进游戏怎么确认生效**：选中李晓焰放任意技能，控制台会打印 `燃点层数:X/上限:Y`（`setShowSpecialMes`），
+上限那一栏就是加成之后的数。
+
+---
+
 ## 8. 给 AI 的压缩契约（可直接当上下文）
 
 **必须满足的硬性条件**
@@ -468,9 +727,17 @@ void comeToEffect(LivingThing user, Fight fight) / Item copy()
 new Mana(double amount, ElementSort)    // 不设置 consumedMana = 无消耗
 // 命令
 CommandManager.register(Command...)     // Command: protected CommandNode buildNode()
+// 模组配置（可选；见 §4.7）
+@ModConfig(id = "myModId") class MyMod extends Mod implements ModDataAware   // 分组名：注解 > MOD_ID
+void applyConfig(ModConfigDocument cfg)  // invokeWhenLoaded() 之前调用；没有配置文件时也会调用
+cfg.getInt/getLong/getDouble/getBoolean/getString("路径", 默认值) / cfg.has("路径") / cfg.section("路径")
+// 改官方机制的扩展点（见 §7.1）
+ActorLiXiaoYan.addIgnitionMaxModifier((baseMax, owner) -> baseMax + 5)   // 提高燃点上限
+thing.addModifyDamage(...) / thing.addDamageReduction(...) / 效果实现 IDefenceIgnore
 ```
 
-**不能做的事**：不能改 `src/` 里任何类；不能带资源文件/第三方 jar；不能覆盖游戏类；
+**不能做的事**：不能改 `src/` 里任何类（想影响官方内容，走上面那几个扩展点，
+或者 `config/data/<你的modid>.json` 的 `common` 段）；不能带资源文件/第三方 jar；不能覆盖游戏类；
 不能热重载（重启才生效）；不能假设有编译器可用（写完必须让用户实跑）。
 
 ---
@@ -486,6 +753,7 @@ CommandManager.register(Command...)     // Command: protected CommandNode buildN
 | 给 AI 的工作约定、框架坑、当前进度 | `TIPS_FOR_LLM.md`（**在 `.gitignore` 里，不随仓库发布**） |
 | 官方内容怎么写（角色/技能/效果/物品的完整实现） | `src/cn/gfhnv/game/officialStuff/` |
 | 官方命令怎么写 | `src/cn/gfhnv/game/officialStuff/customCommands/` |
+| **游戏自己的数值怎么调**（实体 / 技能 / 魔法数字） | [`README.md`](README.md) 的「数值怎么调」一节；设计文档 [`project_analyses/EXTERNAL-DATA-LOADING-2026-10.md`](project_analyses/EXTERNAL-DATA-LOADING-2026-10.md) |
 
 ---
 

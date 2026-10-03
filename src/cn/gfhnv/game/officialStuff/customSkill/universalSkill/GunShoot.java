@@ -20,10 +20,22 @@ public class GunShoot extends Skill {
         this.getTags().put(TagType.ATTACK, new Tag(5));
     }
 
+    /**
+     * 复制构造器。
+     * <p>
+     * {@link #copy()} 必须走这里，不能返回 {@code new GunShoot()}：那样会把倍率/冷却/消耗
+     * 全部还原成构造器里的出厂值，于是打在模板上的配置（{@code SkillData.json}）
+     * <b>永远传不到选人时复制出去的副本</b>。
+     *
+     * @param other 被复制的技能
+     */
+    public GunShoot(GunShoot other) {
+        super(other);
+    }
 
     @Override
     public Skill copy() {
-        return new GunShoot();
+        return new GunShoot(this);
     }
 
     @Override

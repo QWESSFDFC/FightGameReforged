@@ -56,11 +56,6 @@ public class LockedRite extends Effect {
         this.setNegative(true);
     }
 
-    @Override
-    public Effect copy() {
-        return new LockedRite(this);
-    }
-
     /**
      * 判断生物身上是否有【镣锁】。
      *
@@ -90,6 +85,11 @@ public class LockedRite extends Effect {
             return false;
         }
         return thing.getEntityEffectList().removeIf(effect -> effect instanceof LockedRite);
+    }
+
+    @Override
+    public Effect copy() {
+        return new LockedRite(this);
     }
 
     /**

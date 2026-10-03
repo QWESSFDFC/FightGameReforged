@@ -1,8 +1,13 @@
-中文:
-这是一个使用java编写的游戏.目前只有文字,大概能正常玩了?代码随便用,随便改.我是高中生,没时间.偶尔更新.编写此项目只是为了图一乐,发到Github上纯粹是闲的没事.目前没有使用java的相关游戏引擎,只是自己写东西,自娱自乐.......
-暂不接受 Pull Request。如果你有改进想法，请 fork 本仓库后自行修改，自由使用。我只想自己写点东西玩玩.
+作者自己写的介绍.
+如果看的力竭了,见谅.
+这是一个使用java编写的游戏.目前只有文字(添加了颜色),大概能正常玩了?
+代码随便用,随便改.我是高中生,没时间.偶尔更新.
+编写此项目只是为了图一乐,发到Github上纯粹是闲的没事.
+目前没有使用java的相关游戏引擎,只是自己写东西,自娱自乐.......
+暂不接受 Pull Request。如果你有改进想法，请 fork 本仓库后自行修改，自由使用。
+我只想自己写点东西玩玩.
 使用方法:直接运行.jar文件.可以自己编译或者下载Release中编译好的.但是Release中版本可能落后一点.
-我使用了AI(DeepSeek)写了部分代码.本项目的Javadoc都是ai写的，而且我没有核对，可能有问题.
+我使用了AI(DeepSeek)写了部分(2026.10.3,现在可以说是大部分由ai写,有些老代码是我写的,当然大概率被ai修改过)代码.本项目的Javadoc都是ai写的，而且我没有核对，可能有问题.
 其中命令系统（`system/command/` 与 `officialStuff/customCommands/` 和模组）的代码、Javadoc 与说明文档
 全部由 AI 编写，详见下面的命令系统一节与 `project_analyses/COMMAND-SYSTEM-2026-08.md`。
 ai代码具体标注
@@ -11,12 +16,15 @@ ai代码具体标注
 白厄第一版是我写的.ai改了bug
 李晓焰(这也是这个项目第一个复杂角色)是ai提供的设计,我写的,之后ai修了bug.
 技能也是我写的 
+配置加载,log也是ai写的
 AI代码里面好像都标注了(作者DeepSeek)
-思考系统（`system/thinkingSystem/`）也是 AI 写的，其中 `ThinkingControllerAI` 目前还没有任何生物在用，
+思考系统（`system/thinkingSystem/`）也是 AI 写的，其中 `ThinkingControllerAI` 目前还没有任何生物在用，因为效果不理想.
 实际生效的还是随机行动的 `UniversalController`。
 感觉ai编程太好使了!可以实现自己不会的东西.说起来,这个项目ai代码含量还挺高的.不过我个人感觉无所谓.很多有技术力的东西都是ai写的.我是根据玩过的游戏提出的需求,ai实现
+我懒得更新版本号,不影响使用.
+颜色显示,termux可以显示,cmd不行.Window terminal可以.
+本地实际上写了一个给ai看到知识库,开发规则和开发工具.大概规定了ai怎么写代码.没有上传到仓库.
 下面是使用AI写的README.md
-
 > 📌 说明：下面这一部分（到「许可证」为止）由 AI 通读**当前源码**后重写，
 > 依据是代码本身（v1.2.1，`src/` 下 149 个 .java 文件）。
 > 作者只会偶尔抽空核对，**如有出入请以源码为准**；项目结构一节还可能列漏文件夹。
@@ -67,6 +75,52 @@ AI代码里面好像都标注了(作者DeepSeek)
 4. 一局打完会问 `要不要再玩一局?`，输入 `yes` 继续、`no` 退出。
 
 任何时候都可以直接敲命令（见下一节），命令和上面的普通输入互不干扰。
+
+---
+
+## 🎛️ 数值怎么调
+
+**不用改代码**：数值都在 `config/gameConfig/` 下的三份 JSON 里。改完**重启游戏**生效（没有热重载）。
+**请在项目根目录启动游戏**（配置路径是相对工作目录的 `./config/...`）。
+
+| 文件 | 管什么 | 键长什么样 |
+|---|---|---|
+| `EntityData.json` | **实体数值**：血量 / 攻击 / 防御 / 速度 / 抗性 / 成长系数 / 五行法力成长 / 背包格数 | `{"entities": {"game_official_content:playerOne": {"base": {"speed": 200}}}}` |
+| `SkillData.json` | **技能数值**：三个倍率 / 目标数 / 冷却 / 消耗 / 阵营 / AI 权重 | `{"skills": {"game_official_content:playerOne#枪射击": {"atkMagnification": 10.0}}}` |
+| `GameRules.json` | **魔法数字与 BOSS 旋钮**：面板公式基座 / 初始法力基座 / 盗火行者（减伤层数、容器上限、完整容器概率……）/ 虫皇血量 / 李晓焰的燃点规则 | `{"flameReaver": {"completeContainerChance": 0.5}}` |
+| `EntityData.default.json` | 上面几份的**出厂值参考副本**（游戏**不读**它）—— 改乱了想对照"原来是多少"就看它 | — |
+| `config/data/<模组id>.json` | **模组配置**（没有这个文件时模组用代码里的默认值） | 见 `MODDING-GUIDE.md` 的 §4.7 |
+| `TagConfig.json` | AI 行为的 Tag 权重。⚠️ **目前对玩法零影响**（没有任何生物在用那套权重，见 `TIPS_FOR_LLM.md` §5.10） | — |
+| ~~`PropertyConfig.json`~~ | ⚠️ **已经不存在了**（2026-10 删掉：它本来就"已废弃、全项目零读取"）。今天 `config/gameConfig/` 里只有上面那几份，实体数值请写 `EntityData.json` | — |
+
+### 五条规则（很重要）
+
+1. **只改你写出来的键**：没写的键保持代码里的出厂值（**不是**清零、**不是**报错）。
+   所以你可以只写一行 `{"base": {"speed": 200}}`，其余一概不动。
+2. **写错一个键不会毁掉整份配置**：认不出的键 / 类型不对的项会被**跳过**，
+   控制台上逐条打印 `[配置跳过] 哪个文件、哪个键、为什么`，其余项照常生效。
+   （整份 JSON 语法坏了才会整份不生效，那种情况也只在控制台打印，游戏照常启动。）
+3. **删掉一个键 = 回到出厂值**；删掉整个文件 = 下次启动会重新生成一份全量默认值。
+   ⚠️ 生成器**只在文件缺失时写**，绝不覆盖你改过的文件。
+   （`EntityData.default.json` 是**导出物**：启动时它里面**没有实体**才会按当前注册表重写一份全量，
+   已经有内容就一个字节都不动 —— 所以"删掉它重启"拿到的是全量值，而不是以前那个 106 字节的空壳。）
+4. **想改的数值找不到键** → 直接看那份默认文件（它就是"当前全量默认值"），键名与 `/data get entity @s`
+   **是同一套名字**（`hpGrow` / `attackGrow` / `speed` / `fireResistance`……），
+   所以你可以先用 `/data get entity @s` 看到当前生效值，再把它抄进配置文件。
+5. **一个数有两个入口时，控制台会明确告诉你谁赢了**：`[配置提醒]` 那一行说的是
+   "两个文件都写了同一个血量，被构造之后打的那个补丁盖掉了"。**它不是错误**（键照样生效），
+   是提醒你别再改那个没生效的地方。今天只有盗火行者与虫皇的血量有这样的两个入口
+   （`GameRules.json` 的 `flameReaver.baseHpMax` / `insectBoss.baseHpMax`
+   ↔ `EntityData.json` 的 `derived.hpMax`，**后者赢**）。
+
+### 两条边界（不是 bug）
+
+- **配置只影响"注册表里的模板"**：选人时 `copy()` 出来的副本天然带着补丁值；
+  而**战斗中现场 `new` 出来的东西**（例如盗火行者召唤的残骸容器，它的血/攻是按召唤者现算的）
+  只受它自己那条规则影响，不受 `EntityData.json` 里 `brokenContainer` 模板的影响。
+- **改了 `GameRules.json` 的 `formula` / `mana` 两块等于重新标定**：
+  那几项是伤害与面板公式的骨架，`project_analyses/PROJECT-ANALYSIS-2026-09.md` §4.2
+  那套"每 1.0 倍率 ≈ 880 伤害"的换算常数是在现在的出厂值下测出来的，改完就全部作废。
 
 ---
 
@@ -305,10 +359,13 @@ build-output\FightGameReforged\FightGameReforged.exe
 
 ### 自带一份示例模组
 
-📁 `mods/` 下有两个可以直接参考的示例模组：
+📁 `mods/` 下有可以直接参考的示例模组：
 
 - `exampleModByGFHNV` —— 最小模组骨架（`Mod` 子类 + 调用另一个类的方法）；
-- `abstractLaunchingWords` —— 只重写 `invokeWhenLoaded()` 打印几行"抽象启动词"。
+- `abstractLaunchingWords` —— 只重写 `invokeWhenLoaded()` 打印几行"抽象启动词"；
+- `drunkenSword`（「醉剑仙」）—— 完整实战示例：新角色 + 2 效果 + 2 物品 + 3 技能；
+- `liXiaoYanPlus`（「李晓焰加强」）—— **特殊机制示例**：不新增内容，只提高官方角色李晓焰的【燃点】上限
+  （走游戏留出的扩展点，加成可在 `config/data/liXiaoYanPlus.json` 里调）。
 
 ---
 
@@ -391,6 +448,9 @@ public class mainClass extends Mod {
 【醉意】层数资源 + 2 个效果 + 2 件物品，全部内容都在 `invokeWhenLoaded()` 里注册。
 文件清单、数值与玩法见 [`MODDING-GUIDE.md`](MODDING-GUIDE.md) §7。
 
+想**改官方角色的数值/机制**（而不是新增内容），看 `mods/liXiaoYanPlus/`（「李晓焰加强」）与
+[`MODDING-GUIDE.md`](MODDING-GUIDE.md) **§7.1** 的"现有扩展点速查表"。
+
 > ⚠️ 模组的源码是在**同一个 JVM、同一权限**下编译并立刻执行的，没有沙箱
 > （可以读写文件、联网、`System.exit`）。**安装模组 = 授予该模组与游戏同等的权限，请只加载你信得过的源码。**
 
@@ -424,7 +484,7 @@ FightGameReforged/
 │   │   ├── skill/                # 技能基类（倍率 / 目标数 / 冷却 / 消耗 Mana / Tag）
 │   │   ├── system/               # 各类子系统（详见下方）
 │   │   │   ├── command/          # 命令系统（AI 编写：参数类型 / 选择器 / 命令树 / 调度器 / 补全）
-│   │   │   ├── configLoadingSystem/  # 读取 config/gameConfig/*.json，给实体注入 AI Tag 权重
+│   │   │   ├── configLoadingSystem/  # 读 config/gameConfig/*.json 与 config/data/*.json：实体数值 / 技能数值 / 游戏规则 / 模组配置
 │   │   │   ├── fight/            # Fight / TurnManager（时间轴）/ TurnEntry / ActionSignal
 │   │   │   ├── logSystem/        # LogWriter（日志滚动归档）
 │   │   │   ├── mana/             # 五行 Mana 资源
@@ -436,8 +496,11 @@ FightGameReforged/
 │   │   ├── utils/                # JSONHelper（org.json 薄封装）、ConsoleColor（ANSI 着色，不引第三方库）
 │   │   └── world/                # World：全局注册表（实体/物品/效果/模组/运行时对象）
 │   └── debug_tools/              # 调试与自测程序（不需要玩就能跑：命令系统自测、预期伤害试算、行动条实验）
-├── mods/                # 外部模组目录（两个示例模组 + 「醉剑仙」完整示例；各模组的 bin/ 是编译产物）
-├── config/gameConfig/   # TagConfig.json（AI Tag 权重）/ PropertyConfig.json
+├── mods/                # 外部模组目录（2 个示例骨架 + 「醉剑仙」完整示例 + 「李晓焰加强」特殊机制示例；各模组的 bin/ 是编译产物）
+├── config/gameConfig/   # EntityData.json（实体数值）/ SkillData.json（技能数值）/ GameRules.json（魔法数字与 BOSS 旋钮）
+│                        # + EntityData.default.json（出厂值参考副本，游戏不读）
+│                        # + TagConfig.json（AI Tag 权重，目前对玩法零影响）/ PropertyConfig.json（已废弃，见下方「数值怎么调」）
+├── config/data/         # 模组配置：<模组id>.json（**游戏只读不写**；没有这个文件时模组用代码里的默认值）
 ├── project_analyses/    # 分析文档与命令系统说明（当前基准：PROJECT-ANALYSIS-2026-09.md；其余为历史轮次）
 ├── screenshots/         # 运行截图
 ├── out/                 # javac/gradle 的临时输出（自测脚本用它）
@@ -461,9 +524,12 @@ FightGameReforged/
 | 事件有哪些、谁在监听 | `event/`、`eventListener/` |
 | 加载外部模组 | `mod/ModLoader.java`、`mod/Mod.java` |
 | 想写一个自己的模组 | `MODDING-GUIDE.md`（完整指南）、`mods/drunkenSword/`（可照抄的示例） |
+| 想改官方角色的数值 / 上限（特殊机制模组） | `MODDING-GUIDE.md` 的 §7.1、`mods/liXiaoYanPlus/` |
 | 命令怎么写 | `system/command/`、`officialStuff/customCommands/`、`project_analyses/COMMAND-SYSTEM-2026-08.md` |
 | NBT / 数据读写（`/data`） | `data/`（`NbtTag`/`Snbt`/`DataPath`/`DataBridge`）、`officialStuff/customCommands/DataCommand.java`、`TIPS_FOR_LLM.md` §5.10 |
 | AI 怎么做决策 | `system/thinkingSystem/`、`config/gameConfig/TagConfig.json` |
+| **数值怎么调（实体 / 技能 / 魔法数字）** | **`config/gameConfig/` 下的三份 JSON**，见下方「🎛️ 数值怎么调」 |
+| **模组怎么读配置** | `MODDING-GUIDE.md` 的 §4.7、`mod/config/`、`config/data/` |
 | 想给项目做体检 | `project_analyses/PROJECT-ANALYSIS-2026-09.md`（**当前基准**，含旧缺陷的逐条复核）；其余几份是历史轮次，注意看文档开头的时效说明 |
 | 想做 NBT / `/data` 命令 / 存档 | `project_analyses/NBT-AND-DATA-COMMAND-2026-09.md`（可行性分析，**尚未实现**） |
 
@@ -541,7 +607,7 @@ FightGameReforged/
 ### 顺手发现的小毛病（不影响玩，但改的时候别踩）
 
 - `Skill.use()` 两个重载设冷却的方式不一致：三参版是 `coolDown + 1`，两参版是 `coolDown`，同一个技能走哪条路结果会差 1 回合。
-- `debug_tools/TestAnticipateDamage` 的入口写成了 `static void main()`（缺 `public` 和 `String[] args`），**不能用 `java` 直接跑**；其它几个调试类没有这个问题。
+- ~~`debug_tools/TestAnticipateDamage` 的入口写成了 `static void main()`（缺 `public` 和 `String[] args`），**不能用 `java` 直接跑**~~ ✅ **2026-10-03 已按"删掉没有使用到的东西"整文件删除**（它零引用 + 入口本来也启动不了）；其它几个调试类没有这个问题。
 - 如果出现"双方都还有人、但时间轴排不出回合"的情况，回合循环会兜底 `break`——**不发 `FightEndEvent`**，此时 `fightInProgress` 仍为 `true`、本场监听器也没注销，再开一局理论上会有两个回合监听器同时在场。（代码注释自称"宁可少打一个回合也不要崩"。）
 
 ---

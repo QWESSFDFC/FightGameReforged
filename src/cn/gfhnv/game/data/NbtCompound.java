@@ -20,6 +20,21 @@ public final class NbtCompound extends NbtTag {
     private final Map<String, NbtTag> values = new LinkedHashMap<>();
 
     /**
+     * 键的文本形式：简单键不加引号（{@code hp}），带特殊字符的加引号。
+     *
+     * @param key 键
+     * @return 文本
+     */
+    private static String keyText(String key) {
+        boolean simple = !key.isEmpty();
+        for (int i = 0; i < key.length() && simple; i++) {
+            char c = key.charAt(i);
+            simple = Character.isLetterOrDigit(c) || c == '_' || c == '-' || c == '+' || c == '.';
+        }
+        return simple ? key : new NbtString(key).toSnbt();
+    }
+
+    /**
      * @param key   键
      * @param value 值；{@code null} 表示删除这个键
      * @return 当前复合标签（链式）
@@ -105,21 +120,6 @@ public final class NbtCompound extends NbtTag {
             builder.append(keyText(entry.getKey())).append(':').append(entry.getValue().toSnbt());
         }
         return builder.append('}').toString();
-    }
-
-    /**
-     * 键的文本形式：简单键不加引号（{@code hp}），带特殊字符的加引号。
-     *
-     * @param key 键
-     * @return 文本
-     */
-    private static String keyText(String key) {
-        boolean simple = !key.isEmpty();
-        for (int i = 0; i < key.length() && simple; i++) {
-            char c = key.charAt(i);
-            simple = Character.isLetterOrDigit(c) || c == '_' || c == '-' || c == '+' || c == '.';
-        }
-        return simple ? key : new NbtString(key).toSnbt();
     }
 
     @Override

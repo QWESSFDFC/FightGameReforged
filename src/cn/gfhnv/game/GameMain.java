@@ -14,6 +14,7 @@ import cn.gfhnv.game.mod.ModLoader;
 import cn.gfhnv.game.officialStuff.OfficialGameContent;
 import cn.gfhnv.game.system.command.CommandManager;
 import cn.gfhnv.game.system.configLoadingSystem.ConfigLoader;
+import cn.gfhnv.game.system.configLoadingSystem.ConfigOutput;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.fight.TurnManager;
 import cn.gfhnv.game.system.logSystem.LogWriter;
@@ -59,6 +60,10 @@ public class GameMain {
     private static boolean fightInProgress = false;
 
     public static void gameInitialize() {
+        // 游戏规则必须**第一个**加载，而且必须在任何实体被造出来之前：
+        // 很多规则使用点是 `private static final X = GameRules.getXxx(...)`，
+        // 也就是"那个类第一次被加载时读一次"。规则表加载完就冻结（见 ConfigLoader#loadGameRules）。
+        loadGameRules();
         World.addMod(new OfficialGameContent());
         ModLoader.modLoaderInitialize();
         EventBus.register(new GameStartEventListener());
@@ -66,14 +71,73 @@ public class GameMain {
         EventBus.register(new PhysicsEventListener());
         EventBus.register(new FightStartEventListener());
         EventBus.post(new GameStartEvent());
+        loadTagConfig();
+        // 实体数值补丁必须紧跟标签配置：这时官方内容与模组内容都已经注册完，
+        // 而玩家还没开始选人 —— 补丁打在注册表模板上，选人时 copy() 出来的副本天然带上它。
+        loadEntityDataConfig();
+        // 技能数值补丁同样打在模板的技能实例上（键 = 实体id#技能名），
+        // 副本的技能是 copy() 出来的，所以顺序必须在选人之前。
+        loadSkillDataConfig();
+        // 命令系统必须在内容加载完之后初始化：这样命令里引用的注册表（World）已经是完整的
+        CommandManager.initialize();
+        // 配置播报的收尾：把上面每一份配置的记账汇总成**一行总量**（默认静默，见 ConfigOutput）。
+        // 逐条明细在 verbose 模式下已经打过了，这一行就是"配置到底生没生效"的唯一判据。
+        ConfigOutput.printPatchSummary();
+    }
+
+    /**
+     * 加载游戏规则配置（{@code config/gameConfig/GameRules.json}）。
+     * <p>
+     * 与前几份配置各自独立 try/catch：其中一份坏掉，另外几份照常加载。
+     * 它必须排在 {@code new OfficialGameContent()} 之前 —— 实体类的静态常量在类加载时就取值。
+     */
+    private static void loadGameRules() {
         try {
-            System.out.println("加载配置中");
+            ConfigLoader.loadGameRules();
+        } catch (Exception e) {
+            ConfigOutput.problem("[配置错误] 游戏规则加载失败：" + e.getMessage());
+            LogWriter.writeLog("[配置错误] 游戏规则加载失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 加载标签配置。任何失败都只写日志，不让游戏起不来。
+     */
+    private static void loadTagConfig() {
+        try {
             ConfigLoader.loadConfig();
         } catch (Exception e) {
             LogWriter.writeLog(e.getMessage());
         }
-        // 命令系统必须在内容加载完之后初始化：这样命令里引用的注册表（World）已经是完整的
-        CommandManager.initialize();
+    }
+
+    /**
+     * 加载实体数值配置（{@code config/gameConfig/EntityData.json}）。
+     * <p>
+     * 与 {@link #loadTagConfig()} 各自独立 try/catch：其中一份配置坏掉，
+     * 另一份照常加载。
+     */
+    private static void loadEntityDataConfig() {
+        try {
+            ConfigLoader.loadEntityData();
+        } catch (Exception e) {
+            ConfigOutput.problem("[配置错误] 实体数值配置加载失败：" + e.getMessage());
+            LogWriter.writeLog("[配置错误] 实体数值配置加载失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 加载技能数值配置（{@code config/gameConfig/SkillData.json}）。
+     * <p>
+     * 与前两份配置各自独立 try/catch：其中一份坏掉，另外两份照常加载。
+     */
+    private static void loadSkillDataConfig() {
+        try {
+            ConfigLoader.loadSkillData();
+        } catch (Exception e) {
+            ConfigOutput.problem("[配置错误] 技能数值配置加载失败：" + e.getMessage());
+            LogWriter.writeLog("[配置错误] 技能数值配置加载失败：" + e.getMessage());
+        }
     }
 
     public static void main(String[] args) {
@@ -92,10 +156,10 @@ public class GameMain {
                 // 这一行是命令，已经执行过了，继续问「要不要再玩一局」
                 continue;
             }
-            if (input.equalsIgnoreCase("yes")||input.equalsIgnoreCase("y")) {
+            if (input.equalsIgnoreCase("yes") || input.equalsIgnoreCase("y")) {
                 GameMain.startAFight();
             }
-        } while (!input.equalsIgnoreCase("no")&&!input.equalsIgnoreCase("n")&&!input.equalsIgnoreCase("e")&&!input.equalsIgnoreCase("exit"));
+        } while (!input.equalsIgnoreCase("no") && !input.equalsIgnoreCase("n") && !input.equalsIgnoreCase("e") && !input.equalsIgnoreCase("exit"));
     }
 
     /**
@@ -158,10 +222,10 @@ public class GameMain {
             }
             while (true) {
                 input = readInput();
-                if (input.equalsIgnoreCase("quit")||input.equalsIgnoreCase("q")) {
+                if (input.equalsIgnoreCase("quit") || input.equalsIgnoreCase("q")) {
                     System.exit(0);
                 }
-                if (input.equalsIgnoreCase("next")||input.equalsIgnoreCase("n")) {
+                if (input.equalsIgnoreCase("next") || input.equalsIgnoreCase("n")) {
                     break;
                 }
                 try {
@@ -170,7 +234,7 @@ public class GameMain {
                     System.out.println(selectedLivingThing.getDescription());
                     while (true) {
                         input = readInput();
-                        if (input.equalsIgnoreCase("yes")||input.equalsIgnoreCase("y")) {
+                        if (input.equalsIgnoreCase("yes") || input.equalsIgnoreCase("y")) {
                             World.addThing(selectedLivingThing);
                             System.out.println("输入下一个数字或next/n");
                             fighters.add(selectedLivingThing);
@@ -179,7 +243,7 @@ public class GameMain {
 
                             break;
                         }
-                        if (input.equalsIgnoreCase("no")||input.equalsIgnoreCase("n")) {
+                        if (input.equalsIgnoreCase("no") || input.equalsIgnoreCase("n")) {
                             selectedLivingThing = null;
                             System.out.println("输入下一个数字或next/n");
                             break;
@@ -200,10 +264,10 @@ public class GameMain {
             }
             while (true) {
                 input = readInput();
-                if (input.equalsIgnoreCase("quit")||input.equalsIgnoreCase("q")) {
+                if (input.equalsIgnoreCase("quit") || input.equalsIgnoreCase("q")) {
                     System.exit(0);
                 }
-                if (input.equalsIgnoreCase("next")||input.equalsIgnoreCase("n")) {
+                if (input.equalsIgnoreCase("next") || input.equalsIgnoreCase("n")) {
                     break;
                 }
                 try {
@@ -212,13 +276,13 @@ public class GameMain {
                     System.out.println(selectedLivingThing.getDescription());
                     while (true) {
                         input = readInput();
-                        if (input.equalsIgnoreCase("yes")||input.equalsIgnoreCase("y")) {
+                        if (input.equalsIgnoreCase("yes") || input.equalsIgnoreCase("y")) {
                             World.addThing(selectedLivingThing);
                             enemies.add(selectedLivingThing);
                             System.out.println("输入下一个数字或next/n");
                             break;
                         }
-                        if (input.equalsIgnoreCase("no")||input.equalsIgnoreCase("n")) {
+                        if (input.equalsIgnoreCase("no") || input.equalsIgnoreCase("n")) {
                             selectedLivingThing = null;
                             System.out.println("输入下一个数字或next/n");
                             break;
@@ -240,10 +304,10 @@ public class GameMain {
             }
             while (true) {
                 input = readInput();
-                if (input.equalsIgnoreCase("quit")||input.equalsIgnoreCase("q")) {
+                if (input.equalsIgnoreCase("quit") || input.equalsIgnoreCase("q")) {
                     System.exit(0);
                 }
-                if (input.equalsIgnoreCase("next")||input.equalsIgnoreCase("n")) {
+                if (input.equalsIgnoreCase("next") || input.equalsIgnoreCase("n")) {
                     break;
                 }
                 try {
@@ -251,13 +315,13 @@ public class GameMain {
                     System.out.println(selectedItem.getDescription());
                     while (true) {
                         input = readInput();
-                        if (input.equalsIgnoreCase("yes")||input.equalsIgnoreCase("y")) {
+                        if (input.equalsIgnoreCase("yes") || input.equalsIgnoreCase("y")) {
                             World.addThing(selectedItem);
                             rewards.add(selectedItem);
                             System.out.println("输入下一个数字或next/n");
                             break;
                         }
-                        if (input.equalsIgnoreCase("no")||input.equalsIgnoreCase("n")) {
+                        if (input.equalsIgnoreCase("no") || input.equalsIgnoreCase("n")) {
                             selectedItem = null;
                             System.out.println("输入下一个数字或next/n");
                             break;

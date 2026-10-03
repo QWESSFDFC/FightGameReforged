@@ -17,6 +17,7 @@ import cn.gfhnv.game.officialStuff.customEntity.players.PlayerOne;
 import cn.gfhnv.game.officialStuff.customEntity.summons.BrokenContainer;
 import cn.gfhnv.game.officialStuff.customItem.ANiceSword;
 import cn.gfhnv.game.officialStuff.customItem.potions.*;
+import cn.gfhnv.game.officialStuff.customSkill.phainonSkills.awakenSkills.*;
 import cn.gfhnv.game.world.World;
 
 /**
@@ -53,13 +54,26 @@ public class OfficialGameContent extends Mod {
         this.addEntity(new InsectBoss(150));
         this.addEntity(new CommonInsect(150L));
         this.addEntity(new IceInsect(150));
-        this.addEntity(new Phainon(125));
+        Phainon phainon = new Phainon(125);
+        this.addEntity(phainon);
         // 盗火行者（剧情 BOSS）与其召唤物【残破容器】。容器虽然由 BOSS 现场 new 出来，
         // 也要注册：Fight#addEnemy 会按 id 把短 id 补成完整注册 id。
         this.addEntity(new FlameReaver(150));
         this.addEntity(new BrokenContainer(new FlameReaver(150)));
         // 完整容器是同一个类的另一种"种类"（见 BrokenContainer.Kind）
         this.addEntity(new BrokenContainer(new FlameReaver(150), BrokenContainer.Kind.COMPLETE));
+
+        // 白厄的 5 个觉醒技能：它们由大招（UltimateAttack）在变身那一刻现场造出来，
+        // 平时不在任何控制器里，配置层沿"实体 → 控制器 → 技能"看不到它们。
+        // 登记成"挂在白厄名下"的原型之后：
+        //   ① SkillData.json 里出现 game_official_content:phainon#支柱-死星天裁 这样的键；
+        //   ② 运行时改成 World#prototypeCopyOf(X.class)（= 原型.copy()），配置才跟着副本走。
+        // 归属必须写（第二个参数），否则这些键不知道该挂在谁下面。
+        this.addSkill(phainon, new AwakenCommonAttack());
+        this.addSkill(phainon, new CalamitySoulscorchEdict());
+        this.addSkill(phainon, new FoundationStardeathVerdict());
+        this.addSkill(phainon, new Counterattack());
+        this.addSkill(phainon, new LastAttack());
 
         // 通用效果：任意生物都能获得，/effect 命令可用
         this.addEffect(new DamageEnhanceEffect());

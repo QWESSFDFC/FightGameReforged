@@ -63,27 +63,6 @@ public class Erosion extends Effect {
         this.setNegative(true);
     }
 
-    @Override
-    public Effect copy() {
-        return new Erosion(this);
-    }
-
-    /**
-     * @return 每回合按已损失生命值扣除的比例
-     */
-    public double getRate() {
-        return rate;
-    }
-
-    /**
-     * 设置扣除比例。
-     *
-     * @param rate 每回合按已损失生命值扣除的比例
-     */
-    public void setRate(double rate) {
-        this.rate = rate;
-    }
-
     /**
      * 取出目标身上的【侵蚀】（没有就返回 {@code null}）。
      *
@@ -138,6 +117,27 @@ public class Erosion extends Effect {
         return applied == null ? fresh : applied;
     }
 
+    @Override
+    public Effect copy() {
+        return new Erosion(this);
+    }
+
+    /**
+     * @return 每回合按已损失生命值扣除的比例
+     */
+    public double getRate() {
+        return rate;
+    }
+
+    /**
+     * 设置扣除比例。
+     *
+     * @param rate 每回合按已损失生命值扣除的比例
+     */
+    public void setRate(double rate) {
+        this.rate = rate;
+    }
+
     /**
      * 每回合结算一次侵蚀伤害。
      * <p>
@@ -162,9 +162,11 @@ public class Erosion extends Effect {
         long oldHp = thing.getHp();
         long newHp = Math.max(1, oldHp - damage);
         thing.setHp(newHp);
-        // 与普通攻击行同一套格式：`【侵蚀】<目标>（阵营）  -实际掉血  → HP 当前/上限`
-        // 掉血要按"实际值"打（被"至少留 1 点"夹住时，想扣的和真扣的不一样）
-        System.out.println(ConsoleColor.magenta("【侵蚀】") + thing.getNameWithSide() + "  "
+        // 与普通攻击行同一套格式：`【侵蚀】<目标>#短标识（阵营）  -实际掉血  → HP 当前/上限`
+        // 掉血要按"实际值"打（被"至少留 1 点"夹住时，想扣的和真扣的不一样）。
+        // 短标识与阵营都照回合头（LivingThing#getNameWithUuidAndSide）：侵蚀会同时挂在多只同名容器上，
+        // 光靠阵营分不出是哪一只在掉血。
+        System.out.println(ConsoleColor.magenta("【侵蚀】") + thing.getNameWithUuidAndSide() + "  "
                 + ConsoleColor.red("-" + (oldHp - newHp)) + "  "
                 + ConsoleColor.dim("→ HP " + thing.getHp() + "/" + thing.getHpMax()));
     }

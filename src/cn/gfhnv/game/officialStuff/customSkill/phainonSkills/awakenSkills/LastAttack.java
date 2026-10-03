@@ -22,6 +22,19 @@ public class LastAttack extends Skill {
         this.getTags().put(TagType.ATTACK, new Tag(1));
     }
 
+    /**
+     * 复制构造器。
+     * <p>
+     * {@link #copy()} 必须走这里，不能返回 {@code new LastAttack()}：那样会把倍率/冷却/消耗
+     * 还原成构造器里的出厂值，于是打在模板上的配置（{@code SkillData.json}）
+     * <b>永远传不到选人时复制出去的副本</b>。
+     *
+     * @param other 被复制的技能
+     */
+    public LastAttack(LastAttack other) {
+        super(other);
+    }
+
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         if (user instanceof Phainon phainon) {
@@ -47,6 +60,6 @@ public class LastAttack extends Skill {
 
     @Override
     public Skill copy() {
-        return new LastAttack();
+        return new LastAttack(this);
     }
 }

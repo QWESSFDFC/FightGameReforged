@@ -2,7 +2,9 @@ package cn.gfhnv.game.mod;
 
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.Entity;
+import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.item.Item;
+import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.world.World;
 
 import java.util.ArrayList;
@@ -23,7 +25,7 @@ import java.util.Objects;
  * <p>
  * <b>注意事项</b>：
  * <ul>
- *     <li>推荐在 {@link #invokeWhenLoaded()} 中通过 {@link #addItem(Item)}、{@link #addEntity(cn.gfhnv.game.entity.Entity)}、{@link #addEffect(cn.gfhnv.game.effect.Effect)} 添加内容，
+ *     <li>推荐在 {@link #invokeWhenLoaded()} 中通过 {@link #addItem(Item)}、{@link #addEntity(cn.gfhnv.game.entity.Entity)}、{@link #addEffect(cn.gfhnv.game.effect.Effect)}、{@link #addSkill(Skill)} 添加内容，
  *     再调用 {@link #registerItself()} 注册到游戏全局注册表（不推荐像官方内容 {@code OfficialGameContent} 那样在构造器中直接注册）；</li>
  *     <li>如 MOD_ID 非 {@code null}，通过上述 add 方法添加的内容会自动加上 {@code MOD_ID:} 前缀，避免内容 ID 冲突。</li>
  * </ul>
@@ -37,6 +39,7 @@ public abstract class Mod {
     private List<Entity> entityList = new ArrayList<>();//模组各个内容先在invokeWhenLoaded方法中添加到模组的各个List中.不要弄错了List类型
     private List<Item> items = new ArrayList<>();
     private List<Effect> effects = new ArrayList<>();
+    private List<Skill> skills = new ArrayList<>();
 
     /**
      * 构造一个模组。此构造器不会为内容自动添加 {@code MOD_ID} 前缀。
@@ -148,6 +151,61 @@ public abstract class Mod {
     }
 
     /**
+     * @return 模组登记的技能原型列表
+     */
+    public List<Skill> getSkills() {
+        return skills;
+    }
+
+    /**
+     * 向模组登记一个技能原型（{@link Skill}）。
+     * <p>
+     * 用途只有一个：<b>让"不在任何实体控制器里"的技能也能被配置到</b>。
+     * 最典型的是白厄那 5 个觉醒技能 —— 它们是 {@code UltimateAttack} 出手时
+     * {@code new} 出来的，配置层沿"实体 → 控制器 → 技能"看不到它们，
+     * 登记成原型之后运行时改成 {@link World#prototypeCopyOf(Class)} 就能带上配置。
+     * <p>
+     * <b>id 口径（与 {@link #addEntity(Entity)} / {@link #addItem(Item)} / {@link #addEffect(Effect)} 同一套）</b>：
+     * 技能类<b>显式写的 id 优先</b>（{@code setId("liXiaoYanCommonAttack")}），
+     * 没写就<b>按类名派生</b>（类名首字母小写），最后加 {@code MOD_ID:} 前缀。
+     * 派生出来的 id 与<b>另一个类</b>撞了会<b>直接抛异常</b>（fail loud）——
+     * 那是在提醒作者写显式 id，不要改成静默去重。
+     *
+     * @param skill 技能原型
+     * @throws IllegalStateException 派生 / 显式 id 与另一个类撞名
+     */
+    public void addSkill(Skill skill) {
+        // 撞名账本就是"本模组已经登记的那批"：完整 id = MOD_ID:短id，
+        // 所以唯一性只需要在这个模组内部成立（两个模组各有一个 commonAttack 不算撞）
+        World.assignSkillId(skill, MOD_ID, skills);
+        skills.add(skill);
+    }
+
+    /**
+     * 向模组登记一个<b>归属某只实体模板</b>的技能原型。
+     * <p>
+     * 与 {@link #addSkill(Skill)} 只差一条：原型不在控制器里，配置的键
+     * （{@code <实体完整id>#<技能名>}）就只能靠这条归属关系定位到它。
+     * 所以"白厄的觉醒技能"要这么写（{@code owner} = 白厄模板）。
+     *
+     * @param owner 归属的实体模板
+     * @param skill 技能原型
+     */
+    public void addSkill(LivingThing owner, Skill skill) {
+        addSkill(skill);
+        World.bindSkillOwner(skill, owner);
+    }
+
+    /**
+     * 从模组中移除一个技能原型。
+     *
+     * @param skill 技能原型
+     */
+    public void removeSkill(Skill skill) {
+        skills.remove(skill);
+    }
+
+    /**
      * 向模组注册一个物品。若 MOD_ID 非 {@code null}，物品 id 会被自动加上 {@code MOD_ID:} 前缀。
      *
      * @param item 要注册的物品
@@ -222,9 +280,10 @@ public abstract class Mod {
     }
 
     /**
-     * 将模组内已收集的内容（物品、实体、效果）注册到游戏全局注册表
+     * 将模组内已收集的内容（物品、实体、效果、技能原型）注册到游戏全局注册表
      * （{@link cn.gfhnv.game.world.World#getItemList()}、{@link cn.gfhnv.game.world.World#getEntityList()}、
-     * {@link cn.gfhnv.game.world.World#getEffectList()}）。
+     * {@link cn.gfhnv.game.world.World#getEffectList()}、
+     * {@link cn.gfhnv.game.world.World#getSkillList()}）。
      * <p>
      * 重复的内容不会被重复注册。此方法通常在 {@link #invokeWhenLoaded()} 之后由框架调用。
      */
@@ -248,6 +307,12 @@ public abstract class Mod {
                 if (!World.getEffectList().contains(m)) {
                     World.addEffect(m);
                 }
+            }
+        }
+        if (!skills.isEmpty()) {
+            for (Skill m : skills) {
+                // 入表只在这里做；id 已经在 addSkill 里落好了（前缀 + 撞名检查）
+                World.addSkill(m);
             }
         }
     }

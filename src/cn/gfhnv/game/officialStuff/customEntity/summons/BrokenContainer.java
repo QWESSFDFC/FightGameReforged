@@ -10,6 +10,8 @@ import cn.gfhnv.game.officialStuff.customSkill.flameReaverSkills.SacrificeCloudO
 import cn.gfhnv.game.officialStuff.customSkill.flameReaverSkills.SacrificeFateDrawsNear;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
+import cn.gfhnv.game.system.configLoadingSystem.DataKeys;
+import cn.gfhnv.game.system.configLoadingSystem.GameRules;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.mana.Mana;
 
@@ -68,6 +70,88 @@ public class BrokenContainer extends LivingThing {
      * 最后一次攻击它的生物（用来判断"完整容器被谁击杀"）。
      */
     private LivingThing lastAttacker;
+    /**
+     * 是否已经被 BOSS 吸收（吸收而死不算"被玩家消灭"，不掉减伤层数）。
+     */
+    private boolean absorbed = false;
+    /**
+     * 死亡是否已经通知过 BOSS（回合循环的离场钩子只会调一次，这里再兜一层防重复结算）。
+     */
+    private boolean deathNotified = false;
+    /**
+     * 召唤它时盗火行者消耗掉的生命值（官方：【苦痛缠绕】的记账单位）。
+     * <p>
+     * 被吸收时按这笔账回血，而不是按容器的最大生命 —— 两者不一定相等
+     * （召唤代价是 BOSS 最大生命的固定比例，容器生命是另一个比例）。
+     */
+    private long painCost = 0;
+    /**
+     * 共祭这一轮"一同攻击"的<b>共同目标</b>，由
+     * {@code FlameReaver#absorbSacrificedContainers} 在让容器出手前临时设置、出手后清掉。
+     * <p>
+     * 为什么需要它：容器的招式是"用自己的控制器出手"的，目标也就由控制器随机挑 ——
+     * 结果同一轮共祭里几只容器各打各的（实测日志里同一轮出现好几个不同目标）。
+     * 官方是"与盗火行者<b>一同</b>施放"，所以改成 BOSS 选一次目标、容器照打
+     * （技能侧看 {@code FlameReaverSkill#jointTargetsOr}）。
+     * 这是运行时状态，不进拷贝构造器。
+     */
+    private List<LivingThing> jointTargets;
+
+    /**
+     * 召唤构造器：按盗火行者的等级与"容器系数"生成一只【残破容器】。
+     * <p>
+     * 容器系数：生命 = BOSS 最大生命的 {@code flameReaver.containerHpRatio}，攻击 = BOSS 攻击的 {@code flameReaver.containerAttackRatio}。
+     *
+     * @param owner 召唤它的盗火行者
+     */
+    public BrokenContainer(FlameReaver owner) {
+        this(owner, Kind.BROKEN);
+    }
+
+    /**
+     * 召唤构造器（可指定种类）。
+     *
+     * @param owner 召唤它的盗火行者
+     * @param kind  容器种类
+     */
+    public BrokenContainer(FlameReaver owner, Kind kind) {
+        super(kind.displayName(), kind.id(), 0.2, 0.2, 0.2, 0.2, 0.2,
+                120, owner.getLevel(), "summon", 4, 6, 3, ElementSort.FIRE);
+        this.owner = owner;
+        this.kind = kind;
+        this.setDescription(kind == Kind.COMPLETE
+                ? "自无穷灾难中倒映的残像，比寻常残破容器更完整、也更难击碎。"
+                : "自无穷灾难中倒映的残像，皆是寄宿着破坏意志的祸端。");
+        // 血量与攻击按盗火行者的数值折算（基础构造器给的是成长公式的默认值）
+        double hpRatio = kind == Kind.COMPLETE ? completeHpRatio() : hpRatio();
+        this.setHpMax((long) (owner.getHpMax() * hpRatio));
+        this.setHp(this.getHpMax());
+        this.setAttack((long) (owner.getAttack() * attackRatio()));
+        List<Skill> skills = new ArrayList<>();
+        // 共祭容器自己有招：与 BOSS 一同出手时由它的控制器释放（见 相混的道途 / 分离的哀痛）
+        skills.add(new SacrificeCloudOfDeath());
+        skills.add(new SacrificeFateDrawsNear());
+        this.setController(new FixOrderController(skills, this));
+    }
+
+    /**
+     * 复制构造器。
+     * <p>
+     * {@code owner} 没法复制（副本的召唤者可能是别人），这里保留<b>同一个</b>召唤者引用：
+     * 容器是被 BOSS 现场 {@code new} 出来的，不参与注册表模板复制。
+     *
+     * @param other 被复制的容器
+     */
+    public BrokenContainer(BrokenContainer other) {
+        super(other);
+        this.owner = other.owner;
+        this.kind = other.kind;
+        this.absorbed = other.absorbed;
+        this.deathNotified = other.deathNotified;
+        this.painCost = other.painCost;
+        this.alive = other.alive;
+        this.lastAttacker = other.lastAttacker;
+    }
 
     /**
      * 是否处于【共祭】状态。
@@ -119,6 +203,57 @@ public class BrokenContainer extends LivingThing {
     }
 
     /**
+     * 容器的生命上限占盗火行者最大生命的比例。
+     * <p>
+     * 容器太脆的话"吸收"永远来不及发生（玩家一个多目标技能就清场），
+     * 苦痛缠绕的账本也就形同虚设；太厚又会让清场变成负担。
+     * <p>
+     * 15%（2026-09 用户要求"容器本体加强"时从 12% 提到这里）：
+     * 取消召唤上限之后容器会越积越多，单只更耐打一点，玩家的多目标技能就"清不完"，
+     * 必须专门分火力去打 —— 这样"清场"才是一个要做的决策，而不是顺手就清掉了。
+     * 80000 血的 BOSS 下 = 12000 血。
+     * <p>
+     * <b>每次构造读一次</b>（刻意用方法而不是 {@code static final}：静态常量在"类第一次被加载"时取值，
+     * 而类的加载时机不受配置文件控制，那样会让配置静默失效）。
+     * 配置键 {@code flameReaver.containerHpRatio}，出厂值
+     * {@value cn.gfhnv.game.system.configLoadingSystem.RuleDefaults#FLAME_REAVER_CONTAINER_HP_RATIO}。
+     *
+     * @return 生命比例
+     */
+    public static double hpRatio() {
+        return GameRules.getDouble(DataKeys.Rule.FlameReaver.CONTAINER_HP_RATIO);
+    }
+
+    /**
+     * 容器的攻击占盗火行者攻击的比例。
+     * <p>
+     * 30% → <b>40%</b>（2026-09 用户要求"容器本体加强"）。
+     * 注意容器的输出走的是【共祭 · 亡死的黑云】/【共祭 · 将尽的命数】，
+     * 那两个技能的倍率本身只有 0.1×，所以这里提到 40% 之后单次仍然很轻
+     * （≈ BOSS 攻击的 4%），真正的压力来自"容器多了以后每轮一起打"。
+     * <p>
+     * 配置键 {@code flameReaver.containerAttackRatio}，出厂值
+     * {@value cn.gfhnv.game.system.configLoadingSystem.RuleDefaults#FLAME_REAVER_CONTAINER_ATTACK_RATIO}。
+     *
+     * @return 攻击比例
+     */
+    public static double attackRatio() {
+        return GameRules.getDouble(DataKeys.Rule.FlameReaver.CONTAINER_ATTACK_RATIO);
+    }
+
+    /**
+     * 【完整容器】的生命占盗火行者最大生命的比例（比残破容器厚得多，所以更难清掉）。
+     * <p>
+     * 配置键 {@code flameReaver.completeContainerHpRatio}，出厂值
+     * {@value cn.gfhnv.game.system.configLoadingSystem.RuleDefaults#FLAME_REAVER_COMPLETE_CONTAINER_HP_RATIO}。
+     *
+     * @return 完整容器的生命比例
+     */
+    public static double completeHpRatio() {
+        return GameRules.getDouble(DataKeys.Rule.FlameReaver.COMPLETE_CONTAINER_HP_RATIO);
+    }
+
+    /**
      * @return 是否处于【共祭】状态
      */
     public boolean isSacrifice() {
@@ -163,160 +298,6 @@ public class BrokenContainer extends LivingThing {
         }
         getEntityEffectList().add(rite);
         rite.initialEffect(this);
-    }
-
-    /**
-     * 是否已经被 BOSS 吸收（吸收而死不算"被玩家消灭"，不掉减伤层数）。
-     */
-    private boolean absorbed = false;
-
-    /**
-     * 死亡是否已经通知过 BOSS（回合循环的离场钩子只会调一次，这里再兜一层防重复结算）。
-     */
-    private boolean deathNotified = false;
-
-    /**
-     * 召唤它时盗火行者消耗掉的生命值（官方：【苦痛缠绕】的记账单位）。
-     * <p>
-     * 被吸收时按这笔账回血，而不是按容器的最大生命 —— 两者不一定相等
-     * （召唤代价是 BOSS 最大生命的固定比例，容器生命是另一个比例）。
-     */
-    private long painCost = 0;
-
-    /**
-     * 共祭这一轮"一同攻击"的<b>共同目标</b>，由
-     * {@code FlameReaver#absorbSacrificedContainers} 在让容器出手前临时设置、出手后清掉。
-     * <p>
-     * 为什么需要它：容器的招式是"用自己的控制器出手"的，目标也就由控制器随机挑 ——
-     * 结果同一轮共祭里几只容器各打各的（实测日志里同一轮出现好几个不同目标）。
-     * 官方是"与盗火行者<b>一同</b>施放"，所以改成 BOSS 选一次目标、容器照打
-     * （技能侧看 {@code FlameReaverSkill#jointTargetsOr}）。
-     * 这是运行时状态，不进拷贝构造器。
-     */
-    private List<LivingThing> jointTargets;
-
-    /**
-     * 容器的生命上限占盗火行者最大生命的比例。
-     * <p>
-     * 容器太脆的话"吸收"永远来不及发生（玩家一个多目标技能就清场），
-     * 苦痛缠绕的账本也就形同虚设；太厚又会让清场变成负担。
-     * <p>
-     * 15%（2026-09 用户要求"容器本体加强"时从 12% 提到这里）：
-     * 取消召唤上限之后容器会越积越多，单只更耐打一点，玩家的多目标技能就"清不完"，
-     * 必须专门分火力去打 —— 这样"清场"才是一个要做的决策，而不是顺手就清掉了。
-     * 80000 血的 BOSS 下 = 12000 血。
-     */
-    public static final double HP_RATIO = 0.15;
-
-    /**
-     * 容器的攻击占盗火行者攻击的比例。
-     * <p>
-     * 30% → <b>40%</b>（2026-09 用户要求"容器本体加强"）。
-     * 注意容器的输出走的是【共祭 · 亡死的黑云】/【共祭 · 将尽的命数】，
-     * 那两个技能的倍率本身只有 0.1×，所以这里提到 40% 之后单次仍然很轻
-     * （≈ BOSS 攻击的 4%），真正的压力来自"容器多了以后每轮一起打"。
-     */
-    public static final double ATTACK_RATIO = 0.4;
-
-    /**
-     * 【完整容器】的生命占盗火行者最大生命的比例（比残破容器厚得多，所以更难清掉）。
-     */
-    public static final double COMPLETE_HP_RATIO = 0.25;
-
-    /**
-     * 容器种类。
-     * <p>
-     * 官方里这是<b>两种不同的召唤物</b>：残破容器是"泄压阀"（被消灭掉减伤层数、可被共祭回收），
-     * 完整容器是"奖励线"（击杀者拿额外回合 + 增伤，没被击杀则被 BOSS 吸收额外充能）。
-     * 本项目用同一个类 + 种类标记实现，避免重复一整套技能表与生命周期代码。
-     */
-    public enum Kind {
-        /**
-         * 残破容器：BOSS 自己召唤的肉盾 / 资源。
-         */
-        BROKEN("残破容器", "brokenContainer"),
-        /**
-         * 完整容器：给玩家的奖励线。
-         */
-        COMPLETE("完整容器", "completeContainer");
-
-        private final String displayName;
-        private final String id;
-
-        Kind(String displayName, String id) {
-            this.displayName = displayName;
-            this.id = id;
-        }
-
-        /**
-         * @return 显示名
-         */
-        public String displayName() {
-            return displayName;
-        }
-
-        /**
-         * @return 注册用 id
-         */
-        public String id() {
-            return id;
-        }
-    }
-
-    /**
-     * 召唤构造器：按盗火行者的等级与"容器系数"生成一只【残破容器】。
-     * <p>
-     * 容器系数：生命 = BOSS 最大生命的 {@link #HP_RATIO}，攻击 = BOSS 攻击的 {@link #ATTACK_RATIO}。
-     *
-     * @param owner 召唤它的盗火行者
-     */
-    public BrokenContainer(FlameReaver owner) {
-        this(owner, Kind.BROKEN);
-    }
-
-    /**
-     * 召唤构造器（可指定种类）。
-     *
-     * @param owner 召唤它的盗火行者
-     * @param kind  容器种类
-     */
-    public BrokenContainer(FlameReaver owner, Kind kind) {
-        super(kind.displayName(), kind.id(), 0.2, 0.2, 0.2, 0.2, 0.2,
-                120, owner.getLevel(), "summon", 4, 6, 3, ElementSort.FIRE);
-        this.owner = owner;
-        this.kind = kind;
-        this.setDescription(kind == Kind.COMPLETE
-                ? "自无穷灾难中倒映的残像，比寻常残破容器更完整、也更难击碎。"
-                : "自无穷灾难中倒映的残像，皆是寄宿着破坏意志的祸端。");
-        // 血量与攻击按盗火行者的数值折算（基础构造器给的是成长公式的默认值）
-        double hpRatio = kind == Kind.COMPLETE ? COMPLETE_HP_RATIO : HP_RATIO;
-        this.setHpMax((long) (owner.getHpMax() * hpRatio));
-        this.setHp(this.getHpMax());
-        this.setAttack((long) (owner.getAttack() * ATTACK_RATIO));
-        List<Skill> skills = new ArrayList<>();
-        // 共祭容器自己有招：与 BOSS 一同出手时由它的控制器释放（见 相混的道途 / 分离的哀痛）
-        skills.add(new SacrificeCloudOfDeath());
-        skills.add(new SacrificeFateDrawsNear());
-        this.setController(new FixOrderController(skills, this));
-    }
-
-    /**
-     * 复制构造器。
-     * <p>
-     * {@code owner} 没法复制（副本的召唤者可能是别人），这里保留<b>同一个</b>召唤者引用：
-     * 容器是被 BOSS 现场 {@code new} 出来的，不参与注册表模板复制。
-     *
-     * @param other 被复制的容器
-     */
-    public BrokenContainer(BrokenContainer other) {
-        super(other);
-        this.owner = other.owner;
-        this.kind = other.kind;
-        this.absorbed = other.absorbed;
-        this.deathNotified = other.deathNotified;
-        this.painCost = other.painCost;
-        this.alive = other.alive;
-        this.lastAttacker = other.lastAttacker;
     }
 
     /**
@@ -470,20 +451,6 @@ public class BrokenContainer extends LivingThing {
     }
 
     /**
-     * 死亡归宿的两种原因。
-     */
-    public enum DeathReason {
-        /**
-         * 被玩家消灭 —— 盗火行者掉 1 层【永别的决绝】减伤，残破容器被消灭还会 −1 灾难之力。
-         */
-        KILLED,
-        /**
-         * 被盗火行者吸收 —— 只走苦痛缠绕回血 + 充能，不掉减伤层数。
-         */
-        ABSORBED
-    }
-
-    /**
      * 容器<b>离场</b>（被打死 / 被吸收，回合循环把它移出阵营列表时调用）。
      * <p>
      * 这里只做两件事：<b>通知盗火行者</b>（掉减伤层数等），以及<b>清掉自身残留</b>。
@@ -516,5 +483,59 @@ public class BrokenContainer extends LivingThing {
         for (Mana mana : getManas()) {
             mana.setAmount(mana.getAmountMax());
         }
+    }
+
+    /**
+     * 容器种类。
+     * <p>
+     * 官方里这是<b>两种不同的召唤物</b>：残破容器是"泄压阀"（被消灭掉减伤层数、可被共祭回收），
+     * 完整容器是"奖励线"（击杀者拿额外回合 + 增伤，没被击杀则被 BOSS 吸收额外充能）。
+     * 本项目用同一个类 + 种类标记实现，避免重复一整套技能表与生命周期代码。
+     */
+    public enum Kind {
+        /**
+         * 残破容器：BOSS 自己召唤的肉盾 / 资源。
+         */
+        BROKEN("残破容器", "brokenContainer"),
+        /**
+         * 完整容器：给玩家的奖励线。
+         */
+        COMPLETE("完整容器", "completeContainer");
+
+        private final String displayName;
+        private final String id;
+
+        Kind(String displayName, String id) {
+            this.displayName = displayName;
+            this.id = id;
+        }
+
+        /**
+         * @return 显示名
+         */
+        public String displayName() {
+            return displayName;
+        }
+
+        /**
+         * @return 注册用 id
+         */
+        public String id() {
+            return id;
+        }
+    }
+
+    /**
+     * 死亡归宿的两种原因。
+     */
+    public enum DeathReason {
+        /**
+         * 被玩家消灭 —— 盗火行者掉 1 层【永别的决绝】减伤，残破容器被消灭还会 −1 灾难之力。
+         */
+        KILLED,
+        /**
+         * 被盗火行者吸收 —— 只走苦痛缠绕回血 + 充能，不掉减伤层数。
+         */
+        ABSORBED
     }
 }

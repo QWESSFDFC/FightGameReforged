@@ -3,19 +3,41 @@ package cn.gfhnv.game.officialStuff.customSkill.phainonSkills.awakenSkills;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.officialStuff.customEntity.players.Phainon;
 import cn.gfhnv.game.skill.Skill;
+import cn.gfhnv.game.skill.SkillCoefficientTunable;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.fight.TurnEntry;
 import cn.gfhnv.game.system.fight.TurnManager;
 import cn.gfhnv.game.system.thinkingSystem.Tag;
 import cn.gfhnv.game.system.thinkingSystem.TagType;
+import cn.gfhnv.game.world.World;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 
-public class CalamitySoulscorchEdict extends Skill {
+public class CalamitySoulscorchEdict extends Skill implements SkillCoefficientTunable {
+
+    /**
+     * 具名系数：施放时获得几层【弑魂之炽】。
+     */
+    private static final String COEFF_SOULSCORCH_GAIN = "soulscorchGain";
+    /**
+     * 具名系数：施放时按来源键挂上的减伤比例（乘算叠加）。
+     */
+    private static final String COEFF_ABSORB_DAMAGE_REDUCTION = "absorbDamageReduction";
+
     private List<LivingThing> willAct = new ArrayList<>();
+    /**
+     * 施放时获得几层【弑魂之炽】。
+     */
+    private int soulscorchGain = 1;
+    /**
+     * 施放时按来源键挂上的减伤比例（乘算叠加）。
+     */
+    private double absorbDamageReduction = 0.75;
 
     public CalamitySoulscorchEdict() {
         super("灾厄-弑魂焚诏", "获得等同于敌方全体数量的【毁伤】和1层【弑魂之炽】，随后使敌方全体立即行动。", 0, 0, 0, -1);
@@ -25,6 +47,25 @@ public class CalamitySoulscorchEdict extends Skill {
 
     public CalamitySoulscorchEdict(CalamitySoulscorchEdict attack) {
         super(attack);
+        this.soulscorchGain = attack.soulscorchGain;
+        this.absorbDamageReduction = attack.absorbDamageReduction;
+    }
+
+    @Override
+    public Map<String, Double> coefficientValues() {
+        Map<String, Double> values = new LinkedHashMap<>();
+        values.put(COEFF_SOULSCORCH_GAIN, (double) soulscorchGain);
+        values.put(COEFF_ABSORB_DAMAGE_REDUCTION, absorbDamageReduction);
+        return values;
+    }
+
+    @Override
+    public void setCoefficientValue(String name, double value) {
+        switch (name) {
+            case COEFF_SOULSCORCH_GAIN -> this.soulscorchGain = (int) value;
+            case COEFF_ABSORB_DAMAGE_REDUCTION -> this.absorbDamageReduction = value;
+            default -> throw new IllegalArgumentException("灾厄-弑魂焚诏没有叫「" + name + "」的具名系数");
+        }
     }
 
     public List<LivingThing> getWillAct() {
@@ -45,10 +86,10 @@ public class CalamitySoulscorchEdict extends Skill {
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         if (user instanceof Phainon) {
             ((Phainon) user).setScourge(((Phainon) user).getScourge() + enemies.size());
-            ((Phainon) user).setSoulscorch(((Phainon) user).getSoulscorch() + 1);
+            ((Phainon) user).setSoulscorch(((Phainon) user).getSoulscorch() + soulscorchGain);
             if (!((Phainon) user).isAbsorbDamage())
-                // 按来源键加 75% 减伤：乘算叠加，且同一来源重复触发不会翻倍
-                user.addDamageReduction(Phainon.SOULSCORCH_DAMAGE_REDUCTION, 0.75);
+                // 按来源键加一份减伤：乘算叠加，且同一来源重复触发不会翻倍
+                user.addDamageReduction(Phainon.SOULSCORCH_DAMAGE_REDUCTION, absorbDamageReduction);
             ((Phainon) user).setAbsorbDamage(true);
 
         }
@@ -78,7 +119,8 @@ public class CalamitySoulscorchEdict extends Skill {
                                     phainon.setSoulscorch(phainon.getSoulscorch() + 1);
                                     calamitySoulscorchEdict.getWillAct().remove(user1);
                                     if (calamitySoulscorchEdict.getWillAct().isEmpty()) {
-                                        new Counterattack().comeToEffect(fight1, livingThing, fight1.getOwnList(user1));
+                                        World.prototypeCopyOf(Counterattack.class)
+                                                .comeToEffect(fight1, livingThing, fight1.getOwnList(user1));
                                     }
 
                                 }

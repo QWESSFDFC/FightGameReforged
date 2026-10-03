@@ -9,12 +9,35 @@ import java.util.List;
 
 
 public class TurnEntry {
+
+    /**
+     * 普通回合的优先级（默认值）。
+     */
+    public static final int PRIORITY_NORMAL = 0;
+
+    /**
+     * 「额外回合」的优先级：<b>时间相同的时候要压过普通回合先手</b>。
+     * <p>
+     * 典型场景是击杀【完整容器】拿到的奖励回合：它和受益者的下一回合一样排在
+     * {@code presentTime} 上，而 {@code TurnManager.sort()} 原先在时间打平时是<b>按速度</b>排的，
+     * 于是"奖励回合"会被场上更快的单位抢先执行 —— 看起来像奖励没生效。
+     * 时间相同（例如「灾厄-弑魂焚诏」把所有敌人拉到 {@code presentTime}）时，
+     * 奖励回合必须先动。
+     * <p>
+     * ⚠️ 它和 {@link #isExtra()} 是<b>两件事</b>，别合并：
+     * {@code isExtra} 管"这个回合<b>不推进</b>身上效果的剩余回合"（记账口径），
+     * {@code priority} 管"时间打平时<b>谁先动</b>"（排序口径）。
+     * 白厄变身的连击只用了前者，没有动排序。
+     */
+    public static final int PRIORITY_EXTRA = 100;
+
     private LivingThing livingThing;
     private BigDecimal startTime;
     private BigDecimal needTime;
     private List<ISpecialAction> lastExecuteList = new ArrayList<>();
     private List<ISpecialAction> firstExecuteList = new ArrayList<>();
     private boolean isExtra = false;
+    private int priority = PRIORITY_NORMAL;
     private ActionSignal actionSignal;
 
     public TurnEntry(LivingThing livingThing, BigDecimal needTime, BigDecimal startTime) {
@@ -54,6 +77,27 @@ public class TurnEntry {
 
     public TurnEntry setExtra(boolean extra) {
         isExtra = extra;
+        return this;
+    }
+
+    /**
+     * @return 排序优先级；时间（{@code startTime + needTime}）相同时，这个值大的先执行
+     */
+    public int getPriority() {
+        return priority;
+    }
+
+    /**
+     * 设置排序优先级。默认 {@link #PRIORITY_NORMAL}。
+     * <p>
+     * 只在时间打平时起作用，<b>压不过时间</b> —— 想让一个回合"插队"，仍然要把它排在
+     * {@code presentTime} 上（例如 {@code FlameReaver#grantExtraTurn}）。
+     *
+     * @param priority 优先级，越大越先执行
+     * @return 当前条目（链式）
+     */
+    public TurnEntry setPriority(int priority) {
+        this.priority = priority;
         return this;
     }
 
@@ -108,6 +152,7 @@ public class TurnEntry {
                 ", needTime=" + needTime +
                 ", lastExecuteList=" + lastExecuteList +
                 ", isExtra=" + isExtra +
+                ", priority=" + priority +
                 ", actionSignal=" + actionSignal +
                 '}';
     }

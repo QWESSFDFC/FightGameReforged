@@ -2,6 +2,7 @@ package cn.gfhnv.game.data;
 
 import cn.gfhnv.game.Thing;
 import cn.gfhnv.game.effect.Effect;
+import cn.gfhnv.game.entity.AttributeProfile;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.inventory.Inventory;
 import cn.gfhnv.game.inventory.Slot;
@@ -12,18 +13,17 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * 游戏对象 ⇄ NBT 标签的桥。
  * <p>
  * <b>方向一（读，{@link #toTag(Object)}）</b>：把对象当数据看，反射出字段做成标签树。
  * 只认这几类"数据对象"：{@link Thing}（实体/物品）、{@link Effect}、{@link Slot}、{@link Inventory}、
- * {@link Mana}、{@link Skill}、{@link LivingThing.DamageReduction}。
+ * {@link Mana}、{@link Skill}、{@link LivingThing.DamageReduction}、{@link AttributeProfile}。
+ * <b>带 {@link DataFlatten} 的组件（如 {@code AttributeProfile}）也必须在这个名单里</b> ——
+ * 否则它会被当成"行为对象"整个跳过，组件里那些属性在 {@code /data} 里<b>静默消失</b>
+ * （不报错，只是查不到）。
  * 其余一律<b>跳过</b> —— controller、监听器、{@code IModifyDamage} 闭包、物理对象、{@code Fight} 引用
  * 都是"行为"不是"数据"，dump 出来只会淹没真正的信息。
  * <p>
@@ -36,6 +36,11 @@ import java.util.Map;
  * <ul>
  *     <li>空的复合/列表会被省略（否则 63 个空背包格子会把输出淹掉）；</li>
  *     <li>同一个对象只展开一次（用身份表防环，也顺便避免了 {@code DamageReduction.source} 那种重复引用）；</li>
+ *     <li><b>被引用的实体只留下 {@code uuid}</b>：<b>根</b>对象照旧全量展开，但它身上指向另一个
+ *     {@link Thing} 的字段（{@code lastAttacker}、{@code cloudOfDeathSummons[0]}…）只导出一个
+ *     {@code {uuid:"…"}} —— 那些实体自己有完整的字段表，套着展开会让"引用套引用"把输出撑到几千字符
+ *     （{@code /data get entity @s} 是给人看的，不是递归导出）。注意这只影响<b>读</b>：
+ *     写回（{@code merge} / {@code modify}）走的还是活对象，键名与语义一个都没变；</li>
  *     <li>集合最多展开 {@value #MAX_ELEMENTS} 个元素、递归最深 {@value #MAX_DEPTH} 层；</li>
  *     <li>对象列表（{@code List<Effect>} 之类）<b>不能</b>通过 {@code /data} 增删元素 —— 那会绕开
  *     {@code addEffect} 的 id 补全与合并语义，请继续用 {@code /effect}。标量列表（数字/字符串/枚举）可以增删。</li>
@@ -88,6 +93,10 @@ public final class DataBridge {
 
     /**
      * 列出某个类"会被 {@code /data} 看到的字段"（可用的数据名，按继承顺序）。
+     * <p>
+     * 带 {@link DataFlatten} 的组件不算一个键，它<b>自己声明的字段</b>才算 ——
+     * 列出来的名字因此与 {@code /data get} 实际 dump 出来的、以及 {@code /data merge}
+     * 能写回的名字三者一致。
      *
      * @param type 类
      * @return 字段的数据名
@@ -95,6 +104,10 @@ public final class DataBridge {
     public static List<String> dataNames(Class<?> type) {
         List<String> names = new ArrayList<>();
         for (Field field : dataFields(type)) {
+            if (field.isAnnotationPresent(DataFlatten.class)) {
+                names.addAll(dataNames(field.getType()));
+                continue;
+            }
             names.add(dataName(field));
         }
         return names;
@@ -109,8 +122,27 @@ public final class DataBridge {
      * @return 标签；无法表示时返回 {@code null}（调用方跳过）
      */
     private static NbtTag convert(Object value, IdentityHashMap<Object, Boolean> visited, int depth) {
+        return convert(value, visited, depth, true);
+    }
+
+    /**
+     * 内部：对象 → 标签。
+     *
+     * @param value   值
+     * @param visited 已展开对象的身份表（防环）
+     * @param depth   当前深度
+     * @param root    这一层是不是"用户点名要看"的那个根对象：<b>根</b>展开全部字段，
+     *                非根的对象只要是个 {@link Thing}（实体 / 物品）就只留 {@code uuid}
+     * @return 标签；无法表示时返回 {@code null}（调用方跳过）
+     */
+    private static NbtTag convert(Object value, IdentityHashMap<Object, Boolean> visited, int depth, boolean root) {
         if (value == null || depth > MAX_DEPTH) {
             return null;
+        }
+        // 非根的实体只留身份：它自己的字段表由"把它当根再来一次"（/data get 选它）负责。
+        // 必须排在 visited 判定**之前** —— 这条快路径不递归，也就不需要进身份表。
+        if (!root && value instanceof Thing) {
+            return uuidOnly(value);
         }
         if (value instanceof Boolean flag) {
             return new NbtByte(flag);
@@ -146,7 +178,7 @@ public final class DataBridge {
                 if (count >= MAX_ELEMENTS) {
                     break;
                 }
-                NbtTag child = convert(element, visited, depth + 1);
+                NbtTag child = convert(element, visited, depth + 1, false);
                 if (child != null) {
                     list.add(child);
                     count++;
@@ -160,7 +192,7 @@ public final class DataBridge {
                 if (entry.getKey() == null) {
                     continue;
                 }
-                NbtTag child = convert(entry.getValue(), visited, depth + 1);
+                NbtTag child = convert(entry.getValue(), visited, depth + 1, false);
                 if (child != null) {
                     compound.put(String.valueOf(entry.getKey()), child);
                 }
@@ -172,7 +204,7 @@ public final class DataBridge {
             NbtList list = new NbtList();
             int length = Math.min(java.lang.reflect.Array.getLength(value), MAX_ELEMENTS);
             for (int i = 0; i < length; i++) {
-                NbtTag child = convert(java.lang.reflect.Array.get(value, i), visited, depth + 1);
+                NbtTag child = convert(java.lang.reflect.Array.get(value, i), visited, depth + 1, false);
                 if (child != null) {
                     list.add(child);
                 }
@@ -194,11 +226,40 @@ public final class DataBridge {
             } catch (ReflectiveOperationException | RuntimeException e) {
                 continue;
             }
-            NbtTag child = convert(fieldValue, visited, depth + 1);
+            if (field.isAnnotationPresent(DataFlatten.class)) {
+                // 组件：把它自己的复合标签**无前缀**并进来，键名因此与"字段还留在父对象上"时逐个一致。
+                NbtTag flat = convert(fieldValue, visited, depth + 1, false);
+                if (flat instanceof NbtCompound component) {
+                    for (Map.Entry<String, NbtTag> entry : component.values().entrySet()) {
+                        compound.put(entry.getKey(), entry.getValue());
+                    }
+                }
+                continue;
+            }
+            NbtTag child = convert(fieldValue, visited, depth + 1, false);
             if (child != null) {
                 compound.put(dataName(field), child);
             }
         }
+        return compound;
+    }
+
+    /**
+     * 把一个对象压成"只有身份"的复合标签（被引用的实体用；见类注释的第三条取舍）。
+     * <p>
+     * 只认 {@code uuid} 这一个字段：拿不到就返回 {@code null}（调用方跳过这个键）。
+     * 不是 {@code {uuid:…, name:…}} —— 多带一个字段就等于把"名字"也变成两个口径，
+     * 想要名字请把它当根查（{@code /data get entity <那个实体> name}）。
+     *
+     * @param value 对象
+     * @return {@code {uuid:"…"}}；这个对象没有 uuid 时返回 {@code null}
+     */
+    private static NbtCompound uuidOnly(Object value) {
+        if (!(value instanceof Thing thing) || thing.getUUID() == null) {
+            return null;
+        }
+        NbtCompound compound = new NbtCompound();
+        compound.put("uuid", new NbtString(thing.getUUID()));
         return compound;
     }
 
@@ -213,7 +274,8 @@ public final class DataBridge {
                 || value instanceof Inventory
                 || value instanceof Mana
                 || value instanceof Skill
-                || value instanceof LivingThing.DamageReduction;
+                || value instanceof LivingThing.DamageReduction
+                || value instanceof AttributeProfile;
     }
 
     /**
@@ -248,6 +310,69 @@ public final class DataBridge {
     }
 
     /**
+     * 列出一个对象身上全部"可数据化"的字段（含继承链；{@link DataFlatten} 组件展开后
+     * 容器是<b>组件自己</b>，与 {@link #lookup} 的写法一致）。
+     * <p>
+     * 与 {@link #dataNames(Class)} 同源，只是多带 {@link DataAccessor#field()} 与
+     * {@link DataAccessor#container()} —— 这是"配置面 == {@code /data} 面"能靠结构保证、
+     * 而不是靠两张手写表对齐的原因。
+     *
+     * @param target 对象
+     * @return 访问器；{@code target} 为 {@code null} 时返回空表
+     */
+    public static List<DataAccessor> accessors(Object target) {
+        List<DataAccessor> accessors = new ArrayList<>();
+        if (target == null) {
+            return accessors;
+        }
+        for (Field field : dataFields(target.getClass())) {
+            if (field.isAnnotationPresent(DataFlatten.class)) {
+                Object component;
+                try {
+                    field.setAccessible(true);
+                    component = field.get(target);
+                } catch (ReflectiveOperationException | RuntimeException e) {
+                    continue;
+                }
+                if (component == null) {
+                    continue;
+                }
+                for (Field inner : dataFields(component.getClass())) {
+                    accessors.add(new DataAccessor(inner, component, dataName(inner)));
+                }
+                continue;
+            }
+            accessors.add(new DataAccessor(field, target, dataName(field)));
+        }
+        return accessors;
+    }
+
+    /**
+     * 按数据名写单个字段 —— <b>{@code /data merge} 那条路本身</b>，不另起一套。
+     * <p>
+     * 与 {@code /data} 唯一的区别是<b>报错方式</b>：{@link #merge} 遇到一个坏键会抛出异常、
+     * 整段补丁停在那里；这个方法把失败收成一句文本返回，让调用方可以"坏一个键只跳过那一个"。
+     * 除此之外 setter 优先、{@code final} 拒绝、{@link DataFlatten} 组件下潜、类型收敛
+     * 全部逐字复用 {@link #apply}。
+     *
+     * @param target 目标对象
+     * @param key    数据名
+     * @param value  新值
+     * @return 失败原因；写成功返回 {@code null}
+     */
+    public static String applyTag(Object target, String key, NbtTag value) {
+        if (target == null) {
+            return "目标对象是 null";
+        }
+        try {
+            apply(target, key, value);
+            return null;
+        } catch (IllegalArgumentException e) {
+            return e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+        }
+    }
+
+    /**
      * @param field 字段
      * @return 对外数据名（{@link DataField} 改名优先）
      */
@@ -258,10 +383,6 @@ public final class DataBridge {
         }
         return field.getName();
     }
-
-    /* ------------------------------------------------------------------
-     * 路径：在"活的对象图"上走（/data modify 用）
-     * ------------------------------------------------------------------ */
 
     /**
      * 沿路径取<b>活的值</b>（不是标签副本）：字段值、列表元素、映射值都能取。
@@ -281,6 +402,10 @@ public final class DataBridge {
         }
         return cursor;
     }
+
+    /* ------------------------------------------------------------------
+     * 路径：在"活的对象图"上走（/data modify 用）
+     * ------------------------------------------------------------------ */
 
     /**
      * 沿路径写一个值（末段仍然<b>setter 优先</b>）。
@@ -373,20 +498,6 @@ public final class DataBridge {
     }
 
     /**
-     * 路径末端的"可写位置"：父容器 + 键（{@link Field} / {@link Integer} 下标 / 映射键）。
-     * <p>
-     * <b>名字特意不叫 {@code Slot}</b>：本文件 import 了 {@link cn.gfhnv.game.inventory.Slot}
-     * （背包格，是要暴露的数据对象），内部再定义一个同名 record 会把它<b>遮住</b> ——
-     * 症状是背包在 {@code /data get} 里变成空壳（2026-09 实测踩过，自测断言现在盯着它）。
-     *
-     * @param container 父容器
-     * @param key       键
-     * @param type      末段声明的类型（拿不到时为 {@code null}）
-     */
-    private record DataSlot(Object container, Object key, Class<?> type) {
-    }
-
-    /**
      * 沿路径走到"父容器"，把最后一段作为键返回。
      *
      * @param root 根对象
@@ -439,12 +550,12 @@ public final class DataBridge {
             Object existing = map.get(name);
             return new DataSlot(map, name, existing == null ? null : existing.getClass());
         }
-        Field field = findField(cursor.getClass(), name);
-        if (field == null) {
+        DataSlot slot = lookup(cursor, name);
+        if (slot == null) {
             throw new IllegalArgumentException("「" + cursor.getClass().getSimpleName() + "」没有数据字段「" + name
                     + "」（用 /data get 看看有哪些）");
         }
-        return new DataSlot(cursor, field, field.getType());
+        return slot;
     }
 
     /**
@@ -485,14 +596,16 @@ public final class DataBridge {
             }
             return map.get(name);
         }
-        Field field = findField(cursor.getClass(), name);
-        if (field == null) {
+        DataSlot slot = lookup(cursor, name);
+        if (slot == null) {
             throw new IllegalArgumentException("「" + cursor.getClass().getSimpleName() + "」没有数据字段「" + name
                     + "」（用 /data get 看看有哪些）");
         }
+        Field field = (Field) slot.key();
+        Object owner = slot.container();
         try {
             field.setAccessible(true);
-            return field.get(cursor);
+            return field.get(owner);
         } catch (ReflectiveOperationException | RuntimeException e) {
             throw new IllegalArgumentException("读字段「" + name + "」失败：" + rootMessage(e));
         }
@@ -504,9 +617,9 @@ public final class DataBridge {
      * 判断用的是同一套"数据视图"（把元素转成标签再比字段），所以
      * {@code /data get} 里能看到的字段，路径里就能拿来过滤。
      *
-     * @param cursor  当前值（必须是列表）
-     * @param filter  过滤条件
-     * @param path    原路径（报错用）
+     * @param cursor 当前值（必须是列表）
+     * @param filter 过滤条件
+     * @param path   原路径（报错用）
      * @return 命中的元素
      * @throws IllegalArgumentException 不是列表 / 没有命中
      */
@@ -604,10 +717,6 @@ public final class DataBridge {
         return (Map<String, Object>) container;
     }
 
-    /* ------------------------------------------------------------------
-     * 写：标签 → 对象（一条路径走 setter 优先）
-     * ------------------------------------------------------------------ */
-
     /**
      * 把一段补丁合并进对象。
      * <p>
@@ -638,18 +747,22 @@ public final class DataBridge {
      * @param value  新值
      */
     private static void apply(Object target, String key, NbtTag value) {
-        Field field = findField(target.getClass(), key);
-        if (field == null) {
+        DataSlot slot = lookup(target, key);
+        if (slot == null) {
             throw new IllegalArgumentException("「" + target.getClass().getSimpleName() + "」没有数据字段「" + key
                     + "」（用 /data get 看看有哪些）");
         }
+        // 槽位的容器可能是 target 自己，也可能是它身上一个 @DataFlatten 组件 ——
+        // 后者要让组件的 setter 与裸写都落回组件对象上（写回的数据名不变）。
+        Object owner = slot.container();
+        Field field = (Field) slot.key();
         if (Modifier.isFinal(field.getModifiers())) {
             throw new IllegalArgumentException("字段「" + key + "」是 final，不能通过 /data 修改");
         }
         Object current;
         try {
             field.setAccessible(true);
-            current = field.get(target);
+            current = field.get(owner);
         } catch (ReflectiveOperationException | RuntimeException e) {
             current = null;
         }
@@ -657,28 +770,60 @@ public final class DataBridge {
             merge(current, compound);
             return;
         }
-        if (trySetter(target, field, value)) {
+        if (trySetter(owner, field, value)) {
             return;
         }
         try {
             field.setAccessible(true);
-            field.set(target, convertTo(field.getType(), value, key));
+            field.set(owner, convertTo(field.getType(), value, key));
         } catch (ReflectiveOperationException e) {
             throw new IllegalArgumentException("写入字段「" + key + "」失败：" + rootMessage(e));
         }
     }
 
+    /* ------------------------------------------------------------------
+     * 写：标签 → 对象（一条路径走 setter 优先）
+     * ------------------------------------------------------------------ */
+
     /**
-     * 按数据名找字段（含 {@link DataField} 改名）。
+     * 按数据名找字段，并连同"这个字段该挂在哪个对象上"一起返回。
+     * <p>
+     * 分两层找：先在 {@code target} 自己（含父类链）上找，再下潜到它身上带
+     * {@link DataFlatten} 的组件里找 —— <b>所以搬到组件里的属性，对外键名照旧</b>，
+     * 写回也照样命中 {@code target} 上的转发 setter（{@code trySetter} 找的是
+     * {@code container.getClass()} 的方法，容器是 {@code target} 本身）。
+     * <p>
+     * 两层都按 {@link DataField} 改名后的数据名比。
      *
-     * @param type 类
-     * @param name 数据名
-     * @return 字段；找不到返回 {@code null}
+     * @param target 目标对象
+     * @param name   数据名
+     * @return 槽位；找不到返回 {@code null}
      */
-    private static Field findField(Class<?> type, String name) {
+    private static DataSlot lookup(Object target, String name) {
+        Class<?> type = target.getClass();
         for (Field field : dataFields(type)) {
             if (dataName(field).equals(name)) {
-                return field;
+                return new DataSlot(target, field, field.getType());
+            }
+        }
+        for (Field field : dataFields(type)) {
+            if (!field.isAnnotationPresent(DataFlatten.class)) {
+                continue;
+            }
+            Object component;
+            try {
+                field.setAccessible(true);
+                component = field.get(target);
+            } catch (ReflectiveOperationException | RuntimeException e) {
+                continue;
+            }
+            if (component == null) {
+                continue;
+            }
+            for (Field inner : dataFields(component.getClass())) {
+                if (dataName(inner).equals(name)) {
+                    return new DataSlot(component, inner, inner.getType());
+                }
             }
         }
         return null;
@@ -782,5 +927,37 @@ public final class DataBridge {
             cause = cause.getCause();
         }
         return cause.getMessage() == null ? cause.getClass().getSimpleName() : cause.getMessage();
+    }
+
+    /**
+     * 一个"可被 {@code /data} 看到"的字段：字段本身 + 它挂着的对象 + 它的数据名。
+     * <p>
+     * <b>存在的理由</b>：别的子系统（现在是配置侧的反射桥
+     * {@code cn.gfhnv.game.system.configLoadingSystem.ReflectionConfigBridge}）需要
+     * <b>照字段上的注解</b>做判断（{@link NoData} / {@link NoConfig}），
+     * 而 {@link #dataNames(Class)} 只给字符串，拿不到注解。
+     * 让调用方自己去 {@code getDeclaredFields()} 遍历 = 又造一份"哪些字段算数据"的清单，
+     * 正是本类要消灭的那种漂移 —— 所以这里把内部那份 {@link #dataFields(Class)} 的结果开放出来。
+     *
+     * @param field     字段（{@code setAccessible} 由调用方自己按需做）
+     * @param container 字段所在的对象（{@link DataFlatten} 组件里就是组件本身）
+     * @param name      对外数据名（与 {@code /data} 的键名、配置文件的键名三处一致）
+     * @author AI（DeepSeek）生成
+     */
+    public record DataAccessor(Field field, Object container, String name) {
+    }
+
+    /**
+     * 路径末端的"可写位置"：父容器 + 键（{@link Field} / {@link Integer} 下标 / 映射键）。
+     * <p>
+     * <b>名字特意不叫 {@code Slot}</b>：本文件 import 了 {@link cn.gfhnv.game.inventory.Slot}
+     * （背包格，是要暴露的数据对象），内部再定义一个同名 record 会把它<b>遮住</b> ——
+     * 症状是背包在 {@code /data get} 里变成空壳（2026-09 实测踩过，自测断言现在盯着它）。
+     *
+     * @param container 父容器
+     * @param key       键
+     * @param type      末段声明的类型（拿不到时为 {@code null}）
+     */
+    private record DataSlot(Object container, Object key, Class<?> type) {
     }
 }

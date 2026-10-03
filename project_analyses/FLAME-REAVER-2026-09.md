@@ -221,7 +221,7 @@
 | **镣锁维持** | 30 回合（二阶段常驻） | `LockedRite.DEFAULT_LAST_TIME` |
 | **完整容器概率** | 每次召唤 **34%** | `COMPLETE_CONTAINER_CHANCE` |
 | **完整容器生命** | BOSS 最大生命的 **25%** | `BrokenContainer.COMPLETE_HP_RATIO` |
-| **击杀完整容器奖励** | 增伤 **+40%**、**3 回合**、外加一个额外回合 | `ContainerReward.DEFAULT_*` |
+| **击杀完整容器奖励** | 增伤 **+40%**、**3 回合**、外加一个额外回合（**带 `PRIORITY_EXTRA`**，时间打平时必定先动 —— 2026-09-26 用户要求） | `ContainerReward.DEFAULT_*` |
 | **完整容器被吸收** | 额外 **+2 层**灾难之力（残破只有 +1） | `FlameReaver#absorbContainer` |
 | 召唤代价 | 每次消耗自身**最大生命的 3%**（比回收比例小是故意的：净收益靠"容器活得久"，代价太高 BOSS 会自己把自己耗死） | `FlameReaver#SUMMON_HP_COST_RATE` |
 | 苦痛缠绕回收 | 100%（记账多少回多少，上限为容器最大生命） | `FlameReaver#absorbContainer` |
@@ -605,6 +605,9 @@ LivingThing#whenFightEnds()         // 保持原义：整场结束的重置（�
 2. **【镣锁】复活是 `new` 一只新的**：官方原文就是"重新召唤"。把旧容器"捞回来"
    会让它带着"已离开阵营列表"的身份，变成打自己人的幽灵实体（踩过，见 §8.4）。
 3. **额外回合靠往时间轴排一个 `needTime = 0` 的条目**，不去动 `ActionSignal`。
+   **2026-09-26 补**：还要 `setPriority(TurnEntry.PRIORITY_EXTRA)` —— 光排到 `presentTime` 上不够，
+   时间打平时 `sort()` 按速度排，"立即行动"会被场上更快的单位抢走（用户实测反馈后改的）。
+   `TurnManager#sort` 的排序键因此变成：时间 → 优先级降序 → 速度降序。
 
 **其它差异（有意为之，不是遗漏）**
 

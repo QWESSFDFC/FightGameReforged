@@ -13,6 +13,8 @@ import cn.gfhnv.game.officialStuff.customEntity.summons.BrokenContainer;
 import cn.gfhnv.game.officialStuff.customSkill.flameReaverSkills.*;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
+import cn.gfhnv.game.system.configLoadingSystem.DataKeys;
+import cn.gfhnv.game.system.configLoadingSystem.GameRules;
 import cn.gfhnv.game.system.fight.ActionSignal;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.fight.TurnEntry;
@@ -49,7 +51,7 @@ import java.util.List;
  *     <li><b>二阶段</b>：<b>血条第一次被清空</b>时切换（{@link #enterPhaseTwo}）——
  *     第一发致命伤害会被 {@link #phaseTwoDeathWard()} 拦下，所以它<b>不可能被一击秒掉</b>，
  *     一定会进二阶段，并且切换时生命<b>回满</b>；进入后获得
- *     {@value #PHASE_TWO_DAMAGE_REDUCTION} 的免伤
+ *     {@value cn.gfhnv.game.system.configLoadingSystem.RuleDefaults#FLAME_REAVER_PHASE_TWO_DAMAGE_REDUCTION} 的免伤
  *     ——它与层数减伤<b>分属两个来源键</b>，会同时生效。保护只有一次，
  *     二阶段之后再被打到 0 才会真的倒下；</li>
  *     <li><b>【沉默的悲叹】</b>：{@code SilentLament} 蓄力，下一次行动放【莫因舍弃而哭泣】；</li>
@@ -77,100 +79,21 @@ public class FlameReaver extends LivingThing {
     public static final Object PHASE_TWO_REDUCTION_KEY =
             new cn.gfhnv.game.entity.DamageReductionSource("二阶段免伤");
 
-    /* ---------------- 可调数值（初版，进游戏手感不对就改这里） ---------------- */
-
+    /* ---------------- 可调数值 ----------------
+     * 这一组全部可在 config/gameConfig/GameRules.json 的 flameReaver 段里改；
+     * 不写就用 RuleDefaults 里的出厂值（与下面注释里记的手感完全一致）。
+     * 改它们不会动机制，只动手感 —— 机制性的常量（轮转顺序、共祭窗口长度……）
+     * 仍然写在各自技能/方法的代码里。
+     */
     /**
-     * 每次召唤消耗自身最大生命的比例（转成【苦痛缠绕】记账）。
+     * 共祭那一轮"一同攻击"的<b>共同目标数</b>。
      * <p>
-     * 比"回收比例"小是故意的：吸收时按容器的生命上限回血（最多
-     * {@link BrokenContainer#HP_RATIO} 那么大的最大生命），所以净收益靠的是"容器活得久"，
-     * 而不是"召唤得贵"。代价定得太高会让 BOSS 自己把自己耗死。
+     * 官方原文是"与【残破容器】一同施放【亡死的黑云】<b>或</b>【将尽的命数】"，
+     * 而亡死的黑云打"主目标及其相邻目标"= 本项目映射的 <b>3 目标</b>（见 {@code CloudOfDeath}）。
+     * 取一个固定数（而不是"全体"）是为了让"清场"与"共祭"的代价看得见：
+     * 目标少的队伍不会被一轮打穿。
      */
-    private static final double SUMMON_HP_COST_RATE = 0.03;
-
-    /**
-     * 每层【灾难之力】提供的加伤比例。
-     */
-    private static final double DISASTER_POWER_ATTACK_BONUS = 0.08;
-
-    /**
-     * 【永别的决绝】初始减伤层数。
-     */
-    private static final int DAMAGE_REDUCTION_LAYERS = 2;
-
-    /**
-     * 【永别的决绝】每层减伤比例（乘算叠加）。
-     */
-    private static final double DAMAGE_REDUCTION_PER_LAYER = 0.25;
-
-    /**
-     * 场上容器的数量上限：{@code 0} 表示<b>不限制</b>（用户 2026-09 指定取消上限）。
-     * <p>
-     * 取消上限之后的连带效果（都是"越拖越强"的方向，符合召唤流的定位）：
-     * <ul>
-     *     <li>每轮【相混的道途】会把<b>场上所有</b>容器都标成共祭，
-     *     紧接着的【幽冥的悼念】把它们<b>一次性全部吸收</b> ——
-     *     于是【灾难之力】每轮涨"召唤了几只"，而它是<b>不设上限</b>的加伤（每层
-     *     {@value #DISASTER_POWER_ATTACK_BONUS}），大招的段数跟着一起涨；</li>
-     *     <li>每次召唤消耗 3% 最大生命，吸收时按【苦痛缠绕】全额还回来 ——
-     *     只要吸收得掉，召唤本身不亏血；</li>
-     *     <li>共祭时每只容器各打一次全体，容器越多，那一轮的总伤害越高。</li>
-     * </ul>
-     * 代价：时间轴条目与日志都会明显变多（每只容器都要占一个回合），
-     * 想让战斗短一点就把这里改回一个正整数（例如 {@code 8}）。
-     */
-    private static final int CONTAINER_LIMIT = 0;
-
-    /**
-     * 每次召唤时，出现【完整容器】的概率（其余为【残破容器】）。
-     * <p>
-     * 完整容器是"奖励线"：击杀者拿额外回合 + 增伤；放着不管则被 BOSS 吸收并额外充能。
-     * 概率不宜高 —— 它是给玩家的机会，不该变成常态。
-     */
-    private static final double COMPLETE_CONTAINER_CHANCE = 0.34;
-
-    /**
-     * 二阶段的触发条件：<b>血条第一次被清空</b>（2026-09-26 起不再用血量比例阈值）。
-     * <p>
-     * 实现挂在伤害修正器上（{@link #phaseTwoDeathWard()}）：任何会把生命打到
-     * {@code <= 0} 的伤害都会被拦下，改为立刻切阶段并把生命回满 ——
-     * 所以盗火行者不可能被一击秒掉，一定能进二阶段。
-     * 保护<b>只有一次</b>：{@code phaseTwo} 置位后那个修正器就不再拦。
-     */
-
-    /**
-     * 二阶段的【高额免伤】（乘算叠加到其他减伤上，所以 0.7 表示"只受 30%"）。
-     * <p>
-     * 官方阶段二是"躲到后排 + 召分身顶前"；本项目按用户要求改成<b>高额免伤</b>，
-     * 语义上等价于"你打不到它本体"。
-     */
-    private static final double PHASE_TWO_DAMAGE_REDUCTION = 0.7;
-
-    /* ---------------- 状态 ---------------- */
-
-    private int disasterPower = 0;
-
-    /**
-     * 剩下的"共祭窗口"回合数（由 {@code TangledPathsOfMourning} 在场上没有容器时开启）。
-     * <p>
-     * 窗口大于 0 时，<b>新召唤出来的容器直接进入【共祭】</b> ——
-     * 这样"相混的道途"不会因为"玩家清场太快"而变成空放，玩家也就永远看不到
-     * 协同攻击与吸收这一整套机制。
-     */
-    private int sacrificeWindow = 0;
-
-    private int damageReductionLayers = DAMAGE_REDUCTION_LAYERS;
-
-    /**
-     * 是否已进入二阶段。
-     */
-    private boolean phaseTwo = false;
-
-    /**
-     * 是否处在【沉默的悲叹】的蓄力中（下一次行动要放【莫因舍弃而哭泣】）。
-     */
-    private boolean charging = false;
-
+    private static final int JOINT_ATTACK_TARGETS = 3;
     /**
      * 「亡死的黑云」召唤出来、还没被它自己吸收的容器。
      * <p>
@@ -179,11 +102,39 @@ public class FlameReaver extends LivingThing {
      * 而不是"吸收场上所有容器"：后者会让容器只活一轮，玩家永远看不到协同攻击。
      */
     private final List<BrokenContainer> cloudOfDeathSummons = new ArrayList<>();
-
     /**
      * 「将尽的命数」召唤出来、还没被它自己吸收的容器（同上）。
      */
     private final List<BrokenContainer> fateDrawsNearSummons = new ArrayList<>();
+    private int disasterPower = 0;
+    /**
+     * 剩下的"共祭窗口"回合数（由 {@code TangledPathsOfMourning} 在场上没有容器时开启）。
+     * <p>
+     * 窗口大于 0 时，<b>新召唤出来的容器直接进入【共祭】</b> ——
+     * 这样"相混的道途"不会因为"玩家清场太快"而变成空放，玩家也就永远看不到
+     * 协同攻击与吸收这一整套机制。
+     */
+    private int sacrificeWindow = 0;
+    private int damageReductionLayers = damageReductionLayersDefault();
+
+    /**
+     * 二阶段的触发条件：<b>血条第一次被清空</b>（2026-10-03 起不再用血量比例阈值）。
+     * <p>
+     * 实现挂在伤害修正器上（{@link #phaseTwoDeathWard()}）：任何会把生命打到
+     * {@code <= 0} 的伤害都会被拦下，改为立刻切阶段并把生命回满 ——
+     * 所以盗火行者不可能被一击秒掉，一定能进二阶段。
+     * 保护<b>只有一次</b>：{@code phaseTwo} 置位后那个修正器就不再拦。
+     */
+    /**
+     * 是否已进入二阶段。
+     */
+    private boolean phaseTwo = false;
+
+    /* ---------------- 状态 ---------------- */
+    /**
+     * 是否处在【沉默的悲叹】的蓄力中（下一次行动要放【莫因舍弃而哭泣】）。
+     */
+    private boolean charging = false;
 
     public FlameReaver(FlameReaver other) {
         super(other);
@@ -206,23 +157,18 @@ public class FlameReaver extends LivingThing {
     }
 
     /**
-     * 基础生命上限（不靠等级成长系数去凑）：150 级时成长公式只给到 1.8 万，太脆。
-     */
-    private static final long BASE_HP_MAX = 80000;
-
-    /**
      * 构造盗火行者。
      *
      * @param l 等级
      */
     public FlameReaver(long l) {
-        super("至黑之剑，盗火行者", "flameReaver", 0.2, 0.2, 0.2, 0.2, 0.2,
-                140, l, "boss", 120, 60, 25, ElementSort.FIRE);
+        super("至黑之剑，盗火行者", "flameReaver", 0.7, 0.2, 0.2, 0.2, 0.2,
+                200, l, "boss", 120, 60, 25, ElementSort.FIRE);
         this.setDescription("伴随黑潮而来、狩猎泰坦火种的无名剑士，无人知晓其真身。"
                 + "身负不可思议的力量，剑技也近乎无懈可击。");
         // 血量直接给上限：召唤容器是按"最大生命的百分比"扣血的，底子太薄会自己把自己耗死
-        this.setHpMax(BASE_HP_MAX);
-        this.setHp(BASE_HP_MAX);
+        this.setHpMax(baseHpMax());
+        this.setHp(baseHpMax());
         List<Skill> skills = new ArrayList<>();
         skills.add(new CloudOfDeath());
         skills.add(new FateDrawsNear());
@@ -239,6 +185,136 @@ public class FlameReaver extends LivingThing {
         this.setController(controller);
         // 二阶段的「切阶段保护」：血条第一次被清空时拦下那一击并切阶段（见 phaseTwoDeathWard）
         this.setModifyDamage(phaseTwoDeathWard());
+    }
+
+    /**
+     * 每次召唤消耗自身最大生命的比例（转成【苦痛缠绕】记账）。
+     * <p>
+     * 比"回收比例"小是故意的：吸收时按容器的生命上限回血（最多
+     * {@link BrokenContainer#HP_RATIO} 那么大的最大生命），所以净收益靠的是"容器活得久"，
+     * 而不是"召唤得贵"。代价定得太高会让 BOSS 自己把自己耗死。
+     * <p>
+     * 配置键 {@code flameReaver.summonHpCostRate}，出厂值
+     * {@value cn.gfhnv.game.system.configLoadingSystem.RuleDefaults#FLAME_REAVER_SUMMON_HP_COST_RATE}。
+     */
+    private static double summonHpCostRate() {
+        return GameRules.getDouble(DataKeys.Rule.FlameReaver.SUMMON_HP_COST_RATE);
+    }
+
+    /**
+     * 每层【灾难之力】提供的加伤比例（配置键 {@code flameReaver.disasterPowerAttackBonus}，
+     * 出厂值 {@value cn.gfhnv.game.system.configLoadingSystem.RuleDefaults#FLAME_REAVER_DISASTER_POWER_ATTACK_BONUS}）。
+     *
+     * @return 加伤比例
+     */
+    private static double disasterPowerAttackBonus() {
+        return GameRules.getDouble(DataKeys.Rule.FlameReaver.DISASTER_POWER_ATTACK_BONUS);
+    }
+
+    /**
+     * 【永别的决绝】的初始减伤层数（出厂值
+     * {@value cn.gfhnv.game.system.configLoadingSystem.RuleDefaults#FLAME_REAVER_DAMAGE_REDUCTION_LAYERS} 层）。
+     * <p>
+     * <b>构造 / 开局各读一次</b>：配置只决定"开局有几层"，打掉之后不会回到配置值（那是机制，不是数值）。
+     * 这里刻意用方法而不是 {@code static final} 常量 —— 静态常量在"类第一次被加载"时取值，
+     * 而类的加载时机不受配置文件控制（自测里甚至必然早于配置加载），那样会让配置静默失效。
+     * 配置键 {@code flameReaver.damageReductionLayers}。
+     *
+     * @return 初始层数
+     */
+    private static int damageReductionLayersDefault() {
+        return GameRules.getInt(DataKeys.Rule.FlameReaver.DAMAGE_REDUCTION_LAYERS);
+    }
+
+    /**
+     * 【永别的决绝】每层减伤比例，出厂值
+     * {@value cn.gfhnv.game.system.configLoadingSystem.RuleDefaults#FLAME_REAVER_DAMAGE_REDUCTION_PER_LAYER}。
+     *
+     * @return 每层减伤比例
+     */
+    private static double damageReductionPerLayer() {
+        return GameRules.getDouble(DataKeys.Rule.FlameReaver.DAMAGE_REDUCTION_PER_LAYER);
+    }
+
+    /**
+     * 场上容器的数量上限：{@code 0} 表示<b>不限制</b>（用户 2026-09 指定取消上限）。
+     * <p>
+     * 取消上限之后的连带效果（都是"越拖越强"的方向，符合召唤流的定位）：
+     * <ul>
+     *     <li>每轮【相混的道途】会把<b>场上所有</b>容器都标成共祭，
+     *     紧接着的【幽冥的悼念】把它们<b>一次性全部吸收</b> ——
+     *     于是【灾难之力】每轮涨"召唤了几只"，而它是<b>不设上限</b>的加伤（每层
+     *     {@value cn.gfhnv.game.system.configLoadingSystem.RuleDefaults#FLAME_REAVER_DISASTER_POWER_ATTACK_BONUS}），
+     *     大招的段数跟着一起涨；</li>
+     *     <li>每次召唤消耗 3% 最大生命，吸收时按【苦痛缠绕】全额还回来 ——
+     *     只要吸收得掉，召唤本身不亏血；</li>
+     *     <li>共祭时每只容器各打一次全体，容器越多，那一轮的总伤害越高。</li>
+     * </ul>
+     * 代价：时间轴条目与日志都会明显变多（每只容器都要占一个回合），
+     * 想让战斗短一点就把配置里的 {@code flameReaver.containerLimit} 改回一个正整数（例如 {@code 8}）。
+     *
+     * @return 上限；{@code 0} = 不限
+     */
+    private static int containerLimit() {
+        return GameRules.getInt(DataKeys.Rule.FlameReaver.CONTAINER_LIMIT);
+    }
+
+    /**
+     * 每次召唤时，出现【完整容器】的概率（其余为【残破容器】）。
+     * <p>
+     * 完整容器是"奖励线"：击杀者拿额外回合 + 增伤；放着不管则被 BOSS 吸收并额外充能。
+     * 概率不宜高 —— 它是给玩家的机会，不该变成常态。
+     * 配置键 {@code flameReaver.completeContainerChance}，出厂值
+     * {@value cn.gfhnv.game.system.configLoadingSystem.RuleDefaults#FLAME_REAVER_COMPLETE_CONTAINER_CHANCE}。
+     *
+     * @return 概率
+     */
+    private static double completeContainerChance() {
+        return GameRules.getDouble(DataKeys.Rule.FlameReaver.COMPLETE_CONTAINER_CHANCE);
+    }
+
+    /**
+     * 二阶段的【高额免伤】（乘算叠加到其他减伤上，所以 0.7 表示"只受 30%"）。
+     * <p>
+     * 官方阶段二是"躲到后排 + 召分身顶前"；本项目按用户要求改成<b>高额免伤</b>，
+     * 语义上等价于"你打不到它本体"。
+     * 配置键 {@code flameReaver.phaseTwoDamageReduction}，出厂值
+     * {@value cn.gfhnv.game.system.configLoadingSystem.RuleDefaults#FLAME_REAVER_PHASE_TWO_DAMAGE_REDUCTION}。
+     *
+     * @return 免伤比例
+     */
+    private static double phaseTwoDamageReduction() {
+        return GameRules.getDouble(DataKeys.Rule.FlameReaver.PHASE_TWO_DAMAGE_REDUCTION);
+    }
+
+    /**
+     * 基础生命上限（不靠等级成长系数去凑）：150 级时成长公式只给到 1.8 万，太脆。
+     * <p>
+     * <b>构造时读一次</b>：它不是"公式的一部分"，而是"这个模板出厂时的血量"——
+     * 想改一只<b>已经造出来</b>的 BOSS 的血，用 {@code EntityData.json} 的 {@code derived.hpMax}。
+     * 配置键 {@code flameReaver.baseHpMax}，出厂值
+     * {@value cn.gfhnv.game.system.configLoadingSystem.RuleDefaults#FLAME_REAVER_BASE_HP_MAX}。
+     *
+     * @return 基础生命上限
+     */
+    private static long baseHpMax() {
+        return GameRules.getLong(DataKeys.Rule.FlameReaver.BASE_HP_MAX);
+    }
+
+    /**
+     * @param targets 目标列表；可为 {@code null}
+     * @return 里面是否还有活着的目标
+     */
+    private static boolean hasLivingTarget(List<LivingThing> targets) {
+        if (targets == null) {
+            return false;
+        }
+        for (LivingThing target : targets) {
+            if (target != null && target.isAlive()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -290,7 +366,7 @@ public class FlameReaver extends LivingThing {
         super.whenFightStart(fight);
         this.disasterPower = 0;
         this.setPainTangled(0);
-        this.damageReductionLayers = DAMAGE_REDUCTION_LAYERS;
+        this.damageReductionLayers = damageReductionLayersDefault();
         this.sacrificeWindow = 0;
         this.clearPhaseTwo();
         this.cloudOfDeathSummons.clear();
@@ -308,6 +384,10 @@ public class FlameReaver extends LivingThing {
         this.removeDamageReduction(DAMAGE_REDUCTION_KEY);
         this.clearPhaseTwo();
     }
+
+    /* ------------------------------------------------------------------
+     * 灾难之力
+     * ------------------------------------------------------------------ */
 
     /**
      * 开启一个"共祭窗口"：接下来 {@code turns} 个自己的回合内，
@@ -332,10 +412,6 @@ public class FlameReaver extends LivingThing {
         }
     }
 
-    /* ------------------------------------------------------------------
-     * 灾难之力
-     * ------------------------------------------------------------------ */
-
     /**
      * @return 当前【灾难之力】层数
      */
@@ -357,6 +433,10 @@ public class FlameReaver extends LivingThing {
         applyDisasterPower();
     }
 
+    /* ------------------------------------------------------------------
+     * 苦痛缠绕
+     * ------------------------------------------------------------------ */
+
     /**
      * 消耗【灾难之力】。
      *
@@ -377,11 +457,11 @@ public class FlameReaver extends LivingThing {
      * （掉层时无法还原）。
      */
     private void applyDisasterPower() {
-        this.setEnhance(disasterPower * DISASTER_POWER_ATTACK_BONUS);
+        this.setEnhance(disasterPower * disasterPowerAttackBonus());
     }
 
     /* ------------------------------------------------------------------
-     * 苦痛缠绕
+     * 召唤与吸收
      * ------------------------------------------------------------------ */
 
     /**
@@ -410,10 +490,6 @@ public class FlameReaver extends LivingThing {
         }
         pain.setPain(painTangled);
     }
-
-    /* ------------------------------------------------------------------
-     * 召唤与吸收
-     * ------------------------------------------------------------------ */
 
     /**
      * @return 场上还活着的残破容器
@@ -455,21 +531,22 @@ public class FlameReaver extends LivingThing {
      *
      * @param fight 当前战斗
      * @param kind  容器种类（残破 / 完整）
-     * @return 召唤出的容器；达到 {@link #CONTAINER_LIMIT}（非 0 时）或战斗为空时返回 {@code null}
+     * @return 召唤出的容器；达到 {@code flameReaver.containerLimit}（非 0 时）或战斗为空时返回 {@code null}
      */
     public BrokenContainer summonContainer(Fight fight, BrokenContainer.Kind kind) {
         if (fight == null) {
             return null;
         }
-        // CONTAINER_LIMIT = 0 表示不限制（用户 2026-09 指定）
-        if (CONTAINER_LIMIT > 0) {
+        // containerLimit = 0 表示不限制（用户 2026-09 指定）
+        int containerLimit = containerLimit();
+        if (containerLimit > 0) {
             List<BrokenContainer> alive = getAliveContainers(fight);
-            if (alive.size() >= CONTAINER_LIMIT) {
-                System.out.println(getName() + "的容器已达上限（" + CONTAINER_LIMIT + "），不再召唤");
+            if (alive.size() >= containerLimit) {
+                System.out.println(getName() + "的容器已达上限（" + containerLimit + "），不再召唤");
                 return null;
             }
         }
-        long cost = (long) (getHpMax() * SUMMON_HP_COST_RATE);
+        long cost = (long) (getHpMax() * summonHpCostRate());
         if (cost <= 0) {
             cost = 1;
         }
@@ -574,7 +651,7 @@ public class FlameReaver extends LivingThing {
      * @return 召唤出的容器（可能是完整容器）
      */
     public BrokenContainer summonRandomContainer(Fight fight) {
-        BrokenContainer.Kind kind = Math.random() < COMPLETE_CONTAINER_CHANCE
+        BrokenContainer.Kind kind = Math.random() < completeContainerChance()
                 ? BrokenContainer.Kind.COMPLETE
                 : BrokenContainer.Kind.BROKEN;
         return summonContainer(fight, kind);
@@ -603,7 +680,7 @@ public class FlameReaver extends LivingThing {
         if (disasterPower <= 0) {
             return null;
         }
-        long cost = (long) (getHpMax() * SUMMON_HP_COST_RATE);
+        long cost = (long) (getHpMax() * summonHpCostRate());
         if (getHp() <= cost) {
             // 血量不够，复活不起来（避免把自己耗死）
             System.out.println("【" + getName() + "】血量不足，无法重新召唤【镣锁】容器");
@@ -659,13 +736,19 @@ public class FlameReaver extends LivingThing {
      * 会在"被奖励的那次行动"里就少掉 1 回合，目标身上的【侵蚀】【宿醉】也会跟着多跳一次。
      * 顺带这个标记也让"觉醒中的白厄拿到奖励"时能触发他的额外回合反击
      * （{@code UltimateAttack} 里的判定就是看 {@code isExtra()}）。
+     * <p>
+     * <b>还要带 {@link TurnEntry#PRIORITY_EXTRA}</b>（2026-10-03 用户要求"这个奖励的额外回合
+     * 应该直接行动"）：光把它排在 {@code presentTime} 上还不够 —— 时间打平时
+     * {@code sort()} 原先按<b>速度</b>排，"立即行动"会被场上更快的单位抢走。
+     * 带上优先级之后，同时间的一定是它先执行。
      *
      * @param beneficiary 获得额外回合的生物
      */
     public void grantExtraTurn(LivingThing beneficiary) {
         // TurnManager.getPresentTime() 已经保证不为 null（未初始化时返回 ZERO）
         TurnEntry extraTurn = new TurnEntry(beneficiary, BigDecimal.ZERO, TurnManager.getPresentTime())
-                .setExtra(true);
+                .setExtra(true)
+                .setPriority(TurnEntry.PRIORITY_EXTRA);
         TurnManager.getTurns().add(extraTurn);
         TurnManager.sort();
         System.out.println(ConsoleColor.yellow("【" + beneficiary.getName() + "】获得了一个额外回合"));
@@ -754,16 +837,6 @@ public class FlameReaver extends LivingThing {
     }
 
     /**
-     * 共祭那一轮"一同攻击"的<b>共同目标数</b>。
-     * <p>
-     * 官方原文是"与【残破容器】一同施放【亡死的黑云】<b>或</b>【将尽的命数】"，
-     * 而亡死的黑云打"主目标及其相邻目标"= 本项目映射的 <b>3 目标</b>（见 {@code CloudOfDeath}）。
-     * 取一个固定数（而不是"全体"）是为了让"清场"与"共祭"的代价看得见：
-     * 目标少的队伍不会被一轮打穿。
-     */
-    private static final int JOINT_ATTACK_TARGETS = 3;
-
-    /**
      * 选出这一轮共祭的<b>共同目标</b>：对面最多 {@value #JOINT_ATTACK_TARGETS} 个存活单位。
      * <p>
      * 以前容器是各自 {@code controller.act()} 出手、目标各自随机挑的 ——
@@ -783,22 +856,6 @@ public class FlameReaver extends LivingThing {
             }
         }
         return targets;
-    }
-
-    /**
-     * @param targets 目标列表；可为 {@code null}
-     * @return 里面是否还有活着的目标
-     */
-    private static boolean hasLivingTarget(List<LivingThing> targets) {
-        if (targets == null) {
-            return false;
-        }
-        for (LivingThing target : targets) {
-            if (target != null && target.isAlive()) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /**
@@ -970,7 +1027,7 @@ public class FlameReaver extends LivingThing {
             this.removeDamageReduction(DAMAGE_REDUCTION_KEY);
             return;
         }
-        this.addDamageReduction(DAMAGE_REDUCTION_KEY, damageReductionLayers * DAMAGE_REDUCTION_PER_LAYER);
+        this.addDamageReduction(DAMAGE_REDUCTION_KEY, damageReductionLayers * damageReductionPerLayer());
     }
 
     /* ------------------------------------------------------------------
@@ -1028,10 +1085,10 @@ public class FlameReaver extends LivingThing {
     private void enterPhaseTwo() {
         this.phaseTwo = true;
         this.setHp(getHpMax());
-        this.addDamageReduction(PHASE_TWO_REDUCTION_KEY, PHASE_TWO_DAMAGE_REDUCTION);
+        this.addDamageReduction(PHASE_TWO_REDUCTION_KEY, phaseTwoDamageReduction());
         System.out.println(ConsoleColor.yellow("【" + getName()
                 + "】挡下致命一击，进入二阶段：生命回满，并获得高额免伤（"
-                + Math.round(PHASE_TWO_DAMAGE_REDUCTION * 100) + "%）"));
+                + Math.round(phaseTwoDamageReduction() * 100) + "%）"));
         if (getController() instanceof FixOrderController controller) {
             controller.setRotationByName(rotationNames());
         }

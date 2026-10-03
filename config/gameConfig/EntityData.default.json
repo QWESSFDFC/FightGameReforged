@@ -1,0 +1,744 @@
+{
+  "_note": "这是「出厂值参考副本」，由游戏按当前注册表自动导出，游戏不读它（改它没有任何效果）。要改数值请改同目录的 EntityData.json（实体）与 SkillData.json（技能）。技能段的键与 SkillData.json 完全同构：标量之外还含 consumedMana（写成 null = 这个技能不消耗法力）与 tags（AI 权重块）两个嵌套块。",
+  "version": 1,
+  "entities": {
+    "game_official_content:playerOne": {
+      "base": {
+        "name": "玩家一",
+        "level": 125,
+        "mass": 60.0,
+        "type": "player",
+        "description": "这是玩家一.",
+        "speed": 120,
+        "elementSort": "DIRT",
+        "hpGrow": 36.0,
+        "attackGrow": 29.0,
+        "defenceGrow": 5.0,
+        "metalResistance": 0.0,
+        "woodResistance": 0.0,
+        "waterResistance": 0.0,
+        "fireResistance": 0.3,
+        "dirtResistance": 0.3,
+        "metalManaGrow": 10.0,
+        "woodManaGrow": 1.0,
+        "waterManaGrow": 4.0,
+        "fireManaGrow": 10.0,
+        "dirtManaGrow": 20.0,
+        "inventorySlots": 63,
+        "criticalRate": 0.0,
+        "criticalDMG": 0.0,
+        "enhance": 0.0,
+        "penetration": 0.0,
+        "defenseLoss": 0.0
+      },
+      "derived": {
+        "hpMax": 4664,
+        "attack": 3706,
+        "defence": 820,
+        "hp": 4664
+      }
+    },
+    "game_official_content:actorLiXiaoYan": {
+      "base": {
+        "name": "李晓焰",
+        "level": 125,
+        "mass": 60.0,
+        "type": "player",
+        "description": "这是李晓焰.",
+        "speed": 120,
+        "elementSort": "FIRE",
+        "hpGrow": 58.0,
+        "attackGrow": 22.0,
+        "defenceGrow": 5.0,
+        "metalResistance": 0.0,
+        "woodResistance": 0.0,
+        "waterResistance": 0.0,
+        "fireResistance": 0.4,
+        "dirtResistance": 0.0,
+        "metalManaGrow": 4.0,
+        "woodManaGrow": 10.0,
+        "waterManaGrow": 1.0,
+        "fireManaGrow": 20.0,
+        "dirtManaGrow": 10.0,
+        "inventorySlots": 63,
+        "criticalRate": 0.0,
+        "criticalDMG": 0.0,
+        "enhance": 0.0,
+        "penetration": 0.0,
+        "defenseLoss": 0.0
+      },
+      "classState": {
+        "ignition": 3
+      },
+      "derived": {
+        "hpMax": 7392,
+        "attack": 2838,
+        "defence": 820,
+        "hp": 7392
+      }
+    },
+    "game_official_content:insectBoss": {
+      "base": {
+        "name": "虫皇",
+        "level": 150,
+        "mass": 1250.0,
+        "type": "insect",
+        "description": "这是虫皇.可以普通攻击和分裂出普通虫子,无上限",
+        "speed": 110,
+        "elementSort": "METAL",
+        "hpGrow": 4000.0,
+        "attackGrow": 7.0,
+        "defenceGrow": 20.0,
+        "metalResistance": 0.8,
+        "woodResistance": 0.2,
+        "waterResistance": 0.2,
+        "fireResistance": -0.1,
+        "dirtResistance": 0.3,
+        "metalManaGrow": 20.0,
+        "woodManaGrow": 4.0,
+        "waterManaGrow": 10.0,
+        "fireManaGrow": 1.0,
+        "dirtManaGrow": 10.0,
+        "inventorySlots": 63,
+        "criticalRate": 0.0,
+        "criticalDMG": 0.0,
+        "enhance": 0.0,
+        "penetration": 0.0,
+        "defenseLoss": 0.0
+      },
+      "derived": {
+        "hpMax": 80000,
+        "attack": 1153,
+        "defence": 3180,
+        "hp": 80000
+      }
+    },
+    "game_official_content:commonInsect": {
+      "base": {
+        "name": "普通虫子",
+        "level": 150,
+        "mass": 100.0,
+        "type": "insect",
+        "description": "这是普通虫子.只有普通攻击",
+        "speed": 90,
+        "elementSort": "METAL",
+        "hpGrow": 30.0,
+        "attackGrow": 5.0,
+        "defenceGrow": 9.0,
+        "metalResistance": 0.95,
+        "woodResistance": 0.5,
+        "waterResistance": 0.1,
+        "fireResistance": 0.0,
+        "dirtResistance": 0.8,
+        "metalManaGrow": 20.0,
+        "woodManaGrow": 4.0,
+        "waterManaGrow": 10.0,
+        "fireManaGrow": 1.0,
+        "dirtManaGrow": 10.0,
+        "inventorySlots": 0,
+        "criticalRate": 0.0,
+        "criticalDMG": 0.0,
+        "enhance": 0.0,
+        "penetration": 0.0,
+        "defenseLoss": 0.0
+      },
+      "derived": {
+        "hpMax": 4670,
+        "attack": 855,
+        "defence": 1541,
+        "hp": 4670
+      }
+    },
+    "game_official_content:iceInsect": {
+      "base": {
+        "name": "冰虫子",
+        "level": 150,
+        "mass": 100.0,
+        "type": "insect",
+        "description": "这是冰虫子.可以冰冻敌人",
+        "speed": 120,
+        "elementSort": "WATER",
+        "hpGrow": 30.0,
+        "attackGrow": 5.0,
+        "defenceGrow": 9.0,
+        "metalResistance": 0.2,
+        "woodResistance": 0.2,
+        "waterResistance": 0.6,
+        "fireResistance": -0.2,
+        "dirtResistance": 0.2,
+        "metalManaGrow": 10.0,
+        "woodManaGrow": 10.0,
+        "waterManaGrow": 20.0,
+        "fireManaGrow": 4.0,
+        "dirtManaGrow": 1.0,
+        "inventorySlots": 0,
+        "criticalRate": 0.0,
+        "criticalDMG": 0.0,
+        "enhance": 0.0,
+        "penetration": 0.0,
+        "defenseLoss": 0.0
+      },
+      "derived": {
+        "hpMax": 4670,
+        "attack": 855,
+        "defence": 1541,
+        "hp": 4670
+      }
+    },
+    "game_official_content:phainon": {
+      "base": {
+        "name": "白厄",
+        "level": 125,
+        "mass": 60.0,
+        "type": "player",
+        "description": "这是白厄.",
+        "speed": 120,
+        "elementSort": "FIRE",
+        "hpGrow": 29.0,
+        "attackGrow": 40.0,
+        "defenceGrow": 25.0,
+        "metalResistance": 0.0,
+        "woodResistance": 0.0,
+        "waterResistance": 0.0,
+        "fireResistance": 0.7,
+        "dirtResistance": 0.0,
+        "metalManaGrow": 4.0,
+        "woodManaGrow": 10.0,
+        "waterManaGrow": 1.0,
+        "fireManaGrow": 20.0,
+        "dirtManaGrow": 10.0,
+        "inventorySlots": 63,
+        "criticalRate": 0.0,
+        "criticalDMG": 0.0,
+        "enhance": 0.0,
+        "penetration": 0.0,
+        "defenseLoss": 0.0
+      },
+      "classState": {
+        "coreflame": 15,
+        "coreflame_max": 15,
+        "soulscorch": 0,
+        "scourge": 0,
+        "scourge_max": 8,
+        "extraAbilityTier": 0
+      },
+      "derived": {
+        "hpMax": 3796,
+        "attack": 5070,
+        "defence": 3300,
+        "hp": 3796
+      }
+    },
+    "game_official_content:flameReaver": {
+      "base": {
+        "name": "至黑之剑，盗火行者",
+        "level": 150,
+        "mass": 1.0,
+        "type": "boss",
+        "description": "伴随黑潮而来、狩猎泰坦火种的无名剑士，无人知晓其真身。身负不可思议的力量，剑技也近乎无懈可击。",
+        "speed": 200,
+        "elementSort": "FIRE",
+        "hpGrow": 120.0,
+        "attackGrow": 60.0,
+        "defenceGrow": 25.0,
+        "metalResistance": 0.2,
+        "woodResistance": 0.2,
+        "waterResistance": 0.2,
+        "fireResistance": 0.7,
+        "dirtResistance": 0.2,
+        "metalManaGrow": 4.0,
+        "woodManaGrow": 10.0,
+        "waterManaGrow": 1.0,
+        "fireManaGrow": 20.0,
+        "dirtManaGrow": 10.0,
+        "inventorySlots": 0,
+        "criticalRate": 0.0,
+        "criticalDMG": 0.0,
+        "enhance": 0.0,
+        "penetration": 0.0,
+        "defenseLoss": 0.0
+      },
+      "derived": {
+        "hpMax": 80000,
+        "attack": 9050,
+        "defence": 3925,
+        "hp": 80000
+      }
+    },
+    "game_official_content:brokenContainer": {
+      "base": {
+        "name": "残破容器",
+        "level": 150,
+        "mass": 1.0,
+        "type": "summon",
+        "description": "自无穷灾难中倒映的残像，皆是寄宿着破坏意志的祸端。",
+        "speed": 120,
+        "elementSort": "FIRE",
+        "hpGrow": 4.0,
+        "attackGrow": 6.0,
+        "defenceGrow": 3.0,
+        "metalResistance": 0.2,
+        "woodResistance": 0.2,
+        "waterResistance": 0.2,
+        "fireResistance": 0.2,
+        "dirtResistance": 0.2,
+        "metalManaGrow": 4.0,
+        "woodManaGrow": 10.0,
+        "waterManaGrow": 1.0,
+        "fireManaGrow": 20.0,
+        "dirtManaGrow": 10.0,
+        "inventorySlots": 0,
+        "criticalRate": 0.0,
+        "criticalDMG": 0.0,
+        "enhance": 0.0,
+        "penetration": 0.0,
+        "defenseLoss": 0.0
+      },
+      "derived": {
+        "hpMax": 12000,
+        "attack": 3620,
+        "defence": 647,
+        "hp": 12000
+      }
+    },
+    "game_official_content:completeContainer": {
+      "base": {
+        "name": "完整容器",
+        "level": 150,
+        "mass": 1.0,
+        "type": "summon",
+        "description": "自无穷灾难中倒映的残像，比寻常残破容器更完整、也更难击碎。",
+        "speed": 120,
+        "elementSort": "FIRE",
+        "hpGrow": 4.0,
+        "attackGrow": 6.0,
+        "defenceGrow": 3.0,
+        "metalResistance": 0.2,
+        "woodResistance": 0.2,
+        "waterResistance": 0.2,
+        "fireResistance": 0.2,
+        "dirtResistance": 0.2,
+        "metalManaGrow": 4.0,
+        "woodManaGrow": 10.0,
+        "waterManaGrow": 1.0,
+        "fireManaGrow": 20.0,
+        "dirtManaGrow": 10.0,
+        "inventorySlots": 0,
+        "criticalRate": 0.0,
+        "criticalDMG": 0.0,
+        "enhance": 0.0,
+        "penetration": 0.0,
+        "defenseLoss": 0.0
+      },
+      "derived": {
+        "hpMax": 20000,
+        "attack": 3620,
+        "defence": 647,
+        "hp": 20000
+      }
+    }
+  },
+  "skills": {
+    "game_official_content:playerOne#枪射击": {
+      "aims": 2,
+      "coolDown": 1,
+      "hpMagnification": 0.0,
+      "atkMagnification": 7.5,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "consumedMana": {
+        "amount": 10.0,
+        "element": "UNIVERSAL"
+      },
+      "tags": {
+        "ATTACK": 5.0
+      }
+    },
+    "game_official_content:playerOne#生命值恢复": {
+      "aims": 3,
+      "coolDown": 1,
+      "hpMagnification": 0.1,
+      "atkMagnification": 0.9,
+      "defMagnification": 0.0,
+      "forEnemies": false,
+      "neededManaScale": 90,
+      "consumedMana": null,
+      "tags": {
+        "HEAL": 1.0
+      }
+    },
+    "game_official_content:playerOne#普通攻击": {
+      "aims": 1,
+      "coolDown": 0,
+      "hpMagnification": 0.0,
+      "atkMagnification": 1.0,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "tags": {
+        "ATTACK": 1.0
+      }
+    },
+    "game_official_content:actorLiXiaoYan#普通攻击": {
+      "aims": 1,
+      "coolDown": 0,
+      "hpMagnification": 1.0,
+      "atkMagnification": 0.0,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "tags": {
+        "ATTACK": 1.0
+      }
+    },
+    "game_official_content:actorLiXiaoYan#灼血泵动": {
+      "aims": 1,
+      "coolDown": 1,
+      "hpMagnification": 2.0,
+      "atkMagnification": 0.0,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "consumedMana": {
+        "amount": 20.0,
+        "element": "FIRE"
+      },
+      "tags": {
+        "ATTACK": 3.0
+      }
+    },
+    "game_official_content:actorLiXiaoYan#过载·白炽化": {
+      "aims": 3,
+      "coolDown": 4,
+      "hpMagnification": 4.0,
+      "atkMagnification": 0.0,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "consumedMana": {
+        "amount": 300.0,
+        "element": "FIRE"
+      },
+      "tags": {
+        "ATTACK": 5.0
+      }
+    },
+    "game_official_content:insectBoss#分裂": {
+      "aims": 0,
+      "coolDown": 10,
+      "hpMagnification": 0.0,
+      "atkMagnification": 0.0,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "consumedMana": {
+        "amount": 100.0,
+        "element": "UNIVERSAL"
+      },
+      "tags": {
+        "ATTACK": 5.0
+      }
+    },
+    "game_official_content:insectBoss#普通攻击": {
+      "aims": 2,
+      "coolDown": 0,
+      "hpMagnification": 0.0,
+      "atkMagnification": 1.0,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "tags": {
+        "ATTACK": 1.0
+      }
+    },
+    "game_official_content:commonInsect#普通攻击": {
+      "aims": 1,
+      "coolDown": 0,
+      "hpMagnification": 0.0,
+      "atkMagnification": 0.3,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "tags": {
+        "ATTACK": 1.0
+      }
+    },
+    "game_official_content:iceInsect#普通攻击": {
+      "aims": 1,
+      "coolDown": 0,
+      "hpMagnification": 0.0,
+      "atkMagnification": 0.3,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "tags": {
+        "ATTACK": 1.0
+      }
+    },
+    "game_official_content:iceInsect#冰冻": {
+      "aims": 2,
+      "coolDown": 2,
+      "hpMagnification": 0.0,
+      "atkMagnification": 7.5,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "consumedMana": {
+        "amount": 10.0,
+        "element": "WATER"
+      },
+      "tags": {
+        "ATTACK": 1.0
+      }
+    },
+    "game_official_content:phainon#普通攻击:逐火救世,行则将至": {
+      "aims": 1,
+      "coolDown": 0,
+      "hpMagnification": 0.0,
+      "atkMagnification": 1.0,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "tags": {
+        "ATTACK": 1.0
+      }
+    },
+    "game_official_content:phainon#战技:黎明创世,地辟天开": {
+      "aims": 3,
+      "coolDown": 0,
+      "hpMagnification": 0.0,
+      "atkMagnification": 3.0,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "consumedMana": {
+        "amount": 120.0,
+        "element": "FIRE"
+      },
+      "tags": {
+        "ATTACK": 5.0
+      }
+    },
+    "game_official_content:phainon#大招:永劫燔世,其将背负": {
+      "aims": 0,
+      "coolDown": 0,
+      "hpMagnification": 0.0,
+      "atkMagnification": 0.0,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "consumedMana": {
+        "amount": 0.0,
+        "element": "UNIVERSAL"
+      },
+      "tags": {
+        "ATTACK": 10.0
+      }
+    },
+    "game_official_content:phainon#普通攻击-创生-血棘渡亡": {
+      "aims": 3,
+      "coolDown": 0,
+      "hpMagnification": 0.0,
+      "atkMagnification": 3.0,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "healRatio": 0.2,
+      "scourgeGain": 4,
+      "consumedMana": null,
+      "tags": {
+        "ATTACK": 1.0
+      }
+    },
+    "game_official_content:phainon#灾厄-弑魂焚诏": {
+      "aims": -1,
+      "coolDown": 0,
+      "hpMagnification": 0.0,
+      "atkMagnification": 0.0,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "soulscorchGain": 1,
+      "absorbDamageReduction": 0.75,
+      "consumedMana": null,
+      "tags": {
+        "ATTACK": 1.0
+      }
+    },
+    "game_official_content:phainon#支柱-死星天裁": {
+      "aims": -1,
+      "coolDown": 0,
+      "hpMagnification": 0.0,
+      "atkMagnification": 0.45,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "healRatio": 0.2,
+      "scourgeCostCap": 4,
+      "hitsPerScourge": 6,
+      "finishMagnification": 6,
+      "consumedMana": null,
+      "tags": {
+        "ATTACK": 5.0
+      }
+    },
+    "game_official_content:phainon#灾厄-弑魂焚诏的反击": {
+      "aims": -1,
+      "coolDown": 0,
+      "hpMagnification": 0.0,
+      "atkMagnification": 1.0,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "healRatio": 0.2,
+      "extraHitMagnification": 0.3,
+      "magnificationPerStack": 0.2,
+      "extraHits": 6,
+      "consumedMana": null,
+      "tags": {
+        "ATTACK": 1.0
+      }
+    },
+    "game_official_content:phainon#最后一击": {
+      "aims": -1,
+      "coolDown": 0,
+      "hpMagnification": 0.0,
+      "atkMagnification": 13.0,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "consumedMana": {
+        "amount": 0.0,
+        "element": "UNIVERSAL"
+      },
+      "tags": {
+        "ATTACK": 1.0
+      }
+    },
+    "game_official_content:flameReaver#亡死的黑云": {
+      "aims": 3,
+      "coolDown": 0,
+      "hpMagnification": 0.0,
+      "atkMagnification": 0.3,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "tags": {
+        "ATTACK": 3.0
+      }
+    },
+    "game_official_content:flameReaver#将尽的命数": {
+      "aims": -1,
+      "coolDown": 0,
+      "hpMagnification": 0.0,
+      "atkMagnification": 0.25,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "tags": {
+        "ATTACK": 3.0
+      }
+    },
+    "game_official_content:flameReaver#相混的道途": {
+      "aims": 0,
+      "coolDown": 0,
+      "hpMagnification": 0.0,
+      "atkMagnification": 0.0,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "tags": {
+        "ATTACK": 3.0
+      }
+    },
+    "game_official_content:flameReaver#幽冥的悼念": {
+      "aims": 0,
+      "coolDown": 0,
+      "hpMagnification": 0.0,
+      "atkMagnification": 0.0,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "tags": {
+        "ATTACK": 3.0
+      }
+    },
+    "game_official_content:flameReaver#却是必要的苦难": {
+      "aims": -1,
+      "coolDown": 0,
+      "hpMagnification": 0.0,
+      "atkMagnification": 1.0,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "damagePerStackMagnification": 1,
+      "finishMagnification": 1.2,
+      "consumedMana": null,
+      "tags": {
+        "ATTACK": 3.0
+      }
+    },
+    "game_official_content:flameReaver#沉默的悲叹": {
+      "aims": 0,
+      "coolDown": 0,
+      "hpMagnification": 0.0,
+      "atkMagnification": 0.0,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "tags": {
+        "ATTACK": 3.0
+      }
+    },
+    "game_official_content:flameReaver#莫因舍弃而哭泣": {
+      "aims": -1,
+      "coolDown": 0,
+      "hpMagnification": 0.0,
+      "atkMagnification": 1.0,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "openingMagnification": 1.2,
+      "damagePerStackMagnification": 1,
+      "consumedMana": null,
+      "tags": {
+        "ATTACK": 3.0
+      }
+    },
+    "game_official_content:brokenContainer#共祭 · 亡死的黑云": {
+      "aims": 3,
+      "coolDown": 0,
+      "hpMagnification": 0.0,
+      "atkMagnification": 0.12,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "tags": {
+        "ATTACK": 3.0
+      }
+    },
+    "game_official_content:brokenContainer#共祭 · 将尽的命数": {
+      "aims": -1,
+      "coolDown": 0,
+      "hpMagnification": 0.0,
+      "atkMagnification": 0.1,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "tags": {
+        "ATTACK": 3.0
+      }
+    },
+    "game_official_content:completeContainer#共祭 · 亡死的黑云": {
+      "aims": 3,
+      "coolDown": 0,
+      "hpMagnification": 0.0,
+      "atkMagnification": 0.12,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "tags": {
+        "ATTACK": 3.0
+      }
+    },
+    "game_official_content:completeContainer#共祭 · 将尽的命数": {
+      "aims": -1,
+      "coolDown": 0,
+      "hpMagnification": 0.0,
+      "atkMagnification": 0.1,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "consumedMana": null,
+      "tags": {
+        "ATTACK": 3.0
+      }
+    }
+  }
+}

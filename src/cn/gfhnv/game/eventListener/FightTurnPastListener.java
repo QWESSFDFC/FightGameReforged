@@ -58,24 +58,6 @@ public class FightTurnPastListener {
     }
 
     /**
-     * 取实体的<b>短标识</b>（UUID 前 6 位），只用于日志。
-     * <p>
-     * 同一个模板会被复制成多个实例：镜像对局里两边都叫"至黑之剑，盗火行者"，
-     * 一场里还会同时存在好几只同名容器 —— 光看名字分不出"这条日志是哪一个"。
-     * UUID 是每个实例独有的，取前 6 位既够区分，又不会把回合头撑得太长。
-     *
-     * @param thing 实体；可为 {@code null}
-     * @return 短标识；拿不到 UUID 时返回 {@code ??????}
-     */
-    private static String shortUuid(LivingThing thing) {
-        if (thing == null || thing.getUUID() == null) {
-            return "??????";
-        }
-        String uuid = thing.getUUID();
-        return uuid.length() <= 6 ? uuid : uuid.substring(0, 6);
-    }
-
-    /**
      * 把一条法力压成短数字（只用于那行紧凑的状态栏）。
      * <p>
      * 只显示当前值不显示上限：上限是固定的（主元素 {@code 成长×(等级-1)+200}），
@@ -201,7 +183,9 @@ public class FightTurnPastListener {
                 CommandManager.followActor(actor, ourSide);
                 // 回合头 + 状态压成两行（以前是"回合头 + 我方/敌方 + 状态 + 能量 + 五行各一行"= 7 行，
                 // 每回合都刷一遍太费眼睛）。用户自己加的"我方/敌方"信息并进回合头，别丢。
-                System.out.println(ConsoleColor.cyan("─── 现在是 " + actor.getName() + "#" + shortUuid(actor)
+                // 名字后面的"#短标识"来自 Thing#getShortUuid()，攻击行（LivingThing#getNameWithUuidAndSide）
+                // 用的是同一个方法 —— 两处各写一份实现迟早一真一假。
+                System.out.println(ConsoleColor.cyan("─── 现在是 " + actor.getNameWithUuid()
                         + "（" + (ourSide ? "我方" : "敌方") + "）的回合 ───"));
                 System.out.println("HP " + actor.getHp() + "/" + actor.getHpMax() + "   能量 金" + manaOf(actor.getMetalMana())
                         + " 木" + manaOf(actor.getWoodMana())
