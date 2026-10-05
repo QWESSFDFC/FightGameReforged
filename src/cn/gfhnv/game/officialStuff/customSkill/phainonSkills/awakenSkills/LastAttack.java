@@ -39,11 +39,12 @@ public class LastAttack extends Skill {
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         if (user instanceof Phainon phainon) {
             // 最后一击的倍率跟着「还剩多少额外回合」走：剩得越少打得越狠，走完 8 个回合时是满倍率 13。
-            // 变身被打断时只有时间轴上的条目被摘掉，extraTurns 保留打断那一刻的值，
-            // 所以这里直接读实时值就等价于"打断时的剩余回合数"。
-            // 上限压到 7：extraTurns = 8 时公式会算出 0 倍率（一个额外回合都没走完就被打断，
-            // 那一刀会变成 0 伤害），并进 7 让提前打断也保底有 12.5% 的伤害。
-            int remainingExtraTurns = Math.min(7, phainon.getExtraTurns());
+            // 被打断的那一刀用「打断那一刻冻结下来的剩余回合数」：退出协议（AwakeEndListener#end）
+            // 已经把它清零了，再读实时值会变成满倍率 13（见 Phainon#finalizeAwakenByInterrupt）。
+            // 公式、每剩余回合的 0.125 与下限 7 一个字都没动。
+            int remainingExtraTurns = Math.min(7, phainon.getInterruptedRemainingExtraTurns() >= 0
+                    ? phainon.getInterruptedRemainingExtraTurns()
+                    : phainon.getExtraTurns());
             this.setAtkMagnification(getAtkMagnification() * (1 - remainingExtraTurns * 0.125));
         }
 

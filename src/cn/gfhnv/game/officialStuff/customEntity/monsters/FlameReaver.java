@@ -94,6 +94,14 @@ public class FlameReaver extends LivingThing {
      * 目标少的队伍不会被一轮打穿。
      */
     private static final int JOINT_ATTACK_TARGETS = 3;
+
+    /**
+     * 击杀【完整容器】发的那个额外回合的<b>来源标识</b>（会打进日志）。
+     * <p>
+     * 白厄变身的连击与这个奖励<b>都是"额外回合"</b>，日志里长得一模一样 ——
+     * 带上标识才看得出<b>到底哪一条先执行</b>，也是排查"奖励回合被顶掉 / 空过"的唯一抓手。
+     */
+    public static final String EXTRA_TURN_TAG = "完整容器奖励";
     /**
      * 「亡死的黑云」召唤出来、还没被它自己吸收的容器。
      * <p>
@@ -748,10 +756,12 @@ public class FlameReaver extends LivingThing {
         // TurnManager.getPresentTime() 已经保证不为 null（未初始化时返回 ZERO）
         TurnEntry extraTurn = new TurnEntry(beneficiary, BigDecimal.ZERO, TurnManager.getPresentTime())
                 .setExtra(true)
-                .setPriority(TurnEntry.PRIORITY_EXTRA);
+                .setPriority(TurnEntry.PRIORITY_EXTRA)
+                .setTag(EXTRA_TURN_TAG);
         TurnManager.getTurns().add(extraTurn);
         TurnManager.sort();
-        System.out.println(ConsoleColor.yellow("【" + beneficiary.getName() + "】获得了一个额外回合"));
+        System.out.println(ConsoleColor.yellow("【" + beneficiary.getName() + "】获得了一个额外回合【"
+                + EXTRA_TURN_TAG + "】"));
     }
 
     /**

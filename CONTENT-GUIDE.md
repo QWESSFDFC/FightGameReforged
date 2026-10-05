@@ -307,7 +307,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force; & .\check-sou
 
 # 权威：全量编译 + 自测
 powershell -ExecutionPolicy Bypass -File .\test-command-system.ps1
-#   期望：通过 N 条，失败 0 条（N 只能涨不能跌；当前基线 827）
+#   期望：通过 N 条，失败 0 条（N 只能涨不能跌；当前基线 853，见 30-WORKFLOW.md 的 §6.2）
 ```
 
 自测会替你验：**新字段能配**、**全量默认值打回去数值逐字段不变**、**`copy()` 带得过去**、
@@ -608,6 +608,7 @@ public class MyMod extends Mod implements ModDataAware {
 | 想知道 | 读 |
 |---|---|
 | **往游戏里加内容 / 配置能改到什么** | **本文** |
+| **选实体/物品时怎么打字**（缩写 `ne`/`nex`、一行多个 `1/2/3/y`、`n` 的两义） | `notes_for_llm/50-COMMANDS.md` 的 **§5.10** |
 | 写模组（目录、`main.json`、`Mod` API、四类内容模板、14 条踩坑） | `MODDING-GUIDE.md` |
 | 玩家视角：数值怎么调、命令怎么用、目录结构 | `README.md`（「🎛️ 数值怎么调」一节） |
 | 这套配置系统**为什么**长这样、每一步的验收数字、踩过的坑 | `project_analyses/EXTERNAL-DATA-LOADING-2026-10.md`、`CONFIG-LOADING-DECOUPLING-2026-10.md` |

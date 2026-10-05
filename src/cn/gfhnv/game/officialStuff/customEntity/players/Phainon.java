@@ -1,9 +1,12 @@
 package cn.gfhnv.game.officialStuff.customEntity.players;
 
+import cn.gfhnv.game.data.NoConfig;
+import cn.gfhnv.game.data.NoData;
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entity.Player;
 import cn.gfhnv.game.entityController.PlayerController;
+import cn.gfhnv.game.entityController.UniversalController;
 import cn.gfhnv.game.event.DamageEvent;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.eventListener.FightTurnPastListener;
@@ -59,6 +62,29 @@ public class Phainon extends Player {
     private List<Skill> skills;
     private boolean absorbDamage = false;
     private boolean pendingLastAttack = false;
+    /**
+     * 「变身被打断」那一刻<b>还剩几个额外回合</b>；{@code -1} 表示这一刀不是被打断的那一刀。
+     * <p>
+     * 为什么需要它：中止变身的那个动作（{@link #clearAwakenExtraTurns()} +
+     * {@link #finalizeAwakenByInterrupt()}）必须<b>自己完成退出协议</b> ——
+     * 原有的退出协议挂在时间轴上第 8 条额外回合（{@code UltimateAttack} 的 {@code lastestOne}）的
+     * 收尾队列里，而中止变身干的正是"把那些回合条目从时间轴上摘掉"，
+     * 于是"中止变身"这个动作恰好取消了变身的退出协议：技能表没人清、{@code AwakenEndEvent}
+     * 没人发、白厄就留在觉醒状态里（用户 2026-10 实测的「白厄无敌」就是这么来的）。
+     * <p>
+     * 但退出协议（{@link AwakeEndListener#end}）会把 {@link #extraTurns} 清零，而
+     * {@link LastAttack} 的倍率公式 {@code 13 × (1 − 剩余回合 × 0.125)} 读的就是那个计数 ——
+     * 先清零再挥刀的话，「被打断的那一刀」会从按剩余回合数缩水变成<b>满倍率 13</b>，
+     * 那是改平衡。所以这里把打断瞬间的剩余回合数<b>冻结一份</b>，
+     * 让 {@link LastAttack} 在"被打断"这条路上只认它
+     * （见 {@link #getInterruptedRemainingExtraTurns()}）。
+     * <p>
+     * <b>不进 {@code /data}、也不进配置文件</b>（与 {@code LivingThing#presentTurn} 同一类东西）：
+     * 它是运行期上下文，不是模板属性，dump 出来只会平白多出一个数据键。
+     */
+    @NoData
+    @NoConfig("运行期上下文（这一刀是不是被打断的那一刀、当时还剩几个额外回合），不是模板属性，也不进 /data")
+    private int interruptedRemainingExtraTurns = -1;
     private int extraTurns = 0;
 
     public Phainon(Phainon phainon1) {
@@ -69,6 +95,7 @@ public class Phainon extends Player {
         absorbDamage = phainon1.absorbDamage;
         extraTurns = phainon1.extraTurns;
         pendingLastAttack = phainon1.pendingLastAttack;
+        interruptedRemainingExtraTurns = phainon1.interruptedRemainingExtraTurns;
         skills = new ArrayList<>(this.getController().getSkills());
         coreflame_max = phainon1.coreflame_max;
         soulscorch = phainon1.soulscorch;
@@ -131,8 +158,19 @@ public class Phainon extends Player {
      * AI 预判一次致死伤害就会把这一次免死花掉的话，等于 AI 光靠「看一眼」就能破掉免死。
      * <p>
      * 触发时先 {@link #clearAwakenExtraTurns() 中止还没走完的额外回合}（变身被打断），
+     * 由 {@link #finalizeAwakenByInterrupt()} <b>当场完成退出协议</b>
+     * （发 {@link AwakenEndEvent}，清掉 {@code isAwaken} 与技能表、把 {@code extraTurns} 归零），
      * 再把「最后一击」排进<b>当前回合</b>的收尾队列：伤害照旧挥出去，
-     * 挥完由 {@link LastAttack} 发 {@code AwakenEndEvent} 正式退出变身。
+     * 倍率按 {@link #getInterruptedRemainingExtraTurns() 打断那一刻剩余的额外回合数}算。
+     * <p>
+     * <b>为什么退出协议不能继续挂在时间轴上</b>：它原来挂在第 8 条额外回合
+     * （{@code UltimateAttack} 的 {@code lastestOne}）的收尾队列里 ——
+     * 而"中止变身"干的正是把这些额外回合从时间轴上摘掉，
+     * 于是中止变身的动作会把退出协议自己一起取消掉：技能表没人清、{@code AwakenEndEvent} 没人发，
+     * 白厄就留在觉醒状态里（用户 2026-10 实测的「白厄无敌」）。
+     * 现在退出由<b>中止变身的那个动作自己收口</b>，与时间轴上还剩什么条目无关。
+     * <p>
+     * 试算期间（{@code isAnticipating()}）绝不改状态、也绝不排队。
      *
      * @return 免死用的伤害修正器
      */
@@ -142,13 +180,19 @@ public class Phainon extends Player {
             public long damageModify(long newHp, DamageEvent da) {
                 if (da.getAttackedEntity() instanceof Phainon phainon && phainon.isAwaken && newHp <= 0) {
                     if (phainon.isPendingLastAttack() || phainon.isAnticipating()) {
+                        // 「已经在等最后一击」那一支只锁血：同一回合里的第二次致死不再多排一刀。
+                        // 退出协议由下面第一次排队那一步自己收口（finalizeAwakenByInterrupt），
+                        // 所以标志不会因为"那一击排晚了"而卡死。
                         return 1;
                     }
                     newHp = 1;
                     phainon.setPendingLastAttack(true);
-                    // 顺序要紧：先清算掉还没用的额外回合，再把 LastAttack 插进当前回合末尾
+                    // 顺序要紧：先中止变身（摘掉时间轴上还没走的额外回合，并由这个动作自己完成退出协议），
+                    // 再把 LastAttack 插进当前回合末尾 —— 它会在 comeToEffect 里按那个冻结值算倍率。
                     phainon.clearAwakenExtraTurns();
-                    FightTurnPastListener.getPresentTurn().getLastExecuteList().add((fight, user) -> {
+                    phainon.finalizeAwakenByInterrupt();
+                    TurnEntry armingTurn = FightTurnPastListener.getPresentTurn();
+                    armingTurn.getLastExecuteList().add((fight, user) -> {
                         List<LivingThing> availableTargets;
                         if (fight.getEnemiesList().contains(phainon))
                             availableTargets = new ArrayList<>(fight.getFighterList());
@@ -214,16 +258,55 @@ public class Phainon extends Player {
      * <p>
      * 按引用摘除，不按 {@code isExtra} 扫描 —— 那个标记别的体系也在用。
      * <p>
-     * <b>它不碰 {@link #extraTurns}</b>：那个计数是"变身状态"的一部分，
-     * 清零点只有一个 —— 结束变身的 {@link AwakeEndListener#end(AwakenEndEvent)}。
-     * 计数器留在原值也正好让「被打断后挥出的那一击」按"还剩几个额外回合"算倍率
-     * （{@link LastAttack} 读实时值即可，不需要任何快照）。
+     * <b>它只管"摘条目"这一件事</b>：退出协议（发 {@link AwakenEndEvent}）由
+     * {@link #finalizeAwakenByInterrupt()} 单独负责，因为
+     * {@code whenFightEnds()} 也要摘条目、却<b>不能</b>在那里补发退出事件
+     * （战斗都结束了，退出协议里那条"给白厄再排一个回合"对结束中的时间轴没有意义）。
+     * 打断变身那条路必须连着调这两个方法，顺序不能反 —— 见 {@link #soulscorchDeathWard()}。
      */
     public void clearAwakenExtraTurns() {
         for (TurnEntry entry : awakenExtraTurns) {
             TurnManager.getTurns().remove(entry);
         }
         awakenExtraTurns.clear();
+    }
+
+    /**
+     * 「变身被打断」的<b>退出收口</b>：把退出协议就地走完，不再依赖时间轴上还剩什么条目。
+     * <p>
+     * <b>它解决的是什么</b>：退出协议原本挂在第 8 条额外回合
+     * （{@code UltimateAttack} 的 {@code lastestOne}）的收尾队列里，而那条条目正是
+     * {@link #clearAwakenExtraTurns()} 要摘掉的东西之一 ——
+     * 于是"中止变身"这个动作恰好取消了变身的退出协议：技能表没人清、
+     * {@code AwakenEndEvent} 没人发、{@code extraTurns} 没人归零，
+     * 白厄留在觉醒状态里，而 {@link #soulscorchDeathWard()} 的「已经在等最后一击」那一支
+     * 又只会把血锁在 1 → 表现就是用户 2026-10 实测的「白厄无敌」。
+     * <p>
+     * <b>为什么要先冻结剩余回合数</b>：退出协议（{@link AwakeEndListener#end}）会把
+     * {@link #extraTurns} 清零，而 {@link LastAttack} 的倍率是按"还剩几个额外回合"算的
+     * （{@code 13 × (1 − 剩余回合 × 0.125)}，下限压到 7）。先把打断那一刻的实时值冻结下来，
+     * 「被打断的那一刀」才不会从缩水倍率变成满倍率 13 —— <b>公式与所有数值一个都没动</b>。
+     * <p>
+     * 正常路径（走完 8 个额外回合）永远不经过这里：那时 {@code extraTurns} 已经被
+     * 各条额外回合自己减到 0，最后一击按 {@code extraTurns == 0} 出满倍率。
+     */
+    public void finalizeAwakenByInterrupt() {
+        this.interruptedRemainingExtraTurns = this.extraTurns;
+        //EventBus.post(new AwakenEndEvent(this)); 白厄在变身时释放最后一击.
+    }
+
+    /**
+     * @return 被打断那一刻还剩几个额外回合；{@code -1} 表示这一刀不是"被打断的那一刀"
+     */
+    public int getInterruptedRemainingExtraTurns() {
+        return interruptedRemainingExtraTurns;
+    }
+
+    /**
+     * @param interruptedRemainingExtraTurns 打断那一刻剩余的额外回合数；{@code -1} 表示没有被打断
+     */
+    public void setInterruptedRemainingExtraTurns(int interruptedRemainingExtraTurns) {
+        this.interruptedRemainingExtraTurns = interruptedRemainingExtraTurns;
     }
 
     public boolean isPendingLastAttack() {
@@ -297,6 +380,7 @@ public class Phainon extends Player {
         scourge = 0;
         soulscorch = 0;
         pendingLastAttack = false;
+        interruptedRemainingExtraTurns = -1;
         this.absorbDamage = false;
         this.clearAwakenExtraTurns();
         if (this.isAwaken) {
@@ -373,5 +457,31 @@ public class Phainon extends Player {
 
     public void setAwaken(boolean awaken) {
         isAwaken = awaken;
+    }
+
+    /**
+     * <b>自测专用装配入口</b>：把白厄的控制器从 {@link PlayerController} 换成
+     * <b>不会读标准输入</b>的 {@link UniversalController}（技能表是原控制器那一份的副本）。
+     * <p>
+     * ⚠️ <b>只给自测 / 探针用，不要在游戏流程里调用。</b>正常玩法里白厄必须由玩家操作，
+     * 这个方法一调，他就变成一个"每个回合什么都不做"的木桩
+     * （技能表为空 → {@code UniversalController#act} 直接打印"没行动"并返回）。
+     * <p>
+     * <b>它为什么必须存在</b>：{@code Phainon} 的出厂装配（{@code new Phainon(level)}）
+     * 挂的是 {@link PlayerController}，而它每回合都会 {@code GameMain.SCANNER.nextLine()}。
+     * 无人值守地跑<b>真实回合循环</b>时那里会抛 {@code NoSuchElementException}
+     * （自测里 stdin 是空的），于是"整条变身时间轴"根本没法在自测里驱动起来 ——
+     * 之前那几轮"复现不了用户日志"就是这么来的。命令系统与输入方式<b>一个字都没改</b>，
+     * 这里只是给自测换一个控制器。
+     * <p>
+     * 换完之后 {@link LivingThing} 的复制构造器会把它按 {@code UniversalController} 重建
+     * （那一张类型表认得这个类型），所以进战斗副本照样不会去读标准输入。
+     *
+     * @param phainon 要装配的白厄实例
+     * @return 同一个实例（便于链式书写）
+     */
+    public static Phainon forSelfTest(Phainon phainon) {
+        phainon.setController(new UniversalController(new ArrayList<>(phainon.getController().getSkills()), phainon));
+        return phainon;
     }
 }

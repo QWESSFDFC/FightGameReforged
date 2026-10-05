@@ -7,8 +7,11 @@ import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entityController.FixOrderController;
 import cn.gfhnv.game.entityController.UniversalController;
 import cn.gfhnv.game.event.DamageEvent;
+import cn.gfhnv.game.event.EventBus;
+import cn.gfhnv.game.eventListener.FightTurnPastListener;
 import cn.gfhnv.game.interfaces.IModifyDamage;
 import cn.gfhnv.game.interfaces.IModifyIgnitionMax;
+import cn.gfhnv.game.interfaces.ISpecialAction;
 import cn.gfhnv.game.inventory.Slot;
 import cn.gfhnv.game.item.Item;
 import cn.gfhnv.game.mod.Mod;
@@ -26,9 +29,11 @@ import cn.gfhnv.game.system.command.*;
 import cn.gfhnv.game.system.configLoadingSystem.DataKeys;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.fight.TargetStrategies;
+import cn.gfhnv.game.system.fight.TurnEntry;
 import cn.gfhnv.game.system.fight.TurnManager;
 import cn.gfhnv.game.world.World;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -142,6 +147,8 @@ public class TestCommandSystem {
         testLivingThingAttributeContract();
         testActorLiXiaoYan();
         testFollowActor();
+        testSelectionInputSyntax();
+        testStartAFightSelection();
         testDataCommand();
         testNestedEntityReference();
         testDataModify();
@@ -166,6 +173,7 @@ public class TestCommandSystem {
         if (failures > 0) {
             System.exit(1);
         }
+        System.exit(0);
     }
 
     /* ------------------------------------------------------------------
@@ -1133,6 +1141,15 @@ public class TestCommandSystem {
             guardian.removeModifyDamage(floor);
             check("移除下限修正器后列表为空", guardian.getModifyDamageList().isEmpty());
 
+            // ---- 白厄免死：锁血、排队与只读试算（一次性造回合的用法） ----
+            testSoulscorchDeathWardDoesNotDeadlock();
+
+            // ---- 白厄：中止变身自己收口 + 只挨一次打只反击一次（跑真实回合循环） ----
+            testAwakenInterruptExitProtocol();
+
+            // ---- 白厄：同场两只白厄的 AwakenEndEvent 不会互相吃掉监听器 ----
+            testAwakeEndListenerOwnership();
+
             // ---- 无视防御：只认 IDefenceIgnore 接口，模组自写的效果一样生效 ----
             LivingThing piercer = new CommonInsect(100L).copy();
             piercer.addEffect(new ProbeDefenceIgnoreEffect(0.5, 0));
@@ -1143,6 +1160,330 @@ public class TestCommandSystem {
             check("无视防御确实让伤害变高", ignoreHit > normalHit);
         } catch (Exception e) {
             fail("减伤测试抛出异常：" + e);
+        }
+    }
+
+    /**
+     * 白厄免死自测（2026-10 用户实测：变身 + 灾厄-弑魂焚诏击败完整容器拿到额外回合之后，
+     * 敌人打他一直是 {@code -0}、HP 停在 1 不动，等于<b>白厄无敌</b>）。
+     * <p>
+     * 钉住三件事：<b>标志未置位时照常锁血排队</b>、<b>同一回合里重复致死不再排第二刀</b>、
+     * 以及<b>试算期间只读</b>（不排队、不改任何状态）。
+     * <p>
+     * ⚠️ <b>「那一击排晚了就永久锁血」那套死锁兜底已经整条撤掉</b>（它没能在任何场景里被复现，
+     * 而且在复现场景里一次都没救回来；见 {@code 60-COMBAT.md} 的 §5.7）——
+     * 连带撤掉了它的 4 条断言（旧 ③④ 两组与旧 ⑤ 里"回合引用一起清"那半条）。
+     * 真正修掉「白厄无敌」的是<b>退出协议改由"中止变身"这个动作自己收口</b>：
+     * 见 {@code Phainon#finalizeAwakenByInterrupt()} 与下面
+     * {@link #testAwakenInterruptExitProtocol()} 那条跑真实回合循环的用例。
+     * <p>
+     * ⚠️ 这条测试不碰任何数值：{@code LastAttack} 的 {@code 0.125} 与下限 {@code 7} 原样不动。
+     *
+     * @author AI（DeepSeek）生成
+     */
+    private static void testSoulscorchDeathWardDoesNotDeadlock() {
+        System.out.println();
+        System.out.println("-------- 白厄免死：锁血、排队与只读试算 --------");
+        Phainon wardPhainon = new Phainon(125);
+        // 监听器必须带着归属（owner）：AwakenEndEvent 是广播事件，见 AwakeEndListener#owner
+        cn.gfhnv.game.officialStuff.customEvent.phainonEvents.AwakeEndListener awakeEndListener =
+                new cn.gfhnv.game.officialStuff.customEvent.phainonEvents.AwakeEndListener(wardPhainon);
+        try {
+            // 免死排队时会 World.prototypeCopyOf(LastAttack.class)，原型必须在注册表里
+            World.getSkillList();
+
+            wardPhainon.setName("免死探针");
+            LivingThing wardDummy = new CommonInsect(100L).copy();
+            wardDummy.setName("挨打探针");
+            List<LivingThing> wardEnemies = new ArrayList<>();
+            wardEnemies.add(wardDummy);
+            List<LivingThing> wardFighters = new ArrayList<>();
+            wardFighters.add(wardPhainon);
+            Fight wardFight = new Fight(wardEnemies, new ArrayList<>(), wardFighters);
+
+            Skill lethalProbe = new ProbeSkill("致死探针", new ArrayList<>(), 1, 1.0);
+            DamageEvent wardHit = new DamageEvent(wardDummy, wardPhainon, lethalProbe);
+            wardHit.getDamage().setDamageAmount(9999L);
+
+            wardPhainon.setAwaken(true);
+            wardPhainon.setHp(1);
+            wardPhainon.setPendingLastAttack(false);
+            wardPhainon.setExtraTurns(8);
+            wardPhainon.setInterruptedRemainingExtraTurns(-1);
+
+            // ① 正常路径：标志没置位 → 锁 1 血 + 把最后一击排进"当前回合" + 当场走完退出协议
+            TurnEntry wardTurn = new TurnEntry(wardPhainon, BigDecimal.ZERO, BigDecimal.ZERO);
+            FightTurnPastListener.setPresentTurn(wardTurn);
+            int queuedBefore = wardTurn.getLastExecuteList().size();
+            wardPhainon.getDamage(wardHit);
+            check("免死：标志未置位时锁 1 血、置位标志、把最后一击排进当前回合",
+                    wardPhainon.getHp() == 1
+                            && wardPhainon.isPendingLastAttack()
+                            && wardTurn.getLastExecuteList().size() == queuedBefore + 1);
+            check("免死：中止变身时当场冻结「打断那一刻还剩几个额外回合」（这里 8 —— 冻结的是实时值，"
+                            + "压到 7 的是 LastAttack 里的公式）",
+                    wardPhainon.getInterruptedRemainingExtraTurns() == 8);
+
+            // ② 同一回合里第二次致死：不再排第二刀（这条是老行为，不能被兜底改掉）
+            int queuedAfterFirst = wardTurn.getLastExecuteList().size();
+            wardPhainon.getDamage(wardHit);
+            check("免死：同一回合里重复致死只锁血、不再排第二刀（老行为保留）",
+                    wardPhainon.getHp() == 1
+                            && wardTurn.getLastExecuteList().size() == queuedAfterFirst);
+
+            // ③ 试算期间只读：不排队、也不改任何状态
+            boolean pendingBeforeAnticipate = wardPhainon.isPendingLastAttack();
+            long anticipatedHp = wardPhainon.anticipating(
+                    () -> wardPhainon.modifyIncomingDamage(0, wardHit));
+            check("免死：试算期间只返回锁 1 的血量，不动任何状态",
+                    anticipatedHp == 1
+                            && wardPhainon.isPendingLastAttack() == pendingBeforeAnticipate
+                            && wardTurn.getLastExecuteList().size() == queuedAfterFirst);
+
+            // ④ 那一击真的挥出去之后，标志必须被清掉（正常路径的收口）
+            wardPhainon.setAwaken(true);
+            EventBus.register(awakeEndListener);
+            for (ISpecialAction action : wardTurn.getLastExecuteList()) {
+                action.execute(wardFight, wardPhainon);
+            }
+            check("免死：最后一击挥完之后 AwakeEndListener 把标志与冻结值一起清掉",
+                    !wardPhainon.isPendingLastAttack()
+                            && wardPhainon.getInterruptedRemainingExtraTurns() == -1
+                            && !wardPhainon.isAwaken());
+        } catch (Exception e) {
+            fail("白厄免死死锁测试抛出异常：" + e);
+        } finally {
+            // 收尾：把监听器与"当前回合"还回去，别渗进后面的用例
+            EventBus.unregister(awakeEndListener);
+            FightTurnPastListener.setPresentTurn(null);
+        }
+    }
+
+    /**
+     * <b>「只挨一次打 → 只出一刀」+「中止变身自己收口」</b>：跑<b>真实回合循环</b>的守卫
+     * （2026-10 用户实测的「白厄无敌」+「每挨一次打就放一次【最后一击】」）。
+     * <p>
+     * 场景与用户那条日志同形：白厄变身（{@code extraTurns = 3}）→ 敌方行动打出致死伤害 →
+     * 免死把血锁在 1 → <b>中止变身</b>（时间轴上那 8 条额外回合被摘掉）。
+     * <p>
+     * 钉住三件事：
+     * <ol>
+     *     <li><b>退出协议必须在"中止变身"这一刻走完</b>：它原来挂在时间轴第 8 条额外回合的收尾队列里，
+     *     而中止变身干的正是把那些条目摘掉 —— 于是"中止变身"取消了变身的退出协议，
+     *     白厄留在觉醒状态、{@code pendingLastAttack} 永不清、血永久锁 1（= 白厄无敌）；</li>
+     *     <li><b>一次挨打只出一刀</b>：那一刀排在"当前回合收尾队列"上，同一圈循环只执行一次
+     *     （挨打探针只有 2 点血：一刀 2600 必死。若同一圈排了两刀，各自的倍率会对半砍到 1300、
+     *     它反而活着 —— 于是"排了几刀"变成一个能观测的数字）；</li>
+     *     <li><b>变身退掉之后不再复发</b>：退出协议跑完 {@code isAwaken} 就是 false，
+     *     免死不再武装 —— 所以不存在"每挨一次打就再放一次【最后一击】"。</li>
+     * </ol>
+     * <p>
+     * 这条用例能进 {@code src} 靠的是两个<b>自测专用装配入口</b>：
+     * {@link cn.gfhnv.game.GameMain#setFightInProgressForSelfTest(boolean)}（回合循环的硬门）
+     * 与 {@link Phainon#forSelfTest(Phainon)}（换成不读标准输入的控制器）。
+     * <p>
+     * ⚠️ <b>它一个数值都没改</b>：{@code LastAttack} 的 {@code 0.125}、下限 {@code 7}、
+     * 12 火种、8 个额外回合、75% 减伤全部原样（探针自己的倍率与血量只服务这条用例）。
+     *
+     * @author AI（DeepSeek）生成
+     */
+    private static void testAwakenInterruptExitProtocol() {
+        System.out.println();
+        System.out.println("-------- 白厄：中止变身自己收口 + 只挨一次打只反击一次（真实回合循环） --------");
+        boolean inFightBefore = cn.gfhnv.game.GameMain.isInFight();
+        List<TurnEntry> turnsBefore = new ArrayList<>(TurnManager.getTurns());
+        cn.gfhnv.game.officialStuff.customEvent.phainonEvents.AwakeEndListener probeListener = null;
+        Phainon awakened = null;
+        LivingThing victim = null;
+        try {
+            // 免死里会 World.prototypeCopyOf(LastAttack.class)，原型必须在注册表里
+            World.getSkillList();
+
+            awakened = Phainon.forSelfTest(new Phainon(125));
+            probeListener = new cn.gfhnv.game.officialStuff.customEvent.phainonEvents.AwakeEndListener(awakened);
+            // 技能表清空 → 他这一圈既不读标准输入、也不会去动挨打探针（这条用例要打的是"他挨打"）
+            awakened.getController().getSkills().clear();
+            awakened.setName("变身白厄");
+            awakened.setAwaken(true);
+            awakened.setExtraTurns(3);
+            // 变身那一套数值加成必须一起补上：UltimateAttack 变身时 +0.8 攻击 / +2.7 生命，
+            // 退出协议的 AwakeEndListener 结束时会各减回去。只摆 isAwaken 不摆这两项的话，
+            // 退出时会把生命加成减成 -2.7 → getHpMax() 变成负数（实测 -6453），免死锁血也救不回来。
+            awakened.setAttackEnhancePercent(awakened.getAttackEnhancePercent() + 0.8);
+            awakened.setHpEnhancePercent(awakened.getHpEnhancePercent() + 2.7);
+
+            // 挨打探针只有 2 点血：只要它活过这一圈，就说明"最后一击"被排了不止一次
+            victim = new ProbeFragileDummy();
+            victim.setName("挨打探针");
+
+            List<LivingThing> fighters = new ArrayList<>();
+            fighters.add(awakened);
+            List<LivingThing> enemies = new ArrayList<>();
+            enemies.add(victim);
+            Fight fight = new Fight(enemies, new ArrayList<>(), fighters);
+
+            TurnManager.setTurns(new ArrayList<>());
+            TurnManager.setPresentTime(BigDecimal.ZERO);
+            TurnManager.setIsInitialized(false);
+            // 时间轴：两人都排在 0，探针速度 500 先手（用例要打的是"白厄挨打"，不是"白厄打它"）。
+            // ⚠️ 手摆列表时**必须把两边都排进去** —— 只排白厄的话探针永远轮不到，这一圈根本打不起来。
+            TurnManager.getTurns().add(new TurnEntry(awakened, BigDecimal.ZERO, BigDecimal.ZERO));
+            TurnManager.getTurns().add(new TurnEntry(victim, BigDecimal.ZERO, BigDecimal.ZERO));
+
+            awakened.setHp(1);
+            awakened.setSoulscorch(3);
+            awakened.setAbsorbDamage(true);
+            awakened.addDamageReduction(Phainon.SOULSCORCH_DAMAGE_REDUCTION, 0.75);
+
+            check("中止变身①：开跑前白厄确实在变身中、免死还没被消费、挨打探针还活着",
+                    awakened.isAwaken() && !awakened.isPendingLastAttack() && victim.isAlive());
+
+            EventBus.register(probeListener);
+            EventBus.register(new ProbeStopAfterOneTurn());
+
+            cn.gfhnv.game.GameMain.setFightInProgressForSelfTest(true);
+            FightTurnPastListener driver = new FightTurnPastListener();
+            EventBus.register(driver);
+            EventBus.post(new cn.gfhnv.game.event.FightPastOneTurnEvent(fight));
+        } catch (Exception e) {
+            fail("中止变身退出协议测试抛出异常：" + e);
+        } finally {
+            // 收尾：这一格是回合循环的硬门，不还回去会渗进后面的用例
+            cn.gfhnv.game.GameMain.setFightInProgressForSelfTest(inFightBefore);
+            EventBus.unregister(probeListener);
+            TurnManager.setTurns(turnsBefore);
+            TurnManager.setPresentTime(null);
+            TurnManager.setIsInitialized(false);
+            FightTurnPastListener.setPresentTurn(null);
+        }
+        if (awakened == null || victim == null) {
+            return;
+        }
+
+        // ② 退出协议：中止变身的那一刻就该走完（不再依赖时间轴上那 8 条额外回合里的最后一条）
+        check("中止变身②：退出协议当场跑完 —— 挨打之后已经把变身退掉（isAwaken 为 false）",
+                !awakened.isAwaken() && awakened.getAwakenExtraTurns().isEmpty());
+        check("中止变身②：名字也还原成「白厄」（不是只清了标志）",
+                "白厄".equals(awakened.getName()));
+
+        // ③ 一次挨打只出一刀：那把刀砍在 2 点血的挨打探针上，一刀就够；砍两刀的话倍率对半、它反而活着
+        check("只挨一次打③：挨打探针被那一刀砍倒（一刀 2600 > 2 血；排了两刀就会对半成 1300，它反而活着）",
+                !victim.isAlive());
+        check("只挨一次打③：免死标志没有停在 true（停了就是永久锁 1 血 = 白厄无敌）",
+                !awakened.isPendingLastAttack());
+        check("只挨一次打③：白厄自己也没被打死（免死把这一击拦在 1 血）",
+                awakened.getHp() == 1 && awakened.isAlive());
+        check("只挨一次打③：变身已经退掉之后再挨打也不会再排一刀（觉醒状态没了，免死不再武装）",
+                !awakened.isAwaken() && !awakened.isPendingLastAttack());
+    }
+
+    /**
+     * <b>同场两只白厄：一只的 {@code AwakenEndEvent} 不许把另一只的监听器吃掉。</b>
+     * <p>
+     * {@code AwakenEndListener} 是<b>一次性</b>的（处理完就 {@code EventBus.unregister(this)}），
+     * 而 {@code AwakenEndEvent} 是<b>广播</b>事件 —— 两只白厄同时变身时，A 发的事件会把总线上
+     * <b>两个</b>监听器都调用一遍。没有归属判断的话两个都会执行退出协议并各自注销，
+     * 于是 B 的监听器在没轮到自己时就被"用掉"：<b>B 的变身永不结束</b>
+     * （技能表停在觉醒三条、免死无限武装、每挨一次打就重排一记【最后一击】、奖励回合被耗尽）。
+     * <p>
+     * 钉住三件事：
+     * <ol>
+     *     <li>对 A 发事件 → 只结束 A，B 仍然在变身（<b>本轮核心守卫</b>）；</li>
+     *     <li>之后再对 B 发 → B 也结束（证明 B 的监听器还在总线上）；</li>
+     *     <li>同一个白厄：同一个事件走两遍退出协议不会被执行两次
+     *     （{@code +25% 血}、{@code tier+1}、排新回合这三处不幂等）。</li>
+     * </ol>
+     * {@code end()} 里会按速度往时间轴上排一条新回合，所以时间轴要快照 + 还原。
+     *
+     * @author AI（DeepSeek）生成
+     */
+    private static void testAwakeEndListenerOwnership() {
+        System.out.println();
+        System.out.println("-------- 白厄变身：同场两只白厄的 AwakeEndEvent 不会互相吃掉监听器 --------");
+        List<TurnEntry> turnsBefore = new ArrayList<>(TurnManager.getTurns());
+        BigDecimal presentTimeBefore = TurnManager.getPresentTime();
+        Phainon first = new Phainon(125);
+        Phainon second = new Phainon(125);
+        // ③ 单独用一只"干净"的白厄：①② 那两只已经被退出协议改过加成（各减一次 0.8 / 2.7），
+        // 再拿它们算 +25% 回血会被变小的 hpMax 夹掉，看不出"有没有重复回血"。
+        Phainon solo = new Phainon(125);
+        first.setName("白厄甲");
+        second.setName("白厄乙");
+        solo.setName("白厄丙");
+        cn.gfhnv.game.officialStuff.customEvent.phainonEvents.AwakeEndListener listenerOfFirst = null;
+        cn.gfhnv.game.officialStuff.customEvent.phainonEvents.AwakeEndListener listenerOfSecond = null;
+        cn.gfhnv.game.officialStuff.customEvent.phainonEvents.AwakeEndListener listenerOfSolo = null;
+        try {
+            // 摆成"两只白厄同时变身中"（退出协议会各减回 0.8 攻击 / 2.7 生命，所以加成也要一起摆）
+            for (Phainon phainon : List.of(first, second)) {
+                phainon.setAwaken(true);
+                phainon.setExtraTurns(8);
+                phainon.setInterruptedRemainingExtraTurns(-1);
+                phainon.setAttackEnhancePercent(phainon.getAttackEnhancePercent() + 0.8);
+                phainon.setHpEnhancePercent(phainon.getHpEnhancePercent() + 2.7);
+            }
+            first.setSoulscorch(3);
+            second.setSoulscorch(5);
+            TurnManager.setTurns(new ArrayList<>());
+            TurnManager.setPresentTime(BigDecimal.ZERO);
+
+            // 各持一个监听器（= UltimateAttack#comeToEffect 变身时各注册一个），都带上归属
+            listenerOfFirst = new cn.gfhnv.game.officialStuff.customEvent.phainonEvents.AwakeEndListener(first);
+            listenerOfSecond = new cn.gfhnv.game.officialStuff.customEvent.phainonEvents.AwakeEndListener(second);
+            EventBus.register(listenerOfFirst);
+            EventBus.register(listenerOfSecond);
+
+            // ① 只对 A 发事件：A 结束、B 一动不动（这条是本轮核心守卫）
+            EventBus.post(new cn.gfhnv.game.officialStuff.customEvent.phainonEvents.AwakenEndEvent(first));
+            check("两只白厄：对 A 发 AwakenEndEvent 之后，只有 A 退出变身（B 仍在变身）",
+                    !first.isAwaken() && second.isAwaken());
+            check("两只白厄：B 一个字段都没被动过（名字/额外回合/毁伤/免死标志全保持）",
+                    "白厄乙".equals(second.getName())
+                            && second.getExtraTurns() == 8
+                            && second.getSoulscorch() == 5
+                            && !second.isPendingLastAttack());
+
+            // ② 之后再对 B 发：B 的监听器还在总线上（没被 A 的事件吃掉），照样结束
+            EventBus.post(new cn.gfhnv.game.officialStuff.customEvent.phainonEvents.AwakenEndEvent(second));
+            check("两只白厄：之后再对 B 发 AwakenEndEvent，B 也退出变身（B 的监听器没被 A 的事件吃掉）",
+                    !second.isAwaken() && "白厄".equals(second.getName()) && second.getSoulscorch() == 0);
+
+            // ③ 同一个白厄：同一个事件走两遍，退出协议只执行一次（三处不幂等的效果不重复加）
+            // ⚠️ 这一只用**新鲜**的白厄，并把生命加成摆成 5.4：退出协议减 2.7 之后还剩 +2.7，
+            //    上限不塌（塌了就会把血夹到 0，那正是第二遍执行时的样子 —— 实测 hp=0、hpMax=-6453）。
+            //    「回血」读的是**减加成之前**的上限（退出协议先把加成减掉、再按旧上限回血），
+            //    回完之后再被**新上限**夹一次 —— 期望值按这个顺序算，不然会误判。
+            solo.setHpEnhancePercent(5.4);
+            solo.setAwaken(true);
+            solo.setExtraTurns(8);
+            listenerOfSolo = new cn.gfhnv.game.officialStuff.customEvent.phainonEvents.AwakeEndListener(solo);
+            EventBus.register(listenerOfSolo);
+            int extraAbilityTierBefore = solo.getExtraAbilityTier();
+            long hpMaxForHeal = solo.getHpMax();
+            // 先摆成半血：不然 25% 回血会被上限夹掉，看不出有没有重复加
+            solo.setHp(hpMaxForHeal / 2);
+            long hpBefore = solo.getHp();
+            int turnsBeforeSecondPost = TurnManager.getTurns().size();
+            EventBus.post(new cn.gfhnv.game.officialStuff.customEvent.phainonEvents.AwakenEndEvent(solo));
+            EventBus.post(new cn.gfhnv.game.officialStuff.customEvent.phainonEvents.AwakenEndEvent(solo));
+            long hpMaxAfterEnd = solo.getHpMax();
+            long expectedHp = Math.min(hpMaxAfterEnd, hpBefore + (long) (hpMaxForHeal * 0.25));
+            check("同一只白厄：同一个事件发两遍，退出协议只执行一次 —— tier 不 += 2、"
+                            + "不重复 +25% 血（再执行一次会多回一次血）、不重复排回合 —— 实测 tier "
+                            + extraAbilityTierBefore + "→" + solo.getExtraAbilityTier() + "、hp "
+                            + hpBefore + "→" + solo.getHp() + "（期望 " + expectedHp + "）",
+                    solo.getExtraAbilityTier() == Math.min(2, extraAbilityTierBefore + 1)
+                            && solo.getHp() == expectedHp
+                            && TurnManager.getTurns().size() == turnsBeforeSecondPost + 1);
+        } catch (Exception e) {
+            fail("两只白厄的监听器归属测试抛出异常：" + e);
+        } finally {
+            // 注销必须拿**注册时那一个实例**（EventBus 按对象身份匹配）；已经自我注销过的再注销一次无害
+            EventBus.unregister(listenerOfFirst);
+            EventBus.unregister(listenerOfSecond);
+            EventBus.unregister(listenerOfSolo);
+            TurnManager.setTurns(turnsBefore);
+            TurnManager.setPresentTime(presentTimeBefore);
         }
     }
 
@@ -2449,6 +2790,474 @@ public class TestCommandSystem {
         check("行动者为 null 时不动 @s", CommandManager.getPlayer() == enemy);
 
         CommandManager.setPlayer(previous);
+    }
+
+    /**
+     * 选择实体 / 物品的输入规则（2026-10-03 用户："打全 next 太长" + "选择实体/物品时支持输入多个"）。
+     * <p>
+     * 这一轮的改动是<b>纯输入层</b>：{@code GameMain#startAFight} 与
+     * {@code PlayerController} 的目标选择都支持
+     * <ol>
+     *     <li><b>缩写</b>：关键字的前缀（长度 2 到 关键字长度-1）也算命中，
+     *     例如 {@code ne}/{@code nex} = {@code next}、{@code q}/{@code qu}/{@code qui} = {@code quit}；</li>
+     *     <li><b>一行多个</b>：用 {@code /} 分隔，{@code 1/2/3} 一次选三个、{@code 1/2/3/y} 顺带确认。</li>
+     * </ol>
+     * 这里只能验它<b>与命令系统不打架</b>（后者是同一层输入里唯一会"截胡"的东西）：
+     * {@code 1/2/3} 这种多选写法绝不能被当成命令，{@code q} 也不是命令
+     * —— 真进 {@code startAFight} 跑就要读标准输入，那是探针的活。
+     * <p>
+     * ⚠️ {@code n} 的语义<b>没变</b>：选实体那一步 {@code n} = {@code next}（老约定，判断顺序里排在
+     * {@code no} 前面），确认那一步 {@code n} = {@code no} —— 所以 {@code no} 被定义成"必须写全
+     * 两个字母以上"（单个 {@code n} 压根不匹配 {@code no}）。
+     *
+     * @author AI（DeepSeek）生成
+     */
+    private static void testSelectionInputSyntax() {
+        section("选择实体/物品的输入：缩写与一行多个");
+
+        // ① 多选写法不能被命令系统截胡（/ 只出现在行首才是命令前缀）
+        check("多选输入 1/2/3 不会被当成命令（否则选择流程永远收不到）", !CommandManager.isCommand("1/2/3"));
+        check("带确认的多选输入 1/2/3/y 不会被当成命令", !CommandManager.isCommand("1/2/3/y"));
+        check("目标选择的多选输入 0/1/2/next 不会被当成命令", !CommandManager.isCommand("0/1/2/next"));
+
+        // ② 缩写不是命令：单字母 q/n/y 与两字母前缀都走游戏自己的流程
+        check("缩写 q（quit）不是命令", !CommandManager.isCommand("q"));
+        check("缩写 n（next/no）不是命令", !CommandManager.isCommand("n"));
+        check("缩写 ne（next）不是命令", !CommandManager.isCommand("ne"));
+
+        // ③ 命令照旧：/help 与 #help 等价，命令本身没被动过
+        check("命令照旧：/help 仍然被识别为命令", CommandManager.isCommand("/help"));
+        check("命令照旧：#help 仍然被识别为命令", CommandManager.isCommand("#help"));
+        check("命令照旧：help 也能执行（不打印，只看结果）", CommandManager.executeResult("help").isSuccess());
+    }
+
+    /**
+     * 选人 / 选对手 / 选奖励那三段输入状态机，<b>端到端</b>跑真实的
+     * {@link cn.gfhnv.game.GameMain#startAFight()}（2026-10-04 加）。
+     * <p>
+     * <b>为什么必须端到端</b>：上一轮加的"缩写 + 一行多个"只验了
+     * "{@code 1/2/3} 不是命令"，没跑过状态机本身，于是<b>确认分支整个断掉了</b>
+     * —— 用户实测 {@code 1} 之后输 {@code y}，得到的是「请先输入数字选择角色」：
+     * 新代码把"选好的这一批"卡在 {@code next} 后面才确认，而老行为是"数字后面紧跟的
+     * {@code y} 确认的就是它"，于是 {@code y} 掉进了选择阶段的"先输数字"分支。
+     * <p>
+     * 这里喂的是<b>用户那份复现的逐行翻译</b>（单个确认 / 批量确认 / {@code n} 返回 /
+     * {@code next} 前进 / 重复下标去重 / 越界 / 多余段丢弃）。
+     * 输入行由 {@link cn.gfhnv.game.GameMain#setInputSourceForSelfTest} 注入
+     * （<b>只给自测用</b>，游戏原有的输入方式一个字没改），跑完必须还原。
+     *
+     * @author AI（DeepSeek）生成
+     */
+    private static void testStartAFightSelection() {
+        section("选人流程：端到端跑 startAFight（用户复现逐条钉住）");
+
+        /* ⓪ 先把状态机本身单独钉一遍：**完全不碰标准输入**（InputReader 走"脚本自己抛异常"
+         *    那一格），所以哪怕脚本写短了也只是红一条，不会把整个自测挂住。 */
+        testSelectBatchPure();
+
+        // 前提：注册表里那 9 个生物模板 + 9 件物品模板就是选人界面列出来的东西
+        List<LivingThing> templates = World.getLivingEntityList();
+        List<Item> itemTemplates = World.getItemList();
+        check("前提：注册表里有足够的生物模板可以选（至少 6 个）—— 实际 " + templates.size(),
+                templates.size() >= 6);
+        check("前提：注册表里有足够的物品模板可以选（至少 1 件）—— 实际 " + itemTemplates.size(),
+                itemTemplates.size() >= 1);
+        String firstName = templates.get(0).getName();
+        String firstDesc = templates.get(0).getDescription();
+        String secondName = templates.get(1).getName();
+        String thirdName = templates.get(2).getName();
+        String fifthName = templates.get(4).getName();
+        String fifthDesc = templates.get(4).getDescription();
+        String rewardDesc = itemTemplates.get(0).getDescription();
+        String rewardName = itemTemplates.get(0).getName();
+        // 跑之前先记一份快照：startAFight 会把选中的副本加进 World.things（收尾要还回去）
+        List<Object> thingsBefore = new ArrayList<>(World.getThings());
+
+        LivingThing playerBefore = CommandManager.getPlayer();
+        try {
+            /* ①② 复现第一段：1 → y（单个确认）。老行为是"数字后面紧跟的 y 确认的就是它"。
+             * ⚠️ 脚本的写法（每一段都一样）：**先把三段各喂一个 next 让外层先兜一圈**，
+             *    然后才是"角色 / 对手 / 奖励"各一次「数字 → y → next」。
+             *    原因：外层循环的收口条件是「fighters 与 enemies 都非空」，只选一边它会再来一轮；
+             *    而输入是脚本（有尽头）—— 少写一段就会让脚本提前用完。
+             *    最后那一行 next 是**故意留下的**：它让脚本跑到"下一个输入"时才知道结束了，
+             *    自测据此把 SCRIPT_EXHAUSTED 当成"跑到底"而不是失败。 */
+            String out = startAFightWithInput("next", "next", "next",
+                    "1", "y", "next", "0", "y", "next", "0", "y", "next");
+            check("① 单个确认：数字后面紧跟的 y 把角色收进队伍（复现里坏掉的那一步）", out.contains("已选:"));
+            check("① 单个确认：提示语回到「输入下一个数字或next/n」（复现里被跳过的老流程）",
+                    out.contains("输入下一个数字或next/n"));
+            check("① 单个确认：y 不再被当成「缺数字」——「请先输入数字选择角色」一次都不出现",
+                    !out.contains("请先输入数字选择角色"));
+            check("① 单个确认：选中的是下标 1 那一只（打印了它的名字与介绍）",
+                    out.contains(firstName) && out.contains(firstDesc));
+            check("① 单个确认：整局只确认了一批角色（「已选角色:" + firstName + "」只出现一次，"
+                            + "y 没有被拆成两批）—— 实际 " + countOf(out, "已选角色:" + firstName) + " 次",
+                    countOf(out, "已选角色:" + firstName) == 1);
+
+            /* 把"选中的东西到底加没加进队伍"钉死（输出是给人看的，这些是给机器看的） */
+            List<Object> added = new ArrayList<>(World.getThings());
+            added.removeAll(thingsBefore);
+            check("① 单个确认：确实往 World.things 里加了东西（队伍 / 敌方 / 奖励各一批）—— 实际 "
+                    + added.size() + " 个", !added.isEmpty());
+            boolean templateItself = false;
+            for (Object thing : added) {
+                for (LivingThing template : templates) {
+                    if (thing == template) {
+                        templateItself = true;
+                    }
+                }
+            }
+            check("① 单个确认：加进去的是模板的副本，不是注册表模板本身（选人不能把模板交出去）",
+                    !templateItself);
+            /* ⚠️ 「谁是玩家」在这里已经查不了了：三个阶段跑完之后最后 setPlayer 的可能是别人，
+             *    所以只钉"玩家这一格被设过、而且是个副本"。 */
+            check("① 单个确认：CommandManager 认的「玩家」被设上了，而且不是注册表模板本身"
+                            + "（@s / @p 以它为参照）—— 实际「"
+                            + (CommandManager.getPlayer() == null ? "null"
+                            : CommandManager.getPlayer().getName()) + "」",
+                    CommandManager.getPlayer() != null
+                            && CommandManager.getPlayer() != templates.get(0));
+
+            /* ③ 单个确认也适配"选的是第 5 个"（复现里 5 → y 一样坏） */
+            out = startAFightWithInput("next", "next", "next",
+                    "5", "y", "next", "0", "y", "next", "0", "y", "next");
+            check("③ 单个确认（下标 5）：白厄那一只进了队伍", out.contains("已选:"));
+            check("③ 单个确认（下标 5）：打印的是下标 5 那一只的名字", out.contains(fifthName));
+            check("③ 单个确认（下标 5）：没有退回「请先输入数字选择角色」",
+                    !out.contains("请先输入数字选择角色"));
+
+            /* ④ 用户复现第三段：5/5/5/y → 重复下标静默去重 → 选 5 一次 → 确认 → 加入
+             * ⚠️ 这里只钉"整批一次确认、去重没报错"；**去重本身**（同一个下标只算一次）
+             *    由 testSelectBatchPure 的 ② / ②′ 钉 —— 那边用假候选表，不依赖
+             *    "第 5 个模板恰好是白厄"，断言也不会因为注册表顺序变了而假红。 */
+            out = startAFightWithInput("next", "next", "next",
+                    "5/5/5/y", "next", "0", "y", "next", "0", "y", "next");
+            check("④ 批量确认：去重没有报错（重复下标不算「输入错误」）", !out.contains("输入错误"));
+            check("④ 批量确认：整批当场确认并加入队伍（打印「已选:」）", out.contains("已选:"));
+            check("④ 批量确认：整行一次确认（y 没有被拆成「先确认再重来」两批）—— 「已选角色:"
+                            + fifthName + "」出现 " + countOf(out, "已选角色:" + fifthName) + " 次",
+                    countOf(out, "已选角色:" + fifthName) == 1);
+
+            /* ④′ 重复下标的另一半：**跨行**再写一遍同一个下标，也只算一次 */
+            out = startAFightWithInput("next", "next", "next",
+                    "5", "5", "y", "next", "0", "y", "next", "0", "y", "next");
+            check("④′ 跨行去重：同一个下标分两行选，也只算一次 —— 「已选角色:" + fifthName
+                            + "」出现 " + countOf(out, "已选角色:" + fifthName) + " 次",
+                    countOf(out, "已选角色:" + fifthName) == 1 && !out.contains("输入错误"));
+
+            /* ⑤ 一行的分隔符语义：1/2/3/y = 选三个 + 当场确认整批 */
+            out = startAFightWithInput("next", "next", "next",
+                    "1/2/3/y", "next", "0", "y", "next", "0", "y", "next");
+            check("⑤ 一行多个：三个下标都打印了名字与介绍",
+                    out.contains(firstName) && out.contains(secondName) && out.contains(thirdName)
+                            && out.contains(firstDesc));
+            check("⑤ 一行多个：三个一次性确认（确认提示里写着 3 个）", out.contains("(3 个)"));
+
+            /* ⑥ n 的语义一个字没变（老代码里 n 先匹配 next，两个阶段都是收口）、
+             *    而"放弃这一批"要写全 no —— 这条就是文档 §5.10 与代码不一致过的那个点 */
+            out = startAFightWithInput("next", "next", "next",
+                    "1", "n", "1", "no", "1", "y", "next", "0", "y", "next", "0", "y", "next");
+            check("⑥ 确认阶段：单个 n = next（跳过确认、不加入，也没有被当成「缺数字」）",
+                    !out.contains("请先输入数字选择") && countOf(out, "已选角色:" + firstName) == 1);
+            check("⑥ 确认阶段：写全的 no = 放弃这一批（打印「放弃已选:」）",
+                    out.contains("放弃已选:"));
+            check("⑥ 放弃之后重选同一个下标仍然选得上 —— 确认行出现 "
+                            + countOf(out, "已选角色:" + firstName) + " 次",
+                    countOf(out, "已选角色:" + firstName) == 1 && out.contains("已选:"));
+
+            /* ⑦ next 前进：每一段都要能被 next 收口，否则整局卡在选择界面 */
+            out = startAFightWithInput("next", "next", "next",
+                    "1", "y", "next", "2", "y", "next", "0", "y", "next");
+            check("⑦ next 前进：三段都收口了（两段提示语都在）",
+                    out.contains("接下来选择对手") && out.contains("奖励.同理"));
+            check("⑦ next 前进：选择阶段敲 next 不算错误", !out.contains("输入错误"));
+
+            /* ⑧ 越界 / 负数 / 非数字：越界的只跳过那一个、不影响同一行里其它下标 */
+            out = startAFightWithInput("next", "next", "next",
+                    "1/99/y", "next", "0", "y", "next", "0", "y", "next");
+            check("⑧ 越界：99 被跳过并报「输入错误」，同一行的 1 照旧选上",
+                    out.contains("输入错误") && out.contains(firstName));
+            check("⑧ 越界：没有把整段判死（后面仍然走完了确认）", out.contains("已选:"));
+            out = startAFightWithInput("next", "next", "next",
+                    "2/-1/y", "next", "0", "y", "next", "0", "y", "next");
+            check("⑧ 负数：同样只报「输入错误」，同一行的 2 照旧选上（整段没被判死）",
+                    out.contains("输入错误") && out.contains(secondName) && out.contains("已选:"));
+            // ⚠️ "abc/3" 这种「开头就不是数字」的段整段作废（与老版本一致）：换个第 3 个下标进来，
+            //    否则这一段一个都没选上、外层会再来一轮，脚本就用完了
+            out = startAFightWithInput("next", "next", "next",
+                    "abc/3/y", "next", "0", "y", "next", "0", "y", "next");
+            check("⑧ 非数字：整段按「输入错误」处理（不做部分解析），但后面同一行的 3 照旧选上",
+                    out.contains("输入错误") && out.contains(thirdName) && out.contains("已选:"));
+
+            /* ⑨ 多余段丢弃：确认一旦收口，同一行后面残留的段不许"隔一轮突然生效"
+             * ⚠️ 判据不能用「那一只的名字整段不出现」—— 每轮都会重列一遍名单，
+             *    名字本来就会出现（上一版就是这么假红的）。要看的是**确认行**里有没有它。 */
+            out = startAFightWithInput("next", "next", "next",
+                    "1/y/2", "next", "0", "y", "next", "0", "y", "next");
+            check("⑨ 多余段丢弃：y 之后同一行的 2 没有被并进这一批（确认行里只有第一个）"
+                            + "—— 实际「已选角色:" + firstName + "」",
+                    countOf(out, "已选角色:" + firstName) == 1);
+            check("⑨ 多余段丢弃：确认本身照常成功", out.contains("已选:"));
+            out = startAFightWithInput("next", "next", "next",
+                    "1/next/2", "1", "y", "next", "0", "y", "next", "0", "y", "next");
+            check("⑨ 收口后的残留段确实丢掉了：next 后面的 2 没生效（确认行里只有第一个），"
+                            + "而选择阶段读到 1 时照旧算数",
+                    countOf(out, "已选角色:" + firstName) == 1 && out.contains("已选:"));
+
+            /* ⑩ 奖励那一段与角色 / 对手共用同一套状态机（只有介绍那一行） */
+            out = startAFightWithInput("next", "next", "next",
+                    "1", "y", "next", "2", "y", "next", "0", "y", "next");
+            check("⑩ 奖励段：物品打印了介绍", out.contains(rewardDesc));
+            check("⑩ 奖励段：确认提示里写的是「奖励」", out.contains("已选奖励:"));
+            check("⑩ 奖励段：奖励名没被单独打一行（老版本就是这样，别顺手改）",
+                    !rewardName.equals(rewardDesc) && !out.contains(rewardName + "\n" + rewardName));
+
+            /* ⑪ 什么都不选就 next：不加入任何东西、不报错，也不卡住（外层再来一轮，脚本后半段照旧能选） */
+            out = startAFightWithInput("next", "next", "next",
+                    "1", "y", "next", "0", "y", "next", "0", "y", "next");
+            check("⑪ 空选择：next 收口不报错", !out.contains("输入错误"));
+            check("⑪ 空选择：外层重新列了名单（名单列了两遍以上），第二轮照旧能选上",
+                    countOf(out, "0玩家一") >= 2 && out.contains("已选:"));
+
+            /* ⑫ 命令照旧由 readInput 提前执行掉，不会掉进选择分支 */
+            out = startAFightWithInput("next", "next", "next",
+                    "/help", "1", "y", "next", "0", "y", "next", "0", "y", "next");
+            check("⑫ 命令照旧：选择流程里敲 /help 被当命令执行（不进「输入错误」）",
+                    out.contains("可用命令") && !out.contains("输入错误") && out.contains("已选:"));
+
+            /* ⑬ 老写法一个字没变：yes / no / next 全拼、单个数字，三段照样走得完
+             *    （缩写是"加功能"，不是"改输入方式"—— 这条守住它就是守住老玩家） */
+            out = startAFightWithInput("next", "next", "next",
+                    "1", "yes", "next", "2", "yes", "next", "0", "yes", "next");
+            check("⑬ 老写法：yes 确认照旧可用（三段各确认一次）", countOf(out, "已选:") == 3);
+            out = startAFightWithInput("next", "next", "next",
+                    "1", "no", "1", "yes", "next", "2", "yes", "next", "0", "yes", "next");
+            check("⑬ 老写法：no 照旧是「放弃这一批」（放弃之后重选同一个下标，确认行只出现一次）—— "
+                            + "「已选角色:" + firstName + "」出现 "
+                            + countOf(out, "已选角色:" + firstName) + " 次",
+                    out.contains("放弃已选:") && countOf(out, "已选角色:" + firstName) == 1);
+
+            /* ⚠️ 没验的：quit / q 会 System.exit(0)，会把整个自测进程带走，所以这里不喂它
+             *    （关键字判定本身由 testSelectionInputSyntax 钉住）。 */
+        } finally {
+            // 注入必须还原：不还原的话后面的用例会去读标准输入（NoSuchElementException）
+            cn.gfhnv.game.GameMain.setInputSourceForSelfTest(null, false);
+            cn.gfhnv.game.GameMain.setFightInProgressForSelfTest(false);
+            CommandManager.setPlayer(playerBefore);
+            // 自测跑的是"选完就返回"，这一场战斗没真正开起来，别把它留在全局状态里
+            CommandManager.clearCurrentFight();
+            for (Object thing : new ArrayList<>(World.getThings())) {
+                if (!thingsBefore.contains(thing)) {
+                    World.removeThing((cn.gfhnv.game.Thing) thing);
+                }
+            }
+        }
+        check("收尾：自测往 World.things 里加的东西都摘掉了（不给后面的用例留污染）—— 现在 "
+                + World.getThings().size() + " 个", World.getThings().size() == thingsBefore.size());
+    }
+
+    /**
+     * 选择状态机（{@link cn.gfhnv.game.GameMain.SelectionFlow#selectBatch}）的<b>纯函数</b>级断言：
+     * 输入由 {@code InputReader} 的脚本构造器直接喂，<b>一个字节的标准输入都不读</b>。
+     * <p>
+     * <b>它为什么必须存在</b>：上一轮"缩写 + 一行多个"只验了"这些输入不是命令"，
+     * 状态机本身没有任何不读键盘的守卫，于是确认分支断了也没人知道；而补一条端到端断言的代价
+     * 是"脚本写短了就把整个自测挂住"（用户实测卡死就是这么来的）。
+     * 这一组是**闸门正确的**那一半：脚本用完时 {@code InputReader} 自己抛
+     * {@link java.util.NoSuchElementException}，断言只关心"返回的那一批对不对"。
+     *
+     * @author AI（DeepSeek）生成
+     */
+    private static void testSelectBatchPure() {
+        section("选择状态机（纯函数级：不读标准输入）");
+
+        // 用一个不依赖真实实体的候选表：状态机只认"下标 → 候选"，与候选是什么无关
+        String[] candidates = {"甲", "乙", "丙", "丁", "戊", "己"};
+
+        // ① 单个数字 + y：老行为（数字后面紧跟的 y 确认的就是它）
+        var draft = selectBatch(candidates, "1", "y");
+        check("① 纯：1 之后紧跟 y 就确认了（不是「要先 next 才确认」）", draft.confirmed());
+        check("① 纯：确认的就是下标 1 那一个 —— 实际 " + draft.things(),
+                draft.things().equals(List.of("乙")));
+
+        // ② 重复下标（同一行里写三遍）：只算一次，且不报错
+        draft = selectBatch(candidates, "2/2/2/y");
+        check("② 纯：同一行里同一个下标写三遍 = 只算一次 —— 实际 " + draft.things(),
+                draft.things().equals(List.of("丙")));
+        check("② 纯：去重账本记的是下标（每个候选都换成了新对象也不会重复）",
+                draft.chosen().equals(java.util.Set.of(2)));
+
+        // ②′ 跨行的重复下标也只算一次
+        draft = selectBatch(candidates, "3", "3", "y");
+        check("②′ 纯：同一个下标分两行选，也只算一次 —— 实际 " + draft.things(),
+                draft.things().equals(List.of("丁")));
+
+        // ③ 越界 / 负数只跳过那一个，同一行里其它下标照旧生效
+        draft = selectBatch(candidates, "1/99/-1/3/y");
+        check("③ 纯：越界与负数各跳一个，1 与 3 照旧选上 —— 实际 " + draft.things(),
+                draft.confirmed() && draft.things().equals(List.of("乙", "丁")));
+
+        // ④ 非数字整段作废（与老版本一致），不影响后面的段
+        draft = selectBatch(candidates, "abc", "4/y");
+        check("④ 纯：一段混进非数字就整段作废，下一行照旧能选 —— 实际 " + draft.things(),
+                draft.confirmed() && draft.things().equals(List.of("戊")));
+
+        // ⑤ 收口的两种写法：单个 n / next = 「跳过确认」（两个阶段都是它）；
+        //    写全的 no = 确认阶段放弃这一批
+        draft = selectBatch(candidates, "1", "n");
+        check("⑤ 纯：确认阶段的单个 n 是「跳过确认」（老代码里 n 先匹配 next）—— 不加入、不报错",
+                !draft.confirmed() && draft.things().isEmpty());
+        draft = selectBatch(candidates, "1", "no");
+        check("⑤ 纯：确认阶段写全的 no 是「放弃这一批」", !draft.confirmed()
+                && draft.things().isEmpty());
+        draft = selectBatch(candidates, "n");
+        check("⑤ 纯：选择阶段的 n 是 next（这一批不加入、也不报错）",
+                !draft.confirmed() && draft.things().isEmpty());
+
+        // ⑥ 多余段丢弃：y 之后同一行剩下的段不许"隔一轮突然生效"
+        draft = selectBatch(candidates, "1/y/5");
+        check("⑥ 纯：y 之后的 5 被丢掉 —— 实际 " + draft.things(),
+                draft.things().equals(List.of("乙")));
+
+        // ⑦ 空批：next 收口，什么都不选也不是错误
+        draft = selectBatch(candidates, "next");
+        check("⑦ 纯：空选择收口（不确认、没有东西）",
+                !draft.confirmed() && draft.things().isEmpty());
+
+        // ⑧ YES 全大写 / yes 全拼照旧（老写法不能被缩写改写坏）
+        draft = selectBatch(candidates, "1", "YES");
+        check("⑧ 纯：YES 全大写照旧确认",
+                draft.confirmed() && draft.things().equals(List.of("乙")));
+    }
+
+    /**
+     * <b>不读标准输入</b>地跑一次选择状态机：输入行从 {@code lines} 里取，取完就由
+     * {@link cn.gfhnv.game.GameMain#scriptedInputReaderForSelfTest} 那条装配入口抛
+     * {@link GameMain.ScriptExhausted}（<b>不是</b> {@code NoSuchElementException}：
+     * 这里把它当成"输入到此为止"，于是脚本写短了只会红一条，不会把自测挂住）。
+     *
+     * @param candidates 候选表
+     * @param lines      依次喂进去的输入行
+     * @return 这一批的结果（选好的副本 + 已经选过的下标 + 是否被确认）
+     */
+    private static cn.gfhnv.game.GameMain.SelectionFlow.Draft<String> selectBatch(
+            String[] candidates, String... lines) {
+        java.util.Deque<String> scripted = new java.util.ArrayDeque<>(Arrays.asList(lines));
+        try {
+            var reader = cn.gfhnv.game.GameMain.scriptedInputReaderForSelfTest(() -> {
+                String line = scripted.pollFirst();
+                if (line == null) {
+                    // ⚠️ 绝不返回 null（那是违反约定）：用 IllegalStateException 让"脚本用完"
+                    //    能在这里被认出来，而不是变成"上层的 bug"被吞掉
+                    throw new IllegalStateException("纯函数用例的脚本用完");
+                }
+                return line;
+            });
+            return cn.gfhnv.game.GameMain.selectionFlowForSelfTest()
+                    .selectBatch(reader, "角色", candidates, s -> s, s -> "介绍-" + s);
+        } catch (IllegalStateException e) {
+            // 输入到此为止：这一批还没等到确认（与端到端那条"脚本用完 = 正常收尾"同一个口径）
+            return new cn.gfhnv.game.GameMain.SelectionFlow.Draft<>(
+                    List.of(), java.util.Set.of(), false);
+        }
+    }
+
+    /**
+     * 用一段脚本化的输入行跑一遍 {@link cn.gfhnv.game.GameMain#startAFight()}，把它的输出抓回来。
+     * <p>
+     * ⚠️ 一律走"选完三个阶段就返回"那条自测专用开关：真进战斗就会开始跑回合循环。
+     * <p>
+     * <b>脚本用完 = 正常收尾，不是失败</b>：{@code startAFight} 的外层循环是
+     * "选到角色与对手都非空为止"，正常游戏靠无限的标准输入收口；脚本是有尽头的，
+     * 读到尽头时 {@link cn.gfhnv.game.GameMain.InputReader} 会抛
+     * {@code NoSuchElementException}（带 {@link cn.gfhnv.game.GameMain#SCRIPT_EXHAUSTED_MARKER} 记号）。
+     * 这里把带记号的那一种**当成"这一局跑到底了"**、把输出照常返回给断言；
+     * <b>不带记号的异常仍然是失败</b>（那是别处漏出来的 EOF）。
+     * <p>
+     * ⚠️ 所以脚本最后要故意多留一行（多喂一个 {@code next}）：不留的话，
+     * "三段都收口"那一步就会以异常的形式结束，断言看到的输出会缺最后几行。
+     * <p>
+     * 输出只保留前 {@value #MAX_CAPTURED_LINES} 行：脚本用完而外层还在循环时，日志会瞬间涨到
+     * 上千万行（把自测的内存打爆），断言要看的都是前面那些行。
+     *
+     * @param lines 依次喂进去的输入行
+     * @return 这一段流程打印的前若干行（可能被截断）
+     */
+    private static String startAFightWithInput(String... lines) {
+        java.util.Deque<String> scripted = new java.util.ArrayDeque<>(Arrays.asList(lines));
+        cn.gfhnv.game.GameMain.setInputSourceForSelfTest(() -> {
+            String line = scripted.pollFirst();
+            if (line == null) {
+                // ⚠️ 绝不返回 null：那会被当成"输入流结束"，上层会一直重来 → 自测空转成假死
+                throw new java.util.NoSuchElementException(
+                        cn.gfhnv.game.GameMain.SCRIPT_EXHAUSTED_MARKER + "自测脚本用完了");
+            }
+            return line;
+        }, true);
+        java.io.ByteArrayOutputStream sink = new java.io.ByteArrayOutputStream();
+        java.io.PrintStream original = System.out;
+        java.io.PrintStream capturing = null;
+        try {
+            capturing = new java.io.PrintStream(new java.io.OutputStream() {
+                private int lineCount = 0;
+
+                @Override
+                public void write(int b) {
+                    if (lineCount >= MAX_CAPTURED_LINES) {
+                        return;
+                    }
+                    sink.write(b);
+                    if (b == '\n') {
+                        lineCount++;
+                    }
+                }
+            }, true, "UTF-8");
+            System.setOut(capturing);
+            cn.gfhnv.game.GameMain.startAFight();
+        } catch (IllegalStateException e) {
+            if (!String.valueOf(e.getMessage())
+                    .startsWith(cn.gfhnv.game.GameMain.SCRIPT_EXHAUSTED_MARKER)) {
+                fail("startAFight 抛了别处的 IllegalStateException（不是脚本用完）：" + e);
+            }
+        } catch (Exception e) {
+            fail("startAFight 抛出异常：" + e);
+        } finally {
+            // ⚠️ 必须先 flush 再还原：这个包装流自己带缓冲区（autoflush 只对 println 生效），
+            //    不 flush 就会丢掉尾巴上几行 —— 实测"确认提示 / 已选"那几行就是这么消失的，
+            //    断言会以"少了最后几行"的形式假红。
+            if (capturing != null) {
+                capturing.flush();
+            }
+            System.setOut(original);
+        }
+        // ⚠️ 必须整段按 UTF-8 解码：按字节逐个拼字符串会把中文拆成乱码（断言会全部落空）
+        return sink.toString(java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    /**
+     * 抓回来的输出最多留这么多行（防止外层空转把内存打爆；断言只看前面这些行）。
+     */
+    private static final int MAX_CAPTURED_LINES = 200;
+
+    /**
+     * 数一段文本里出现了几次某个词（用来钉"重复下标只算一次""选了两次"这类事）。
+     *
+     * @param text 文本
+     * @param word 要找的词
+     * @return 出现次数
+     */
+    private static int countOf(String text, String word) {
+        int count = 0;
+        int from = 0;
+        while (true) {
+            int at = text.indexOf(word, from);
+            if (at < 0) {
+                return count;
+            }
+            count++;
+            from = at + word.length();
+        }
     }
 
     /**
@@ -7115,12 +7924,117 @@ public class TestCommandSystem {
     }
 
     /**
+     * 自测用的大倍率真伤害技能：走正常的 {@code user.makeDamage(target, this)} 路径。
+     * <p>
+     * 与 {@link ProbeSkill} 的区别：那个只记日志、不产生伤害，所以驱动不了"致死伤害 → 免死"。
+     * 本类服务 {@code testAwakenInterruptExitProtocol}（真实回合循环里的白厄的免死与退出协议）。
+     *
+     * @author AI（DeepSeek）生成
+     */
+    private static class ProbeDamageSkill extends Skill {
+
+        /**
+         * @param atkMagnification 攻击力倍率（拉满就能打出致死伤害，与数值平衡无关）
+         */
+        ProbeDamageSkill(double atkMagnification) {
+            super("探针-重击", "自测用假技能", 0, atkMagnification, 0, -1);
+            this.setCoolDown(0);
+        }
+
+        /**
+         * @param other 被复制的技能
+         */
+        ProbeDamageSkill(ProbeDamageSkill other) {
+            super(other);
+        }
+
+        @Override
+        public Skill copy() {
+            return new ProbeDamageSkill(this);
+        }
+
+        @Override
+        public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
+            for (LivingThing target : new ArrayList<>(enemies)) {
+                user.makeDamage(target, this);
+            }
+        }
+    }
+
+    /**
+     * 自测用的"脆皮挨打探针"：只有 2 点血，靠"它死没死"就能数出「最后一击排了几刀」。
+     * <p>
+     * 白厄的最后一击倍率是 {@code 13 × (1 − 剩余额外回合 × 0.125) × 攻击} ——
+     * 一刀必死；同一圈排了两刀的话每一刀的倍率会对半砍，2 血反而打不掉。
+     * 速度拉到 500，保证它总是<b>先手</b>行动（用例要打的是"白厄挨打"，不是"白厄打它"）。
+     *
+     * @author AI（DeepSeek）生成
+     */
+    public static class ProbeFragileDummy extends LivingThing {
+
+        /**
+         * 构造探针。
+         */
+        public ProbeFragileDummy() {
+            super("脆皮探针", "fragileProbe", 0.0, 500.0, 0.0, 0.0, 0.0,
+                    500L, 1, "insect", 2, 2, 2, ElementSort.FIRE);
+            this.setHpMax(2);
+            this.setHp(2);
+            // 控制器不能为 null：LivingThing 的拷贝构造器会照着它重建一个
+            this.setController(new UniversalController(new ArrayList<>(List.of(new ProbeDamageSkill(100000.0))), this));
+        }
+
+        /**
+         * @param other 被复制的实体
+         */
+        public ProbeFragileDummy(ProbeFragileDummy other) {
+            super(other);
+        }
+
+        @Override
+        public LivingThing copy() {
+            return new ProbeFragileDummy(this);
+        }
+    }
+
+    /**
+     * 自测用的"跑完一个回合就叫停回合循环"的开关。
+     * <p>
+     * 回合循环是 {@code while (isDriving)}，而每一圈末尾都会给行动者再排一个回合 ——
+     * 不叫停就会一直转下去（自测会挂住）。{@code EffectUpdateEvent} 是每一圈的<b>最后一个</b>
+     * 事件（在 {@code lastExecuteList} 之后），所以在它里面把
+     * {@link cn.gfhnv.game.GameMain#setFightInProgressForSelfTest(boolean)} 摆成 false，
+     * 循环下一圈开头的硬门就会 {@code break}。
+     *
+     * @author AI（DeepSeek）生成
+     */
+    private static class ProbeStopAfterOneTurn {
+
+        /**
+         * 已经跑完的回合数。
+         */
+        private int seenTurns = 0;
+
+        /**
+         * 收到回合末尾事件就叫停。
+         *
+         * @param event 回合末尾事件
+         */
+        @cn.gfhnv.game.annotation.SubscribeEvent
+        public void onTurnEnd(cn.gfhnv.game.event.EffectUpdateEvent event) {
+            seenTurns++;
+            if (seenTurns >= 3) {
+                cn.gfhnv.game.GameMain.setFightInProgressForSelfTest(false);
+            }
+        }
+    }
+
+    /**
      * 自测用的假技能：不产生任何战斗效果，只把「用了哪一招、打了谁」记进日志。
      *
      * @author AI（DeepSeek）生成
      */
     private static class ProbeSkill extends Skill {
-
         /**
          * 日志（所有副本共享同一个列表）。
          */

@@ -139,7 +139,8 @@ public class PlayerController extends UniversalController {
         if (selectedSkill.getAims() == -1) {
             attacking.addAll(availableList);
         } else {
-            System.out.println("需要选择 " + selectedSkill.getAims() + " 个不同的目标。输入数字选择，输入 'next' 结束（至少选1个）");
+            System.out.println("需要选择 " + selectedSkill.getAims()
+                    + " 个不同的目标。输入数字选择（一行可以写多个，用 / 分隔，例如 0/1/2），输入 'next' 结束（至少选1个）");
 
             while (attacking.size() < selectedSkill.getAims()) {
                 System.out.println("当前可选目标：");
@@ -156,7 +157,7 @@ public class PlayerController extends UniversalController {
                 if (fightIsOver()) {
                     return;
                 }
-                if (input.equalsIgnoreCase("next")) {
+                if (isNext(input)) {
                     if (attacking.isEmpty()) {
                         System.out.println("至少选择一个目标才能结束");
                         continue;
@@ -164,8 +165,12 @@ public class PlayerController extends UniversalController {
                     break;
                 }
 
-                try {
-                    int idx = Integer.parseInt(input);
+                int[] indices = parseIndices(input);
+                if (indices == null) {
+                    System.out.println("请输入数字或 'next'");
+                    continue;
+                }
+                for (int idx : indices) {
                     if (idx < 0 || idx >= availableList.size()) {
                         System.out.println("索引超出范围");
                         continue;
@@ -176,13 +181,61 @@ public class PlayerController extends UniversalController {
                         continue;
                     }
                     attacking.add(candidate);
-                } catch (NumberFormatException e) {
-                    System.out.println("请输入数字或 'next'");
+                    // 够了就停在最后一个被采纳的下标上（同一行后面的数字不再计入）
+                    if (attacking.size() >= selectedSkill.getAims()) {
+                        break;
+                    }
                 }
             }
         }
         selectedSkill.use(fight, getOwner(), new ArrayList<>(attacking));
         EventBus.post(new SelectTargetEvent(getOwner(), new ArrayList<>(attacking), fight));
+    }
+
+    /**
+     * 输入是不是 {@code next}（含缩写 {@code n}/{@code ne}/{@code nex}，忽略大小写）。
+     * <p>
+     * 这里的 {@code n} 是 {@code next}（现有约定）；目标选择这一步没有 {@code no}，
+     * 所以不存在"一个字母两个关键字"的歧义 —— 那边「是否使用物品?(yes/no)」只认 {@code yes}，
+     * 与这里互不影响。
+     *
+     * @param input 一行非命令输入
+     * @return 是否表示"结束选择"
+     */
+    private static boolean isNext(String input) {
+        if (input == null) {
+            return false;
+        }
+        String value = input.trim();
+        if ("n".equalsIgnoreCase(value)) {
+            return true;
+        }
+        return value.length() >= 2 && value.length() < "next".length()
+                && "next".regionMatches(true, 0, value, 0, value.length());
+    }
+
+    /**
+     * 把一行输入解析成下标列表，允许 {@code /} 或空白作分隔，例如 {@code 0/1/2}、{@code 0 1 2}。
+     * <p>
+     * 整行以 {@code /} 开头的是命令（由 {@link #nextLine()} 提前执行掉），不会走到这里。
+     *
+     * @param input 一行非命令输入
+     * @return 解析出的下标；含非数字时返回 {@code null}（调用方按"请输入数字"处理）
+     */
+    private static int[] parseIndices(String input) {
+        if (input == null || input.trim().isEmpty()) {
+            return null;
+        }
+        String[] parts = input.trim().split("[\\s/]+");
+        int[] indices = new int[parts.length];
+        for (int i = 0; i < parts.length; i++) {
+            try {
+                indices[i] = Integer.parseInt(parts[i]);
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        return indices;
     }
 
     @Override

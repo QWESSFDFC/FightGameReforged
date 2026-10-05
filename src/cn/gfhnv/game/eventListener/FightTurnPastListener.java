@@ -185,8 +185,11 @@ public class FightTurnPastListener {
                 // 每回合都刷一遍太费眼睛）。用户自己加的"我方/敌方"信息并进回合头，别丢。
                 // 名字后面的"#短标识"来自 Thing#getShortUuid()，攻击行（LivingThing#getNameWithUuidAndSide）
                 // 用的是同一个方法 —— 两处各写一份实现迟早一真一假。
+                // 「【来源标识】」只在条目被标了 tag 时出现（例如击杀完整容器的奖励回合）：
+                // 白厄变身的连击与它都是"额外回合"，不打标识根本看不出哪条先执行。
+                String turnTag = presentTurn.getTag() == null ? "" : "【" + presentTurn.getTag() + "】";
                 System.out.println(ConsoleColor.cyan("─── 现在是 " + actor.getNameWithUuid()
-                        + "（" + (ourSide ? "我方" : "敌方") + "）的回合 ───"));
+                        + "（" + (ourSide ? "我方" : "敌方") + "）的回合" + turnTag + " ───"));
                 System.out.println("HP " + actor.getHp() + "/" + actor.getHpMax() + "   能量 金" + manaOf(actor.getMetalMana())
                         + " 木" + manaOf(actor.getWoodMana())
                         + " 水" + manaOf(actor.getWaterMana())

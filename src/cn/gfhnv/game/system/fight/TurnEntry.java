@@ -38,6 +38,16 @@ public class TurnEntry {
     private List<ISpecialAction> firstExecuteList = new ArrayList<>();
     private boolean isExtra = false;
     private int priority = PRIORITY_NORMAL;
+    /**
+     * 这个回合条目<b>是谁给的</b>（给日志看的可读标识，例如"完整容器奖励"）。
+     * <p>
+     * <b>为什么需要它</b>：白厄变身的连击、击杀【完整容器】的奖励，**两者都是"额外回合"**，
+     * 在日志里长得一模一样 —— 只有加上来源标识，才看得出<b>到底哪一条先执行</b>。
+     * 这也是排查"奖励回合被顶掉 / 空过"这类问题的唯一抓手。
+     * <p>
+     * {@code null} = 没标识（普通回合、以及没标来源的额外回合）。
+     */
+    private String tag;
     private ActionSignal actionSignal;
 
     public TurnEntry(LivingThing livingThing, BigDecimal needTime, BigDecimal startTime) {
@@ -101,6 +111,27 @@ public class TurnEntry {
         return this;
     }
 
+    /**
+     * @return 这个回合是谁给的（可读标识）；没标就是 {@code null}
+     */
+    public String getTag() {
+        return tag;
+    }
+
+    /**
+     * 给这个回合条目打一个<b>来源标识</b>，会出现在日志里（回合头与"获得额外回合"那一行）。
+     * <p>
+     * 用途是<b>让人一眼看出</b>"这一条额外回合是白厄大招的连击，还是击杀完整容器的奖励" ——
+     * 两者在日志里本来就长得一样，不加标识根本没法判断谁排在前面。
+     *
+     * @param tag 可读标识（例如 {@code "完整容器奖励"}）
+     * @return 当前条目（链式）
+     */
+    public TurnEntry setTag(String tag) {
+        this.tag = tag;
+        return this;
+    }
+
     public List<ISpecialAction> getLastExecuteList() {
         return lastExecuteList;
     }
@@ -153,6 +184,7 @@ public class TurnEntry {
                 ", lastExecuteList=" + lastExecuteList +
                 ", isExtra=" + isExtra +
                 ", priority=" + priority +
+                ", tag=" + tag +
                 ", actionSignal=" + actionSignal +
                 '}';
     }

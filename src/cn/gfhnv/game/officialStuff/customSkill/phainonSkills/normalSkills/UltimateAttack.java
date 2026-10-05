@@ -29,7 +29,6 @@ public class UltimateAttack extends Skill {
         super("大招:永劫燔世,其将背负", "消耗12火种,变身.", 0, 0, 0, 0);
         this.setCoolDown(0);
         this.setConsumedMana(new Mana(0, ElementSort.UNIVERSAL));
-        awakeEndListener = new AwakeEndListener();
         this.getTags().put(TagType.ATTACK, new Tag(10));
     }
 
@@ -40,15 +39,15 @@ public class UltimateAttack extends Skill {
      * 冷却/消耗/权重还原成构造器里的出厂值，于是打在模板上的配置（{@code SkillData.json}）
      * <b>永远传不到选人时复制出去的副本</b>。
      * <p>
-     * {@code awakeEndListener} 只在自己的构造器里新建一个：它是<b>无状态</b>的监听器
-     * （真正的状态都在 {@link Phainon} 身上），而且只在变身时被 {@code EventBus} 注册一次，
-     * 所以每个副本各持一个不会重复触发。
+     * {@code awakeEndListener} 每个副本各持一个（出厂时为 {@code null}，
+     * 在 {@link #comeToEffect} 里按 {@code user} 新建）：每个副本属于一个不同的白厄，
+     * <b>不能共用</b> —— 监听器要带着"我服务的是哪只白厄"这个归属，
+     * 否则同场两只白厄同时变身时，一只的 {@code AwakenEndEvent} 会把另一只的监听器也消耗掉。
      *
      * @param other 被复制的技能
      */
     public UltimateAttack(UltimateAttack other) {
         super(other);
-        this.awakeEndListener = new AwakeEndListener();
     }
 
     public AwakeEndListener getAwakeEndListener() {
@@ -90,6 +89,9 @@ public class UltimateAttack extends Skill {
             awakenSkills.add(World.prototypeCopyOf(CalamitySoulscorchEdict.class));
             awakenSkills.add(World.prototypeCopyOf(FoundationStardeathVerdict.class));
             user.getController().setSkills(awakenSkills);
+            // 归属只有在这里才拿得到（出厂时技能还不知道会被哪个白厄拿在手上）：
+            // 监听器必须认得出"这是我的白厄"，见 AwakeEndListener#owner。
+            this.awakeEndListener = new AwakeEndListener((Phainon) user);
             EventBus.register(awakeEndListener);
             user.getController().setActionSignal(ActionSignal.WITHOUT_NEW_TURN);
         }
