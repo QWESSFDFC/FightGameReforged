@@ -24,17 +24,25 @@ import cn.gfhnv.game.skill.Skill;
  * <pre>
  * (hp * hp倍率 + atk倍率 * 攻击 + 防御倍率 * 防御 + 技能额外伤害 + 使用者额外伤害)
  *   × (1 + 元素增伤)
- *   × (1 − 目标抗性) × (1 + 穿透)      // 抗性/穿透乘算；抗性为负（弱点）时受伤更多
+ *   × (1 − 有效抗性)                  // 有效抗性 = 抗性 − 穿透（穿透是"抵消除抗性"，不是额外增伤）
  *   × 承伤倍率                        // Π(1 − 每个减伤)，乘算叠加，见 LivingThing#getDamageTakenMultiplier
  *   × (等级 * 10 + 200) / (等级 * 10 + 200 + 目标有效防御)
- *   × 单体伤害倍率
+ *   × 单体伤害倍率                    // 面板基础值 × Π(各来源乘数)，见 LivingThing#getIndividualMultipleArea
  *   × 暴击倍率
  * </pre>
  * 结果不会小于 0：负伤害会被 {@code LivingThing#getDamage} 当成治疗。
  * <p>
  * 减伤是<b>乘算</b>的：50% 与 25% 两个来源 → 只受 {@code 0.5 × 0.75 = 37.5%} 伤害，
- * 而不是相加的 25%。抗性与穿透同样乘算：抗性 50% + 穿透 50% → {@code 0.5 × 1.5 = 0.75}
- * （相加会得到 1.0，等于穿透完全抵消抗性，那是旧行为）。
+ * 而不是相加的 25%。
+ * <p>
+ * <b>抗性/穿透是"先抵后乘"</b>（2026-10-04 用户要求改的）：有效抗性 = {@code 抗性 − 穿透}，
+ * 伤害再乘 {@code (1 − 有效抗性)}。所以：
+ * <ul>
+ *     <li>抗性 50% + 穿透 50% → 有效抗性 0 → 伤害 <b>不打折也不加</b>（穿透正好抵消抗性）；</li>
+ *     <li><b>抗性 0 时穿透完全无效</b> —— 这是刻意的语义，不是漏了；</li>
+ *     <li>穿透最多把抗性抵到 0；<b>抗性本来就 ≤0（弱点）时穿透不放大它</b> —— 没有抗性可抵消。</li>
+ * </ul>
+ * 旧行为是 {@code (1 − 抗性) × (1 + 穿透)}（穿透当额外增伤），已经改掉。
  *
  * @author gfhnv
  */
@@ -126,10 +134,17 @@ public class DamageCalculate {
             }
         }
         EventBus.post(new CalculateDamageEndEvent(attacker, targetEntity));
-        // 抗性/穿透是**乘算**的：(1 − 抗性) × (1 + 穿透)
-        // 抗性可以是负数（弱点 → 受伤更多），所以只夹「不为负」；
-        // 穿透按「额外增伤」理解，负穿透当 0（不会反过来变成减伤）
-        double resistanceMultiplier = Math.max(0, 1 - resistance) * (1 + Math.max(0, penetration));
+        // 抗性/穿透：**先抵后乘** —— 有效抗性 = 抗性 − 穿透，再按 (1 − 有效抗性) 乘进去。
+        // ⚠️ 两个夹紧都是必须的（2026-10-04 用户确认的语义）：
+        //   ① 穿透只能把抗性**抵到 0 为止**（`Math.max(0, …)`）——
+        //      否则"抗性 0 + 穿透 50%"会算成有效抗性 −0.5、伤害 ×1.5，变成额外增伤，不是"抵消抗性"；
+        //   ② 抗性本来就 ≤0（弱点）时**原样保留**，穿透不去碰它 ——
+        //      没有抗性可抵消时穿透就该无效，而不是把弱点放大。
+        // 负穿透当 0（不会反过来变成减伤）；乘数本身夹在 ≥0。
+        double effectiveResistance = resistance > 0
+                ? Math.max(0, resistance - Math.max(0, penetration))
+                : resistance;
+        double resistanceMultiplier = Math.max(0, 1 - effectiveResistance);
         double base = hp * hpMagnification + atkMagnification * attack + attackerDefence * dfkMagnification
                 + extraDamage + attackerExtraDamage;
         double damage = base

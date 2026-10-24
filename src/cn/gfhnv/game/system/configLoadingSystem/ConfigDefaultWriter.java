@@ -658,7 +658,7 @@ public final class ConfigDefaultWriter {
     }
 
     /**
-     * 采集每个实体模板的派生值（{@code hpMax} / {@code attack} / {@code defence} / {@code hp}）。
+     * 采集每个实体模板的派生值（{@code baseHpMax} / {@code attack} / {@code defence} / {@code hp}）。
      * <p>
      * 与上面同一个来源（{@link EntityKeySpecs#DERIVED}），所以"写出去的"与"读得回来的"
      * 必然是同一批键。只采集官方内容，口径同上。

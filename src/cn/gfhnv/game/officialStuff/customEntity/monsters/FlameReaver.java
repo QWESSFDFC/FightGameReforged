@@ -5,7 +5,7 @@ import cn.gfhnv.game.entityController.FixOrderController;
 import cn.gfhnv.game.event.DamageEvent;
 import cn.gfhnv.game.eventListener.FightTurnPastListener;
 import cn.gfhnv.game.interfaces.IModifyDamage;
-import cn.gfhnv.game.officialStuff.customEffect.flameReaverEffects.ContainerReward;
+
 import cn.gfhnv.game.officialStuff.customEffect.flameReaverEffects.LockedRite;
 import cn.gfhnv.game.officialStuff.customEffect.flameReaverEffects.PainEntanglement;
 import cn.gfhnv.game.officialStuff.customEffect.flameReaverEffects.SacrificeRite;
@@ -86,6 +86,37 @@ public class FlameReaver extends LivingThing {
      * 仍然写在各自技能/方法的代码里。
      */
     /**
+     * 击杀【完整容器】发的那个额外回合的<b>来源标识</b>（会打进日志）。
+     * <p>
+     * 白厄变身的连击与这个奖励<b>都是"额外回合"</b>，日志里长得一模一样 ——
+     * 带上标识才看得出<b>到底哪一条先执行</b>，也是排查"奖励回合被顶掉 / 空过"的唯一抓手。
+     */
+    public static final String EXTRA_TURN_TAG = "完整容器奖励";
+    /**
+     * 【破容器之赏】的<b>显示名</b>（日志里就显示这个，不再是效果类名）。
+     */
+    public static final String CONTAINER_REWARD_NAME = "破容器之赏";
+    /**
+     * 【破容器之赏】在效果列表里的<b>初始</b> id。
+     * <p>
+     * ⚠️ 注意它只是个短 id：效果一旦进 {@code addEffect}，框架会按【类】把 id 补成完整 id
+     * （{@code World#registeredIdOf} 按类查表 → 实际会变成
+     * {@code game_official_content:damageEnhanceEffect}，见 {@code OfficialGameContent} 的注释）。
+     * <b>所以真正把「破容器之赏」跟别的增伤区分开的是 {@link #CONTAINER_REWARD_NAME 显示名}，不是这个 id。</b>
+     * <p>
+     * 即便如此也不影响"每次击杀各自独立"：{@code Effect#equals} 判的是
+     * {@code id + 是否无限 + origin}，三次击杀的 {@code origin} 不同，不会被合掉。
+     */
+    public static final String CONTAINER_REWARD_EFFECT_ID = "containerReward";
+    /**
+     * 【破容器之赏】的增伤比例（+40%）。
+     */
+    public static final double CONTAINER_REWARD_ENHANCE = 0.4;
+    /**
+     * 【破容器之赏】持续回合数。
+     */
+    public static final int CONTAINER_REWARD_LAST_TIME = 3;
+    /**
      * 共祭那一轮"一同攻击"的<b>共同目标数</b>。
      * <p>
      * 官方原文是"与【残破容器】一同施放【亡死的黑云】<b>或</b>【将尽的命数】"，
@@ -94,14 +125,6 @@ public class FlameReaver extends LivingThing {
      * 目标少的队伍不会被一轮打穿。
      */
     private static final int JOINT_ATTACK_TARGETS = 3;
-
-    /**
-     * 击杀【完整容器】发的那个额外回合的<b>来源标识</b>（会打进日志）。
-     * <p>
-     * 白厄变身的连击与这个奖励<b>都是"额外回合"</b>，日志里长得一模一样 ——
-     * 带上标识才看得出<b>到底哪一条先执行</b>，也是排查"奖励回合被顶掉 / 空过"的唯一抓手。
-     */
-    public static final String EXTRA_TURN_TAG = "完整容器奖励";
     /**
      * 「亡死的黑云」召唤出来、还没被它自己吸收的容器。
      * <p>
@@ -299,7 +322,7 @@ public class FlameReaver extends LivingThing {
      * 基础生命上限（不靠等级成长系数去凑）：150 级时成长公式只给到 1.8 万，太脆。
      * <p>
      * <b>构造时读一次</b>：它不是"公式的一部分"，而是"这个模板出厂时的血量"——
-     * 想改一只<b>已经造出来</b>的 BOSS 的血，用 {@code EntityData.json} 的 {@code derived.hpMax}。
+     * 想改一只<b>已经造出来</b>的 BOSS 的血，用 {@code EntityData.json} 的 {@code derived.baseHpMax}。
      * 配置键 {@code flameReaver.baseHpMax}，出厂值
      * {@value cn.gfhnv.game.system.configLoadingSystem.RuleDefaults#FLAME_REAVER_BASE_HP_MAX}。
      *
@@ -725,8 +748,10 @@ public class FlameReaver extends LivingThing {
             System.out.println("【完整容器】被击碎，但击杀者已经倒下，奖励未发放（" + killer.getNameWithSide() + "）");
             return;
         }
-        killer.addEffect(new ContainerReward(ContainerReward.DEFAULT_ENHANCE,
-                ContainerReward.DEFAULT_LAST_TIME).setOrigin(getUUID()));
+        killer.addEffect(new cn.gfhnv.game.officialStuff.customEffect.universalEffects.DamageEnhanceEffect(
+                CONTAINER_REWARD_EFFECT_ID, 1, CONTAINER_REWARD_LAST_TIME, 0.0, CONTAINER_REWARD_ENHANCE)
+                .setName(CONTAINER_REWARD_NAME)
+                .setOrigin(getUUID()));
         grantExtraTurn(killer);
     }
 

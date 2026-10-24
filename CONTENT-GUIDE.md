@@ -45,7 +45,7 @@
 
 （`EntityDataPatcher.Report#print` 与 `ConfigOutput#printPatchSummary` 一起打出这一行。
 你那两次实跑分别落在 `config/gameConfig/EntityData.json`（9892 字节）与
-`SkillData.json`（10210 字节）上；改 `flameReaver` 的 `derived.hpMax: 7` 之后战斗里就是 `HP 7/7`。
+`SkillData.json`（10210 字节）上；改 `flameReaver` 的 `derived.baseHpMax: 7` 之后战斗里就是 `HP 7/7`。
 ⚠️ **想再看到逐份的「应用 N 项」明细**：`-Ddsh.config.verbose=true`，见 §1.4 第 1 条。）
 
 三份配置文件、各管一段：
@@ -76,18 +76,18 @@ CommandManager.initialize()
 
 | # | 类别 | 具体键 | 证据 |
 |---|---|---|---|
-| 1 | **面板基础值** | `name` / `level` / `mass` / `type` / `description` / `speed` / `elementSort`（别名 `element`） / `hpGrow` / `attackGrow` / `defenceGrow` | `EntityKeySpecs.java:118-147`（表里逐行声明的就是"能配"的唯一定义处）；你实跑"应用 300 项"即它们 |
+| 1 | **面板基础值** | `name` / `level` / `mass` / `type` / `description` / `baseSpeed` / `element` / `hpGrow` / `attackGrow` / `defenceGrow` | `EntityKeySpecs.java:118-147`（表里逐行声明的就是"能配"的唯一定义处）；你实跑"应用 300 项"即它们 |
 | 2 | **五行抗性 ×5** | `fireResistance` / `waterResistance` / `metalResistance` / `woodResistance` / `dirtResistance` | `EntityKeySpecs.java:148-153`（**由 `ElementSort` 循环生成**，不再手写 `switch`） |
 | 3 | **五行法力成长 ×5（扁平）** | `fireManaGrow` / `waterManaGrow` / `metalManaGrow` / `woodManaGrow` / `dirtManaGrow` | `EntityKeySpecs.java:159-164`；⚠️ 这一族**曾经声明了能配、其实没人读**（D8），现在真接上了 |
 | 4 | **`manaGrow` 块** | `{"manaGrow":{"fire":20,…}}`（写在实体下、`base` 下或 `derived` 下都认） | `EntityDataPatcher.java:317-343`；⚠️ 它**曾经从来没生效过**（块名撞键名，D9），现在有专用分支 |
 | 5 | **背包格数** | `inventorySlots`（`/data` 里**没有**这个键；减格子只从末尾删、遇到装着东西的格子会拒绝并报告） | `EntityKeySpecs.java:166-168`（登记）+ `EntityDataPatcher.java:374-409`（唯一有副作用的写入口） |
-| 6 | **派生值（用固定值覆盖公式）** | `hpMax` / `attack` / `defence` / `hp` | `EntityKeySpecs.java:48-60`，**顺序 = 应用顺序**：`hp` 必须最后（`setHp` 会夹到 `getHpMax()`，`LivingThing.java:2241`） |
-| 7 | **5 个面板属性** | `criticalRate` / `criticalDMG` / `enhance` / `penetration` / `defenseLoss` | `EntityKeySpecs.java:170-184`；**整局生效**（副本会带、战斗结束不清）。⚠️ 它们曾经是 D1 那批"声明了没人读"的假键，现在真接上了 |
-| 8 | **子类出厂值（`classState` 段，7 个）** | `ignition`（李晓焰）/ `coreflame` `coreflame_max` `soulscorch` `scourge` `scourge_max` `extraAbilityTier`（白厄） | 走**反射面**（`ReflectionConfigBridge.patchExtra`，`EntityDataPatcher.java:184`），因为这张通用表要求每行对**任意** `LivingThing` 成立，而 `coreflame` 只在白厄上有。`{"classState":{"coreflame":18}}` 与裸键 `{"coreflame":18}` 都认 |
+| 6 | **派生值（用固定值覆盖公式）** | `baseHpMax` / `baseAttack` / `baseDefence` / `hp` | `EntityKeySpecs.java:48-60`，**顺序 = 应用顺序**：`hp` 必须最后（`setHp` 会夹到 `getHpMax()`，`LivingThing.java:2241`） |
+| 7 | **5 个面板属性** | `baseCriticalRate` / `baseCriticalDamage` / `enhance` / `penetration` / `defenceLoss` | `EntityKeySpecs.java:170-184`；**整局生效**（副本会带、战斗结束不清）。⚠️ 它们曾经是 D1 那批"声明了没人读"的假键，现在真接上了 |
+| 8 | **子类出厂值（`classState` 段，7 个）** | `ignition`（李晓焰）/ `coreflame` `coreflameMax` `soulscorch` `scourge` `scourgeMax` `extraAbilityTier`（白厄） | 走**反射面**（`ReflectionConfigBridge.patchExtra`，`EntityDataPatcher.java:184`），因为这张通用表要求每行对**任意** `LivingThing` 成立，而 `coreflame` 只在白厄上有。`{"classState":{"coreflame":18}}` 与裸键 `{"coreflame":18}` 都认 |
 | 9 | **技能标量 6 个** | `aims`（0=自身 / -1=全体 / 正数=前 N 个）/ `coolDown` / `hpMagnification` / `atkMagnification` / `defMagnification` / `forEnemies` | `SkillKeySpecs.java:42-54` |
 | 10 | **技能两个块** | `consumedMana`（`{"amount":120,"element":"FIRE"}`，写 `null` = 取消消耗）/ `tags`（AI 权重，**整块覆盖**） | `SkillKeySpecs.java:59-63` + `SkillDataPatcher.java:335/384` |
-| 11 | **技能具名系数（N 个）** | 例：死星天裁的 `healRatio` / `scourgeCostCap` / `hitsPerScourge` / `finishMagnification`；反击的 `healRatio` / `extraHitMagnification` / `magnificationPerStack` / `extraHits`；`neededManaScale` | **扁平**写在技能对象里，与 `aims` 并列；名字由技能自己报（`SkillCoefficientTunable.coefficientValues()`）。**算式留代码，系数进配置** |
-| 12 | **规则键 29 条**（5 段） | `formula.*`（5）/ `mana.*`（2）/ `flameReaver.*`（11）/ `insectBoss.baseHpMax`（1）/ `actorLiXiaoYan.*`（10）。⚠️ 其中 `flameReaver.baseHpMax` 与 `insectBoss.baseHpMax` **同时**也被 `EntityData.json` 的 `derived.hpMax` 管，两个入口都写时**派生键赢**并打印一行 `[配置提醒]`（§1.2 第 14 条） | `GameRules.json`（你现在手上那份 42 行是**全量**的）；取值接口是 `GameRules.getLong/getDouble/getInt` |
+| 11 | **技能具名系数（N 个）** | 例：死星天裁的 `healRatio` / `scourgeCostCap` / `hitsPerScourge` / `finishMagnification`；反击的 `healRatio` / `extraHitMagnification` / `magnificationPerStack` / `extraHits`；最后一击的 `lastAttackPerTurn` / `lastAttackMaxTurns`；大招的 `coreflameCost` / `awakenExtraTurns` / **`aiPriority`**（AI 多想放大招，出厂 100）；`neededManaScale` | **扁平**写在技能对象里，与 `aims` 并列；名字由技能自己报（`SkillCoefficientTunable.coefficientValues()`）。**算式留代码，系数进配置** |
+| 12 | **规则键 29 条**（5 段） | `formula.*`（5）/ `mana.*`（2）/ `flameReaver.*`（11）/ `insectBoss.baseHpMax`（1）/ `actorLiXiaoYan.*`（10）。⚠️ 其中 `flameReaver.baseHpMax` 与 `insectBoss.baseHpMax` **同时**也被 `EntityData.json` 的 `derived.baseHpMax` 管，两个入口都写时**派生键赢**并打印一行 `[配置提醒]`（§1.2 第 14 条） | `GameRules.json`（你现在手上那份 42 行是**全量**的）；取值接口是 `GameRules.getLong/getDouble/getInt` |
 | 13 | **模组配置** | `config/data/<模组id>.json` 的自己的分组 + `common` 共享区 | 见第五节；`common` **支持 `entities` 与 `skills`**，**不支持规则段**（会打印一句明确的"改不了 + 去哪儿改"） |
 | 14 | **白厄那 5 个觉醒技能**（2026-10-03 起 ✅） | 键与别的技能一样：`game_official_content:phainon#支柱-死星天裁` / `#灾厄-弑魂焚诏` / `#灾厄-弑魂焚诏的反击` / `#普通攻击-创生-血棘渡亡` / `#最后一击`（**具名系数与标量都能改**） | 它们登记成了"挂在白厄名下"的**技能原型**，运行时按 `原型.copy()` 取副本；见 §3.1 第 2 条与 `70-DATA.md` §5.10.3 |
 
@@ -100,28 +100,28 @@ CommandManager.initialize()
 | 3 | **`coreflame`（白厄）** | **是"基准值"，开局 `+1`**：`Phainon#whenFightStart` 每局 `+1`（`Phainon.java:330`）；写 15 开局实际 16 | `Phainon.java:324-330` |
 | 4 | **`extraAbilityTier`（白厄）** | **同上，开局 `+1`**，而且它**参与计算**（`×0.5%/段` 加伤），不是最终值 | `Phainon.java:329` + `:349` |
 | 5 | **`soulscorch`（白厄）** | **只在觉醒期间有意义**：觉醒结束（`AwakeEndListener`）归零 | `Phainon.java:297` |
-| 6 | **`coreflame` / `scourge` / `scourge_max` 的超上限值** | 写超过上限的数会被 setter **悄悄压到上限**（`setCoreflame` = `Math.min(coreflame_max, coreflame)`） | `Phainon.java:268-270` |
+| 6 | **`coreflame` / `scourge` / `scourgeMax` 的超上限值** | 写超过上限的数会被 setter **悄悄压到上限**（`setCoreflame` = `Math.min(coreflameMax, coreflame)`） | `Phainon.java:268-270` |
 | 7 | **`formula.*` / `mana.*`（5+2 条）** | 改了**等于重新标定**：项目里有一套"每 1.0 倍率 ≈ 880 伤害"的标定（醉剑仙实测），改 `attackBase` 会让它全部作废。**能改，改前想清楚** | `EXTERNAL-DATA-LOADING-2026-10.md` §6 判据表的第 ③ 类 |
 | 8 | **写 `level` 与 `derived.*` 一起** | 顺序是 `level` → 面板 → 背包 → `derived` → `hp`，所以 `derived` 一定赢。只写成长系数（不写 `level`）时补丁器会**自动补一次重算**，不会"改了没反应" | `EntityDataPatcher.java:175-198`；重算走 `GameRules` 的 `formula.*`，不再写死 `200/110/200`（`:216-227`） |
-| 9 | **容器类数值跟着 BOSS 缩** | 【残破容器】的生命/攻击是**按召唤者最大生命的百分比**算的，你把 BOSS 的 `hpMax` 调成 7 → 容器生命也变成 `7×15% ≈ 1` | `90-STATE.md` §9.1 的三条设计事实 ① |
+| 9 | **容器类数值跟着 BOSS 缩** | 【残破容器】的生命/攻击是**按召唤者最大生命的百分比**算的，你把 BOSS 的 `baseHpMax` 调成 7 → 容器生命也变成 `7×15% ≈ 1` | `90-STATE.md` §9.1 的三条设计事实 ① |
 | 10 | **"把血调低"≠"一击秒"** | 盗火行者**血条第一次被清空**时必定进二阶段并**回满**、再叠 70% 免伤（伤害修正器拦下那一击，日志里显示 `-0`） | `60-COMBAT.md` §5.8「切阶段保护」 |
-| 11 | **`derived.hp` 不必写** | 战斗开始本来就会 `setHp(hpMax)`；改 `hpMax` 就够了 | `90-STATE.md` §9.1 设计事实 ② |
+| 11 | **`derived.hp` 不必写** | 战斗开始本来就会把血补满（`setHp(getHpMax())`）；改 `baseHpMax` 就够了 | `90-STATE.md` §9.1 设计事实 ② |
 | 12 | **白厄那 4 个 `classState` 键每局结束会被"直接赋 0"** | `Phainon#whenFightEnds()` 里是 `coreflame = 0; scourge = 0; soulscorch = 0; extraAbilityTier = 0;`（**直接写字段，不走 setter**，`Phainon.java:293-297`）。**这其实是好事**：配置值只在**模板**上，副本打完一局回到 0、**下一局重新从模板 `copy()` 拿你的配置值** —— 所以配置**不会一局一局累加** | `Phainon.java:288-298`（模板不受影响：`whenFightEnds` 只对**参战副本**调） |
 | 13 | **`name` 是"变身时会被改写"的键** | 白厄开大招会把**显示名**改成「卡厄斯兰那」（`UltimateAttack.java:80`），打完一局**没有恢复**（`Phainon#whenFightEnds` 里只重置数值，不动名字）。所以配置里写 `name` 要当心：它影响 `@e[name=…]` 选择器与 `/data` 输出 | `UltimateAttack.java:80` + `Phainon.java:288-321` |
-| 14 | **同一个数有两处能改时会"谁后谁赢"**（典型：盗火行者 / 虫皇的血） | `GameRules.json` 的 `flameReaver.baseHpMax`（`insectBoss.baseHpMax` 同理）是**构造时**读一次的出厂值（`FlameReaver.java:282-283`、`InsectBoss.java:35-36`）；而 `EntityData.json` 的 `derived.hpMax` **在构造之后**打补丁 → **`EntityData` 赢**。⚠️ **2026-10-03 第 2 轮起只在"两处的值真的对不上"时才打一行 `[配置提醒]`**（提醒里**同时给出两个数**，一眼看得出哪一处没跟上）：因为两份文件都是**全量 dump**，出厂时它们本来就写着同一个数 —— 不按值判、按"写没写"判会**每次启动必然误报**。两处都改、但改成同一个数时也不吵；**改一处、另一处停在旧值**才会响（它是**提醒**不是错误，键照样生效，且**永远打**、不受 verbose 开关影响） | `FlameReaver.java:282-283` + `EntityDataPatcher` 的 `noticeDualEntryHpMax` / `constructionHpRuleKeyOf`；契约见 `notes_for_llm/70-DATA.md` §5.10.2 |
+| 14 | **同一个数有两处能改时会"谁后谁赢"**（典型：盗火行者 / 虫皇的血） | `GameRules.json` 的 `flameReaver.baseHpMax`（`insectBoss.baseHpMax` 同理）是**构造时**读一次的出厂值（`FlameReaver.java:282-283`、`InsectBoss.java:35-36`）；而 `EntityData.json` 的 `derived.baseHpMax` **在构造之后**打补丁 → **`EntityData` 赢**。⚠️ **2026-10-03 第 2 轮起只在"两处的值真的对不上"时才打一行 `[配置提醒]`**（提醒里**同时给出两个数**，一眼看得出哪一处没跟上）：因为两份文件都是**全量 dump**，出厂时它们本来就写着同一个数 —— 不按值判、按"写没写"判会**每次启动必然误报**。两处都改、但改成同一个数时也不吵；**改一处、另一处停在旧值**才会响（它是**提醒**不是错误，键照样生效，且**永远打**、不受 verbose 开关影响） | `FlameReaver.java:282-283` + `EntityDataPatcher` 的 `noticeDualEntryHpMax` / `constructionHpRuleKeyOf`；契约见 `notes_for_llm/70-DATA.md` §5.10.2 |
 
 ### 1.3 配不到 ❌
 
 | # | 想要的东西 | 为什么配不到 | 出路 |
 |---|---|---|---|
 | 1 | ~~**白厄的觉醒技能**~~ ✅ **2026-10-03 起配得到了**（见 §1.1 第 14 条） | ~~它们是 `UltimateAttack#comeToEffect` 里 `new` 出来的、不在注册表里~~ → 现在登记成**技能原型**（挂在 `game_official_content:phainon` 名下），运行时改成 `原型.copy()` | 见 §3.1 第 2 条；落地记录在 `EXTERNAL-DATA-LOADING-2026-10.md` §12.4（方案 A，**已落地**） |
-| 2 | **`LastAttack` 的 `0.125` / 下限 `7`** | 技术上**已经可以外置**（技能具名系数那条路已经通了），**刻意没接** | `60-COMBAT.md` §5.7 写着"改这个下限等于改平衡，**先问用户**"。你点头就能接 |
+| 2 | ~~**`LastAttack` 的 `0.125` / 下限 `7`**~~ ✅ **2026-10-24 已外配**（用户拍板） | 键名：`lastAttackPerTurn`（每剩余回合折扣，出厂 `0.125`）、`lastAttackMaxTurns`（上限，出厂 `7`）；写在 `SkillData.json` 的 `…:phainon#最后一击` 那条技能里。同批外配了 `UltimateAttack` 的 `coreflameCost`（12）与 `awakenExtraTurns`（8） | `60-COMBAT.md` §5.7 的倍率表；守卫 `testAwakenNumbersExternalized` |
 | 3 | **五元素 穿透 / 增伤 ×10**（`firePenetration` / `woodDamageEnhance` …） | **临时属性，而且配了不生效**：副本（`AttributeProfile#copyFrom`）**刻意不带**这 10 个 + 每局结束 `resetTemporary()` 清零 + 全项目零写入点 | 要加穿透/增伤请用**效果或技能**（`DamageEnhanceEffect` 那一族） |
 | 4 | **12 个 `*Enhance*` 运行时加成**（`attackEnhancePercent` … `criticalRateEnhanceAmount`） | 效果与技能"进来加、走时减"，且**复制构造器不带** → 配在模板上对任何一局都不生效 | 同上，用效果/技能 |
 | 5 | **`extraDamage`** | **死字段**：参与伤害公式但全项目**零写入点**（活的那套是 `Skill#extraDamage`，另一个字段） | 不要用 |
 | 6 | **`individualMultipleArea`** | **派生面板倍率**：由**角色自己的构造器**按玩法算（李晓焰按燃点）。这一条是**判断**（不是"配了没用"） | 要改那个算法请改角色构造器 |
 | 7 | **`ignitionMax`（燃点上限）** | 私有 `int`，**没有 setter**；基准值来自规则表 + `IModifyIgnitionMax` 修正链 | 走**规则表** `actorLiXiaoYan.ignitionMax`，或走**修正链**（范例模组 `mods/liXiaoYanPlus/`） |
-| 8 | **`phaseTwo` / `isAwaken` / `charging` / `absorbed` / `kind` / `owner` …（`CLASS_RUNTIME` 19 个）** | 是**运行时状态**，不是出厂输入；放行它等于让一份 `EntityData.json` 把 boss 打成二阶段、把白厄的觉醒直接摆成 true | 机制上不该配。判据是**"配了能不能算数"**，不是"这个字段属于谁" |
+| 8 | **`phaseTwo` / `awaken` / `charging` / `absorbed` / `kind` / `owner` …（`CLASS_RUNTIME` 19 个）** | 是**运行时状态**，不是出厂输入；放行它等于让一份 `EntityData.json` 把 boss 打成二阶段、把白厄的觉醒直接摆成 true | 机制上不该配。判据是**"配了能不能算数"**，不是"这个字段属于谁" |
 | 9 | **`temporary` 这个块名** | **它不是配置块**（`BARE_SECTIONS` 只有 `base` / `derived` / `classState`） | 面板属性写 `base` 里；战中的临时加成用效果/技能 |
 | 10 | **`formula` 之外的整条公式 / 技能行为逻辑** | 那是**代码**。用 JSON 描述技能行为等于发明一门脚本语言 | **不做**（用户没拍板；见 §9.3 与 `EXTERNAL-DATA-LOADING-2026-10.md` 第五节） |
 | 11 | **模组内容出现在 `EntityData.json` / `SkillData.json`** | 2026-10-03 起**刻意分开**：判据是**谁注册的**（`ConfigDefaultWriter.isOfficialContent`），不按 id 里的冒号 | 模组走 `config/data/<模组id>.json`（第五节）。⚠️ 你现有文件里**已经有**酒剑仙那几段（上次自愈写进去的）—— 自愈**只补不删**，所以它们会留着；想清干净手动删即可 |
@@ -201,7 +201,9 @@ CommandManager.initialize()
 ① 写 Java 字段（+ getter）
 ② 加 setter                          ← 见下面 2.2，这一步漏了会静默降级
 ③ 想一次"能不能给人配" → 不能就写 @NoConfig("真理由")
-④ 判断它是面板属性还是临时属性（见 2.3）→ 临时属性要进 clearTemporaryAttributes()
+④ 判断它是面板属性还是临时属性（见 2.3）
+   → 面板属性：写进 AttributeProfile#copyFrom
+   → 临时属性：写进 AttributeProfile#resetTemporary
 ```
 
 ### 2.2 必须有 setter —— 没有会怎样？
@@ -228,17 +230,19 @@ CommandManager.initialize()
 |---|---|---|
 | 定义 | "出厂就该是多少"的输入 | 打到一半才变、由效果/技能给的一次性加成 |
 | `copy()` 带不带 | **带**（复制构造器逐字段抄） | **不带**（副本从干净状态开始） |
-| `whenFightEnds()` 清不清 | **不清** | **清**（`clearTemporaryAttributes()`，`LivingThing.java:2094-2112`） |
-| 例 | 5 抗性 / 5 法力成长 / `criticalRate` / `criticalDMG` / `enhance` / `penetration` / `defenseLoss` / `individualMultipleArea` | 12 个 `*Enhance*`、五元素穿透/增伤 ×10、`extraDamage` |
+| `whenFightEnds()` 清不清 | **不清** | **清**（`AttributeProfile#resetTemporary()`，由 `LivingThing#whenFightEnds()` 调一次） |
+| 例 | 5 抗性 / 5 法力成长 / `baseCriticalRate` / `baseCriticalDamage` / `enhance` / `penetration` / `defenceLoss` / `individualMultipleArea` | 12 个 `*Enhance*`、五元素穿透/增伤 ×10、`extraDamage` |
 | 配置面 | **能配**（写一次整局生效） | **配了不生效**（`@NoConfig` 挡住，并给理由） |
 
-**实现上的两个位置是互补的，改一个必须看另一个**（源码里就写着这句话，`LivingThing.java:2064-2068`）：
+**实现上的两个方法都在 `AttributeProfile` 里，互补，改一个必须看另一个**：
 
-1. **复制构造器**（`LivingThing.java:240-288`）：只抄面板属性 → `attributes.copyFrom(other.attributes)`
-   （`AttributeProfile.java:199`，**刻意不带**那 10 个五元素临时属性）；
-2. **`clearTemporaryAttributes()`**（`LivingThing.java:2094-2112`）：把效果写的 12 个
-   `*Enhance*`、`attributes.resetTemporary()`（`AttributeProfile.java:226-237`）与死字段
-   `extraDamage` 清零。
+1. **`copyFrom(other)`**：只抄面板属性（面板组的基础值 / 抗性 / 法力成长 / 全局组 /
+   `element` / `defenceLoss` / `manas` / `individualMultipleArea`），**刻意不带**临时属性；
+2. **`resetTemporary()`**：只清临时属性（12 个 `*Enhance*`、五元素穿透/增伤 ×10、死字段
+   `extraDamage`、`alive`/`anticipating` 两个状态位），由 `LivingThing#whenFightEnds()` 调一次。
+
+> 2026-10-24 起实体那边**没有任何"清零"职责**了（原来的 `clearTemporaryAttributes()` 已删）——
+> 生命周期规则只住在 `AttributeProfile` 一个文件里。
 
 **判断口诀**：这个值是"**开局该是多少**"（→ 面板，复制 + 不清），还是"**打起来才变**"
 （→ 临时，不复制 + 清零）？**拿不准就问自己"副本该不该带它"** —— 带了就是面板。
@@ -275,8 +279,8 @@ CommandManager.initialize()
 
 | 清单 | 内容 | 为什么 |
 |---|---|---|
-| **`DataKeys.CLASS_CONFIG`**（7 个，**开放**） | `ignition` / `coreflame` / `coreflame_max` / `soulscorch` / `scourge` / `scourge_max` / `extraAbilityTier` | 每一个都是"**这一局开始时该是多少**"的**输入**，而且**每个都有 setter** → 对象自己的钳制照旧生效。写法：`{"classState":{"coreflame":18}}` 或裸键 `{"coreflame":18}` |
-| **`DataKeys.CLASS_RUNTIME`**（19 个，**继续挡**） | `phaseTwo` / `isAwaken` / `charging` / `absorbed` / `owner` / `kind` / `deathNotified` / `extraTurns` / `ignitionMax` / `lastIgnition` / `memorizedRate` / `appliedExtraAbilityTier` / `absorbDamage` / `pendingLastAttack` / `skills` / `disasterPower` / `sacrificeWindow` / `damageReductionLayers` / `painCost` | 是**玩法进程**（由它自己的技能与流程维护），不是出厂输入。典型：`phaseTwo` **连 setter 都没有**，放行它就是"配置静默改掉 boss 的进程状态" |
+| **`DataKeys.CLASS_CONFIG`**（7 个，**开放**） | `ignition` / `coreflame` / `coreflameMax` / `soulscorch` / `scourge` / `scourgeMax` / `extraAbilityTier` | 每一个都是"**这一局开始时该是多少**"的**输入**，而且**每个都有 setter** → 对象自己的钳制照旧生效。写法：`{"classState":{"coreflame":18}}` 或裸键 `{"coreflame":18}` |
+| **`DataKeys.CLASS_RUNTIME`**（19 个，**继续挡**） | `phaseTwo` / `awaken` / `charging` / `absorbed` / `owner` / `kind` / `deathNotified` / `extraTurns` / `ignitionMax` / `lastIgnition` / `memorizedRate` / `appliedExtraAbilityTier` / `absorbDamage` / `pendingLastAttack` / `skills` / `disasterPower` / `sacrificeWindow` / `damageReductionLayers` / `painCost` | 是**玩法进程**（由它自己的技能与流程维护），不是出厂输入。典型：`phaseTwo` **连 setter 都没有**，放行它就是"配置静默改掉 boss 的进程状态" |
 
 > ⚠️ **它们为什么走"反射面"而不是进 `EntityKeySpecs` 那张通用表**：那张表的每一行都要对**任意**
 > `LivingThing` 成立，而 `coreflame` 只在 `Phainon` 上存在（表驱动的写入不分类型，会把"写一个不存在的
@@ -319,8 +323,8 @@ powershell -ExecutionPolicy Bypass -File .\test-command-system.ps1
    且模板数 **M 比之前 +1**（新实体被自愈写进去了）。⚠️ 要逐份的明细就开
    `-Ddsh.config.verbose=true`（见 §1.4 第 1 条）；
 2. 打开 `config/gameConfig/EntityData.json`，**新实体的那一段应当自动出现**，键名就是你要的；
-3. **改一个显眼的数**（例如 `derived.hpMax` 改小）→ 重启 → 选它打一局 → 看 `HP x/y`
-   是否等于你写的数（这正是你验证盗火行者 `hpMax: 7` 的那条路）；
+3. **改一个显眼的数**（例如 `derived.baseHpMax` 改小）→ 重启 → 选它打一局 → 看 `HP x/y`
+   是否等于你写的数（这正是你验证盗火行者 `baseHpMax: 7` 的那条路）；
 4. 面板类的（速度 / 抗性）可以 `/list` 或 `/data get entity @s` 直接看。
 
 ---
@@ -364,7 +368,7 @@ powershell -ExecutionPolicy Bypass -File .\test-command-system.ps1
 |---|---|---|
 | **`Skill` 基类已有的槽位** | **什么都不用做**，`SkillData.json` 里天然能配（`aims` / `coolDown` / `hpMagnification` / `atkMagnification` / `defMagnification` / `forEnemies` / `consumedMana` / `tags`） | 盗火行者四招的主倍率（它们传进 `super(...)` 变成 `atkMagnification`） |
 | **技能自己的 1 个整数旋钮** | 实现 **`NumericSkillTunable`**（`getExtraNumericValue` / `setExtraNumericValue` / `extraNumericKey`） | `RestorationHealthSkill` 的"释放门槛"；键名默认 `neededManaScale` |
-| **技能自己的 N 个具名系数** | 实现 **`SkillCoefficientTunable`**：`coefficientValues()` 返回"名字 → 当前值"（**用 `LinkedHashMap`**，顺序 = 默认文件里的书写顺序）、`setCoefficientValue(name, value)` | 死星天裁 4 个（`healRatio` / `scourgeCostCap` / `hitsPerScourge` / `finishMagnification`）、反击 4 个、血棘渡亡 2 个、弑魂焚诏 2 个、盗火行者两招 2 个 |
+| **技能自己的 N 个具名系数** | 实现 **`SkillCoefficientTunable`**：`coefficientValues()` 返回"名字 → 当前值"（**用 `LinkedHashMap`**，顺序 = 默认文件里的书写顺序）、`setCoefficientValue(name, value)` | 死星天裁 4 个（`healRatio` / `scourgeCostCap` / `hitsPerScourge` / `finishMagnification`）、反击 4 个、血棘渡亡 2 个、弑魂焚诏 2 个、盗火行者两招 2 个、最后一击 2 个、大招 3 个（含 `aiPriority`） |
 | **整条公式 / 行为逻辑** | **留在代码里**（`comeToEffect` 的方法体） | "每层打几段 = `hitsPerScourge × 层数`" —— **算式留代码，算式里的每个数**才进配置 |
 | **运行期状态**（`nowCoolDown` / `extraDamage`） | **不外置** | `extraDamage` 还有"伤害算完清零"的约定，外置等于给用户一个坑 |
 
@@ -527,7 +531,7 @@ public class MyMod extends Mod implements ModDataAware {
 {
   "version": 1,
   "common": {                        // 共享区：对【官方/共享】数值的调整（一层补丁）
-    "entities": { "game_official_content:flameReaver": { "derived": { "hpMax": 90000 } } },
+    "entities": { "game_official_content:flameReaver": { "derived": { "baseHpMax": 90000 } } },
     "skills":   { "game_official_content:phainon#普通攻击:逐火救世,行则将至": { "atkMagnification": 2.0 } }
     // ⚠️ 规则段（formula / mana / flameReaver / insectBoss / actorLiXiaoYan）改不了，会打印明确报错
   },
@@ -581,11 +585,11 @@ public class MyMod extends Mod implements ModDataAware {
 | 文件 | 哪条结论影响了本文 |
 |---|---|
 | `00-CATALOG.md` | 「按任务查表」里**没有**"加内容"这一行 → 本文建完已在那里登记一行（否则下个 AI 找不到它） |
-| `10-RULES.md`（第 0 条 + §9.3） | §9.3 三条直接进了本文：**表定义 + 代码生成已被否决**（§3.2 不写它）、**`EntityKeySpecs` / `SkillKeySpecs` 的标量规格一行没删**（§3.1 说的是"零配置层改动"而不是"表已经删了"）、**`LastAttack` 的 `0.125`/下限 7 与 `setExtraAbilityTier` 无上限都"改之前问用户"**（§1.3 第 2 条） |
+| `10-RULES.md`（第 0 条 + §9.3） | §9.3 三条直接进了本文：**表定义 + 代码生成已被否决**（§3.2 不写它）、**`EntityKeySpecs` / `SkillKeySpecs` 的标量规格一行没删**（§3.1 说的是"零配置层改动"而不是"表已经删了"）、**`setExtraAbilityTier` 无上限仍写着"改之前问用户"**（§1.3 第 2 条）；⚠️ **`LastAttack` 的那两个数 2026-10-24 已按用户拍板外配**，§9.3 那条只剩 `setExtraAbilityTier` |
 | `70-DATA.md` §5.10 | **配置键就是 `/data` 的数据名**（一套名字两处用）+ **必须有 setter**（写回按 Java 字段名拼 `setXxx`，漏了会静默退化成裸写字段）→ 本文 §1.4 第 2 条与 §2.2 |
 | `60-COMBAT.md` §5.6 / §5.7 / §5.8 | ① 切阶段保护 → §1.2 第 10 条（"把血调低"≠"一击秒"）；② `LastAttack` 那条"改下限先问用户" → §1.3 第 2 条；③ 容器按召唤者百分比算 → §1.2 第 9 条 |
 | `30-WORKFLOW.md` §0 / §0.1 / §6 | 命令怎么跑（`Set-ExecutionPolicy -Scope Process Bypass` + `& .\check-sources.ps1`；**不要接管道**）、基线怎么读 → 本文所有"跑什么命令" |
-| `90-STATE.md` §9.1 | **用户实跑的原文数字**（`应用 300 项…影响 10 个模板` / `应用 225 项…影响 28 个技能` / `HP 7/7`，那时还是逐份播报）→ 本文 §1.0 的"能用了"证据；"改 `hpMax` 就够了"、"容器跟着缩"三条设计事实 → §1.2 |
+| `90-STATE.md` §9.1 | **用户实跑的原文数字**（`应用 300 项…影响 10 个模板` / `应用 225 项…影响 28 个技能` / `HP 7/7`，那时还是逐份播报）→ 本文 §1.0 的"能用了"证据；"改 `baseHpMax` 就够了"、"容器跟着缩"三条设计事实 → §1.2 |
 | `70-DATA.md` **§5.10.4**（2026-10-03 新增） | **配置加载的输出策略 + `dsh.config.verbose` 开关**（哪几行留、哪几行收敛成一行汇总）→ 本文 §1.0 / §1.4 / §2.6 / §3.3 / §6 里所有"看什么算成功" |
 | `project_analyses/EXTERNAL-DATA-LOADING-2026-10.md` | §11.3 四个"打折扣"的键 → §1.2；§12.4 觉醒技能配不到 → §1.3 第 1 条；§12.5 `atkMagnification` 复位 → §1.2 第 1 条；阶段 2「`copy()` 必须带数值」→ §3.1 |
 | `project_analyses/CONFIG-LOADING-DECOUPLING-2026-10.md` | §12.2/§12.3 那 24 个键的分类（10 临时 + 12 `*Enhance*` + `extraDamage` + `individualMultipleArea`）→ §1.3 第 3~6 条；§12.5 三条阻碍 → §3.1 的"表还没删" |
@@ -595,12 +599,12 @@ public class MyMod extends Mod implements ModDataAware {
 | 文件 | 哪条结论影响了这一轮 |
 |---|---|
 | `00-CATALOG.md` 开工 checklist 第 6 条 | "回复里要交代读了哪几份、哪条结论影响了改动" → 就是本表 |
-| `10-RULES.md` §9.3 | **`EntityKeySpecs`/`SkillKeySpecs` 的标量规格没删**、**表定义+代码生成已否决**、**`LastAttack` 的 `0.125`/下限 7 与 `setExtraAbilityTier` 无上限"改之前问用户"** → 本轮**一行数值都没碰**，输出层与探针是仅有的改动面 |
+| `10-RULES.md` §9.3 | **`EntityKeySpecs`/`SkillKeySpecs` 的标量规格没删**、**表定义+代码生成已否决**、**`setExtraAbilityTier` 无上限"改之前问用户"**（`LastAttack` 那两个数已于 2026-10-24 外配） → 本轮**一行数值都没碰**，输出层与探针是仅有的改动面 |
 | `70-DATA.md` §5.10.2 | **"配置键就是 `/data` 数据名 + 改数据名 = 破坏契约"** → 本轮**没有新增/改名任何数据名**（134 个断言点照旧）；同一节的"血量两个入口"正是本轮要修的误报源头 |
 | `30-WORKFLOW.md` §0 / §0.1 / §6 | **沙箱里不能接管道**（`cmd /c "… > out\x.log 2>&1"` + `Get-Content -Tail`）、**不要用 PowerShell 字符串读写改 `.java`**、**验证脚本别往 `src` 里植入错误** → 本轮全部照做，临时探针只落 `out/` 且用完即删 |
 | `60-COMBAT.md` §5.5.2（日志约定） | **要标明"对象来源"的输出统一走 `getNameWithSide()` / 短标识**，且有"**故意没加**"的判据（同一侧/同一只的续报不加）→ 本轮**没有动任何战斗日志**，收敛的只有启动播报；那条"故意的判据"也正是"哪些该留、哪些该收敛"的同一把尺子 |
 | `90-STATE.md` §9.1 | **上一轮收官 `822/0`、`src` 227 个文件**；**最后一轮「死代码清理 + 参考副本 `_note`」收官 `827/0`、`src` 226 个文件**（净减 1：删了 `debug_tools/TestAnticipateDamage.java`） |
-| `20-MISTAKES.md`「配置加载」分组 | ⚠️ **"同一个根因有几条产出路径时，修一条要回头数一遍还有几条"** → 本轮修"每次启动必响的提醒"时逐条复核了**既有断言**（那条"只写 `derived.hpMax` 不吵"的老断言按新判据**本来就该吵**，已改成写规则表生效值） |
+| `20-MISTAKES.md`「配置加载」分组 | ⚠️ **"同一个根因有几条产出路径时，修一条要回头数一遍还有几条"** → 本轮修"每次启动必响的提醒"时逐条复核了**既有断言**（那条"只写 `derived.baseHpMax` 不吵"的老断言按新判据**本来就该吵**，已改成写规则表生效值） |
 | `70-DATA.md` §5.10.5（最后一轮新增） | **参考副本 `EntityData.default.json` 的结构契约**：说明文字一律走根上的 **`_note`**（下划线开头 = 不是数据）、**键名里不许出现非 ASCII**（守卫断言盯着）、**技能段与 `SkillData.json` 逐键同构**、`consumedMana` 的 `null`（= 取消消耗）是**有语义的值** |
 
 **与其它文档的分工**：
@@ -619,7 +623,7 @@ public class MyMod extends Mod implements ModDataAware {
 ## 八、不确定项 / 本文没做的事（诚实清单）
 
 1. **"手感 / 平衡"类结论本文一条都没有**。所有"能用了"都指**链路通了**（写文件 → 重启 → 数值变了），
-   而且**只有盗火行者 `hpMax: 7` 那一条是你亲自实跑过的**。改配置之后"打起来爽不爽"只有你能判断。
+   而且**只有盗火行者 `baseHpMax: 7` 那一条是你亲自实跑过的**。改配置之后"打起来爽不爽"只有你能判断。
 2. ~~**`EntityData.default.json` 恒为空壳（本文 §1.4 末尾那条）。结论我读过代码、是确定的**
    （`writeAll` 只在 `loadGameRules` 那一刻跑一次，而那时注册表还空着），
    **但我没有实跑验证"删掉它重启"的结果** —— 建议你顺手试一次，若真是空壳，
@@ -638,9 +642,13 @@ public class MyMod extends Mod implements ModDataAware {
    ⚠️ **仍然只有你能验最后一步**：重启游戏看 `SkillData.json` 里有没有那 5 个键、
    改一个倍率打一局看伤害变没变 —— AI 不启动游戏，只在自测里做了数值对照
    （`hitsPerScourge` 6 → 1，伤害 `6120 → 1020`；把默认值打回去逐位相同）。
-   ⚠️ **变身时间轴一个字没动**（12 火种 / 8 个额外回合 / `LastAttack` 的公式与下限全部原样）。
-5. **`LastAttack` 的 `0.125` / 下限 7、`UltimateAttack` 的 12 火种 / 8 个额外回合**：
-   技术上可以外置，**刻意没接**（要先问你，因为改它等于改平衡）。
+   ⚠️ **变身时间轴一个字没动**（12 火种 / 8 个额外回合 / `LastAttack` 的公式与下限全部原样）——
+   2026-10-24 起这四个数**可以外配**（键名见 §1.3 第 2 条），但**出厂值一个没改**。
+5. ~~**`LastAttack` 的 `0.125` / 下限 7、`UltimateAttack` 的 12 火种 / 8 个额外回合**：
+   技术上可以外置，**刻意没接**（要先问你，因为改它等于改平衡）。~~
+   **✅ 2026-10-24 已外配**（用户拍板）：`lastAttackPerTurn` / `lastAttackMaxTurns` /
+   `coreflameCost` / `awakenExtraTurns`。**出厂值一个没动**，所以不写这四个键时行为与之前逐位相同；
+   ⚠️ 改了 `coreflameCost` 之后技能**描述**里那句"消耗12火种"不会自己变（要改就连 `description` 一起改）。
 6. **`EntityKeySpecs` / `SkillKeySpecs` 的标量规格一行没删** —— 本文说的"零配置层改动"指的是
    "新字段靠反射兜底自动生效"，**不是**"那张表已经不存在了"。要删表先读
    `CONFIG-LOADING-DECOUPLING-2026-10.md` §12.5 的三条阻碍。

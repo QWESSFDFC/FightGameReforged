@@ -160,12 +160,14 @@
     "game_official_content:phainon#最后一击": {
       "hpMagnification": 0,
       "aims": -1,
+      "lastAttackMaxTurns": 7,
       "defMagnification": 0,
       "forEnemies": true,
       "consumedMana": {
         "amount": 0,
         "element": "UNIVERSAL"
       },
+      "lastAttackPerTurn": 0.125,
       "coolDown": 0,
       "atkMagnification": 13,
       "tags": {"ATTACK": 1}
@@ -206,12 +208,15 @@
     "game_official_content:phainon#大招:永劫燔世,其将背负": {
       "hpMagnification": 0,
       "aims": 0,
+      "coreflameCost": 12,
+      "aiPriority": 100,
       "defMagnification": 0,
-      "forEnemies": true,
+      "forEnemies": false,
       "consumedMana": {
         "amount": 0,
         "element": "UNIVERSAL"
       },
+      "awakenExtraTurns": 8,
       "coolDown": 0,
       "atkMagnification": 0,
       "tags": {"ATTACK": 10}

@@ -3,9 +3,7 @@ package cn.gfhnv.game.entity;
 import cn.gfhnv.game.data.DataField;
 import cn.gfhnv.game.data.DataFlatten;
 import cn.gfhnv.game.data.NoConfig;
-import cn.gfhnv.game.data.NoData;
 import cn.gfhnv.game.effect.Effect;
-import cn.gfhnv.game.entityController.FixOrderController;
 import cn.gfhnv.game.entityController.PlayerController;
 import cn.gfhnv.game.entityController.UniversalController;
 import cn.gfhnv.game.event.DamageEvent;
@@ -43,8 +41,9 @@ import java.util.function.Supplier;
  * <p>
  * 核心特性：
  * <ul>
- *     <li><b>战斗属性</b>：生命值（hp）、攻击（attack）、防御（defence）、速度（speed）、生命上限（hpMax）、
- *     暴击率/爆伤（criticalRate / criticalDMG）；</li>
+ *     <li><b>战斗属性</b>：生命值（hp）、攻击（baseAttack）、防御（baseDefence）、速度（baseSpeed）、
+ *     生命上限（baseHpMax）、
+ *     暴击率/爆伤（criticalRate / criticalDamage）；</li>
  *     <li><b>五行系统</b>：拥有金木水火土五种元素抗性、穿透与元素法力（{@link Mana}），
  *     伤害计算时根据元素属性（{@link ElementSort}）取对应抗性/增伤/穿透；</li>
  *     <li><b>效果列表</b>：可携带多个 {@link Effect}（Buff/Debuff），由 {@link #addEffect} 管理叠加；</li>
@@ -60,21 +59,6 @@ import java.util.function.Supplier;
  */
 public class LivingThing extends Entity {
     /**
-     * 那 12 个 {@code *Enhance*} 运行时加成共同的 {@code @NoConfig} 理由。
-     * <p>
-     * <b>为什么 12 个字段共用一句话</b>：它们的生命周期完全一样（效果加减 → 结束清零 → 不复制），
-     * 逐字抄 12 遍只会让"改一个忘十一个"更容易。真正的依据写在
-     * {@link #clearTemporaryAttributes()} 的 javadoc 与复制构造器上。
-     * <p>
-     * <b>这句话必须是真的</b>（{@code @NoConfig} 的纪律：写不出真理由就不该挡）——
-     * 两条依据：① 复制构造器只带面板属性、不带这 12 个；② {@link #clearTemporaryAttributes()}
-     * 每局结束把它们清零。所以"配在注册表模板上"对任何一局战斗都不生效。
-     */
-    static final String ENHANCE_REASON =
-            "运行时加成：由效果与技能\"进来加、走时减\"（战斗结束还会清零），且复制构造器不带"
-                    + " → 配在模板上不生效，要加请用效果/技能";
-
-    /**
      * 「基础减伤」在 {@link #damageReductions} 里的来源键。
      * <p>
      * 只有 {@link #setDamageAbsorbedPercent(double)} 用它，用来兼容旧写法（直接设置一个总减伤）。
@@ -86,44 +70,26 @@ public class LivingThing extends Entity {
     private final List<DamageReduction> damageReductions = new ArrayList<>();
     private final List<IModifyDamage> damageModifiers = new ArrayList<>();
     /**
-     * 属性组件：五行组（5 抗性 + 5 单元素穿透 + 5 元素增伤 + 5 法力成长系数）与
-     * 全局组（{@code penetration} 全属性穿透、{@code enhance} 全属性增伤、{@code criticalDMG} 暴击伤害）。
+     * 属性组件：面板组（{@code hp} / {@code baseHpMax} / {@code baseAttack} / {@code baseDefence} /
+     * {@code baseSpeed} /
+     * {@code baseCriticalRate} 与 3 个成长系数）、五行组（5 抗性 + 5 单元素穿透 + 5 元素增伤 +
+     * 5 法力成长系数）、全局组（{@code penetration} 全属性穿透、{@code enhance} 全属性增伤、
+     * {@code criticalDamage} 暴击伤害）、12 个 {@code *Enhance*} 运行时加成，
+     * 以及 {@code alive} / {@code anticipating} 两个状态位。
      * <p>
      * <b>{@code @DataFlatten} 是关键</b>：它让组件的字段被<b>无前缀</b>并进本对象的复合标签，
-     * 所以 {@code /data get entity @s} 里看到的仍是 {@code fireResistance}、{@code penetration}、
+     * 所以 {@code /data get entity @s} 里看到的仍是 {@code hp}、{@code fireResistance}、{@code penetration}、
      * {@code metalManaGrow}…… 与这些字段还写在本类里时逐个字符一致（数据名是对外 API，见 TIPS §5.10）。
      * <p>
      * 本类保留全部 public getter/setter —— 它们的方法名是 460 个调用点与模组依赖的 API，
      * 只是转发到本组件。
+     * <p>
+     * 组件在构造时拿到<b>本对象</b>：`setHp` 要用它发事件、拿最终上限夹血，
+     * {@code setHpEnhance*} 要用它 {@link #renewHp() 把当前生命夹回新上限}。
      */
     @DataFlatten
-    private final AttributeProfile attributes = new AttributeProfile();
-    /**
-     * 单次额外伤害（{@code LivingThing} 这一侧的字段）。
-     * <p>
-     * <b>不进配置文件</b>（{@code @NoConfig}）：<b>死字段</b> —— 参与伤害公式却
-     * <b>全项目零写入点</b>（永远是 0）。活着的那一套是 {@code Skill#extraDamage}，
-     * 是另一个字段。允许配置它等于给用户一个"写了没反应"的键。
-     */
-    @NoConfig("死字段：全项目零写入点（活的那套是 Skill#extraDamage），配了不会有任何反应")
-    public long extraDamage = 0;
+    private final AttributeProfile attributes = new AttributeProfile(this);
     private IShowSpecialMes showSpecialMes;
-    /**
-     * 暴击率（基础值；实际暴击率见 {@link #getCriticalRate()}，还会叠加 {@code criticalRateEnhance*}）。
-     * <p>
-     * 对外数据名就是 {@code criticalRate}（Java 名与数据名一致，所以不需要 {@code @DataField}）。
-     */
-    private double criticalRate;
-    private long hp, defence, speed, attack, hpMax;
-    /**
-     * 是否存活。<b>对外数据名是 {@code alive}</b>（与 Java 字段名一致，所以不需要 {@code @DataField}）。
-     * <p>
-     * <b>不进配置文件</b>（{@code @NoConfig}）：存活与否是<b>战斗结果</b>，不是模板属性 ——
-     * 允许在 {@code EntityData.json} 里写它等于允许"注册表里的模板一开始就是死的"。
-     * {@code /data merge} 照旧能改（调试要用）。
-     */
-    @NoConfig("存活与否是战斗结果，不是模板属性；写在 EntityData.json 里等于让模板一开始就是死的")
-    private boolean alive = true;
     /**
      * 身上的效果列表。<b>对外数据名是 {@code effects}</b>（Java 字段名 {@code entityEffectList} 又长又绕）。
      * <p>
@@ -133,46 +99,6 @@ public class LivingThing extends Entity {
     @NoConfig("对象列表：加元素要构造合法对象并补 id，请用 /effect 或角色自己的构造函数")
     @DataField("effects")
     private List<Effect> entityEffectList = new ArrayList<>();
-    /**
-     * 生命成长系数。<b>对外数据名是 {@code hpGrow}</b>（与 Java 字段名一致，所以不需要 {@code @DataField}）。
-     */
-    private double hpGrow;
-    /**
-     * 攻击成长系数。<b>对外数据名是 {@code attackGrow}</b>（顺带把自造缩写 {@code atk} 展开，
-     * 与 {@code attack} 字段保持一致）。
-     */
-    private double attackGrow;
-    /**
-     * 防御成长系数。<b>对外数据名是 {@code defenceGrow}</b>（{@code dfk} 是自造缩写）。
-     */
-    private double defenceGrow;
-    private ElementSort elementSort;
-    /**
-     * 12 个 {@code *Enhance*} 运行时加成：8 个百分比（本行）+ 4 个固定值（下一行）。
-     * <p>
-     * <b>不进配置文件</b>（{@code @NoConfig}，理由见 {@link #ENHANCE_REASON}）：
-     * 它们不是模板属性 —— 效果与技能"进来加、走时减"（{@code AttackEnhance} /
-     * {@code HpEnhanceEffect} / {@code CriticalRateEnhanceEffect} …，白厄变身也自己加减），
-     * 战斗结束由 {@link #clearTemporaryAttributes()} 兜底清零；而且<b>复制构造器不带它们</b>
-     * （副本只带面板属性），所以配在注册表模板上对任何一局战斗都不生效。要加请用效果/技能。
-     */
-    @NoConfig(ENHANCE_REASON)
-    private double attackEnhancePercent, defenceEnhancePercent, speedEnhancePercent, hpEnhancePercent, criticalDMGEnhancePercent, criticalDMGEnhanceAmount, criticalRateEnhancePercent, criticalRateEnhanceAmount;
-    /**
-     * 12 个 {@code *Enhance*} 里那 4 个"固定值"（同一批，见上一行）。
-     */
-    @NoConfig(ENHANCE_REASON)
-    private long attackEnhanceAmount, defenceEnhanceAmount, speedEnhanceAmount, hpEnhanceAmount;
-    /**
-     * 元素法力列表（一个实体可以拥有多个 Mana）。
-     * <p>
-     * <b>不进配置文件</b>：法力上限跟元素走，由 {@code initialMana()} 从元素属性算出来；
-     * 单条法力该用 {@code /data modify manas[0].amount} 那类写法调，
-     * 而不是让模板的整张法力表被配置覆盖（那会让"换元素后法力没跟着变"）。
-     */
-    @NoConfig("法力表由元素属性经 initialMana() 算出来；要调单条法力请用 /data modify manas[0].amount")
-    private List<Mana> manas = new ArrayList<>();//一个实体可以拥有多个Mana
-    private double defenseLoss;
     /**
      * 当前战斗引用。
      * <p>
@@ -197,37 +123,18 @@ public class LivingThing extends Entity {
     @NoConfig("行为对象（带技能表与 AI 状态），/data 那边也刻意不 dump")
     private UniversalController controller;
     private String description;
-    /**
-     * 单次攻击的独立倍率区。
-     * <p>
-     * <b>面板属性</b>：{@link #LivingThing(LivingThing) 复制构造器}会带它、
-     * {@link #clearTemporaryAttributes()} 不清它。
-     * <p>
-     * <b>不进配置文件</b>（{@code @NoConfig}）：它由<b>角色自己的构造器</b>按玩法算出来
-     * （{@code ActorLiXiaoYan} 按燃点算），是<b>派生值</b>而不是可调旋钮 ——
-     * 放开它等于让配置覆盖角色自己的算法（还会让默认配置文件多出一个键）。
-     * <b>这一条是"判断"，不是"配了没用"</b>：与上面那 22 个临时属性不同，
-     * 它真的会被副本带进战斗，所以理由必须写成"为什么不开放"。
-     */
-    @NoConfig("派生面板倍率：由角色构造器按玩法算出来（副本会带、战斗结束不清）——"
-            + "开放它等于让配置覆盖角色自己的算法，要改请改那个角色的构造器")
-    private double individualMultipleArea = 1;
-    /**
-     * 是否正在做伤害试算（只读预测）。见 {@link #modifyIncomingDamage}。
-     * <p>
-     * <b>不进 {@code /data}</b>：它只在 {@link #anticipating(Supplier)} 期间为 {@code true}，
-     * 是"正在进行中的动作"而不是状态，dump 出来纯属噪音。
-     */
-    @NoData
-    private boolean anticipating = false;
 
+    /**
+     * 构造一个空白的生物（所有属性取默认值）。
+     */
     public LivingThing() {
 
     }
 
     /**
      * 复制构造器（深拷贝）。复制大部分战斗属性、效果列表、法力、背包、Tag 权重，
-     * 并根据原控制器类型重建对应的控制器（PlayerController / ThinkingControllerAI / UniversalController）。
+     * 并让控制器自己复制一份（{@link UniversalController#copy(LivingThing)} ——
+     * 每种控制器重写它，所以副本的控制器类型与原来一致）。
      * <p>
      * 战斗上下文（participateFight）与当前回合（presentTurn）不会被复制。
      *
@@ -235,48 +142,24 @@ public class LivingThing extends Entity {
      */
     public LivingThing(LivingThing other) {
         super(other.getName(), other.getId(), other.getLevel());
-        this.elementSort = other.elementSort;
-        // 属性组件里"面板属性"的那一半（五行组 5 抗性 + 5 法力成长，全局组 penetration / enhance / criticalDMG）
+        // 属性组件里"面板属性"的那一半（五行组 5 抗性 + 5 法力成长，全局组 penetration / enhance / criticalDamage）
         // 跟着副本走；五行组的 5 单元素穿透 / 5 元素增伤是临时属性，刻意不带过去（见 AttributeProfile#copyFrom）。
         this.attributes.copyFrom(other.attributes);
         this.description = other.description;
-        this.speed = other.speed;
         this.setType(other.getType());
-        this.alive = other.alive;
-        this.defenseLoss = other.defenseLoss;
-        this.setHpGrow(other.getHpGrow());
-        this.setAttackGrow(other.getAttackGrow());
-        this.setDefenceGrow(other.getDefenceGrow());
-        this.hp = other.hp;
-        this.defence = other.defence;
-        this.attack = other.attack;
-        this.hpMax = other.hpMax;
+        // alive 不复制：它是"状态"，按项目规则（面板复制、状态清零）副本一律从存活开始。
         this.setShowSpecialMes(other.getShowSpecialMes());
         this.damageModifiers.addAll(other.damageModifiers);
-        this.criticalRate = other.criticalRate;
         this.entityEffectList = new ArrayList<>(other.entityEffectList);
-        // 【面板属性】要复制，且**不**在 whenFightEnds() 的清零表里 ——
-        // 它由角色自己的构造器按【燃点】算出来（ActorLiXiaoYan:122/224），不是效果给的临时加成。
-        // 复制构造器与 clearTemporaryAttributes() 是互补的两张表，改一个记得看另一个。
-        this.individualMultipleArea = other.individualMultipleArea;
         this.damageReductions.addAll(other.damageReductions);
         this.participateFight = null;
         this.presentTurn = null;
-        if (other.getController() instanceof PlayerController) {
-            this.controller = new PlayerController(other.controller.getSkills(), this);
-        } else if (other.getController() instanceof ThinkingControllerAI) {
-            this.controller = new ThinkingControllerAI(other.controller.getSkills(), this);
-        } else if (other.getController() instanceof FixOrderController fixOrderController) {
-            // 固定顺序的怪物：复制之后必须还是固定顺序，否则一进战斗就退化成随机 AI
-            this.controller = new FixOrderController(fixOrderController, this);
-        } else {
-            this.controller = new UniversalController(other.controller, this);
-        }
-        if (this.controller.getiInitialize() != null) this.controller.getiInitialize().initialize(this.controller);
-        if (!other.getManas().isEmpty()) {
-            for (Mana mana : other.getManas()) {
-                this.getManas().add(new Mana(mana));
-            }
+        // 控制器复制交给它自己（每种控制器重写 copy(LivingThing)）——
+        // 以前这里是一串 instanceof，每加一种控制器都得回来改本类，漏改就静默退化成随机 AI。
+        // 与技能那边的 Skill#copy() 是同一个套路。
+        this.controller = other.getController() == null ? null : other.getController().copy(this);
+        if (this.controller != null && this.controller.getiInitialize() != null) {
+            this.controller.getiInitialize().initialize(this.controller);
         }
         this.setInventory(other.getInventory().copy());
         if (!other.getTags().isEmpty()) {
@@ -308,7 +191,7 @@ public class LivingThing extends Entity {
      */
     public LivingThing(String name, String id, double fireResistance, double waterResistance, double metalResistance, double woodResistance, double dirtResistance, long speed, long l, String type, double hp, double atk, double defence, ElementSort yu) {
         super(name, id, l);
-        this.elementSort = yu;
+        this.attributes.setElement(yu);
         this.setHpGrow(hp);
         this.setAttackGrow(atk);
         this.setDefenceGrow(defence);
@@ -318,13 +201,14 @@ public class LivingThing extends Entity {
         this.attributes.setWoodResistance(woodResistance);
         this.attributes.setDirtResistance(dirtResistance);
         this.setType(type);
-        alive = true;
-        this.speed = speed;
-        this.defenseLoss = 0;
-        this.hp = (long) ((l - 1) * getHpGrow() + formulaHpBase());
-        this.defence = (long) ((l - 1) * getDefenceGrow() + formulaDefenceBase());
-        this.attack = (long) (formulaAttackBase() + getAttackGrow() * (l - 1));
-        this.hpMax = this.hp;
+        attributes.setAlive(true);
+        this.attributes.setDefenceLoss(0);
+        // 构造期直接铺基础值：不走 setHp（那会发 HpRestorationEvent、还会拿"还没铺好的"上限去夹）
+        this.attributes.initPanel(
+                (long) ((l - 1) * getHpGrow() + formulaHpBase()),
+                (long) ((l - 1) * getDefenceGrow() + formulaDefenceBase()),
+                (long) (formulaAttackBase() + getAttackGrow() * (l - 1)));
+        this.attributes.setBaseSpeed(speed);
         switch (this.getElementSort()) {
             case METAL -> {
                 this.setMetalManaGrow(20);
@@ -375,7 +259,7 @@ public class LivingThing extends Entity {
      */
     public LivingThing(String name, String id, long l, ElementSort u) {
         super(name, id, l);
-        this.elementSort = u;
+        this.attributes.setElement(u);
     }
 
     /**
@@ -384,7 +268,7 @@ public class LivingThing extends Entity {
      * @param speed 速度
      */
     public LivingThing(long speed) {
-        this.speed = speed;
+        this.attributes.setBaseSpeed(speed);
 
     }
 
@@ -439,7 +323,7 @@ public class LivingThing extends Entity {
      * @param source 减伤来源；调用方已保证非 {@code null}
      * @return 可读名字
      */
-    private static String describeReductionSource(Object source) {
+    static String describeReductionSource(Object source) {
         if (source instanceof DamageReductionSource named) {
             return named.toString();
         }
@@ -471,7 +355,7 @@ public class LivingThing extends Entity {
      * @return 攻击增强百分比
      */
     public double getAttackEnhancePercent() {
-        return attackEnhancePercent;
+        return attributes.getAttackEnhancePercent();
     }
 
     /**
@@ -480,31 +364,31 @@ public class LivingThing extends Entity {
      * @param attackEnhancePercent 攻击增强百分比
      */
     public void setAttackEnhancePercent(double attackEnhancePercent) {
-        this.attackEnhancePercent = attackEnhancePercent;
+        this.attributes.setAttackEnhancePercent(attackEnhancePercent);
     }
 
     /**
      * @return 生命增强固定值
      */
     public long getHpEnhanceAmount() {
-        return hpEnhanceAmount;
+        return attributes.getHpEnhanceAmount();
     }
 
     /**
-     * 设置生命增强固定值，并立即将当前生命值限制在新的上限内。
+     * 设置生命增强固定值，并立即将当前生命值限制在新的上限内
+     * （夹取在组件的 setter 里，所以 {@code /data merge} 那条路也走得到）。
      *
      * @param hpEnhanceAmount 生命增强固定值
      */
     public void setHpEnhanceAmount(long hpEnhanceAmount) {
-        this.hpEnhanceAmount = hpEnhanceAmount;
-        this.renewHp();
+        this.attributes.setHpEnhanceAmount(hpEnhanceAmount);
     }
 
     /**
      * @return 防御增强百分比
      */
     public double getDefenceEnhancePercent() {
-        return defenceEnhancePercent;
+        return attributes.getDefenceEnhancePercent();
     }
 
     /**
@@ -513,14 +397,14 @@ public class LivingThing extends Entity {
      * @param defenceEnhancePercent 防御增强百分比
      */
     public void setDefenceEnhancePercent(double defenceEnhancePercent) {
-        this.defenceEnhancePercent = defenceEnhancePercent;
+        this.attributes.setDefenceEnhancePercent(defenceEnhancePercent);
     }
 
     /**
      * @return 速度增强百分比
      */
     public double getSpeedEnhancePercent() {
-        return speedEnhancePercent;
+        return attributes.getSpeedEnhancePercent();
     }
 
     /**
@@ -529,31 +413,31 @@ public class LivingThing extends Entity {
      * @param speedEnhancePercent 速度增强百分比
      */
     public void setSpeedEnhancePercent(double speedEnhancePercent) {
-        this.speedEnhancePercent = speedEnhancePercent;
+        this.attributes.setSpeedEnhancePercent(speedEnhancePercent);
     }
 
     /**
      * @return 生命增强百分比
      */
     public double getHpEnhancePercent() {
-        return hpEnhancePercent;
+        return attributes.getHpEnhancePercent();
     }
 
     /**
-     * 设置生命增强百分比，并立即将当前生命值限制在新的上限内。
+     * 设置生命增强百分比，并立即将当前生命值限制在新的上限内
+     * （夹取在组件的 setter 里，所以 {@code /data merge} 那条路也走得到）。
      *
      * @param hpEnhancePercent 生命增强百分比
      */
     public void setHpEnhancePercent(double hpEnhancePercent) {
-        this.hpEnhancePercent = hpEnhancePercent;
-        this.renewHp();
+        this.attributes.setHpEnhancePercent(hpEnhancePercent);
     }
 
     /**
      * @return 攻击增强固定值
      */
     public long getAttackEnhanceAmount() {
-        return attackEnhanceAmount;
+        return attributes.getAttackEnhanceAmount();
     }
 
     /**
@@ -562,14 +446,14 @@ public class LivingThing extends Entity {
      * @param attackEnhanceAmount 攻击增强固定值
      */
     public void setAttackEnhanceAmount(long attackEnhanceAmount) {
-        this.attackEnhanceAmount = attackEnhanceAmount;
+        this.attributes.setAttackEnhanceAmount(attackEnhanceAmount);
     }
 
     /**
      * @return 防御增强固定值
      */
     public long getDefenceEnhanceAmount() {
-        return defenceEnhanceAmount;
+        return attributes.getDefenceEnhanceAmount();
     }
 
     /**
@@ -578,14 +462,14 @@ public class LivingThing extends Entity {
      * @param defenceEnhanceAmount 防御增强固定值
      */
     public void setDefenceEnhanceAmount(long defenceEnhanceAmount) {
-        this.defenceEnhanceAmount = defenceEnhanceAmount;
+        this.attributes.setDefenceEnhanceAmount(defenceEnhanceAmount);
     }
 
     /**
      * @return 速度增强固定值
      */
     public long getSpeedEnhanceAmount() {
-        return speedEnhanceAmount;
+        return attributes.getSpeedEnhanceAmount();
     }
 
     /**
@@ -594,14 +478,14 @@ public class LivingThing extends Entity {
      * @param speedEnhanceAmount 速度增强固定值
      */
     public void setSpeedEnhanceAmount(long speedEnhanceAmount) {
-        this.speedEnhanceAmount = speedEnhanceAmount;
+        this.attributes.setSpeedEnhanceAmount(speedEnhanceAmount);
     }
 
     /**
      * @return 暴击伤害增强百分比
      */
     public double getCriticalDMGEnhancePercent() {
-        return criticalDMGEnhancePercent;
+        return attributes.getCriticalDamageEnhancePercent();
     }
 
     /**
@@ -610,14 +494,14 @@ public class LivingThing extends Entity {
      * @param criticalDMGEnhancePercent 暴击伤害增强百分比
      */
     public void setCriticalDMGEnhancePercent(double criticalDMGEnhancePercent) {
-        this.criticalDMGEnhancePercent = criticalDMGEnhancePercent;
+        this.attributes.setCriticalDamageEnhancePercent(criticalDMGEnhancePercent);
     }
 
     /**
      * @return 暴击率增强百分比
      */
     public double getCriticalRateEnhancePercent() {
-        return criticalRateEnhancePercent;
+        return attributes.getCriticalRateEnhancePercent();
     }
 
     /**
@@ -626,14 +510,14 @@ public class LivingThing extends Entity {
      * @param criticalRateEnhancePercent 暴击率增强百分比
      */
     public void setCriticalRateEnhancePercent(double criticalRateEnhancePercent) {
-        this.criticalRateEnhancePercent = criticalRateEnhancePercent;
+        this.attributes.setCriticalRateEnhancePercent(criticalRateEnhancePercent);
     }
 
     /**
      * @return 暴击率增强固定值
      */
     public double getCriticalRateEnhanceAmount() {
-        return criticalRateEnhanceAmount;
+        return attributes.getCriticalRateEnhanceAmount();
     }
 
     /**
@@ -642,14 +526,14 @@ public class LivingThing extends Entity {
      * @param criticalRateEnhanceAmount 暴击率增强固定值
      */
     public void setCriticalRateEnhanceAmount(double criticalRateEnhanceAmount) {
-        this.criticalRateEnhanceAmount = criticalRateEnhanceAmount;
+        this.attributes.setCriticalRateEnhanceAmount(criticalRateEnhanceAmount);
     }
 
     /**
      * @return 暴击伤害增强固定值
      */
     public double getCriticalDMGEnhanceAmount() {
-        return criticalDMGEnhanceAmount;
+        return attributes.getCriticalDamageEnhanceAmount();
     }
 
     /**
@@ -658,7 +542,7 @@ public class LivingThing extends Entity {
      * @param criticalDMGEnhanceAmount 暴击伤害增强固定值
      */
     public void setCriticalDMGEnhanceAmount(double criticalDMGEnhanceAmount) {
-        this.criticalDMGEnhanceAmount = criticalDMGEnhanceAmount;
+        this.attributes.setCriticalDamageEnhanceAmount(criticalDMGEnhanceAmount);
     }
 
     /**
@@ -700,7 +584,7 @@ public class LivingThing extends Entity {
      * @return 对应的法力实例；若不存在返回 {@code null}
      */
     public Mana getMana(ElementSort elementSortNeeded) {
-        for (Mana mana : this.manas) {
+        for (Mana mana : getManas()) {
             if (mana.getElementSort().equals(elementSortNeeded)) return mana;
         }
         return null;
@@ -715,45 +599,45 @@ public class LivingThing extends Entity {
      * 与本方法原来的字面量逐字相等。
      */
     public void initialMana() {
-        this.manas = new ArrayList<>();
+        List<Mana> rebuilt = new ArrayList<>();
         switch (this.getElementSort()) {
             case METAL -> {
-                manas.add(new Mana(this.attributes.getMetalManaGrow() * (this.getLevel() - 1) + manaMainBase(), ElementSort.METAL));
-                manas.add(new Mana(this.attributes.getWoodManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WOOD));
-                manas.add(new Mana(this.attributes.getWaterManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WATER));
-                manas.add(new Mana(this.attributes.getFireManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.FIRE));
-                manas.add(new Mana(this.attributes.getDirtManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.DIRT));
+                rebuilt.add(new Mana(this.attributes.getMetalManaGrow() * (this.getLevel() - 1) + manaMainBase(), ElementSort.METAL));
+                rebuilt.add(new Mana(this.attributes.getWoodManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WOOD));
+                rebuilt.add(new Mana(this.attributes.getWaterManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WATER));
+                rebuilt.add(new Mana(this.attributes.getFireManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.FIRE));
+                rebuilt.add(new Mana(this.attributes.getDirtManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.DIRT));
             }
             case WOOD -> {
-                manas.add(new Mana(this.attributes.getMetalManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.METAL));
-                manas.add(new Mana(this.attributes.getWoodManaGrow() * (this.getLevel() - 1) + manaMainBase(), ElementSort.WOOD));
-                manas.add(new Mana(this.attributes.getWaterManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WATER));
-                manas.add(new Mana(this.attributes.getFireManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.FIRE));
-                manas.add(new Mana(this.attributes.getDirtManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.DIRT));
+                rebuilt.add(new Mana(this.attributes.getMetalManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.METAL));
+                rebuilt.add(new Mana(this.attributes.getWoodManaGrow() * (this.getLevel() - 1) + manaMainBase(), ElementSort.WOOD));
+                rebuilt.add(new Mana(this.attributes.getWaterManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WATER));
+                rebuilt.add(new Mana(this.attributes.getFireManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.FIRE));
+                rebuilt.add(new Mana(this.attributes.getDirtManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.DIRT));
             }
             case WATER -> {
-                manas.add(new Mana(this.attributes.getMetalManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.METAL));
-                manas.add(new Mana(this.attributes.getWoodManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WOOD));
-                manas.add(new Mana(this.attributes.getWaterManaGrow() * (this.getLevel() - 1) + manaMainBase(), ElementSort.WATER));
-                manas.add(new Mana(this.attributes.getFireManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.FIRE));
-                manas.add(new Mana(this.attributes.getDirtManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.DIRT));
+                rebuilt.add(new Mana(this.attributes.getMetalManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.METAL));
+                rebuilt.add(new Mana(this.attributes.getWoodManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WOOD));
+                rebuilt.add(new Mana(this.attributes.getWaterManaGrow() * (this.getLevel() - 1) + manaMainBase(), ElementSort.WATER));
+                rebuilt.add(new Mana(this.attributes.getFireManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.FIRE));
+                rebuilt.add(new Mana(this.attributes.getDirtManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.DIRT));
             }
             case FIRE -> {
-                manas.add(new Mana(this.attributes.getMetalManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.METAL));
-                manas.add(new Mana(this.attributes.getWoodManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WOOD));
-                manas.add(new Mana(this.attributes.getWaterManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WATER));
-                manas.add(new Mana(this.attributes.getFireManaGrow() * (this.getLevel() - 1) + manaMainBase(), ElementSort.FIRE));
-                manas.add(new Mana(this.attributes.getDirtManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.DIRT));
+                rebuilt.add(new Mana(this.attributes.getMetalManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.METAL));
+                rebuilt.add(new Mana(this.attributes.getWoodManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WOOD));
+                rebuilt.add(new Mana(this.attributes.getWaterManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WATER));
+                rebuilt.add(new Mana(this.attributes.getFireManaGrow() * (this.getLevel() - 1) + manaMainBase(), ElementSort.FIRE));
+                rebuilt.add(new Mana(this.attributes.getDirtManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.DIRT));
             }
             case DIRT -> {
-                manas.add(new Mana(this.attributes.getMetalManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.METAL));
-                manas.add(new Mana(this.attributes.getWoodManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WOOD));
-                manas.add(new Mana(this.attributes.getWaterManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WATER));
-                manas.add(new Mana(this.attributes.getFireManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.FIRE));
-                manas.add(new Mana(this.attributes.getDirtManaGrow() * (this.getLevel() - 1) + manaMainBase(), ElementSort.DIRT));
+                rebuilt.add(new Mana(this.attributes.getMetalManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.METAL));
+                rebuilt.add(new Mana(this.attributes.getWoodManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WOOD));
+                rebuilt.add(new Mana(this.attributes.getWaterManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WATER));
+                rebuilt.add(new Mana(this.attributes.getFireManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.FIRE));
+                rebuilt.add(new Mana(this.attributes.getDirtManaGrow() * (this.getLevel() - 1) + manaMainBase(), ElementSort.DIRT));
             }
         }
-
+        this.attributes.setManas(rebuilt);
     }
 
     /**
@@ -761,7 +645,7 @@ public class LivingThing extends Entity {
      * 主元素额外恢复 {@code 等级} 点法力。
      */
     public void recoverManaEveryTurn() {
-        for (Mana mana : manas) {
+        for (Mana mana : getManas()) {
             if (mana.getElementSort().equals(ElementSort.METAL)) {
                 mana.setAmount(mana.getAmount() + this.getLevel() / 100.00 * this.getMetalManaGrow() + 100);
             }
@@ -801,7 +685,7 @@ public class LivingThing extends Entity {
      * @return 五行法力列表
      */
     public List<Mana> getManas() {
-        return manas;
+        return attributes.getManas();
     }
 
     /**
@@ -810,14 +694,14 @@ public class LivingThing extends Entity {
      * @param manas 法力列表
      */
     public void setManas(List<Mana> manas) {
-        this.manas = manas;
+        this.attributes.setManas(manas);
     }
 
     /**
      * @return 生命成长系数
      */
     public double getHpGrow() {
-        return hpGrow;
+        return attributes.getHpGrow();
     }
 
     /**
@@ -826,14 +710,14 @@ public class LivingThing extends Entity {
      * @param hpGrow 生命成长系数
      */
     public void setHpGrow(double hpGrow) {
-        this.hpGrow = hpGrow;
+        this.attributes.setHpGrow(hpGrow);
     }
 
     /**
      * @return 攻击成长系数
      */
     public double getAttackGrow() {
-        return attackGrow;
+        return attributes.getAttackGrow();
     }
 
     /**
@@ -842,14 +726,14 @@ public class LivingThing extends Entity {
      * @param attackGrow 攻击成长系数
      */
     public void setAttackGrow(double attackGrow) {
-        this.attackGrow = attackGrow;
+        this.attributes.setAttackGrow(attackGrow);
     }
 
     /**
      * @return 防御成长系数
      */
     public double getDefenceGrow() {
-        return defenceGrow;
+        return attributes.getDefenceGrow();
     }
 
     /**
@@ -858,14 +742,14 @@ public class LivingThing extends Entity {
      * @param defenceGrow 防御成长系数
      */
     public void setDefenceGrow(double defenceGrow) {
-        this.defenceGrow = defenceGrow;
+        this.attributes.setDefenceGrow(defenceGrow);
     }
 
     /**
      * @return 元素属性（金木水火土）
      */
     public ElementSort getElementSort() {
-        return elementSort;
+        return attributes.getElement();
     }
 
     /**
@@ -874,7 +758,7 @@ public class LivingThing extends Entity {
      * @param elementSort 元素属性
      */
     public void setElementSort(ElementSort elementSort) {
-        this.elementSort = elementSort;
+        this.attributes.setElement(elementSort);
     }
 
     /**
@@ -1156,7 +1040,7 @@ public class LivingThing extends Entity {
      * @return 生物附加的固定额外伤害值
      */
     public long getExtraDamage() {
-        return extraDamage;
+        return attributes.getExtraDamage();
     }
 
     /**
@@ -1165,7 +1049,7 @@ public class LivingThing extends Entity {
      * @param extraDamage 固定额外伤害值
      */
     public void setExtraDamage(long extraDamage) {
-        this.extraDamage = extraDamage;
+        this.attributes.setExtraDamage(extraDamage);
     }
 
     /**
@@ -1188,19 +1072,52 @@ public class LivingThing extends Entity {
     }
 
     /**
-     * @return 单体伤害倍率
+     * @return 单体伤害倍率 = 面板基础值 × **Π(每个来源的乘数)**
      */
     public double getIndividualMultipleArea() {
-        return individualMultipleArea;
+        return attributes.getIndividualMultipleArea();
     }
 
     /**
-     * 设置单体伤害倍率。
+     * 设置单体伤害倍率的<b>面板基础值</b>（来源乘数不受影响）。
      *
-     * @param individualMultipleArea 单体伤害倍率
+     * @param individualMultipleArea 单体伤害倍率（面板基础值）
      */
     public void setIndividualMultipleArea(double individualMultipleArea) {
-        this.individualMultipleArea = individualMultipleArea;
+        this.attributes.setIndividualMultipleArea(individualMultipleArea);
+    }
+
+    /**
+     * 挂一个「单体伤害倍率」的来源乘数（与 {@link #addDamageReduction(Object, double)} 同形）。
+     * <p>
+     * <b>按来源身份覆盖</b>：同一个 {@code source} 再挂一次会<b>替换</b>旧值，不会叠两份 ——
+     * 这样"同一个 buff 被刷新"不会越叠越高。
+     *
+     * @param source 来源对象（按 {@code ==} 身份比较；{@code null} 直接忽略）
+     * @param factor 乘数（1.0 = 不变；1.5 = 加五成；0.5 = 减半）
+     */
+    public void addIndividualMultipleArea(Object source, double factor) {
+        this.attributes.addIndividualMultipleArea(source, factor);
+    }
+
+    /**
+     * 摘掉某个来源的「单体伤害倍率」乘数。
+     *
+     * @param source 来源对象（按 {@code ==} 身份比较）
+     * @return 有没有摘掉
+     */
+    public boolean removeIndividualMultipleArea(Object source) {
+        return this.attributes.removeIndividualMultipleArea(source);
+    }
+
+    /**
+     * 清空所有「单体伤害倍率」来源乘数（面板基础值不动）。
+     * <p>
+     * 由技能/机制挂上来的乘数走的是这里 —— 它们不走效果生命周期，战斗结束时没人摘，
+     * 留着会渗进下一局（与减伤同一个理由，见 {@code whenFightEnds}）。
+     */
+    public void clearIndividualMultipleAreaModifiers() {
+        this.attributes.clearIndividualMultipleAreaModifiers();
     }
 
     /**
@@ -1285,7 +1202,7 @@ public class LivingThing extends Entity {
      * @return 当前生物实例
      */
     public LivingThing facSetHpMax(long hpMax) {
-        this.hpMax = hpMax;
+        this.attributes.setBaseHpMax(hpMax);
         return this;
     }
 
@@ -1296,7 +1213,7 @@ public class LivingThing extends Entity {
      * @return 当前生物实例
      */
     public LivingThing facSetCriticalDMG(double criticalDMG) {
-        this.attributes.setCriticalDMG(criticalDMG);
+        this.attributes.setBaseCriticalDamage(criticalDMG);
         return this;
     }
 
@@ -1307,7 +1224,7 @@ public class LivingThing extends Entity {
      * @return 当前生物实例
      */
     public LivingThing facSetCriticalRate(double criticalRate) {
-        this.criticalRate = criticalRate;
+        this.attributes.setBaseCriticalRate(criticalRate);
         return this;
     }
 
@@ -1318,7 +1235,7 @@ public class LivingThing extends Entity {
      * @return 当前生物实例
      */
     public LivingThing facSetAlive(boolean alive) {
-        this.alive = alive;
+        attributes.setAlive(alive);
         return this;
     }
 
@@ -1362,7 +1279,7 @@ public class LivingThing extends Entity {
      * @return 当前生物实例
      */
     public LivingThing facSetDfk(long dfk) {
-        this.defence = dfk;
+        this.attributes.setBaseDefence(dfk);
         return this;
     }
 
@@ -1373,7 +1290,7 @@ public class LivingThing extends Entity {
      * @return 当前生物实例
      */
     public LivingThing facSetSpeed(long speed) {
-        this.speed = speed;
+        this.attributes.setBaseSpeed(speed);
         return this;
     }
 
@@ -1384,7 +1301,7 @@ public class LivingThing extends Entity {
      * @return 当前生物实例
      */
     public LivingThing facSetAfk(long afk) {
-        this.attack = afk;
+        this.attributes.setBaseAttack(afk);
         return this;
     }
 
@@ -1406,7 +1323,7 @@ public class LivingThing extends Entity {
      * @return 当前生物实例
      */
     public LivingThing facSetDefenseLoss(double defenseLoss) {
-        this.defenseLoss = defenseLoss;
+        this.attributes.setDefenceLoss(defenseLoss);
         return this;
     }
 
@@ -1537,7 +1454,8 @@ public class LivingThing extends Entity {
      * @return 最终暴击率（基础暴击率 × (1 + 暴击率增强百分比) + 暴击率增强固定值）
      */
     public double getCriticalRate() {
-        return criticalRate * (1 + criticalRateEnhancePercent) + criticalRateEnhanceAmount;
+        return attributes.getBaseCriticalRate() * (1 + attributes.getCriticalRateEnhancePercent())
+                + attributes.getCriticalRateEnhanceAmount();
     }
 
     /**
@@ -1546,7 +1464,7 @@ public class LivingThing extends Entity {
      * @param criticalRate 基础暴击率
      */
     public void setCriticalRate(double criticalRate) {
-        this.criticalRate = criticalRate;
+        this.attributes.setBaseCriticalRate(criticalRate);
     }
 
     /**
@@ -1811,7 +1729,8 @@ public class LivingThing extends Entity {
      * @return 最终生命上限（基础上限 × (1 + 生命增强百分比) + 生命增强固定值）
      */
     public long getHpMax() {
-        return (long) (hpMax * (1 + hpEnhancePercent) + hpEnhanceAmount);
+        return (long) (attributes.getBaseHpMax() * (1 + attributes.getHpEnhancePercent())
+                + attributes.getHpEnhanceAmount());
     }
 
     /**
@@ -1820,7 +1739,7 @@ public class LivingThing extends Entity {
      * @param hpMax 基础生命上限
      */
     public void setHpMax(long hpMax) {
-        this.hpMax = hpMax;
+        this.attributes.setBaseHpMax(hpMax);
     }
 
     /**
@@ -1832,12 +1751,12 @@ public class LivingThing extends Entity {
         if (getHp() <= 0) {
             this.getController().setActionSignal(ActionSignal.NORMAL);
             this.getController().setSpecialAction(null);
-            alive = false;
+            attributes.setAlive(false);
         }
         if (getHp() > 0) {
-            alive = true;
+            attributes.setAlive(true);
         }
-        return alive;
+        return attributes.isAlive();
     }
 
     /**
@@ -1846,7 +1765,7 @@ public class LivingThing extends Entity {
      * @param b {@code true} 存活，{@code false} 死亡
      */
     public void setAlive(boolean b) {
-        this.alive = b;
+        attributes.setAlive(b);
     }
 
     /**
@@ -1869,7 +1788,7 @@ public class LivingThing extends Entity {
      * @return 防御削减百分比
      */
     public double getDefenseLoss() {
-        return defenseLoss;
+        return attributes.getDefenceLoss();
     }
 
     /**
@@ -1878,14 +1797,15 @@ public class LivingThing extends Entity {
      * @param defenseLoss 防御削减百分比
      */
     public void setDefenseLoss(double defenseLoss) {
-        this.defenseLoss = defenseLoss;
+        this.attributes.setDefenceLoss(defenseLoss);
     }
 
     /**
      * @return 最终攻击力（基础攻击 × (1 + 攻击增强百分比) + 攻击增强固定值）
      */
     public long getAttack() {
-        return (long) (attack * (1 + attackEnhancePercent) + attackEnhanceAmount);
+        return (long) (attributes.getBaseAttack() * (1 + attributes.getAttackEnhancePercent())
+                + attributes.getAttackEnhanceAmount());
     }
 
     /**
@@ -1894,7 +1814,7 @@ public class LivingThing extends Entity {
      * @param attack 基础攻击力
      */
     public void setAttack(long attack) {
-        this.attack = attack;
+        this.attributes.setBaseAttack(attack);
     }
 
     /**
@@ -2112,59 +2032,6 @@ public class LivingThing extends Entity {
     }
 
     /**
-     * 把【临时属性】清零。整场结束时由 {@link #whenFightEnds()} 调用。
-     * <p>
-     * <b>这张表和复制构造器是互补的</b>：复制构造器<b>只带面板属性</b>
-     * （{@code individualMultipleArea} 与 {@link AttributeProfile#copyFrom} 带的那一批），
-     * 剩下的一次性加成全部在这里清零。
-     * 改一个记得看另一个 —— 这正是 {@code ENTITY-ATTRIBUTE-SPLIT-2026-10.md}
-     * 第二节说的"把生命周期规则从靠记性变成靠结构"。
-     * <p>
-     * 这些字段按<b>谁在写</b>分三类（2026-10-03 逐个查过写入点）：
-     * <ol>
-     *     <li><b>效果写的</b>（12 个 {@code *Enhance*}）：{@code AttackEnhance}、
-     *     {@code DefenseEnhanceEffect}、{@code SpeedEnhanceEffect}、{@code HpEnhanceEffect}、
-     *     {@code CriticalDMGEnhanceEffect}、{@code CriticalRateEnhanceEffect} ——
-     *     每个都是"进来加、走时减"的成对写法；白厄变身（{@code UltimateAttack} /
-     *     {@code AwakeEndListener}）也自己加减这几笔。
-     *     正常情况效果离场就已经减回去了，这里清一遍是<b>兜底</b>：
-     *     效果没走完 {@code whenLastTimeEnd}、或战斗在变身中途结束时，残留会渗进下一局。</li>
-     *     <li><b>预留未接线</b>（10 个五元素穿透 / 五元素增伤）：全项目<b>一个写入点都没有</b>，
-     *     只被 {@code DamageCalculate} 读来加算。清零对现状是 no-op，
-     *     写在这里是为了"将来接线时自动落进临时属性这一侧"。</li>
-     *     <li><b>死字段</b>（{@code extraDamage}）：{@code LivingThing} 这一侧的
-     *     {@code extraDamage} 参与伤害公式却<b>从无写入点</b>（永远是 0）；
-     *     活的那套是 {@code Skill#extraDamage}，是另一个字段。同样先清零占位。</li>
-     * </ol>
-     * <p>
-     * <b>故意不在表里的</b>：{@code individualMultipleArea}（面板·派生，由角色构造器算，
-     * 清了会永久削弱该角色）、属性组件里的面板属性（5 抗性 / 5 法力成长 /
-     * {@code penetration} / {@code enhance} / {@code criticalDMG} —— 它们跟着副本走）与
-     * {@code anticipating}（只读试算标志，每回合自己复位）。
-     * 减伤（{@code damageReductions}）也不在这张表里 —— 它不是标量属性，
-     * 由 {@link #whenFightEnds()} 在效果收尾之后单独 {@link #clearDamageReductions()}。
-     */
-    private void clearTemporaryAttributes() {
-        // ① 效果写的临时加成（成对加减）
-        this.attackEnhancePercent = 0;
-        this.attackEnhanceAmount = 0;
-        this.defenceEnhancePercent = 0;
-        this.defenceEnhanceAmount = 0;
-        this.speedEnhancePercent = 0;
-        this.speedEnhanceAmount = 0;
-        this.hpEnhancePercent = 0;
-        this.hpEnhanceAmount = 0;
-        this.criticalDMGEnhancePercent = 0;
-        this.criticalDMGEnhanceAmount = 0;
-        this.criticalRateEnhancePercent = 0;
-        this.criticalRateEnhanceAmount = 0;
-        // ② 五元素穿透 / 五元素增伤（组件里的临时属性；抗性与法力成长不在这张表里，它们跟着副本走）
-        this.attributes.resetTemporary();
-        // ③ 死字段（活的那套在 Skill#extraDamage 上）
-        this.extraDamage = 0;
-    }
-
-    /**
      * 把生物重置为"可再次参战"：重置回合、补满生命、清除效果、清掉临时属性、重置技能冷却并恢复法力。
      * <p>
      * <b>只应在整场战斗结束时调用</b>（{@code FightEndEventListener}）。
@@ -2176,7 +2043,9 @@ public class LivingThing extends Entity {
 
         setPresentTurn(null);
         setHp((long) getHpMax());
-        clearTemporaryAttributes();
+        // 临时属性全在属性组件里（五元素穿透/增伤 + 12 个 *Enhance* + 死字段 + 两个状态位）——
+        // 实体这边不再有任何"清零"职责，面板属性也不在这张表里（它们跟着副本走）。
+        this.attributes.resetTemporary();
         // 顺序要紧：**先**让每个效果自己收尾（它们在自己的 whenLastTimeEnd 里摘掉挂上去的减伤），
         // **再**统一打扫剩下的。反过来的话，效果收尾时看到的是已经被清空的列表。
         for (Effect effect : getEntityEffectList()) effect.whenLastTimeEnd(this);
@@ -2188,6 +2057,9 @@ public class LivingThing extends Entity {
         // （`BASE_DAMAGE_REDUCTION` 只有旧写法 `setDamageAbsorbedPercent` 会加，而它没人调），
         // 层数减伤与二阶段免伤由 FlameReaver 在自己的 whenFightStart 重新挂，醉意由效果自己摘。
         this.clearDamageReductions();
+        // 「单体伤害倍率」的来源乘数同理：技能挂上来的、不走效果生命周期，
+        // 战斗结束没人摘就会渗进下一局（面板基础值不动，它由角色构造器重算）。
+        this.clearIndividualMultipleAreaModifiers();
         for (Skill skill : getController().getSkills()) skill.setNowCoolDown(0);
         for (Mana mana : getManas()) mana.setAmount(mana.getAmountMax());
     }
@@ -2248,7 +2120,8 @@ public class LivingThing extends Entity {
      * @return 最终速度（基础速度 × (1 + 速度增强百分比) + 速度增强固定值）
      */
     public long getSpeed() {
-        return (long) (speed * (1 + speedEnhancePercent) + speedEnhanceAmount);
+        return (long) (attributes.getBaseSpeed() * (1 + attributes.getSpeedEnhancePercent())
+                + attributes.getSpeedEnhanceAmount());
     }
 
     /**
@@ -2257,14 +2130,15 @@ public class LivingThing extends Entity {
      * @param speed 基础速度
      */
     public void setSpeed(long speed) {
-        this.speed = speed;
+        this.attributes.setBaseSpeed(speed);
     }
 
     /**
      * @return 最终防御力（基础防御 × (1 + 防御增强百分比) + 防御增强固定值）
      */
     public long getDefence() {
-        return (long) (defence * (1 + defenceEnhancePercent) + defenceEnhanceAmount);
+        return (long) (attributes.getBaseDefence() * (1 + attributes.getDefenceEnhancePercent())
+                + attributes.getDefenceEnhanceAmount());
     }
 
     /**
@@ -2273,14 +2147,14 @@ public class LivingThing extends Entity {
      * @param defence 基础防御力
      */
     public void setDefence(long defence) {
-        this.defence = defence;
+        this.attributes.setBaseDefence(defence);
     }
 
     /**
      * @return 当前生命值
      */
     public long getHp() {
-        return hp;
+        return attributes.getHp();
     }
 
     /**
@@ -2290,23 +2164,15 @@ public class LivingThing extends Entity {
      * @param hp 新的生命值
      */
     public void setHp(long hp) {
-        if (hp < getHp()) {
-            EventBus.post(new HpLossEvent(getHp() - hp, this));
-        }
-        if (hp > getHp()) {
-            EventBus.post(new HpRestorationEvent(hp - getHp(), this));
-        }
-        this.hp = Math.min(this.getHpMax(), hp);
-        if (this.hp < 0) {
-            this.hp = 0;
-        }
+        this.attributes.setHp(hp);
     }
 
     /**
      * @return 最终暴击伤害倍率加成
      */
     public double getCriticalDMG() {
-        return attributes.getCriticalDMG() * (1 + criticalDMGEnhancePercent) + criticalDMGEnhanceAmount;
+        return attributes.getBaseCriticalDamage() * (1 + attributes.getCriticalDamageEnhancePercent())
+                + attributes.getCriticalDamageEnhanceAmount();
     }
 
     /**
@@ -2315,7 +2181,7 @@ public class LivingThing extends Entity {
      * @param criticalDMG 基础暴击伤害倍率加成
      */
     public void setCriticalDMG(double criticalDMG) {
-        this.attributes.setCriticalDMG(criticalDMG);
+        this.attributes.setBaseCriticalDamage(criticalDMG);
     }
 
     /**
@@ -2345,7 +2211,7 @@ public class LivingThing extends Entity {
      * @return 是否正在做「伤害试算」（只读，见 {@link #modifyIncomingDamage}）
      */
     public boolean isAnticipating() {
-        return anticipating;
+        return attributes.isAnticipating();
     }
 
     /**
@@ -2359,12 +2225,12 @@ public class LivingThing extends Entity {
      * @return 试算结果
      */
     public <T> T anticipating(Supplier<T> action) {
-        boolean previous = anticipating;
-        anticipating = true;
+        boolean previous = attributes.isAnticipating();
+        attributes.setAnticipating(true);
         try {
             return action.get();
         } finally {
-            anticipating = previous;
+            attributes.setAnticipating(previous);
         }
     }
 

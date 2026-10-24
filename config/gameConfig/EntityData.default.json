@@ -9,8 +9,8 @@
         "mass": 60.0,
         "type": "player",
         "description": "这是玩家一.",
-        "speed": 120,
-        "elementSort": "DIRT",
+        "baseSpeed": 120,
+        "element": "DIRT",
         "hpGrow": 36.0,
         "attackGrow": 29.0,
         "defenceGrow": 5.0,
@@ -25,16 +25,16 @@
         "fireManaGrow": 10.0,
         "dirtManaGrow": 20.0,
         "inventorySlots": 63,
-        "criticalRate": 0.0,
-        "criticalDMG": 0.0,
+        "baseCriticalRate": 0.0,
+        "baseCriticalDamage": 0.0,
         "enhance": 0.0,
         "penetration": 0.0,
-        "defenseLoss": 0.0
+        "defenceLoss": 0.0
       },
       "derived": {
-        "hpMax": 4664,
-        "attack": 3706,
-        "defence": 820,
+        "baseHpMax": 4664,
+        "baseAttack": 3706,
+        "baseDefence": 820,
         "hp": 4664
       }
     },
@@ -45,8 +45,8 @@
         "mass": 60.0,
         "type": "player",
         "description": "这是李晓焰.",
-        "speed": 120,
-        "elementSort": "FIRE",
+        "baseSpeed": 120,
+        "element": "FIRE",
         "hpGrow": 58.0,
         "attackGrow": 22.0,
         "defenceGrow": 5.0,
@@ -61,19 +61,19 @@
         "fireManaGrow": 20.0,
         "dirtManaGrow": 10.0,
         "inventorySlots": 63,
-        "criticalRate": 0.0,
-        "criticalDMG": 0.0,
+        "baseCriticalRate": 0.0,
+        "baseCriticalDamage": 0.0,
         "enhance": 0.0,
         "penetration": 0.0,
-        "defenseLoss": 0.0
+        "defenceLoss": 0.0
       },
       "classState": {
         "ignition": 3
       },
       "derived": {
-        "hpMax": 7392,
-        "attack": 2838,
-        "defence": 820,
+        "baseHpMax": 7392,
+        "baseAttack": 2838,
+        "baseDefence": 820,
         "hp": 7392
       }
     },
@@ -84,8 +84,8 @@
         "mass": 1250.0,
         "type": "insect",
         "description": "这是虫皇.可以普通攻击和分裂出普通虫子,无上限",
-        "speed": 110,
-        "elementSort": "METAL",
+        "baseSpeed": 110,
+        "element": "METAL",
         "hpGrow": 4000.0,
         "attackGrow": 7.0,
         "defenceGrow": 20.0,
@@ -100,16 +100,16 @@
         "fireManaGrow": 1.0,
         "dirtManaGrow": 10.0,
         "inventorySlots": 63,
-        "criticalRate": 0.0,
-        "criticalDMG": 0.0,
+        "baseCriticalRate": 0.0,
+        "baseCriticalDamage": 0.0,
         "enhance": 0.0,
         "penetration": 0.0,
-        "defenseLoss": 0.0
+        "defenceLoss": 0.0
       },
       "derived": {
-        "hpMax": 80000,
-        "attack": 1153,
-        "defence": 3180,
+        "baseHpMax": 80000,
+        "baseAttack": 1153,
+        "baseDefence": 3180,
         "hp": 80000
       }
     },
@@ -120,8 +120,8 @@
         "mass": 100.0,
         "type": "insect",
         "description": "这是普通虫子.只有普通攻击",
-        "speed": 90,
-        "elementSort": "METAL",
+        "baseSpeed": 90,
+        "element": "METAL",
         "hpGrow": 30.0,
         "attackGrow": 5.0,
         "defenceGrow": 9.0,
@@ -136,16 +136,16 @@
         "fireManaGrow": 1.0,
         "dirtManaGrow": 10.0,
         "inventorySlots": 0,
-        "criticalRate": 0.0,
-        "criticalDMG": 0.0,
+        "baseCriticalRate": 0.0,
+        "baseCriticalDamage": 0.0,
         "enhance": 0.0,
         "penetration": 0.0,
-        "defenseLoss": 0.0
+        "defenceLoss": 0.0
       },
       "derived": {
-        "hpMax": 4670,
-        "attack": 855,
-        "defence": 1541,
+        "baseHpMax": 4670,
+        "baseAttack": 855,
+        "baseDefence": 1541,
         "hp": 4670
       }
     },
@@ -156,8 +156,8 @@
         "mass": 100.0,
         "type": "insect",
         "description": "这是冰虫子.可以冰冻敌人",
-        "speed": 120,
-        "elementSort": "WATER",
+        "baseSpeed": 120,
+        "element": "WATER",
         "hpGrow": 30.0,
         "attackGrow": 5.0,
         "defenceGrow": 9.0,
@@ -172,16 +172,16 @@
         "fireManaGrow": 4.0,
         "dirtManaGrow": 1.0,
         "inventorySlots": 0,
-        "criticalRate": 0.0,
-        "criticalDMG": 0.0,
+        "baseCriticalRate": 0.0,
+        "baseCriticalDamage": 0.0,
         "enhance": 0.0,
         "penetration": 0.0,
-        "defenseLoss": 0.0
+        "defenceLoss": 0.0
       },
       "derived": {
-        "hpMax": 4670,
-        "attack": 855,
-        "defence": 1541,
+        "baseHpMax": 4670,
+        "baseAttack": 855,
+        "baseDefence": 1541,
         "hp": 4670
       }
     },
@@ -192,8 +192,8 @@
         "mass": 60.0,
         "type": "player",
         "description": "这是白厄.",
-        "speed": 120,
-        "elementSort": "FIRE",
+        "baseSpeed": 120,
+        "element": "FIRE",
         "hpGrow": 29.0,
         "attackGrow": 40.0,
         "defenceGrow": 25.0,
@@ -208,24 +208,24 @@
         "fireManaGrow": 20.0,
         "dirtManaGrow": 10.0,
         "inventorySlots": 63,
-        "criticalRate": 0.0,
-        "criticalDMG": 0.0,
+        "baseCriticalRate": 0.0,
+        "baseCriticalDamage": 0.0,
         "enhance": 0.0,
         "penetration": 0.0,
-        "defenseLoss": 0.0
+        "defenceLoss": 0.0
       },
       "classState": {
         "coreflame": 15,
-        "coreflame_max": 15,
+        "coreflameMax": 15,
         "soulscorch": 0,
         "scourge": 0,
-        "scourge_max": 8,
+        "scourgeMax": 8,
         "extraAbilityTier": 0
       },
       "derived": {
-        "hpMax": 3796,
-        "attack": 5070,
-        "defence": 3300,
+        "baseHpMax": 3796,
+        "baseAttack": 5070,
+        "baseDefence": 3300,
         "hp": 3796
       }
     },
@@ -236,8 +236,8 @@
         "mass": 1.0,
         "type": "boss",
         "description": "伴随黑潮而来、狩猎泰坦火种的无名剑士，无人知晓其真身。身负不可思议的力量，剑技也近乎无懈可击。",
-        "speed": 200,
-        "elementSort": "FIRE",
+        "baseSpeed": 200,
+        "element": "FIRE",
         "hpGrow": 120.0,
         "attackGrow": 60.0,
         "defenceGrow": 25.0,
@@ -252,16 +252,16 @@
         "fireManaGrow": 20.0,
         "dirtManaGrow": 10.0,
         "inventorySlots": 0,
-        "criticalRate": 0.0,
-        "criticalDMG": 0.0,
+        "baseCriticalRate": 0.0,
+        "baseCriticalDamage": 0.0,
         "enhance": 0.0,
         "penetration": 0.0,
-        "defenseLoss": 0.0
+        "defenceLoss": 0.0
       },
       "derived": {
-        "hpMax": 80000,
-        "attack": 9050,
-        "defence": 3925,
+        "baseHpMax": 80000,
+        "baseAttack": 9050,
+        "baseDefence": 3925,
         "hp": 80000
       }
     },
@@ -272,8 +272,8 @@
         "mass": 1.0,
         "type": "summon",
         "description": "自无穷灾难中倒映的残像，皆是寄宿着破坏意志的祸端。",
-        "speed": 120,
-        "elementSort": "FIRE",
+        "baseSpeed": 120,
+        "element": "FIRE",
         "hpGrow": 4.0,
         "attackGrow": 6.0,
         "defenceGrow": 3.0,
@@ -288,16 +288,16 @@
         "fireManaGrow": 20.0,
         "dirtManaGrow": 10.0,
         "inventorySlots": 0,
-        "criticalRate": 0.0,
-        "criticalDMG": 0.0,
+        "baseCriticalRate": 0.0,
+        "baseCriticalDamage": 0.0,
         "enhance": 0.0,
         "penetration": 0.0,
-        "defenseLoss": 0.0
+        "defenceLoss": 0.0
       },
       "derived": {
-        "hpMax": 12000,
-        "attack": 3620,
-        "defence": 647,
+        "baseHpMax": 12000,
+        "baseAttack": 3620,
+        "baseDefence": 647,
         "hp": 12000
       }
     },
@@ -308,8 +308,8 @@
         "mass": 1.0,
         "type": "summon",
         "description": "自无穷灾难中倒映的残像，比寻常残破容器更完整、也更难击碎。",
-        "speed": 120,
-        "elementSort": "FIRE",
+        "baseSpeed": 120,
+        "element": "FIRE",
         "hpGrow": 4.0,
         "attackGrow": 6.0,
         "defenceGrow": 3.0,
@@ -324,17 +324,53 @@
         "fireManaGrow": 20.0,
         "dirtManaGrow": 10.0,
         "inventorySlots": 0,
-        "criticalRate": 0.0,
-        "criticalDMG": 0.0,
+        "baseCriticalRate": 0.0,
+        "baseCriticalDamage": 0.0,
         "enhance": 0.0,
         "penetration": 0.0,
-        "defenseLoss": 0.0
+        "defenceLoss": 0.0
       },
       "derived": {
-        "hpMax": 20000,
-        "attack": 3620,
-        "defence": 647,
+        "baseHpMax": 20000,
+        "baseAttack": 3620,
+        "baseDefence": 647,
         "hp": 20000
+      }
+    },
+    "game_official_content:mortenax_blade": {
+      "base": {
+        "name": "千冶•刃",
+        "level": 125,
+        "mass": 1.0,
+        "type": "player",
+        "description": "这是千冶•刃",
+        "baseSpeed": 125,
+        "element": "FIRE",
+        "hpGrow": 60.0,
+        "attackGrow": 12.0,
+        "defenceGrow": 6.0,
+        "metalResistance": 0.0,
+        "woodResistance": 0.0,
+        "waterResistance": 0.0,
+        "fireResistance": 0.7,
+        "dirtResistance": 0.0,
+        "metalManaGrow": 4.0,
+        "woodManaGrow": 10.0,
+        "waterManaGrow": 1.0,
+        "fireManaGrow": 20.0,
+        "dirtManaGrow": 10.0,
+        "inventorySlots": 0,
+        "baseCriticalRate": 0.0,
+        "baseCriticalDamage": 0.0,
+        "enhance": 0.0,
+        "penetration": 0.0,
+        "defenceLoss": 0.0
+      },
+      "derived": {
+        "baseHpMax": 7640,
+        "baseAttack": 1598,
+        "baseDefence": 944,
+        "hp": 7640
       }
     }
   },
@@ -520,7 +556,9 @@
       "hpMagnification": 0.0,
       "atkMagnification": 0.0,
       "defMagnification": 0.0,
-      "forEnemies": true,
+      "forEnemies": false,
+      "coreflameCost": 12,
+      "awakenExtraTurns": 8,
       "consumedMana": {
         "amount": 0.0,
         "element": "UNIVERSAL"
@@ -596,6 +634,8 @@
       "atkMagnification": 13.0,
       "defMagnification": 0.0,
       "forEnemies": true,
+      "lastAttackPerTurn": 0.125,
+      "lastAttackMaxTurns": 7,
       "consumedMana": {
         "amount": 0.0,
         "element": "UNIVERSAL"

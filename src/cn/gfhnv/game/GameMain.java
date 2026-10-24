@@ -1,6 +1,5 @@
 package cn.gfhnv.game;
 
-import cn.gfhnv.game.entity.Entity;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.event.FightEndEvent;
@@ -21,14 +20,7 @@ import cn.gfhnv.game.system.fight.TurnManager;
 import cn.gfhnv.game.system.logSystem.LogWriter;
 import cn.gfhnv.game.world.World;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Scanner;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Supplier;
 
 /**
@@ -60,6 +52,22 @@ public class GameMain {
      * 只是 {@code cmd.exe} 送不进来。换 Windows Terminal / IDEA 运行通常可用。
      */
     public static final Scanner SCANNER = new Scanner(System.in);
+    /**
+     * {@link #setInputSourceForSelfTest} 那段脚本用完时抛出的
+     * {@link IllegalStateException} 的文案前缀。
+     * <p>
+     * <b>为什么要有这个记号</b>：真实输入是无限流，正常游戏永远读不到"结束"；
+     * 只有自测的脚本会用完。自测据此把这条路当成<b>"脚本跑到底了"</b>（可以断言）
+     * 而不是"游戏出错了"—— 同时它是一路冒出来的异常，绝不会被谁悄悄吞掉。
+     */
+    public static final String SCRIPT_EXHAUSTED_MARKER = "[输入结束]";
+    /**
+     * 选择实体 / 物品时的关键字。
+     * <p>
+     * 分隔符 {@code /}：一行里可以写多个段，例如 {@code 1/2/3}；整行以 {@code /} 开头的是命令，
+     * 由 {@link #readInput()} 提前执行掉，不会走到这里。
+     */
+    private static final String SEPARATOR = "/";
     public static String userName;
     /**
      * 是否正在战斗中（供命令系统与主流程共用）。
@@ -375,30 +383,6 @@ public class GameMain {
     }
 
     /**
-     * 供输入行给{@link InputReader}用的一行来源。
-     * <p>
-     * 存在的唯一理由是<b>让选人流程可自测</b>：正常游戏永远走 {@code null}（= {@link #SCANNER}），
-     * 自测可以喂一段脚本化的输入，于是「输数字 → 输 y 确认 → 输 next」这条状态机
-     * 能在 {@code TestCommandSystem} 里被逐条钉住，而不是只能靠进游戏手点。
-     *
-     * @author AI（DeepSeek）生成
-     */
-    @FunctionalInterface
-    public interface SelectionInput {
-
-        /**
-         * 取下一行输入（不含换行符）。
-         * <p>
-         * ⚠️ <b>取不出下一行时必须自己抛异常</b>（脚本用完 / EOF），<b>不要返回 {@code null}</b> ——
-         * {@code null} 会被当成"输入流结束"，而上层三个阶段会因此一直重来
-         * （真实输入是无限流），自测就会空转成假死。
-         *
-         * @return 下一行输入（不含换行符）
-         */
-        String nextLine();
-    }
-
-    /**
      * <b>自测专用装配入口</b>：把"输入行从哪来"换成一段脚本化输入，并让
      * {@link #startAFight()} 在选人 / 选对手 / 选奖励三个阶段跑完一轮之后直接返回（不进战斗）。
      * <p>
@@ -416,104 +400,6 @@ public class GameMain {
     public static void setInputSourceForSelfTest(SelectionInput input, boolean exitEarly) {
         scriptedLineSource = input;
         exitAfterSelectionForSelfTest = exitEarly;
-    }
-
-    /**
-     * 一行输入按分隔符 {@value #SEPARATOR} 切出来的"段"：一次读一行，段用完了才读下一行。
-     * <p>
-     * 选人 / 选对手 / 选奖励这三处都是「输数字 → 输 y 确认 → 输 next」三步走，
-     * 有了这个缓存，分段就可以当成"连着的几次输入"来用，于是
-     * {@code 1/2/3/y} 能在一行里走完选三个 + 全部确认。
-     * <p>
-     * <b>分隔符为什么是 {@code /}</b>：它只出现在<b>行首</b>才是命令前缀
-     * （{@link CommandManager#isCommand}），所以 {@code 1/2} 不会被命令系统截走；
-     * 而整段输入以 {@code /} 开头的那种（{@code /kill @s}）本来就会被
-     * {@link #readInput()} 当命令执行掉，永远进不到这里。
-     *
-     * @author AI（DeepSeek）生成
-     */
-    public static final class InputReader {
-        /**
-         * 一行的来源。生产环境是"读真标准输入"，自测是"从脚本里取下一行"；
-         * 这里统一成 {@link Supplier}，于是 {@link #hasPending()} 不必再关心输入从哪来。
-         */
-        private final Supplier<String> lineSource;
-        private final Deque<String> pending = new ArrayDeque<>();
-
-        /**
-         * 生产用：每一行都从 {@link GameMain#readInput()} 取（真标准输入 + 命令拦截）。
-         */
-        InputReader() {
-            this(GameMain::readInput);
-        }
-
-        /**
-         * 自测用：每一行都从给定的来源取。
-         * <p>
-         * ⚠️ 用这个构造器时，来源<b>读不出下一行就必须自己抛异常</b>（脚本用完、或
-         * {@link java.io.InputStream} 到 EOF）—— 不能返回 {@code null}：
-         * 下面把它当成"输入流结束"，而"输入流结束"会让上层三个阶段的
-         * {@code while(true)} 一直重来（真实输入是无限流，正常游戏里不会发生），
-         * 于是自测会<b>空转成假死</b>而不是红。
-         *
-         * @param lineSource 一行来源
-         */
-        InputReader(Supplier<String> lineSource) {
-            this.lineSource = lineSource;
-        }
-
-        /**
-         * 取下一段输入。
-         * <p>
-         * ⚠️ <b>它是流式的</b>：缓存空了才读一行（按 {@value #SEPARATOR} 切成段），
-         * 一次调用最多读一行、绝不空转。判断"还有没有下一段"请用 {@link #hasPending()}。
-         *
-         * @return 下一段输入；<b>输入流也读完了才返回 {@code null}</b>（所以它不会空转）
-         */
-        String read() {
-            if (pending.isEmpty() && !hasPending()) {
-                return null;
-            }
-            return pending.pollFirst();
-        }
-
-        /**
-         * @return <b>当前这一行</b>里还有没有没处理的段（<b>绝不读新的一行</b>）
-         */
-        boolean hasMoreOnCurrentLine() {
-            return !pending.isEmpty();
-        }
-
-        /**
-         * @return 还有没有没处理的段（会先读一行来填缓存，但<b>不消费</b>它）
-         */
-        boolean hasPending() {
-            if (pending.isEmpty()) {
-                String line = lineSource.get();
-                if (line == null) {
-                    // 输入流已经结束（自测的脚本用完 / 标准输入 EOF）：
-                    // 上层会把它当成"这一批没选"，然后无限重来 —— 必须立刻炸，别空转。
-                    // ⚠️ 这是**违反了下面那个接口的约定**（不许返回 null），所以是 IllegalStateException；
-                    //    它绝不会在正常游戏里发生（真标准输入是无限流）。
-                    throw new IllegalStateException(SCRIPT_EXHAUSTED_MARKER
-                            + "选择流程读到输入流结束：请再喂一行输入（自测请把脚本补长）");
-                }
-                for (String segment : line.split(SEPARATOR)) {
-                    String trimmed = segment.trim();
-                    if (!trimmed.isEmpty()) {
-                        pending.addLast(trimmed);
-                    }
-                }
-            }
-            return !pending.isEmpty();
-        }
-
-        /**
-         * 丢掉这一行剩下的段（"结束确认"之后残留的段没有意义，丢掉才不会隔一轮突然生效）。
-         */
-        void discardPending() {
-            pending.clear();
-        }
     }
 
     /**
@@ -546,24 +432,6 @@ public class GameMain {
     }
 
     /**
-     * 选择实体 / 物品时的关键字。
-     * <p>
-     * 分隔符 {@code /}：一行里可以写多个段，例如 {@code 1/2/3}；整行以 {@code /} 开头的是命令，
-     * 由 {@link #readInput()} 提前执行掉，不会走到这里。
-     */
-    private static final String SEPARATOR = "/";
-
-    /**
-     * {@link #setInputSourceForSelfTest} 那段脚本用完时抛出的
-     * {@link IllegalStateException} 的文案前缀。
-     * <p>
-     * <b>为什么要有这个记号</b>：真实输入是无限流，正常游戏永远读不到"结束"；
-     * 只有自测的脚本会用完。自测据此把这条路当成<b>"脚本跑到底了"</b>（可以断言）
-     * 而不是"游戏出错了"—— 同时它是一路冒出来的异常，绝不会被谁悄悄吞掉。
-     */
-    public static final String SCRIPT_EXHAUSTED_MARKER = "[输入结束]";
-
-    /**
      * 输入是否等于关键字（<b>忽略大小写</b>），或者等于它的<b>缩写</b>
      * （长度 2 到关键字长度-1 的前缀，例如 {@code nex}/{@code ne} → {@code next}）。
      * <p>
@@ -571,8 +439,8 @@ public class GameMain {
      * ⚠️ <b>{@code n} 两个阶段都是 {@code next}</b>（老代码里它先匹配 {@code next}）；
      * "放弃这一批"要写全 {@code no} —— 与 {@code 50-COMMANDS.md} 的 §5.10 一致。
      *
-     * @param input    一段用户输入
-     * @param keyword  完整关键字
+     * @param input   一段用户输入
+     * @param keyword 完整关键字
      * @return 命中返回 {@code true}
      */
     private static boolean matches(String input, String keyword) {
@@ -700,6 +568,128 @@ public class GameMain {
     }
 
     /**
+     * 供输入行给{@link InputReader}用的一行来源。
+     * <p>
+     * 存在的唯一理由是<b>让选人流程可自测</b>：正常游戏永远走 {@code null}（= {@link #SCANNER}），
+     * 自测可以喂一段脚本化的输入，于是「输数字 → 输 y 确认 → 输 next」这条状态机
+     * 能在 {@code TestCommandSystem} 里被逐条钉住，而不是只能靠进游戏手点。
+     *
+     * @author AI（DeepSeek）生成
+     */
+    @FunctionalInterface
+    public interface SelectionInput {
+
+        /**
+         * 取下一行输入（不含换行符）。
+         * <p>
+         * ⚠️ <b>取不出下一行时必须自己抛异常</b>（脚本用完 / EOF），<b>不要返回 {@code null}</b> ——
+         * {@code null} 会被当成"输入流结束"，而上层三个阶段会因此一直重来
+         * （真实输入是无限流），自测就会空转成假死。
+         *
+         * @return 下一行输入（不含换行符）
+         */
+        String nextLine();
+    }
+
+    /**
+     * 一行输入按分隔符 {@value #SEPARATOR} 切出来的"段"：一次读一行，段用完了才读下一行。
+     * <p>
+     * 选人 / 选对手 / 选奖励这三处都是「输数字 → 输 y 确认 → 输 next」三步走，
+     * 有了这个缓存，分段就可以当成"连着的几次输入"来用，于是
+     * {@code 1/2/3/y} 能在一行里走完选三个 + 全部确认。
+     * <p>
+     * <b>分隔符为什么是 {@code /}</b>：它只出现在<b>行首</b>才是命令前缀
+     * （{@link CommandManager#isCommand}），所以 {@code 1/2} 不会被命令系统截走；
+     * 而整段输入以 {@code /} 开头的那种（{@code /kill @s}）本来就会被
+     * {@link #readInput()} 当命令执行掉，永远进不到这里。
+     *
+     * @author AI（DeepSeek）生成
+     */
+    public static final class InputReader {
+        /**
+         * 一行的来源。生产环境是"读真标准输入"，自测是"从脚本里取下一行"；
+         * 这里统一成 {@link Supplier}，于是 {@link #hasPending()} 不必再关心输入从哪来。
+         */
+        private final Supplier<String> lineSource;
+        private final Deque<String> pending = new ArrayDeque<>();
+
+        /**
+         * 生产用：每一行都从 {@link GameMain#readInput()} 取（真标准输入 + 命令拦截）。
+         */
+        InputReader() {
+            this(GameMain::readInput);
+        }
+
+        /**
+         * 自测用：每一行都从给定的来源取。
+         * <p>
+         * ⚠️ 用这个构造器时，来源<b>读不出下一行就必须自己抛异常</b>（脚本用完、或
+         * {@link java.io.InputStream} 到 EOF）—— 不能返回 {@code null}：
+         * 下面把它当成"输入流结束"，而"输入流结束"会让上层三个阶段的
+         * {@code while(true)} 一直重来（真实输入是无限流，正常游戏里不会发生），
+         * 于是自测会<b>空转成假死</b>而不是红。
+         *
+         * @param lineSource 一行来源
+         */
+        InputReader(Supplier<String> lineSource) {
+            this.lineSource = lineSource;
+        }
+
+        /**
+         * 取下一段输入。
+         * <p>
+         * ⚠️ <b>它是流式的</b>：缓存空了才读一行（按 {@value #SEPARATOR} 切成段），
+         * 一次调用最多读一行、绝不空转。判断"还有没有下一段"请用 {@link #hasPending()}。
+         *
+         * @return 下一段输入；<b>输入流也读完了才返回 {@code null}</b>（所以它不会空转）
+         */
+        String read() {
+            if (pending.isEmpty() && !hasPending()) {
+                return null;
+            }
+            return pending.pollFirst();
+        }
+
+        /**
+         * @return <b>当前这一行</b>里还有没有没处理的段（<b>绝不读新的一行</b>）
+         */
+        boolean hasMoreOnCurrentLine() {
+            return !pending.isEmpty();
+        }
+
+        /**
+         * @return 还有没有没处理的段（会先读一行来填缓存，但<b>不消费</b>它）
+         */
+        boolean hasPending() {
+            if (pending.isEmpty()) {
+                String line = lineSource.get();
+                if (line == null) {
+                    // 输入流已经结束（自测的脚本用完 / 标准输入 EOF）：
+                    // 上层会把它当成"这一批没选"，然后无限重来 —— 必须立刻炸，别空转。
+                    // ⚠️ 这是**违反了下面那个接口的约定**（不许返回 null），所以是 IllegalStateException；
+                    //    它绝不会在正常游戏里发生（真标准输入是无限流）。
+                    throw new IllegalStateException(SCRIPT_EXHAUSTED_MARKER
+                            + "选择流程读到输入流结束：请再喂一行输入（自测请把脚本补长）");
+                }
+                for (String segment : line.split(SEPARATOR)) {
+                    String trimmed = segment.trim();
+                    if (!trimmed.isEmpty()) {
+                        pending.addLast(trimmed);
+                    }
+                }
+            }
+            return !pending.isEmpty();
+        }
+
+        /**
+         * 丢掉这一行剩下的段（"结束确认"之后残留的段没有意义，丢掉才不会隔一轮突然生效）。
+         */
+        void discardPending() {
+            pending.clear();
+        }
+    }
+
+    /**
      * 选择实体 / 物品的那一段状态机（选人 / 选对手 / 选奖励三步共用这一份）。
      * <p>
      * 三个阶段都走「输数字 → 输 {@code y} 确认 → 输 {@code next} 前进」：
@@ -715,19 +705,31 @@ public class GameMain {
     public static final class SelectionFlow {
 
         /**
-         * 一批选择的中间状态：选好的副本 + 已经选过的<b>下标</b> + 是否在等确认。
-         * <p>
-         * ⚠️ <b>去重认的是下标，不是对象</b>：每一份副本都是 {@code copy()} 出来的新实例
-         * （uuid 全新，{@code Thing#equals} 按 uuid 判等），所以"同一只选了两遍"在副本这一层
-         * 根本认不出来 —— 按下标记账才是可靠的判据。
-         *
-         * @param things    这一批选好的副本（顺序 = 第一次选中的顺序）
-         * @param chosen    这一批已经选过的下标
-         * @param confirmed 是否已经被 {@code y}/{@code yes} 确认
-         * @param <T>       候选类型
-         * @author AI（DeepSeek）生成
+         * @return 新的一份副本（每一份都是新 uuid，所以 {@code contains} 靠"按 uuid 判等"认出重复）
          */
-        public record Draft<T>(List<T> things, Set<Integer> chosen, boolean confirmed) {
+        @SuppressWarnings("unchecked")
+        private static <T> T copyOf(T candidate) {
+            if (candidate instanceof LivingThing living) {
+                return (T) living.copy();
+            }
+            if (candidate instanceof Item item) {
+                return (T) item.copy();
+            }
+            return candidate;
+        }
+
+        /**
+         * 把一批东西的名字拼成一行。
+         */
+        private static <T> String namesOf(List<T> things, java.util.function.Function<T, String> nameOf) {
+            StringBuilder builder = new StringBuilder();
+            for (int i = 0; i < things.size(); i++) {
+                if (i > 0) {
+                    builder.append(", ");
+                }
+                builder.append(nameOf.apply(things.get(i)));
+            }
+            return builder.toString();
         }
 
         /**
@@ -836,10 +838,10 @@ public class GameMain {
                         System.out.println("输入错误");
                         continue;
                     }
-                   // if (!chosenIndices.add(index)) {
-                        // 重复下标静默只算一次（不报错、不刷屏；同一行里写两遍、跨行再写一遍都算）
-                   //     continue;
-                   // }
+                    // ⚠️ **允许重复**：同一个下标写几遍就加几个（`1/1/1/1/y` = 加 4 个副本）。
+                    // 用户 2026-10-04 明确要这个（以前这里是"重复下标静默只算一次"，那是错的）。
+                    // chosenIndices 只当"选过哪些下标"的账本给上层看，**不再拦重复**。
+                    chosenIndices.add(index);
                     T candidate = copyOf(candidates[index]);
                     selected.add(candidate);
                     System.out.println(nameOf.apply(candidate));
@@ -864,31 +866,19 @@ public class GameMain {
         }
 
         /**
-         * @return 新的一份副本（每一份都是新 uuid，所以 {@code contains} 靠"按 uuid 判等"认出重复）
+         * 一批选择的中间状态：选好的副本 + 已经选过的<b>下标</b> + 是否在等确认。
+         * <p>
+         * ⚠️ <b>去重认的是下标，不是对象</b>：每一份副本都是 {@code copy()} 出来的新实例
+         * （uuid 全新，{@code Thing#equals} 按 uuid 判等），所以"同一只选了两遍"在副本这一层
+         * 根本认不出来 —— 按下标记账才是可靠的判据。
+         *
+         * @param things    这一批选好的副本（顺序 = 第一次选中的顺序）
+         * @param chosen    这一批已经选过的下标
+         * @param confirmed 是否已经被 {@code y}/{@code yes} 确认
+         * @param <T>       候选类型
+         * @author AI（DeepSeek）生成
          */
-        @SuppressWarnings("unchecked")
-        private static <T> T copyOf(T candidate) {
-            if (candidate instanceof LivingThing living) {
-                return (T) living.copy();
-            }
-            if (candidate instanceof Item item) {
-                return (T) item.copy();
-            }
-            return candidate;
-        }
-
-        /**
-         * 把一批东西的名字拼成一行。
-         */
-        private static <T> String namesOf(List<T> things, java.util.function.Function<T, String> nameOf) {
-            StringBuilder builder = new StringBuilder();
-            for (int i = 0; i < things.size(); i++) {
-                if (i > 0) {
-                    builder.append(", ");
-                }
-                builder.append(nameOf.apply(things.get(i)));
-            }
-            return builder.toString();
+        public record Draft<T>(List<T> things, Set<Integer> chosen, boolean confirmed) {
         }
     }
 }

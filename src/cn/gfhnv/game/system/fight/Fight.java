@@ -88,6 +88,26 @@ public class Fight {
     }
 
     /**
+     * 把<b>已经倒下</b>的生物从「全体实体」列表里摘掉，返回摘了几个。
+     * <p>
+     * {@code /list} 和 {@code @e} 这类选择器读的就是这条列表 —— 不清的话，打久了
+     * （尤其盗火行者那种一直召唤容器的 BOSS）尸体越堆越多，{@code /list} 全是死人和残破容器。
+     * <p>
+     * ⚠️ <b>只清这一条</b>：{@link #getFighterList()} / {@link #getEnemiesList()} <b>不动</b> ——
+     * 那两个是战斗逻辑（技能打谁、谁还算某个阵营）在读，半路摘人会改变现有行为
+     * （而且很多招式在"一次打多目标"的循环里遍历它们，中途改会直接 ConcurrentModification）。
+     * 回合循环每回合调一次这个方法（紧挨 {@code TurnManager#removeTheDeath()}），
+     * 所以永远不会落在某个技能的多目标循环中间。
+     *
+     * @return 摘掉的数量
+     */
+    public int removeDeadFromAllEntities() {
+        int before = allEntities.size();
+        allEntities.removeIf(thing -> thing != null && !thing.isAlive());
+        return before - allEntities.size();
+    }
+
+    /**
      * 把一名生物加入己方阵营。
      * <p>
      * 入列前会把 id 补成注册表里的完整 id：技能召唤出来的生物是直接 {@code new} 的，

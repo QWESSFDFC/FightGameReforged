@@ -17,7 +17,7 @@ import java.util.List;
  * <p>
  * <b>实现说明</b>：直接读改写 {@link LivingThing#getHp()} / {@link LivingThing#setHp(long)}。
  * {@code setHp} 内部会发布 {@link cn.gfhnv.game.event.HpLossEvent} 或
- * {@link cn.gfhnv.game.event.HpRestorationEvent}，并把结果夹在 {@code [0, hpMax]} 之间。
+ * {@link cn.gfhnv.game.event.HpRestorationEvent}，并把结果夹在 {@code [0, 最终生命上限]} 之间。
  * <p>
  * 注意：本命令<b>不</b>走 {@code DamageCalculate} 的伤害公式（不带攻击力/防御力/暴击/抗性），
  * 而是直接改生命值——这是「调试/演出」用的命令，不是一次真正的攻击。

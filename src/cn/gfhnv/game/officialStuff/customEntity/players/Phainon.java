@@ -52,11 +52,11 @@ public class Phainon extends Player {
      */
     private final List<TurnEntry> awakenExtraTurns = new ArrayList<>();
     private int coreflame = 0;
-    private int coreflame_max = 15;
+    private int coreflameMax = 15;
     private int soulscorch;
     private int scourge = 0;
-    private int scourge_max = 8;
-    private boolean isAwaken = false;
+    private int scourgeMax = 8;
+    private boolean awaken = false;
     private int extraAbilityTier = 0;
     private int appliedExtraAbilityTier = 0;
     private List<Skill> skills;
@@ -89,7 +89,7 @@ public class Phainon extends Player {
 
     public Phainon(Phainon phainon1) {
         super(phainon1);
-        isAwaken = phainon1.isAwaken;
+        awaken = phainon1.awaken;
         extraAbilityTier = phainon1.extraAbilityTier;
         appliedExtraAbilityTier = phainon1.appliedExtraAbilityTier;
         absorbDamage = phainon1.absorbDamage;
@@ -97,17 +97,17 @@ public class Phainon extends Player {
         pendingLastAttack = phainon1.pendingLastAttack;
         interruptedRemainingExtraTurns = phainon1.interruptedRemainingExtraTurns;
         skills = new ArrayList<>(this.getController().getSkills());
-        coreflame_max = phainon1.coreflame_max;
+        coreflameMax = phainon1.coreflameMax;
         soulscorch = phainon1.soulscorch;
         scourge = phainon1.scourge;
-        scourge_max = phainon1.scourge_max;
+        scourgeMax = phainon1.scourgeMax;
         coreflame = phainon1.coreflame;
         awakenExtraTurns.clear();
         awakenExtraTurns.addAll(phainon1.awakenExtraTurns);
         this.setModifyDamage(soulscorchDeathWard());
         this.setShowSpecialMes(user -> {
             if (user instanceof Phainon phainon) {
-                if (phainon.isAwaken)
+                if (phainon.awaken)
                     System.out.println("毁伤数量" + phainon.getScourge() + "|||剩余额外回合数" + phainon.getExtraTurns());
                 else System.out.println("当前火种数" + phainon.getCoreflame());
             }
@@ -130,12 +130,39 @@ public class Phainon extends Player {
         this.setModifyDamage(soulscorchDeathWard());
         this.setShowSpecialMes(user -> {
             if (user instanceof Phainon phainon) {
-                if (phainon.isAwaken)
+                if (phainon.awaken)
                     System.out.println("毁伤数量" + phainon.getScourge() + "|||剩余额外回合数" + phainon.getExtraTurns());
                 else System.out.println("当前火种数" + phainon.getCoreflame());
             }
         });
 
+    }
+
+    /**
+     * <b>自测专用装配入口</b>：把白厄的控制器从 {@link PlayerController} 换成
+     * <b>不会读标准输入</b>的 {@link UniversalController}（技能表是原控制器那一份的副本）。
+     * <p>
+     * ⚠️ <b>只给自测 / 探针用，不要在游戏流程里调用。</b>正常玩法里白厄必须由玩家操作，
+     * 这个方法一调，他就变成一个"每个回合什么都不做"的木桩
+     * （技能表为空 → {@code UniversalController#act} 直接打印"没行动"并返回）。
+     * <p>
+     * <b>它为什么必须存在</b>：{@code Phainon} 的出厂装配（{@code new Phainon(level)}）
+     * 挂的是 {@link PlayerController}，而它每回合都会 {@code GameMain.SCANNER.nextLine()}。
+     * 无人值守地跑<b>真实回合循环</b>时那里会抛 {@code NoSuchElementException}
+     * （自测里 stdin 是空的），于是"整条变身时间轴"根本没法在自测里驱动起来 ——
+     * 之前那几轮"复现不了用户日志"就是这么来的。命令系统与输入方式<b>一个字都没改</b>，
+     * 这里只是给自测换一个控制器。
+     * <p>
+     * 换完之后 {@link LivingThing} 的复制构造器会调 {@code UniversalController#copy(...)} 重建，
+     * 所以进战斗副本照样不会去读标准输入（这句原来写的是"那一张类型表认得这个类型"——
+     * 那张表 2026-10-24 已删，改成每种控制器自己重写 {@code copy(LivingThing)}）。
+     *
+     * @param phainon 要装配的白厄实例
+     * @return 同一个实例（便于链式书写）
+     */
+    public static Phainon forSelfTest(Phainon phainon) {
+        phainon.setController(new UniversalController(new ArrayList<>(phainon.getController().getSkills()), phainon));
+        return phainon;
     }
 
     /**
@@ -159,7 +186,7 @@ public class Phainon extends Player {
      * <p>
      * 触发时先 {@link #clearAwakenExtraTurns() 中止还没走完的额外回合}（变身被打断），
      * 由 {@link #finalizeAwakenByInterrupt()} <b>当场完成退出协议</b>
-     * （发 {@link AwakenEndEvent}，清掉 {@code isAwaken} 与技能表、把 {@code extraTurns} 归零），
+     * （发 {@link AwakenEndEvent}，清掉 {@code awaken} 与技能表、把 {@code extraTurns} 归零），
      * 再把「最后一击」排进<b>当前回合</b>的收尾队列：伤害照旧挥出去，
      * 倍率按 {@link #getInterruptedRemainingExtraTurns() 打断那一刻剩余的额外回合数}算。
      * <p>
@@ -178,7 +205,7 @@ public class Phainon extends Player {
         return new IModifyDamage() {
             @Override
             public long damageModify(long newHp, DamageEvent da) {
-                if (da.getAttackedEntity() instanceof Phainon phainon && phainon.isAwaken && newHp <= 0) {
+                if (da.getAttackedEntity() instanceof Phainon phainon && phainon.awaken && newHp <= 0) {
                     if (phainon.isPendingLastAttack() || phainon.isAnticipating()) {
                         // 「已经在等最后一击」那一支只锁血：同一回合里的第二次致死不再多排一刀。
                         // 退出协议由下面第一次排队那一步自己收口（finalizeAwakenByInterrupt），
@@ -226,7 +253,7 @@ public class Phainon extends Player {
     }
 
     public void addScourge(int i) {
-        this.setScourge(Math.min(scourge + i, scourge_max));
+        this.setScourge(Math.min(scourge + i, scourgeMax));
     }
 
     public void removeScourge(int i) {
@@ -317,12 +344,12 @@ public class Phainon extends Player {
         this.pendingLastAttack = pendingLastAttack;
     }
 
-    public int getScourge_max() {
-        return scourge_max;
+    public int getScourgeMax() {
+        return scourgeMax;
     }
 
-    public void setScourge_max(int scourge_max) {
-        this.scourge_max = scourge_max;
+    public void setScourgeMax(int scourgeMax) {
+        this.scourgeMax = scourgeMax;
     }
 
     public int getScourge() {
@@ -330,7 +357,7 @@ public class Phainon extends Player {
     }
 
     public void setScourge(int scourge) {
-        this.scourge = Math.min(scourge_max, scourge);
+        this.scourge = Math.min(scourgeMax, scourge);
     }
 
     public List<Skill> getSkills() {
@@ -350,15 +377,15 @@ public class Phainon extends Player {
     }
 
     public void setCoreflame(int coreflame) {
-        this.coreflame = Math.min(coreflame_max, coreflame);
+        this.coreflame = Math.min(coreflameMax, coreflame);
     }
 
-    public int getCoreflame_max() {
-        return coreflame_max;
+    public int getCoreflameMax() {
+        return coreflameMax;
     }
 
-    public void setCoreflame_max(int coreflame_max) {
-        this.coreflame_max = coreflame_max;
+    public void setCoreflameMax(int coreflameMax) {
+        this.coreflameMax = coreflameMax;
     }
 
     public boolean isListenerRegister() {
@@ -383,11 +410,11 @@ public class Phainon extends Player {
         interruptedRemainingExtraTurns = -1;
         this.absorbDamage = false;
         this.clearAwakenExtraTurns();
-        if (this.isAwaken) {
+        if (this.awaken) {
             EventBus.post(new AwakenEndEvent(this));
         }
         isListenerRegister = false;
-        this.isAwaken = false;
+        this.awaken = false;
         EventBus.unregister(this.fightStartAndSelectEventListener);
         this.setShowSpecialMes(user -> {
             if (user instanceof Phainon phainon) {
@@ -418,7 +445,7 @@ public class Phainon extends Player {
     @Override
     public void updateSelf() {
         super.updateSelf();
-        if (isAwaken) {
+        if (awaken) {
             ListIterator<Effect> listedIterator = this.getEntityEffectList().listIterator();
             while (listedIterator.hasNext()) {
                 Effect effect = listedIterator.next();
@@ -445,43 +472,16 @@ public class Phainon extends Player {
         this.extraAbilityTier = extraAbilityTier;
     }
 
-
     @Override
     public LivingThing copy() {
         return new Phainon(this);
     }
 
     public boolean isAwaken() {
-        return isAwaken;
+        return awaken;
     }
 
     public void setAwaken(boolean awaken) {
-        isAwaken = awaken;
-    }
-
-    /**
-     * <b>自测专用装配入口</b>：把白厄的控制器从 {@link PlayerController} 换成
-     * <b>不会读标准输入</b>的 {@link UniversalController}（技能表是原控制器那一份的副本）。
-     * <p>
-     * ⚠️ <b>只给自测 / 探针用，不要在游戏流程里调用。</b>正常玩法里白厄必须由玩家操作，
-     * 这个方法一调，他就变成一个"每个回合什么都不做"的木桩
-     * （技能表为空 → {@code UniversalController#act} 直接打印"没行动"并返回）。
-     * <p>
-     * <b>它为什么必须存在</b>：{@code Phainon} 的出厂装配（{@code new Phainon(level)}）
-     * 挂的是 {@link PlayerController}，而它每回合都会 {@code GameMain.SCANNER.nextLine()}。
-     * 无人值守地跑<b>真实回合循环</b>时那里会抛 {@code NoSuchElementException}
-     * （自测里 stdin 是空的），于是"整条变身时间轴"根本没法在自测里驱动起来 ——
-     * 之前那几轮"复现不了用户日志"就是这么来的。命令系统与输入方式<b>一个字都没改</b>，
-     * 这里只是给自测换一个控制器。
-     * <p>
-     * 换完之后 {@link LivingThing} 的复制构造器会把它按 {@code UniversalController} 重建
-     * （那一张类型表认得这个类型），所以进战斗副本照样不会去读标准输入。
-     *
-     * @param phainon 要装配的白厄实例
-     * @return 同一个实例（便于链式书写）
-     */
-    public static Phainon forSelfTest(Phainon phainon) {
-        phainon.setController(new UniversalController(new ArrayList<>(phainon.getController().getSkills()), phainon));
-        return phainon;
+        this.awaken = awaken;
     }
 }

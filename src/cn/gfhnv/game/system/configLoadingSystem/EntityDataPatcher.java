@@ -20,7 +20,7 @@ import java.util.*;
  *     <li><b>每个模板只补一次</b>：补丁里会走到 {@code setLevel} → {@code initialMana()}，
  *     而 {@code initialMana()} 会把整份法力列表重建。同一个模板补两次 = 打到一半的法力被重置；</li>
  *     <li><b>顺序固定</b>：{@code level} → 面板属性 → 背包格数 →
- *     {@code derived.hpMax/attack/defence} → {@code derived.hp}（<b>{@code hp} 必须最后</b>，
+ *     {@code derived.baseHpMax/attack/defence} → {@code derived.hp}（<b>{@code hp} 必须最后</b>，
  *     因为 {@code setHp} 会夹到 {@code getHpMax()}）；</li>
  *     <li><b>逐项容错</b>：未知键 / 类型不对 / 目标不存在都不中断加载，
  *     全部收集进 {@link Report}，结尾汇总打印。</li>
@@ -158,7 +158,7 @@ public final class EntityDataPatcher {
     /**
      * 把一条实体补丁打进模板。
      * <p>
-     * 顺序：{@code level} → 面板属性 → 背包格数 → {@code derived.hpMax/attack/defence} → {@code derived.hp}。
+     * 顺序：{@code level} → 面板属性 → 背包格数 → {@code derived.baseHpMax/attack/defence} → {@code derived.hp}。
      * 成长系数只在<b>没有</b>显式写 {@code level} 时补一次 {@code setLevel} 重算
      * （写了 {@code level} 的话，第一步那次 {@code setLevel} 已经把新成长算进去了）。
      *
@@ -187,9 +187,9 @@ public final class EntityDataPatcher {
                 && applied.stream().anyMatch(EntityDataPatcher::touchesDerivedStats)) {
             recalculateDerivedStats(target);
         }
-        // ④ 派生值最后打（hp 排在 hpMax 之后，因为 setHp 会夹到 getHpMax()）
+        // ④ 派生值最后打（hp 排在 baseHpMax 之后，因为 setHp 会夹到 getHpMax()）
         //    ⚠️ 必须在 SpecPatcher.patch(DERIVED) **之前**调：要提醒的是"补丁里写的这个数
-        //    和规则表那个数不一样"，补丁一打下去 derived.hpMax 就已经盖掉构造值了
+        //    和规则表那个数不一样"，补丁一打下去 derived.baseHpMax 就已经盖掉构造值了
         noticeDualEntryHpMax(target, patch, report, id);
         SpecPatcher.patch(target, patch, EntityKeySpecs.DERIVED, report, id);
         reportUnknownKeys(patch, id, report, applied);
@@ -204,12 +204,12 @@ public final class EntityDataPatcher {
      * <p>
      * <b>为什么要有这一步</b>：{@code GameRules.json} 的 {@code flameReaver.baseHpMax}
      * 是<b>构造时</b>读一次的出厂血量（{@code FlameReaver.java:282-283}），而
-     * {@code EntityData.json} 的 {@code derived.hpMax} 是<b>构造之后</b>打的补丁 ——
+     * {@code EntityData.json} 的 {@code derived.baseHpMax} 是<b>构造之后</b>打的补丁 ——
      * 两个都写、而且写的是<b>不同的数</b>时，规则表那个数看不出效果，而此前控制台一句话都不说。
      * 这正是项目最忌讳的"两处写真值，迟早一真一假"。
      * <p>
      * <b>⚠️ 判据是"两个值不一样"，不是"两个键都被写过"</b>：生成的 {@code EntityData.json}
-     * 本来就<b>一定</b>包含 {@code derived.hpMax}（它是全量 dump），而 {@code GameRules.json}
+     * 本来就<b>一定</b>包含 {@code derived.baseHpMax}（它是全量 dump），而 {@code GameRules.json}
      * 本来就<b>一定</b>包含 {@code flameReaver.baseHpMax}（它也是全量 dump）——
      * 所以"两个入口都写了"是<b>出厂默认状态，不是冲突</b>，按那个判据提醒等于每次启动必然误报一次
      * （用户 2026-10-03 报的就是它：那条提醒"写了约 250 字"，却什么也没告诉他）。
@@ -235,7 +235,7 @@ public final class EntityDataPatcher {
         if (target == null || patch == null) {
             return;
         }
-        // ① 这次补丁里到底写了什么 derived.hpMax（裸键 hpMax 也算 —— 那两种写法加载器都认）
+        // ① 这次补丁里到底写了什么 derived.baseHpMax（裸键 baseHpMax 也算 —— 那两种写法加载器都认）
         SpecPatcher.KeySource source = SpecPatcher.lookup(patch, DataKeys.Derived.HP_MAX);
         if (source == null || !(source.container().opt(source.key()) instanceof Number number)) {
             return;
@@ -305,8 +305,8 @@ public final class EntityDataPatcher {
      * <b>为什么不直接调 {@code Entity#setLevel}</b>：那个方法里的顺序是
      * {@code setHp(新基础值)} → {@code setHpMax(getHp())}，而 {@code LivingThing#setHp} 会
      * <b>夹到"当前"的 {@code getHpMax()}</b> —— 于是它写的永远是旧上限，改了成长系数也看不到变化
-     * （实测：125 级玩家一写 {@code hpGrow:50} 之后 {@code hpMax} 仍是 4664 而不是 6400）。
-     * 这里按同一套公式先写 {@code hpMax} 再写当前血量，语义还更稳：
+     * （实测：125 级玩家一写 {@code hpGrow:50} 之后 {@code baseHpMax} 仍是 4664 而不是 6400）。
+     * 这里按同一套公式先写 {@code baseHpMax} 再写当前血量，语义还更稳：
      * <b>当前血量只会因为上限变小被夹下来，不会因为上限变大而被补满</b>。
      * <p>
      * <b>三个基准值走规则表，不再写字面量</b>：{@code 200} / {@code 110} / {@code 200} 曾经在这里
@@ -383,8 +383,7 @@ public final class EntityDataPatcher {
                         + "战中的临时加成请用效果与技能改。");
                 continue;
             }
-            if (!DataKeys.Alias.ELEMENT.equals(key) && !DataKeys.isConfigurable(key)
-                    && !handled.contains(key)) {
+            if (!DataKeys.isConfigurable(key) && !handled.contains(key)) {
                 report.skipped(id, BASE_PREFIX + key, unknownReason(key));
             }
         }
@@ -545,7 +544,7 @@ public final class EntityDataPatcher {
         StringBuilder builder = new StringBuilder();
         builder.append("level=").append(entity.getLevel())
                 .append("|hp=").append(entity.getHp())
-                .append("|hpMax=").append(entity.getHpMax())
+                .append("|baseHpMax=").append(entity.getHpMax())
                 .append("|attack=").append(entity.getAttack())
                 .append("|defence=").append(entity.getDefence())
                 .append("|speed=").append(entity.getSpeed())
@@ -644,7 +643,7 @@ public final class EntityDataPatcher {
      * 因为 {@link World} 的注册表里存的就是这些模板本身，副本证明不了"真模板会被改对"。
      * <p>
      * 恢复顺序与补丁顺序一致：元素 → 面板 → 等级（触发重算）→ 派生值 → 当前血量 → 背包。
-     * {@code setHp} 会夹到 {@code getHpMax()}，所以 {@code hpMax} 必须排在 {@code hp} 前面。
+     * {@code setHp} 会夹到 {@code getHpMax()}，所以 {@code baseHpMax} 必须排在 {@code hp} 前面。
      *
      * @param entity      被快照的实体
      * @param element     元素属性
@@ -652,7 +651,7 @@ public final class EntityDataPatcher {
      * @param type        类型
      * @param level       等级
      * @param hp          当前生命值
-     * @param hpMax       生命上限
+     * @param hpMax       基础生命上限
      * @param attack      基础攻击力
      * @param defence     基础防御力
      * @param speed       速度
@@ -851,7 +850,7 @@ public final class EntityDataPatcher {
 
         /**
          * 记一条<b>提醒</b>：配置本身没有错（值照样生效），但有一个"另一个入口也写了同一个数"的
-         * 情况必须让用户看见 —— 典型就是「{@code derived.hpMax} 盖住了规则表的
+         * 情况必须让用户看见 —— 典型就是「{@code derived.baseHpMax} 盖住了规则表的
          * {@code flameReaver.baseHpMax}」。
          * <p>
          * <b>为什么不复用 {@link #skipped} / {@link #error}</b>：那两条都会让

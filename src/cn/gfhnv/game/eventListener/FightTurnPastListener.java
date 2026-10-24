@@ -20,6 +20,7 @@ import cn.gfhnv.game.world.World;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 public class FightTurnPastListener {
@@ -126,6 +127,10 @@ public class FightTurnPastListener {
                     return false;
                 });
                 TurnManager.removeTheDeath();
+                // 尸体也顺便从「全体实体」列表里摘掉（/list 与 @e 读的就是这条）。
+                // 上面那两个 removeIf 只清了 fighterList / enemiesList —— allEntities 一直没人清，
+                // 所以打久了 /list 里全是死人和残骸。只清这一条，不动战斗逻辑读的那两个。
+                fightPastOneTurnEvent.getFight().removeDeadFromAllEntities();
                 // 死亡离场结算：走 whenLeaveFight（单个生物离场），**不是** whenFightEnds()。
                 // whenFightEnds() 是整场结束时的重置（含 setHp(getHpMax())），在这里调用会把
                 // 死掉的生物复活 —— 而它已经被移出阵营列表，于是变成"不在任何阵营却能继续出手"
@@ -196,8 +201,9 @@ public class FightTurnPastListener {
                         + " 火" + manaOf(actor.getFireMana())
                         + " 土" + manaOf(actor.getDirtMana()));
                 if (!presentTurn.getFirstExecuteList().isEmpty()) {
-                    for (ISpecialAction iSpecialAction : presentTurn.getFirstExecuteList()) {
-                        iSpecialAction.execute(fightPastOneTurnEvent.getFight(), presentTurn.getLivingThing());
+                    Iterator<ISpecialAction> iterator = presentTurn.getFirstExecuteList().iterator();
+                    while (iterator.hasNext()) {
+                        iterator.next().execute(fightPastOneTurnEvent.getFight(), presentTurn.getLivingThing());
                     }
                 }
                 if (!presentTurn.getLivingThing().isAlive()) presentTurn.setActionSignal(ActionSignal.SKIP);
@@ -222,9 +228,11 @@ public class FightTurnPastListener {
                     presentTurn.getLivingThing().getController().act(fightPastOneTurnEvent.getFight());
                 }
                 if (!presentTurn.getLastExecuteList().isEmpty()) {
-                    for (ISpecialAction iSpecialAction : presentTurn.getLastExecuteList()) {
-                        iSpecialAction.execute(fightPastOneTurnEvent.getFight(), presentTurn.getLivingThing());
+                    Iterator<ISpecialAction> it = presentTurn.getLastExecuteList().iterator();
+                    while (it.hasNext()) {
+                        it.next().execute(fightPastOneTurnEvent.getFight(), presentTurn.getLivingThing());
                     }
+
                 }
 
                 EventBus.post(new EffectUpdateEvent(presentTurn.getLivingThing(), presentTurn));

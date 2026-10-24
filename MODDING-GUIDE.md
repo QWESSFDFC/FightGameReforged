@@ -187,6 +187,7 @@ super(名称, id, 火抗, 水抗, 金抗, 木抗, 土抗, 速度, 等级, 类型
   技能消耗哪种法力就选哪个元素；
 - **一定要 `setController(...)`**，否则行动时没有控制器；角色用 `new PlayerController(skills, this)`，
   怪物用 `new UniversalController(skills, this)`（随机 AI）或 `ThinkingControllerAI`；
+  ⚠️ **如果你自己 extends 了某个控制器**，记得**同时重写 `copy(LivingThing)`**（见 §6 排错表第 7 条）。
 - 背包：`getInventory().addSlot(63)`（官方角色都是 63 格）；
 - **必须重写 `copy()`** 并写一个参数类型是本类的拷贝构造器：
 
@@ -399,7 +400,7 @@ public class DrunkenSwordMod extends Mod implements ModDataAware {
 {
   "version": 1,
   "common": {
-    "entities": { "game_official_content:flameReaver": { "derived": { "hpMax": 90000 } } },
+    "entities": { "game_official_content:flameReaver": { "derived": { "baseHpMax": 90000 } } },
     "skills": { "game_official_content:flameReaver#灾厄-弑魂焚诏": { "coolDown": 5 } }
   },
   "drunkenSword": {
@@ -505,7 +506,7 @@ GameStartEvent
 ```json
 {
   "common": {
-    "entities": { "game_official_content:insectBoss": { "derived": { "hpMax": 50000 } } },
+    "entities": { "game_official_content:insectBoss": { "derived": { "baseHpMax": 50000 } } },
     "skills":   { "game_official_content:insectBoss#分裂": { "coolDown": 5 } }
   }
 }
@@ -541,7 +542,7 @@ GameStartEvent
 | 4 | 效果叠了两条 / 数值改了却像换了个效果 | `Effect.equals` 只看 id + origin + 是否无限 | 数值放 `level`；不要靠新字段区分 |
 | 5 | 技能用着用着伤害越打越高 | 在 `comeToEffect` 里改了技能自己的倍率，而实例是复用的 | 用 `copy()` 的副本改倍率，或改完立刻改回来 |
 | 6 | 自定义效果/物品 `/effect`、`/give` 找不到 | id 没进注册表，或没走 `addEffect`（少了一次 id 补全），或**用短名去找模组内容**（只认完整 id） | 在 `invokeWhenLoaded()` 里注册；施加效果走 `thing.addEffect(...)`；命令里写 `modId:名字` |
-| 7 | 自定义控制器进战斗后变成随机 AI | `LivingThing` 复制构造器只重建 `PlayerController` / `ThinkingControllerAI` / `FixOrderController`，其余按 `UniversalController` 重建（`LivingThing.java:145-154`） | 用官方三种之一，或接受降级 |
+| 7 | 自定义控制器进战斗后变成随机 AI | 你的控制器子类**没重写 `copy(LivingThing)`** —— 复制时只会调 `copy(...)`，不重写就退化成 `UniversalController`（2026-10-24 之前是 `LivingThing` 里一张写死的类型表，现在改成各控制器自己复制） | 子类里重写：`@Override public UniversalController copy(LivingThing newOwner) { return new 你的控制器(this, newOwner); }`，并给它写一个复制构造器（照 `FixOrderController`） |
 | 8 | 控制台只说"编译失败"，还报"找不到符号" | 源码不是 UTF-8（被跳过）或包名/目录不一致 | 存成 UTF-8 无 BOM；`package` 与目录严格对应 |
 | 9 | 别的模组莫名其妙不加载 | `GameStartEventListener` 遇到 `null` 模组会 `return` 而不是 `continue`（`GameStartEventListener.java:18-20`，见 ANALYSIS-2026-08 §8.1-M2） | 别在 `mods/` 放半成品目录；删掉不用的模组文件夹 |
 | 10 | 游戏启动直接崩，且不是你的模组报错 | 加载器只 `catch (Exception)`，主类静态块抛 `Error`（如 `ExceptionInInitializerError`）会穿出去 | 别在静态块里做危险操作（读文件、开线程、除零） |
@@ -664,6 +665,7 @@ public class LiXiaoYanPlusMod extends Mod implements ModDataAware {
 |---|---|---|
 | **【燃点】上限**（李晓焰） | `ActorLiXiaoYan.addIgnitionMaxModifier(IModifyIgnitionMax)` | 每次读上限依次过链；链为空 = 出厂值。`int modifyIgnitionMax(int baseMax, LivingThing owner)` |
 | 受到的伤害 | `thing.addModifyDamage(IModifyDamage)` / `setModifyDamage(...)` | 同上，`long damageModify(long newHp, DamageEvent da)` |
+| **AI 想不想放这个技能**（思维 AI） | 技能实现 `IAiScoreBonus` | `double aiScoreBonus(Fight fight, LivingThing self, LivingThing target)`，返回值**加**进 AI 的评分（0 = 不加）。用于"0 伤害但很关键"的技能（变身 / 自我强化）—— 白厄的【大招:永劫燔世】就是靠它才放得出来 |
 | 减伤百分比 | `thing.addDamageReduction(来源对象, 0.2)` | **按来源对象身份**覆盖、多个来源乘算；传 0 摘掉 |
 | 无视防御 | 让效果实现 `IDefenceIgnore` | 伤害计算只认接口，不认具体是哪个效果（`IDefenceIgnore` 的类注释就是这么写的） |
 | 官方实体 / 技能的数值 | `config/data/<你的modid>.json` 的 **`common` 段** | 见 §4.7；**`common` 支持 `entities` + `skills`**（2026-10-03 起 `skills` 真的生效了），**但改不了 `GameRules`**（那张表在开局就冻结了，写规则段会得到一句明确报错） |

@@ -16,7 +16,9 @@ import java.util.List;
  * <pre>{@code
  * FixOrderController controller = new FixOrderController(skills, boss);
  * controller.setRotationByName("蓄力", "横扫", "分裂");        // 轮转顺序
- * controller.setTargetStrategy(TargetStrategies.tauntAware(TargetStrategies.lowestHp()));
+ * controller.setTargetStrategy(TargetStrategies.lowestHp());
+ * // ↑ 想"先打血最少的"就写这一句：**嘲讽已经默认生效** ——
+ * //   TargetStrategies 的内置策略都自带嘲讽感知（2026-10-04 重做后不需要再手动包 tauntAware）
  * ...
  * controller.forceNextSkill("大招");                          // 剧本指定下一招（插入）
  * controller.forceNextSkill("大招", true);                     // 指定并吃掉轮转里的下一步（替换）
@@ -98,6 +100,19 @@ public class FixOrderController extends UniversalController {
             this.forcedSkillName = other.forcedSkillName;
             this.forcedReplacesNext = other.forcedReplacesNext;
         }
+    }
+
+    /**
+     * 复制成"还是固定顺序"的新实例。
+     * <p>
+     * 副本必须继续按轮转表行动 —— 退化成随机 AI 就等于把这只怪物的打法完全改掉。
+     *
+     * @param newOwner 副本对应的实体
+     * @return 新的固定顺序控制器
+     */
+    @Override
+    public UniversalController copy(LivingThing newOwner) {
+        return new FixOrderController(this, newOwner);
     }
 
     /* ------------------------------------------------------------------

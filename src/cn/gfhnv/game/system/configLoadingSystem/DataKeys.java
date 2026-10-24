@@ -18,15 +18,17 @@ import java.util.*;
  * 本表把键分成五组，并附一份 {@link #META} 元数据（Java 类型 / 是否出现在 {@code /data} 里 / 说明）：
  * <ul>
  *     <li>{@link Base}：实体面板属性（名称、等级、抗性、成长、法力成长……）；</li>
- *     <li>{@link Derived}：用固定值覆盖公式算出来的结果（{@code hpMax} / {@code attack} / {@code defence} / {@code hp}）；</li>
+ *     <li>{@link Derived}：用固定值覆盖公式算出来的结果（{@code baseHpMax} / {@code attack} / {@code defence} / {@code hp}）；</li>
  *     <li>{@link Temporary}：一次性的战斗加成。能配置，但 <b>第一版不写进默认文件</b>（只该由效果/技能改）；</li>
  *     <li>{@link ReadOnly}：{@code /data} 里看得到、但配置文件<b>不许改</b>的键（身份、行为对象、状态机）；</li>
  *     <li>{@link NotInData}：配置文件里能写、但 {@code /data} 里没有对应键的项（目前只有背包格数）。</li>
  * </ul>
- * <b>别名</b>：{@link Alias#ELEMENT} 允许写 {@code element} 指代 {@code elementSort}
- * （上游设计稿用的是 {@code element}）；{@link Alias#MANA_GROW} 允许写 {@code manaGrow.metal}
- * 指代 {@code metalManaGrow}。别名只是写法上的方便，<b>规范名永远是数据名</b>，
+ * <b>别名</b>：只剩 {@link Alias#MANA_GROW}（允许写 {@code manaGrow.metal} 指代
+ * {@code metalManaGrow}）。别名只是写法上的方便，<b>规范名永远是数据名</b>，
  * 生成器写出来的也只会是规范名。
+ * ⚠️ {@code element} 曾经是 {@code elementSort} 的别名，**2026-10-24 起它就是规范名**
+ * （数据键 {@code elementSort} 已改名），所以那个别名机制被删掉了 ——
+ * 同一个名字不能既是规范名又是别名。
  *
  * @author AI（DeepSeek）生成
  */
@@ -169,7 +171,7 @@ public final class DataKeys {
      * 而不是打到一半才变的状态；而且每一个都<b>有 setter</b> ——
      * 写回走 {@link cn.gfhnv.game.data.DataBridge#applyTag}（setter 优先），
      * 所以对象自己的钳制（例如 {@code setIgnition} 夹 0…上限、{@code setCoreflame} 夹到
-     * {@code coreflame_max}）照旧生效，这也是它们没被 {@code CLASS_RUNTIME} 挡住的原因。
+     * {@code coreflameMax}）照旧生效，这也是它们没被 {@code CLASS_RUNTIME} 挡住的原因。
      * <p>
      * <b>哪些"看着能配、其实会打折扣"</b>（自测逐条断言，见
      * {@code TestCommandSystem#testClassStateConfigKeys}，不许藏）：
@@ -180,7 +182,7 @@ public final class DataKeys {
      *     <li>{@code extraAbilityTier}：{@code Phainon#whenFightStart} 每局 +1，
      *     所以写 3 开局实际是 4（配置是"基准值"，参与计算，不是最终值）；</li>
      *     <li>{@code coreflame}：同上（每局开局 +1）；{@code coreflame} / {@code scourge} /
-     *     {@code scourge_max} 的 setter 会<b>向上限夹</b>，写超过上限的数会被悄悄压到上限；</li>
+     *     {@code coreflameMax} 的 setter 会<b>向上限夹</b>，写超过上限的数会被悄悄压到上限；</li>
      *     <li>{@code soulscorch}：觉醒结束（{@code AwakeEndListener}）归零 —— 只在觉醒期间有意义。</li>
      * </ul>
      * <b>它们为什么没进 {@link EntityKeySpecs} 那张表</b>：表里的行要对<b>任意</b>
@@ -203,9 +205,9 @@ public final class DataKeys {
      * （前两段：能配的表 + 字段上的 {@code @NoConfig}）。
      * <p>
      * <b>2026-10-03 订正（用户意见：边界划错了）</b>：原来这一个清单把
-     * "出厂数值"（{@code coreflame} / {@code coreflame_max} / {@code scourge} / {@code scourge_max} /
+     * "出厂数值"（{@code coreflame} / {@code coreflameMax} / {@code scourge} / {@code scourgeMax} /
      * {@code soulscorch} / {@code ignition} / {@code extraAbilityTier}）与
-     * "运行时状态"（{@code isAwaken} / {@code phaseTwo} / {@code charging} / {@code absorbed} …）
+     * "运行时状态"（{@code awaken} / {@code phaseTwo} / {@code charging} / {@code absorbed} …）
      * 一起挡住了，于是用户"想配火种上限"这种完全正当的需求被挡在同一道闸门外。
      * 现在按"有没有 setter、值是不是开局输入"拆成 {@link #CLASS_CONFIG}（放行，走反射面）
      * 与<b>本清单</b>（继续挡）。判据不是"这个字段属于谁"，而是
@@ -318,9 +320,6 @@ public final class DataKeys {
             String lower = name.toLowerCase();
             return ELEMENTS.contains(lower) ? lower + "ManaGrow" : null;
         }
-        if (Alias.ELEMENT.equals(name)) {
-            return Base.ELEMENT_SORT;
-        }
         if (Alias.MANA_GROW_ALIAS.equals(name)) {
             return Base.MANA_GROW;
         }
@@ -432,7 +431,7 @@ public final class DataKeys {
                 ReadOnly.SPEED_ENHANCE_PERCENT, ReadOnly.HP_ENHANCE_PERCENT,
                 ReadOnly.ATTACK_ENHANCE_AMOUNT, ReadOnly.DEFENCE_ENHANCE_AMOUNT,
                 ReadOnly.SPEED_ENHANCE_AMOUNT, ReadOnly.HP_ENHANCE_AMOUNT,
-                ReadOnly.CRITICAL_DMG_ENHANCE_PERCENT, ReadOnly.CRITICAL_DMG_ENHANCE_AMOUNT,
+                ReadOnly.CRITICAL_DAMAGE_ENHANCE_PERCENT, ReadOnly.CRITICAL_DAMAGE_ENHANCE_AMOUNT,
                 ReadOnly.CRITICAL_RATE_ENHANCE_PERCENT, ReadOnly.CRITICAL_RATE_ENHANCE_AMOUNT,
                 ReadOnly.INDIVIDUAL_MULTIPLE_AREA,
                 Temporary.SHOW_SPECIAL_MES));
@@ -451,7 +450,7 @@ public final class DataKeys {
                 // 李晓焰（ActorLiXiaoYan）：开局【燃点】层数
                 "ignition",
                 // 白厄（Phainon）：火种 / 上限、灾厄 / 上限、觉醒段数
-                "coreflame", "coreflame_max", "soulscorch", "scourge", "scourge_max",
+                "coreflame", "coreflameMax", "soulscorch", "scourge", "scourgeMax",
                 "extraAbilityTier")));
     }
 
@@ -463,7 +462,7 @@ public final class DataKeys {
                 // 李晓焰（ActorLiXiaoYan）：上限与"上次燃点"由规则表与流程维护（ignitionMax 没有 setter）
                 "ignitionMax", "lastIgnition", "memorizedRate",
                 // 白厄（Phainon）：觉醒状态、单调计数器与技能表
-                "isAwaken", "appliedExtraAbilityTier", "absorbDamage", "pendingLastAttack",
+                "awaken", "appliedExtraAbilityTier", "absorbDamage", "pendingLastAttack",
                 "extraTurns", "skills",
                 // 盗火行者（FlameReaver）：阶段与献祭窗口，由它的 AI 与技能维护
                 "disasterPower", "sacrificeWindow", "damageReductionLayers", "phaseTwo", "charging",
@@ -528,7 +527,7 @@ public final class DataKeys {
             case "lastIgnition" -> "运行时状态：上一次结算时的【燃点】层数（只用来算这一回合的差值），"
                     + "配它等于伪造一份历史。要改当前层数用 ignition。";
             case "memorizedRate" -> "运行时状态：由技能打进去的记忆倍率（不是出厂值）。";
-            case "isAwaken" -> "运行时状态：觉醒由大招与 AwakeEndEvent 维护，而且这个字段没有 setter"
+            case "awaken" -> "运行时状态：觉醒由大招与 AwakeEndEvent 维护，写它绕过了那套流程"
                     + "（数据名是 awaken，写不回去）。要在开局就处于觉醒请用技能与事件。";
             case "appliedExtraAbilityTier" -> "运行时记账：上次把 extraAbilityTier 折成多少加伤"
                     + "（防重复计算用）；配了会算错。要改基准段数用 extraAbilityTier。";
@@ -712,7 +711,7 @@ public final class DataKeys {
              * 盗火行者的基础生命上限。
              * <p>
              * <b>只在构造时读一次</b>：它不是"公式的一部分"，而是"这个模板出厂时的血量"——
-             * 想改一只已经造出来的 BOSS 的血，用 {@code EntityData.json} 的 {@code derived.hpMax}。
+             * 想改一只已经造出来的 BOSS 的血，用 {@code EntityData.json} 的 {@code derived.baseHpMax}。
              */
             public static final String BASE_HP_MAX = "flameReaver.baseHpMax";
             /**
@@ -736,8 +735,9 @@ public final class DataKeys {
             /**
              * 基础生命上限（只在构造时读一次，语义同 {@link FlameReaver#BASE_HP_MAX}）。
              * <p>
-             * 常量名刻意不同名：{@code BASE_HP_MAX} 与 {@code HP_MAX} 在本文件里都已经被占了，
-             * 同一个文件里出现两个同名常量会被 {@code check-sources.ps1} 判成硬错误。
+             * 常量名刻意叫 {@code BASE_HP} 而不是 {@code BASE_HP_MAX}：后者在
+             * {@link FlameReaver} 与 {@link Derived} 里各有一个（不同嵌套类不算撞名，但读代码时
+             * 容易看混），所以这里取短一点的名字。
              */
             public static final String BASE_HP = "insectBoss.baseHpMax";
         }
@@ -818,13 +818,16 @@ public final class DataKeys {
          */
         public static final String DESCRIPTION = "description";
         /**
-         * 速度。
+         * 基础速度（<b>不是</b>最终速度 —— 最终值还要叠 {@code speedEnhance*}）。
          */
-        public static final String SPEED = "speed";
+        public static final String BASE_SPEED = "baseSpeed";
         /**
-         * 元素属性（金木水火土）。数据名是这个，别名见 {@link Alias#ELEMENT}。
+         * 元素属性（金木水火土）。数据名就是 {@code element}
+         * （2026-10-24 之前叫 {@code elementSort}，那时 {@code element} 还是它的别名）。
+         * <p>
+         * ⚠️ 别和 {@code manas[].elementSort} 混了：那是 {@code Mana} 自己的字段，**没有改名**。
          */
-        public static final String ELEMENT_SORT = "elementSort";
+        public static final String ELEMENT = "element";
         /**
          * 生命成长系数（<b>不是当前血量</b>）。
          */
@@ -850,35 +853,41 @@ public final class DataKeys {
     /**
      * 派生值：写进去 = 用固定值覆盖公式算出来的结果。
      * <p>
-     * 应用顺序固定为 {@code hpMax} → {@code attack} → {@code defence} → {@code hp}，
+     * 应用顺序固定为 {@code baseHpMax} → {@code baseAttack} → {@code baseDefence} → {@code hp}，
      * 因为 {@code setHp} 会夹到 {@code getHpMax()}：{@code hp} 必须最后设。
      */
     public static final class Derived {
         /**
-         * 生命上限。
+         * 生命上限键（<b>不是</b>最终上限 —— 最终值还要叠 {@code hpEnhance*}）。
+         * <p>
+         * <b>常量名与值不一样是故意的</b>：值（数据名）2026-10-24 规范化成了
+         * {@code baseHpMax}，但常量不能再叫 {@code BASE_HP_MAX} —— 本文件里
+         * {@link Rule.FlameReaver#BASE_HP_MAX} 已经占了这个名字，而
+         * {@code check-sources.ps1} 的 {@code [DUP-FIELD]} 只按大括号深度查，
+         * 两个不同嵌套类里的同名字段会被判成重名。
          */
-        public static final String HP_MAX = "hpMax";
+        public static final String HP_MAX = "baseHpMax";
         /**
          * 当前生命值。
          */
         public static final String HP = "hp";
         /**
-         * 基础攻击力。
+         * 基础攻击力（最终值还要叠 {@code attackEnhance*}）。
          */
-        public static final String ATTACK = "attack";
+        public static final String BASE_ATTACK = "baseAttack";
         /**
-         * 基础防御力。
+         * 基础防御力（最终值还要叠 {@code defenceEnhance*}）。
          */
-        public static final String DEFENCE = "defence";
+        public static final String BASE_DEFENCE = "baseDefence";
     }
 
     /**
      * <b>面板属性</b>里那几个曾经"声明了能配置、其实没人读"的键。
      * <p>
-     * 它们住在 {@code LivingThing} / {@code AttributeProfile} 的"面板属性"那一半：
-     * {@code copy()} 会带过去、{@code LivingThing#clearTemporaryAttributes()}
-     * <b>不</b>清它们（{@code LivingThing.java} 里那张"故意不在临时属性表里"的清单写明了这一点），
-     * 所以配在模板上 = 整局生效，语义干净。
+     * 它们住在 {@code AttributeProfile} 的"面板属性"那一半：
+     * {@code copy()} 会带过去、{@code AttributeProfile#resetTemporary()}
+     * <b>不</b>清它们（那张"临时属性"表就是 {@code resetTemporary()} 自己，
+     * 面板属性一个都不在里面），所以配在模板上 = 整局生效，语义干净。
      * <p>
      * <b>这里只剩这五个。</b>另外那一批曾经也写在这里的键已经被摘掉了，理由分别是：
      * <ul>
@@ -892,13 +901,13 @@ public final class DataKeys {
      */
     public static final class Temporary {
         /**
-         * 基础暴击伤害倍率加成。
+         * 基础暴击伤害倍率加成（最终值还要叠 {@code criticalDamageEnhance*}）。
          */
-        public static final String CRITICAL_DMG = "criticalDMG";
+        public static final String BASE_CRITICAL_DAMAGE = "baseCriticalDamage";
         /**
-         * 基础暴击率。
+         * 基础暴击率（最终值还要叠 {@code criticalRateEnhance*}）。
          */
-        public static final String CRITICAL_RATE = "criticalRate";
+        public static final String BASE_CRITICAL_RATE = "baseCriticalRate";
         /**
          * 全属性增强系数。
          */
@@ -906,7 +915,7 @@ public final class DataKeys {
         /**
          * 防御削减系数。
          */
-        public static final String DEFENSE_LOSS = "defenseLoss";
+        public static final String DEFENCE_LOSS = "defenceLoss";
         /**
          * 穿透（面板属性那一半，不是五行的 {@code *Penetration}）。
          * <p>
@@ -1021,11 +1030,11 @@ public final class DataKeys {
         /**
          * 暴击伤害增强（百分比）。
          */
-        public static final String CRITICAL_DMG_ENHANCE_PERCENT = "criticalDMGEnhancePercent";
+        public static final String CRITICAL_DAMAGE_ENHANCE_PERCENT = "criticalDamageEnhancePercent";
         /**
          * 暴击伤害增强（固定值）。
          */
-        public static final String CRITICAL_DMG_ENHANCE_AMOUNT = "criticalDMGEnhanceAmount";
+        public static final String CRITICAL_DAMAGE_ENHANCE_AMOUNT = "criticalDamageEnhanceAmount";
         /**
          * 暴击率增强（百分比）。
          */
@@ -1044,10 +1053,6 @@ public final class DataKeys {
      * 别名（写法方便用，规范名永远是数据名）。
      */
     public static final class Alias {
-        /**
-         * {@code element} → {@link Base#ELEMENT_SORT}。
-         */
-        public static final String ELEMENT = "element";
         /**
          * {@code manaGrow.metal} → {@code metalManaGrow}（同理 wood / water / fire / dirt）。
          * <p>

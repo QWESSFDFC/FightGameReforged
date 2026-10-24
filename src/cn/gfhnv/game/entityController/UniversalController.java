@@ -51,6 +51,27 @@ public class UniversalController {
         }
     }
 
+    /**
+     * 复制这个控制器、并把它绑到<b>新的</b>持有者上（{@link LivingThing} 的复制构造器只调这一个方法）。
+     * <p>
+     * <b>为什么要有它</b>：以前实体那边是一串 {@code instanceof}（玩家 / AI / 固定顺序 / 通用各来一支），
+     * 每加一种控制器就得回去改 {@code LivingThing} —— 漏改就<b>静默变成随机 AI</b>
+     * （固定顺序的 BOSS 一复制就乱打）。现在每一层自己说"我怎么复制"，实体只需要
+     * {@code other.getController().copy(this)}（与技能那边的 {@link Skill#copy()} 同一个套路）。
+     * <p>
+     * <b>子类必须重写</b>：不重写就退化成"通用控制器"，等于把子类特有的状态（轮转表、玩家输入……）丢掉 ——
+     * 自测里有一条按<b>类</b>比对的守卫（{@code copy() 之后控制器类型不变}）盯着这件事。
+     * <p>
+     * 语义与复制构造器一致：技能逐个 {@link Skill#copy()}（冷却记在自己那份上）、
+     * {@code targetStrategy} 沿用（策略本身无状态）、{@code iInitialize} 也复制一份。
+     *
+     * @param newOwner 副本对应的实体
+     * @return 新的控制器实例（类型与 {@code this} 相同）
+     */
+    public UniversalController copy(LivingThing newOwner) {
+        return new UniversalController(this, newOwner);
+    }
+
     public TargetStrategy getTargetStrategy() {
         return targetStrategy;
     }

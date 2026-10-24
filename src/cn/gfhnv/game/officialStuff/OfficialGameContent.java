@@ -5,13 +5,17 @@ import cn.gfhnv.game.entity.Entity;
 import cn.gfhnv.game.item.Item;
 import cn.gfhnv.game.mod.Mod;
 import cn.gfhnv.game.officialStuff.customEffect.actorLiXiaoYanEffects.MemorizedHp;
-import cn.gfhnv.game.officialStuff.customEffect.flameReaverEffects.*;
+import cn.gfhnv.game.officialStuff.customEffect.flameReaverEffects.Erosion;
+import cn.gfhnv.game.officialStuff.customEffect.flameReaverEffects.LockedRite;
+import cn.gfhnv.game.officialStuff.customEffect.flameReaverEffects.PainEntanglement;
+import cn.gfhnv.game.officialStuff.customEffect.flameReaverEffects.SacrificeRite;
 import cn.gfhnv.game.officialStuff.customEffect.universalEffects.*;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.CommonInsect;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.FlameReaver;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.IceInsect;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.InsectBoss;
 import cn.gfhnv.game.officialStuff.customEntity.players.ActorLiXiaoYan;
+import cn.gfhnv.game.officialStuff.customEntity.players.MortenaxBlade;
 import cn.gfhnv.game.officialStuff.customEntity.players.Phainon;
 import cn.gfhnv.game.officialStuff.customEntity.players.PlayerOne;
 import cn.gfhnv.game.officialStuff.customEntity.summons.BrokenContainer;
@@ -62,7 +66,7 @@ public class OfficialGameContent extends Mod {
         this.addEntity(new BrokenContainer(new FlameReaver(150)));
         // 完整容器是同一个类的另一种"种类"（见 BrokenContainer.Kind）
         this.addEntity(new BrokenContainer(new FlameReaver(150), BrokenContainer.Kind.COMPLETE));
-
+        this.addEntity(new MortenaxBlade(125L));
         // 白厄的 5 个觉醒技能：它们由大招（UltimateAttack）在变身那一刻现场造出来，
         // 平时不在任何控制器里，配置层沿"实体 → 控制器 → 技能"看不到它们。
         // 登记成"挂在白厄名下"的原型之后：
@@ -86,7 +90,8 @@ public class OfficialGameContent extends Mod {
         this.addEffect(new IgnoreDefenceEffect(1, 3));
         this.addEffect(new HealthRestoreEffect());
         this.addEffect(new Frozen());
-        // 嘲讽：不改属性，只是让 TargetStrategies.tauntAware(...) 这类策略优先选中持有者
+        // 嘲讽：不改属性，只是一个负面效果标记。谁中了嘲讽，谁挑目标时就会优先打**施加者**
+        // （排序在 TargetStrategies 里，默认策略已自带嘲讽感知，不需要调用方再包一层）
         this.addEffect(new Taunt());
 
         // 角色专属效果：注册进效果表，但不标记为通用，/effect 不会施加。
@@ -98,8 +103,9 @@ public class OfficialGameContent extends Mod {
         this.addEffect(new SacrificeRite(SacrificeRite.DEFAULT_LAST_TIME));   // 共祭（挂在容器身上）
         this.addEffect(new PainEntanglement());            // 苦痛缠绕账本（挂在 BOSS 身上）
         this.addEffect(new LockedRite(LockedRite.DEFAULT_LAST_TIME));         // 镣锁（二阶段容器）
-        this.addEffect(new ContainerReward(ContainerReward.DEFAULT_ENHANCE,
-                ContainerReward.DEFAULT_LAST_TIME));       // 击杀完整容器的增伤 buff
+        // 击杀【完整容器】的增伤 buff【破容器之赏】不再单独注册：
+        // 它就是 `DamageEnhanceEffect` 的一个**起了名**的实例（id = `containerReward`），
+        // 由 `FlameReaver#grantContainerReward` 现建现给 —— 见 Effect#setName。
         System.out.println("游戏自带内容加载完成");
 
     }

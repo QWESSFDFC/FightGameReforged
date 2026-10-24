@@ -17,7 +17,7 @@ import java.lang.annotation.Target;
  * 键名照旧按组件字段自己的 {@link DataField} 改名（没有就用 Java 字段名）：
  * <pre>
  *     &#64;DataFlatten
- *     private final AttributeProfile attributes = new AttributeProfile();
+ *     private final AttributeProfile attributes = new AttributeProfile(this);
  * </pre>
  * 于是 {@code /data get entity @s} 里仍然是 {@code fireResistance}、{@code penetration}、
  * {@code metalManaGrow}…… 而不是
@@ -25,7 +25,7 @@ import java.lang.annotation.Target;
  * <p>
  * 现成例子：
  * {@link cn.gfhnv.game.entity.AttributeProfile}（五行组：5 抗性 + 5 穿透 + 5 增伤 + 5 法力成长；
- * 全局组：全属性穿透 / 全属性增伤 / 暴击伤害）。
+ * 全局组：全属性穿透 / 全属性增伤 / 暴击伤害；12 个 {@code *Enhance*} 运行时加成与两个状态位）。
  * <p>
  * <b>只影响"读"（对象 → 标签）</b>：写回（{@code /data merge|modify}）走的是
  * {@link DataBridge} 的字段查找（先找父对象自己，再下潜进本注解标记的组件），

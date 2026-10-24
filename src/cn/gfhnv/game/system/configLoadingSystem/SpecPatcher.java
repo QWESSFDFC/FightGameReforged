@@ -83,9 +83,6 @@ public final class SpecPatcher {
         if (patch.has(key)) {
             return new KeySource(patch, key, "");
         }
-        if (DataKeys.Alias.ELEMENT.equals(key) && patch.has(DataKeys.Base.ELEMENT_SORT)) {
-            return new KeySource(patch, DataKeys.Base.ELEMENT_SORT, "");
-        }
         JSONObject base = patch.optJSONObject(DataKeys.BASE);
         if (base != null && base.has(key)) {
             return new KeySource(base, key, DataKeys.BASE + DataKeys.SECTION_SEPARATOR);

@@ -242,7 +242,7 @@ public final class ReflectionConfigBridge {
      * <b>2026-10-03 订正</b>："明确排除"这一条<b>不再是整批子类字段</b>，而是按
      * "这个值配了能不能算数"拆成两半（见 {@link DataKeys#CLASS_CONFIG} 与
      * {@link DataKeys#CLASS_RUNTIME}）：出厂数值（{@code coreflame} / {@code scourge} /
-     * {@code ignition} …）走本方法的放行路，运行时状态（{@code isAwaken} / {@code phaseTwo} …）
+     * {@code ignition} …）走本方法的放行路，运行时状态（{@code awaken} / {@code phaseTwo} …）
      * 继续被 {@link DataKeys#CLASS_RUNTIME} 挡住，而且现在会带上
      * {@link DataKeys#hintFor} 的"为什么"。
      * <b>为什么段前缀（{@code base.} / {@code derived.}）由调用方给</b>：子块名是编排信息
@@ -291,13 +291,13 @@ public final class ReflectionConfigBridge {
      */
     private static void writeExtra(Object target, JSONObject object, Set<String> names, String prefix,
                                    SpecPatcher.Sink sink, String id, Set<String> applied) {
-        for (String key : object.keySet()) {
+        for (String key : upperBoundFirst(object)) {
             Object raw = object.opt(key);
             if (raw == null || JSONObject.NULL.equals(raw) || raw instanceof JSONObject) {
                 // 块（子块 / 数据对象 / 块写法）不在这里处理：表那一侧各有专门分支
                 continue;
             }
-            if (DataKeys.isConfigurable(key) || DataKeys.Alias.ELEMENT.equals(key)) {
+            if (DataKeys.isConfigurable(key)) {
                 continue;   // 表的事，已经做过了（幂等）
             }
             if (DataKeys.CLASS_RUNTIME.contains(key)) {
@@ -314,6 +314,38 @@ public final class ReflectionConfigBridge {
             sink.applied(id, prefix + key, String.valueOf(raw));
             applied.add(key);
         }
+    }
+
+    /**
+     * 把一层的键排成"<b>上限键先写</b>"的顺序：{@code *Max} / {@code *_max} 打头，其余随后。
+     * <p>
+     * <b>为什么需要</b>：这一层（裸键 / {@code classState}）的键是直接照 {@code JSONObject} 的
+     * 迭代顺序写的，而 {@code JSONObject} 背后是 {@code HashMap} —— <b>顺序取决于键名的哈希</b>，
+     * 用户写什么顺序都没用。于是"同一个补丁里既抬上限又写值"就会按运气生效：
+     * {@code {"coreflameMax":20,"coreflame":18}} 若先写 {@code coreflame}，
+     * {@code setCoreflame} 会拿<b>旧</b>上限（15）去夹，结果 18 变成 15。
+     * 2026-10-24 把键名从 {@code coreflame_max} 改成 {@code coreflameMax} 时，
+     * 哈希顺序一变这条就当场翻红（自测「classState 生效：coreflame 真的变成 18」）。
+     * <p>
+     * 规则只认"名字以 Max 结尾"这一条：本层的上限键都长这样
+     * （{@code coreflameMax} / {@code scourgeMax}）；值键（{@code coreflame} / {@code scourge}）
+     * 不带这个后缀，所以不会被误判。
+     *
+     * @param object 这一层的 JSON 对象
+     * @return 键名列表：上限键在前、其余在后（组内顺序仍是 JSON 的迭代顺序）
+     */
+    private static List<String> upperBoundFirst(JSONObject object) {
+        List<String> bounds = new ArrayList<>();
+        List<String> rest = new ArrayList<>();
+        for (String key : object.keySet()) {
+            if (key.length() > 3 && key.regionMatches(true, key.length() - 3, "max", 0, 3)) {
+                bounds.add(key);
+            } else {
+                rest.add(key);
+            }
+        }
+        bounds.addAll(rest);
+        return bounds;
     }
 
     /* ------------------------------------------------------------------

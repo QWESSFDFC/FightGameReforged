@@ -69,6 +69,66 @@ public class PlayerController extends UniversalController {
         return !GameMain.isInFight();
     }
 
+    /**
+     * 输入是不是 {@code next}（含缩写 {@code n}/{@code ne}/{@code nex}，忽略大小写）。
+     * <p>
+     * 这里的 {@code n} 是 {@code next}（现有约定）；目标选择这一步没有 {@code no}，
+     * 所以不存在"一个字母两个关键字"的歧义 —— 那边「是否使用物品?(yes/no)」只认 {@code yes}，
+     * 与这里互不影响。
+     *
+     * @param input 一行非命令输入
+     * @return 是否表示"结束选择"
+     */
+    private static boolean isNext(String input) {
+        if (input == null) {
+            return false;
+        }
+        String value = input.trim();
+        if ("n".equalsIgnoreCase(value)) {
+            return true;
+        }
+        return value.length() >= 2 && value.length() < "next".length()
+                && "next".regionMatches(true, 0, value, 0, value.length());
+    }
+
+    /**
+     * 把一行输入解析成下标列表，允许 {@code /} 或空白作分隔，例如 {@code 0/1/2}、{@code 0 1 2}。
+     * <p>
+     * 整行以 {@code /} 开头的是命令（由 {@link #nextLine()} 提前执行掉），不会走到这里。
+     *
+     * @param input 一行非命令输入
+     * @return 解析出的下标；含非数字时返回 {@code null}（调用方按"请输入数字"处理）
+     */
+    private static int[] parseIndices(String input) {
+        if (input == null || input.trim().isEmpty()) {
+            return null;
+        }
+        String[] parts = input.trim().split("[\\s/]+");
+        int[] indices = new int[parts.length];
+        for (int i = 0; i < parts.length; i++) {
+            try {
+                indices[i] = Integer.parseInt(parts[i]);
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        return indices;
+    }
+
+    /**
+     * 复制成"还是玩家控制器"的新实例。
+     * <p>
+     * 玩家控制器没有额外状态，复制语义全在 {@link UniversalController#copy(LivingThing)} 里；
+     * 这里重写只为一件事：<b>让副本还是玩家控制器</b>（否则副本会变成随机 AI 自己打）。
+     *
+     * @param newOwner 副本对应的实体
+     * @return 新的玩家控制器
+     */
+    @Override
+    public UniversalController copy(LivingThing newOwner) {
+        return new PlayerController(this, newOwner);
+    }
+
     @Override
     public void act(Fight fight) {
         String input;
@@ -188,54 +248,40 @@ public class PlayerController extends UniversalController {
                 }
             }
         }
-        selectedSkill.use(fight, getOwner(), new ArrayList<>(attacking));
-        EventBus.post(new SelectTargetEvent(getOwner(), new ArrayList<>(attacking), fight));
-    }
-
-    /**
-     * 输入是不是 {@code next}（含缩写 {@code n}/{@code ne}/{@code nex}，忽略大小写）。
-     * <p>
-     * 这里的 {@code n} 是 {@code next}（现有约定）；目标选择这一步没有 {@code no}，
-     * 所以不存在"一个字母两个关键字"的歧义 —— 那边「是否使用物品?(yes/no)」只认 {@code yes}，
-     * 与这里互不影响。
-     *
-     * @param input 一行非命令输入
-     * @return 是否表示"结束选择"
-     */
-    private static boolean isNext(String input) {
-        if (input == null) {
-            return false;
-        }
-        String value = input.trim();
-        if ("n".equalsIgnoreCase(value)) {
-            return true;
-        }
-        return value.length() >= 2 && value.length() < "next".length()
-                && "next".regionMatches(true, 0, value, 0, value.length());
-    }
-
-    /**
-     * 把一行输入解析成下标列表，允许 {@code /} 或空白作分隔，例如 {@code 0/1/2}、{@code 0 1 2}。
-     * <p>
-     * 整行以 {@code /} 开头的是命令（由 {@link #nextLine()} 提前执行掉），不会走到这里。
-     *
-     * @param input 一行非命令输入
-     * @return 解析出的下标；含非数字时返回 {@code null}（调用方按"请输入数字"处理）
-     */
-    private static int[] parseIndices(String input) {
-        if (input == null || input.trim().isEmpty()) {
-            return null;
-        }
-        String[] parts = input.trim().split("[\\s/]+");
-        int[] indices = new int[parts.length];
-        for (int i = 0; i < parts.length; i++) {
-            try {
-                indices[i] = Integer.parseInt(parts[i]);
-            } catch (NumberFormatException e) {
-                return null;
+        // 被嘲讽：技能目标是敌人时，把「嘲讽我的那些」**排到目标列表最前**，再截到技能的 aims 数。
+        // 与 AI 那边同一套语义（A 给 B 施加 → B 打人时优先打 A，见 TargetStrategies#tauntLevelFrom），
+        // 区别是玩家自己挑目标 —— 这里保证「嘲讽者一定在列表里」，但**不超过 aims**：
+        // 所以是"排前面再截断"，而不是"往后追加"（往后追加会让单目标技能打两个人）。
+        // 嘲讽者比 aims 还多时只能留下等级最高的那几个 —— 这是 aims 的硬约束，没办法。
+        if (selectedSkill.isForEnemies() && !attacking.isEmpty()) {
+            java.util.List<LivingThing> taunters = new ArrayList<>();
+            for (LivingThing each : availableList) {
+                if (cn.gfhnv.game.system.fight.TargetStrategies
+                        .tauntLevelFrom(getOwner(), each) > 0) {
+                    taunters.add(each);
+                }
+            }
+            if (!taunters.isEmpty()) {
+                // 等级高的更优先（与 TargetStrategies 里同一个口径）
+                taunters.sort(java.util.Comparator.comparingInt(
+                        (LivingThing each) -> cn.gfhnv.game.system.fight.TargetStrategies
+                                .tauntLevelFrom(getOwner(), each)).reversed());
+                java.util.List<LivingThing> merged = new ArrayList<>(taunters);
+                for (LivingThing each : attacking) {
+                    if (!merged.contains(each)) {
+                        merged.add(each);
+                    }
+                }
+                int aims = selectedSkill.getAims();
+                if (aims > 0 && merged.size() > aims) {
+                    merged = new ArrayList<>(merged.subList(0, aims));
+                }
+                attacking.clear();
+                attacking.addAll(merged);
             }
         }
-        return indices;
+        selectedSkill.use(fight, getOwner(), new ArrayList<>(attacking));
+        EventBus.post(new SelectTargetEvent(getOwner(), new ArrayList<>(attacking), fight));
     }
 
     @Override

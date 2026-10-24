@@ -109,23 +109,31 @@ public class TestCommandSystem {
                     "defenceEnhancePercent", "defenceEnhanceAmount",
                     "speedEnhancePercent", "speedEnhanceAmount",
                     "hpEnhancePercent", "hpEnhanceAmount",
-                    "criticalDMGEnhancePercent", "criticalDMGEnhanceAmount",
+                    "criticalDamageEnhancePercent", "criticalDamageEnhanceAmount",
                     "criticalRateEnhancePercent", "criticalRateEnhanceAmount",
                     // ③ 死字段：全项目零写入点（活的那套是 Skill#extraDamage）
                     "extraDamage",
                     // ④ 派生面板倍率：由角色构造器算（清了会永久削弱该角色）
                     "individualMultipleArea"));
     /**
+     * 抓回来的输出最多留这么多行（防止外层空转把内存打爆；断言只看前面这些行）。
+     */
+    private static final int MAX_CAPTURED_LINES = 200;
+    /**
      * 断言失败的条数。
      */
     private static int failures = 0;
+
+    /* ------------------------------------------------------------------
+     * 1. StringReader
+     * ------------------------------------------------------------------ */
     /**
      * 断言成功的条数。
      */
     private static int passes = 0;
 
     /* ------------------------------------------------------------------
-     * 1. StringReader
+     * 2. 实体选择器语法
      * ------------------------------------------------------------------ */
 
     /**
@@ -145,6 +153,7 @@ public class TestCommandSystem {
         testFlameReaverFactions();
         testFlameReaverPhaseTwo();
         testLivingThingAttributeContract();
+        testControllerCopy();
         testActorLiXiaoYan();
         testFollowActor();
         testSelectionInputSyntax();
@@ -159,6 +168,8 @@ public class TestCommandSystem {
         testReflectionDrivenConfig();
         testSkillDataPatch();
         testSkillCoefficients();
+        testAwakenNumbersExternalized();
+        testAiScoreBonus();
         testSkillRegistry();
         testSkillIdCoverage();
         testCombatLogColors();
@@ -177,7 +188,7 @@ public class TestCommandSystem {
     }
 
     /* ------------------------------------------------------------------
-     * 2. 实体选择器语法
+     * 3. 注册 + 执行
      * ------------------------------------------------------------------ */
 
     /**
@@ -198,7 +209,7 @@ public class TestCommandSystem {
     }
 
     /* ------------------------------------------------------------------
-     * 3. 注册 + 执行
+     * 4. 固定顺序 AI / 目标策略 / 嘲讽
      * ------------------------------------------------------------------ */
 
     /**
@@ -246,7 +257,7 @@ public class TestCommandSystem {
     }
 
     /* ------------------------------------------------------------------
-     * 4. 固定顺序 AI / 目标策略 / 嘲讽
+     * 5. 减伤（乘算叠加）
      * ------------------------------------------------------------------ */
 
     /**
@@ -270,10 +281,6 @@ public class TestCommandSystem {
             fail("选择器语法测试抛出异常：" + e);
         }
     }
-
-    /* ------------------------------------------------------------------
-     * 5. 减伤（乘算叠加）
-     * ------------------------------------------------------------------ */
 
     /**
      * 注册官方命令，造一场假战斗，然后跑一批命令。
@@ -941,21 +948,25 @@ public class TestCommandSystem {
             check("冷却语义统一：带目标技能释放后 nowCoolDown = coolDown",
                     pointKill != null && pointKill.getCoolDown() == 0 && pointKill.getNowCoolDown() == 0);
 
-            // ⑦ 嘲讽：把乙虫标成嘲讽目标，tauntAware 会把它排到最前
-            bugB.addEffect(new Taunt(3));
-            check("嘲讽等级从效果里读出来（Taunt(3) → 等级 1）",
-                    TargetStrategies.tauntLevelOf(bugB) == 1);
-            attacker.setTargetStrategy(TargetStrategies.tauntAware(TargetStrategies.first()));
+            // ⑦ 嘲讽（2026-10-04 重做）：**A 给 B 施加 → B 打人时优先打 A**。
+            //    所以效果挂在**攻击者（hero）**身上、origin 记**施加者的 uuid**。
+            //    旧实现把方向搞反了（查"目标身上有没有嘲讽"），嘲讽从来没生效过。
+            hero.addEffect(new Taunt(1, 3).setOrigin(bugB.getUUID()));
+            check("嘲讽：能从攻击者身上读出「乙虫嘲讽了我」（按 origin 认人，不是看目标身上有没有）",
+                    TargetStrategies.tauntLevelFrom(hero, bugB) == 1
+                            && TargetStrategies.tauntLevelFrom(hero, bugA) == 0);
+            // 故意用**没包装过**的 first()：默认策略就该自带嘲讽感知（以前必须自己包 tauntAware 才生效）
+            attacker.setTargetStrategy(TargetStrategies.first());
             actionLog.clear();
             attacker.act(fight);
-            check("嘲讽：优先打带嘲讽的乙虫（即使它不是第一个）",
+            check("嘲讽：优先打嘲讽我的乙虫（即使它不是候选里的第一个，而且没手动包 tauntAware）",
                     actionLog.size() == 1 && actionLog.get(0).equals("点杀→乙虫"));
 
             // ⑧ 嘲讽等级高的更优先
-            bugA.addEffect(new Taunt(2, 3));
+            hero.addEffect(new Taunt(2, 3).setOrigin(bugA.getUUID()));
             actionLog.clear();
             attacker.act(fight);
-            check("嘲讽等级高的更优先（甲虫等级 2 > 乙虫等级 1）",
+            check("嘲讽等级高的更优先（甲虫说等级 2 > 乙虫等级 1）",
                     actionLog.size() == 1 && actionLog.get(0).equals("点杀→甲虫"));
 
             // ⑨ 嘲讽效果已注册（/effect 里能直接加）
@@ -1040,7 +1051,8 @@ public class TestCommandSystem {
             long zeroed = DamageCalculate.calculate(attacker, dummy, probe);
             check("减伤 100% 时伤害为 0（不是负数，也就不会变成治疗）", zeroed == 0);
 
-            // ---- 抗性 / 穿透也是乘算：(1 − 抗性) × (1 + 穿透) ----
+            // ---- 抗性 / 穿透：**先抵后乘** —— 有效抗性 = 抗性 − 穿透，再乘 (1 − 有效抗性) ----
+            // （2026-10-04 用户要求改的语义：穿透是"抵消除抗性"，不是"额外增伤"）
             // 虫子的元素是金，金属抗性 0.95；用同族虫子当靶子，数值可控
             LivingThing metalAttacker = new CommonInsect(100L).copy();
             metalAttacker.setCriticalRate(-1);
@@ -1048,10 +1060,31 @@ public class TestCommandSystem {
             long resistant = DamageCalculate.calculate(metalAttacker, metalVictim, probe);
             check("抗性 95% 时伤害很低但大于 0（测试前提）", resistant > 0);
 
+            // 抗性 0.95 − 穿透 0.5 = 有效抗性 0.45 → 乘数从 0.05 变成 0.55，即 ×11
+            // （用 10% 容差：resistant 是**取整后**的伤害，再乘 11 会放大取整误差）
             metalAttacker.setPenetration(0.5);
             long pierced = DamageCalculate.calculate(metalAttacker, metalVictim, probe);
-            check("穿透 50% → 伤害 ×1.5（乘算，不是和抗性相加）",
-                    Math.abs(pierced - resistant * 1.5) <= 2);
+            long expectedPierced = resistant * 11;
+            check("穿透 50% 抵消抗性：有效抗性 0.95 → 0.45，乘数由 0.05 变 0.55（约 ×11）—— 实际 "
+                            + pierced + " vs " + resistant,
+                    Math.abs(pierced - expectedPierced) <= Math.max(3, expectedPierced / 10));
+
+            // 抗性 0 时穿透**完全无效**（这就是新语义；旧行为是 ×1.5）
+            metalAttacker.setPenetration(0);
+            metalVictim.setMetalResistance(0);
+            long noResistanceNoPen = DamageCalculate.calculate(metalAttacker, metalVictim, probe);
+            metalAttacker.setPenetration(0.5);
+            long noResistanceWithPen = DamageCalculate.calculate(metalAttacker, metalVictim, probe);
+            check("抗性 0 时穿透**完全无效**（穿透不是额外增伤）—— 无穿透 " + noResistanceNoPen
+                            + " / 有穿透 " + noResistanceWithPen,
+                    Math.abs(noResistanceWithPen - noResistanceNoPen) <= 2);
+
+            // 抗性 0.5 + 穿透 0.5 = 有效抗性 0 → 正好抵消，伤害与"无抗性无穿透"一致
+            metalVictim.setMetalResistance(0.5);
+            metalAttacker.setPenetration(0.5);
+            long exactlyCancelled = DamageCalculate.calculate(metalAttacker, metalVictim, probe);
+            check("抗性 50% + 穿透 50% = 正好抵消（回到无抗性无穿透的伤害）—— 实际 " + exactlyCancelled,
+                    Math.abs(exactlyCancelled - noResistanceNoPen) <= 2);
 
             metalAttacker.setPenetration(0);
             metalVictim.setMetalResistance(0);
@@ -1371,8 +1404,10 @@ public class TestCommandSystem {
                 !victim.isAlive());
         check("只挨一次打③：免死标志没有停在 true（停了就是永久锁 1 血 = 白厄无敌）",
                 !awakened.isPendingLastAttack());
-        check("只挨一次打③：白厄自己也没被打死（免死把这一击拦在 1 血）",
-                awakened.getHp() == 1 && awakened.isAlive());
+        check("只挨一次打③：白厄自己也没被打死（免死先把这一击拦在 1 血，"
+                        + "再由退出协议按 +25% 回血 —— 所以最终血不是恰好 1）—— 实际 "
+                        + awakened.getHp() + " 血",
+                awakened.isAlive() && awakened.getHp() > 0);
         check("只挨一次打③：变身已经退掉之后再挨打也不会再排一刀（觉醒状态没了，免死不再武装）",
                 !awakened.isAwaken() && !awakened.isPendingLastAttack());
     }
@@ -1405,7 +1440,7 @@ public class TestCommandSystem {
         Phainon first = new Phainon(125);
         Phainon second = new Phainon(125);
         // ③ 单独用一只"干净"的白厄：①② 那两只已经被退出协议改过加成（各减一次 0.8 / 2.7），
-        // 再拿它们算 +25% 回血会被变小的 hpMax 夹掉，看不出"有没有重复回血"。
+        // 再拿它们算 +25% 回血会被变小的 baseHpMax 夹掉，看不出"有没有重复回血"。
         Phainon solo = new Phainon(125);
         first.setName("白厄甲");
         second.setName("白厄乙");
@@ -1450,7 +1485,7 @@ public class TestCommandSystem {
 
             // ③ 同一个白厄：同一个事件走两遍，退出协议只执行一次（三处不幂等的效果不重复加）
             // ⚠️ 这一只用**新鲜**的白厄，并把生命加成摆成 5.4：退出协议减 2.7 之后还剩 +2.7，
-            //    上限不塌（塌了就会把血夹到 0，那正是第二遍执行时的样子 —— 实测 hp=0、hpMax=-6453）。
+            //    上限不塌（塌了就会把血夹到 0，那正是第二遍执行时的样子 —— 实测 hp=0、baseHpMax=-6453）。
             //    「回血」读的是**减加成之前**的上限（退出协议先把加成减掉、再按旧上限回血），
             //    回完之后再被**新上限**夹一次 —— 期望值按这个顺序算，不然会误判。
             solo.setHpEnhancePercent(5.4);
@@ -1650,16 +1685,26 @@ public class TestCommandSystem {
             rewardProbe.setName("奖励探针");
             double enhanceBefore = rewardProbe.getEnhance();
             boss.grantContainerReward(rewardProbe);
-            check("完整容器奖励：增伤按 ContainerReward 的比例加上去了（+0.4）",
+            check("完整容器奖励：增伤按「破容器之赏」的比例加上去了（+0.4）",
                     Math.abs(rewardProbe.getEnhance() - (enhanceBefore + 0.4)) < 1e-9);
             double afterFirst = rewardProbe.getEnhance();
-            // 再调一次"获得时"的钩子，验证 applied 标记挡住了重复叠加
+            // 再调一次"获得时"的钩子，验证 isOn 标记挡住了重复叠加。
+            // ⚠️ 按【类 + 有没有起名】找，别按 id 找：效果进 addEffect 之后 id 会被框架
+            //    按类补成 `game_official_content:damageEnhanceEffect`，
+            //    真正区分「破容器之赏」和普通增伤的是**显示名**。
+            cn.gfhnv.game.effect.Effect rewardEffect = null;
             for (cn.gfhnv.game.effect.Effect each : rewardProbe.getEntityEffectList()) {
-                if (each instanceof cn.gfhnv.game.officialStuff.customEffect.flameReaverEffects.ContainerReward) {
+                if (each instanceof cn.gfhnv.game.officialStuff.customEffect.universalEffects.DamageEnhanceEffect
+                        && each.hasCustomName()) {
+                    rewardEffect = each;
                     each.comeIntoEffect(rewardProbe);
                 }
             }
-            check("完整容器奖励：重复触发不会叠加（applied 标记）",
+            check("完整容器奖励：效果确实是 `DamageEnhanceEffect`，而且带上了名字「破容器之赏」",
+                    rewardEffect instanceof cn.gfhnv.game.officialStuff.customEffect.universalEffects.DamageEnhanceEffect
+                            && "破容器之赏".equals(rewardEffect.getName())
+                            && rewardEffect.hasCustomName());
+            check("完整容器奖励：重复触发不会叠加（isOn 标记）",
                     Math.abs(rewardProbe.getEnhance() - afterFirst) < 1e-9);
 
             // ⑦ 【沉默的悲叹】的"下次行动延后 100%"：两种路径都真的生效
@@ -2347,7 +2392,7 @@ public class TestCommandSystem {
             // 「临时属性」：用户 2026-10-03 拍板 —— 这些是<b>一次性 / 战中的加成</b>，
             // copy() 刻意<b>不</b>带过去；对应地 whenFightEnds() 必须把它们清零（两张表互补）。
             // 23 个按「谁在写」分三类（2026-10-03 逐个查过写入点，细节见
-            // LivingThing#clearTemporaryAttributes 的 javadoc）：
+            // AttributeProfile#resetTemporary 的 javadoc）：
             //   ① 效果写的 12 个 *Enhance*（六个通用强化效果成对加减 + 白厄变身自己加减）
             //   ② 预留未接线的 10 个（五元素穿透 / 五元素增伤，全项目零写入点）
             //   ③ 死字段 1 个（extraDamage —— 活的那套是 Skill#extraDamage，另一个字段）
@@ -2358,18 +2403,23 @@ public class TestCommandSystem {
                     "metalDamageEnhance", "woodDamageEnhance", "waterDamageEnhance",
                     "fireDamageEnhance", "dirtDamageEnhance",
                     "attackEnhancePercent", "defenceEnhancePercent", "speedEnhancePercent",
-                    "hpEnhancePercent", "criticalDMGEnhancePercent", "criticalDMGEnhanceAmount",
+                    "hpEnhancePercent", "criticalDamageEnhancePercent", "criticalDamageEnhanceAmount",
                     "criticalRateEnhancePercent", "criticalRateEnhanceAmount",
                     "attackEnhanceAmount", "defenceEnhanceAmount",
                     "speedEnhanceAmount", "hpEnhanceAmount"));
             // 刻意<b>不</b>复制的另一类：只读试算标志。副本必须是一个干净的新个体
             java.util.Set<String> notCopiedOnPurpose = new java.util.HashSet<>(
                     java.util.Arrays.asList("anticipating"));
-            // 「面板属性」：与临时属性互补的那一半 —— 由角色自己的构造器/派生算法写出来
-            // （individualMultipleArea 由 ActorLiXiaoYan 按【燃点】算），<b>必须复制</b>、
-            // <b>绝不能清零</b>（清成 0 会永久削弱该角色）。今天就这一个。
-            java.util.Set<String> panelAttributes = new java.util.HashSet<>(
-                    java.util.Arrays.asList("individualMultipleArea"));
+            // 「面板属性」：与临时属性互补的那一半 —— 配置 / 构造出来、跟着副本走，
+            // <b>必须复制</b>、<b>绝不能清零</b>（清成 0 会永久削弱该角色）。
+            // 面板组那 9 个基础值是 2026-10-24 搬进 AttributeProfile 的（第 3 步），
+            // individualMultipleArea 由角色按【燃点】算出来（ActorLiXiaoYan:122/224）。
+            // ⚠️ hp 是这里唯一"复制 + 每局补满"的：whenFightEnds 自己 setHp(getHpMax())，
+            // 所以下面"不清零"那张表要把它排除（它是**故意**被改的，不是被清零）。
+            java.util.Set<String> panelAttributes = new java.util.HashSet<>(java.util.Arrays.asList(
+                    "hp", "baseHpMax", "baseAttack", "baseDefence", "baseSpeed", "baseCriticalRate",
+                    "hpGrow", "attackGrow", "defenceGrow", "element",
+                    "defenceLoss", "individualMultipleArea"));
 
             PlayerOne template = new PlayerOne(125);
             List<ScalarSlot> scalars = scalarSlotsOf(template);
@@ -2385,7 +2435,10 @@ public class TestCommandSystem {
             check("前提：扫描范围下潜进了 @DataFlatten 组件（搬走的属性没从契约里静默消失）",
                     scannedNames.containsAll(java.util.Arrays.asList(
                             "metalResistance", "metalPenetration", "metalDamageEnhance",
-                            "metalManaGrow", "penetration", "enhance", "criticalDMG")));
+                            "metalManaGrow", "penetration", "enhance", "baseCriticalDamage",
+                            "attackEnhancePercent", "hpEnhanceAmount", "alive",
+                            "hp", "baseHpMax", "baseAttack", "baseDefence", "baseSpeed", "baseCriticalRate",
+                            "hpGrow", "attackGrow", "defenceGrow", "element")));
 
             for (ScalarSlot slot : scalars) {
                 if (notCopiedOnPurpose.contains(slot.field().getName())) continue;
@@ -2420,6 +2473,21 @@ public class TestCommandSystem {
 
             check("copy()：面板属性 individualMultipleArea 被带过去了（它不在临时属性表里）",
                     copied.getIndividualMultipleArea() == template.getIndividualMultipleArea());
+
+            // 法力表是**深拷贝**：副本必须拿到**另一批** Mana 对象。
+            // 浅拷贝的话模板与副本会共享同一批蓝条 —— 选人时改一个人的蓝，另一个也跟着变，
+            // 而且模板会被一局一局地改掉（这条在字段搬进组件时最容易丢）。
+            PlayerOne manaTemplate = new PlayerOne(125);
+            LivingThing manaCopy = manaTemplate.copy();
+            double manaBefore = manaCopy.getManas().get(0).getAmount();
+            manaTemplate.getManas().get(0).setAmount(123.0d);
+            check("copy()：法力表是深拷贝（副本的 Mana 是另一批对象，改模板的蓝不会传到副本）—— "
+                            + "模板 " + manaTemplate.getManas().get(0).getAmount()
+                            + " / 副本 " + manaCopy.getManas().get(0).getAmount(),
+                    manaTemplate.getManas().size() == manaCopy.getManas().size()
+                            && manaTemplate.getManas().get(0) != manaCopy.getManas().get(0)
+                            && manaCopy.getManas().get(0).getAmount() == manaBefore
+                            && manaTemplate.getManas().get(0).getAmount() == 123.0d);
 
             List<String> staleNames = new ArrayList<>();
             for (String name : temporaryAttributes) {
@@ -2503,15 +2571,100 @@ public class TestCommandSystem {
             check("whenFightEnds()：临时属性全部复位（没复位的 = 会渗进下一局的）—— 没复位的 "
                     + notReset, notReset.isEmpty());
 
-            // 面板属性反过来：整场结束**不能**把它清掉，否则那个角色被永久削弱
+            // 面板属性反过来：整场结束**不能**把它们清掉，否则那个角色被永久削弱。
+            // ⚠️ hp 排除在外：whenFightEnds 会 setHp(getHpMax()) 把它**故意补满**
+            // （那条断言在上面："whenFightEnds()：生命补满"）。
             PlayerOne panelProbe = new PlayerOne(125);
             panelProbe.setIndividualMultipleArea(7.5d);
+            List<ScalarSlot> panelSlots = scalarSlotsOf(panelProbe);
+            java.util.Map<String, Object> panelBefore = new java.util.LinkedHashMap<>();
+            for (ScalarSlot slot : panelSlots) {
+                String name = slot.field().getName();
+                if (!panelAttributes.contains(name) || "hp".equals(name)) continue;
+                slot.field().setAccessible(true);
+                Object probe = probeValueFor(slot.field().getType());
+                slot.field().set(slot.owner(), probe);
+                panelBefore.put(name, probe);
+            }
+            check("前提：面板属性都设成了非默认值（下面那条「不清零」才有信息量）—— 实设 "
+                            + panelBefore.size() + " 个：" + panelBefore.keySet(),
+                    panelBefore.size() >= 9);
             panelProbe.whenFightEnds();
+            List<String> cleared = new ArrayList<>();
+            for (ScalarSlot slot : panelSlots) {
+                String name = slot.field().getName();
+                if (!panelBefore.containsKey(name)) continue;
+                slot.field().setAccessible(true);
+                if (!panelBefore.get(name).equals(slot.field().get(slot.owner()))) cleared.add(name);
+            }
+            check("whenFightEnds()：面板属性（含 elementSort）一个都不清（清了就是永久削弱角色）—— 被清掉的 "
+                    + cleared, cleared.isEmpty());
             check("whenFightEnds()：面板属性 individualMultipleArea 不被清零（清了就是永久削弱角色）",
                     panelProbe.getIndividualMultipleArea() == 7.5d);
+            check("whenFightEnds()：hp 是面板组里唯一被**故意**改的（补满到上限，不是清零）—— hp "
+                            + panelProbe.getHp() + " / 上限 " + panelProbe.getHpMax(),
+                    panelProbe.getHp() == panelProbe.getHpMax());
         } catch (Exception e) {
             check("实体属性契约测试不该抛异常，实际抛了：" + e, false);
             e.printStackTrace();
+        }
+    }
+
+    /**
+     * 控制器复制的契约（2026-10-24）：副本的控制器必须<b>还是原来那种</b>、技能是<b>新实例</b>、
+     * 而且<b>绑在副本上</b>。
+     * <p>
+     * <b>为什么要有这条</b>：以前这段逻辑是 {@code LivingThing} 复制构造器里的一串
+     * {@code instanceof}（玩家 / 思维 AI / 固定顺序 / 通用各来一支）—— 每加一种控制器都得回去改那个类，
+     * 漏改就<b>静默退化成随机 AI</b>（固定顺序的 BOSS 一进战斗就乱打，而且不报错）。
+     * 现在每种控制器重写 {@link UniversalController#copy(LivingThing)}，
+     * 所以这里按<b>类</b>一一比对 —— 以后谁加了新控制器却不重写 {@code copy()}，这条会红。
+     */
+    private static void testControllerCopy() {
+        section("控制器复制：类型不变 + 技能是新实例 + 绑到新实体");
+
+        // ① 全注册表扫一遍：每个模板 copy() 之后控制器类名必须一致
+        List<String> changed = new ArrayList<>();
+        List<String> seen = new ArrayList<>();
+        for (LivingThing template : World.getLivingEntityList()) {
+            if (template.getController() == null) {
+                continue;
+            }
+            LivingThing copy = template.copy();
+            String before = template.getController().getClass().getSimpleName();
+            String after = copy.getController() == null ? "null" : copy.getController().getClass().getSimpleName();
+            if (!seen.contains(before)) {
+                seen.add(before);
+            }
+            if (!before.equals(after)) {
+                changed.add(template.getId() + "：" + before + " → " + after);
+            }
+        }
+        check("控制器复制：注册表里每个模板 copy() 之后控制器**类型不变**"
+                        + "（漏重写 copy() 就会静默退化成随机 AI）—— 覆盖 " + seen + "，变了 " + changed,
+                !seen.isEmpty() && changed.isEmpty());
+
+        // ② 技能是新实例：冷却 / 消耗记在副本自己那份上，不会污染模板
+        PlayerOne skillTemplate = new PlayerOne(125);
+        LivingThing skillCopy = skillTemplate.copy();
+        check("控制器复制：副本拿到**另一批**技能实例（冷却记在自己那份上，不污染模板）",
+                !skillCopy.getController().getSkills().isEmpty()
+                        && skillCopy.getController().getSkills().get(0)
+                        != skillTemplate.getController().getSkills().get(0));
+
+        // ③ 控制器必须绑在**副本**上（绑错的话技能与效果会算到原实体身上）
+        check("控制器复制：控制器绑在**副本**上（owner 指回新实体）",
+                skillCopy.getController().getOwner() == skillCopy
+                        && skillTemplate.getController().getOwner() == skillTemplate);
+
+        // ④ 固定顺序的轮转表也得跟过去（类型对但轮转丢了 = 打法还是变了）
+        LivingThing bossTemplate = entityTemplateOf("game_official_content:flameReaver");
+        if (bossTemplate != null && bossTemplate.getController() instanceof FixOrderController original) {
+            LivingThing bossCopy = bossTemplate.copy();
+            FixOrderController copied = bossCopy.getController() instanceof FixOrderController fix ? fix : null;
+            check("控制器复制：固定顺序的轮转表跟着走（副本仍按同一顺序出手）—— 轮转 "
+                            + (copied == null ? "（副本已退化成别的控制器！）" : copied.getRotationNames()),
+                    copied != null && copied.getRotationNames().equals(original.getRotationNames()));
         }
     }
 
@@ -2832,6 +2985,26 @@ public class TestCommandSystem {
     }
 
     /**
+     * 选择状态机（{@link cn.gfhnv.game.GameMain.SelectionFlow#selectBatch}）的<b>纯函数</b>级断言：
+     * 输入由 {@code InputReader} 的脚本构造器直接喂，<b>一个字节的标准输入都不读</b>。
+     * <p>
+     * <b>它为什么必须存在</b>：上一轮"缩写 + 一行多个"只验了"这些输入不是命令"，
+     * 状态机本身没有任何不读键盘的守卫，于是确认分支断了也没人知道；而补一条端到端断言的代价
+     * 是"脚本写短了就把整个自测挂住"（用户实测卡死就是这么来的）。
+     * 这一组是**闸门正确的**那一半：脚本用完时 {@code InputReader} 自己抛
+     * {@link java.util.NoSuchElementException}，断言只关心"返回的那一批对不对"。
+     *
+     * @author AI（DeepSeek）生成
+     */
+    /**
+     * <b>「单体伤害倍率」的多来源乘数</b>（与减伤同一套形状）：
+     * 按来源身份**覆盖**、聚合时**连乘**、战斗结束时清空来源（面板基础值不动）。
+     * <p>
+     * 以前这里只有一个 {@code double}：多个来源想一起改，只能各自
+     * {@code set(基础 × 自己那份)} —— 后来者会把先来者整个盖掉。
+     */
+
+    /**
      * 选人 / 选对手 / 选奖励那三段输入状态机，<b>端到端</b>跑真实的
      * {@link cn.gfhnv.game.GameMain#startAFight()}（2026-10-04 加）。
      * <p>
@@ -2854,6 +3027,8 @@ public class TestCommandSystem {
         /* ⓪ 先把状态机本身单独钉一遍：**完全不碰标准输入**（InputReader 走"脚本自己抛异常"
          *    那一格），所以哪怕脚本写短了也只是红一条，不会把整个自测挂住。 */
         testSelectBatchPure();
+        testIndividualMultipleAreaChain();
+        testDeadRemovedFromAllEntities();
 
         // 前提：注册表里那 9 个生物模板 + 9 件物品模板就是选人界面列出来的东西
         List<LivingThing> templates = World.getLivingEntityList();
@@ -2867,6 +3042,9 @@ public class TestCommandSystem {
         String secondName = templates.get(1).getName();
         String thirdName = templates.get(2).getName();
         String fifthName = templates.get(4).getName();
+        /* ④ / ④′ 喂的是下标 5（用户复现里就是 5/5/5/y），所以断言要认下标 5 的名字。
+         * 之前这里错用了 fifthName（= templates.get(4)），下标和名字差一位，断言必然假红。 */
+        String indexFiveName = templates.get(5).getName();
         String fifthDesc = templates.get(4).getDescription();
         String rewardDesc = itemTemplates.get(0).getDescription();
         String rewardName = itemTemplates.get(0).getName();
@@ -2892,8 +3070,8 @@ public class TestCommandSystem {
             check("① 单个确认：选中的是下标 1 那一只（打印了它的名字与介绍）",
                     out.contains(firstName) && out.contains(firstDesc));
             check("① 单个确认：整局只确认了一批角色（「已选角色:" + firstName + "」只出现一次，"
-                            + "y 没有被拆成两批）—— 实际 " + countOf(out, "已选角色:" + firstName) + " 次",
-                    countOf(out, "已选角色:" + firstName) == 1);
+                            + "y 没有被拆成两批）—— 实际 " + countConfirmed(out, firstName) + " 次",
+                    countConfirmed(out, firstName) == 1);
 
             /* 把"选中的东西到底加没加进队伍"钉死（输出是给人看的，这些是给机器看的） */
             List<Object> added = new ArrayList<>(World.getThings());
@@ -2927,24 +3105,27 @@ public class TestCommandSystem {
             check("③ 单个确认（下标 5）：没有退回「请先输入数字选择角色」",
                     !out.contains("请先输入数字选择角色"));
 
-            /* ④ 用户复现第三段：5/5/5/y → 重复下标静默去重 → 选 5 一次 → 确认 → 加入
-             * ⚠️ 这里只钉"整批一次确认、去重没报错"；**去重本身**（同一个下标只算一次）
-             *    由 testSelectBatchPure 的 ② / ②′ 钉 —— 那边用假候选表，不依赖
+            /* ④ 用户复现第三段：5/5/5/y → **同一个目标选三次**（允许重复）→ 整批一次确认 → 加三个
+             * ⚠️ 这里只钉"整批一次确认、重复没被当成输入错误"；"重复就是加多个"本身
+             *    由 testSelectBatchPure 的 ② 钉 —— 那边用假候选表，不依赖
              *    "第 5 个模板恰好是白厄"，断言也不会因为注册表顺序变了而假红。 */
             out = startAFightWithInput("next", "next", "next",
                     "5/5/5/y", "next", "0", "y", "next", "0", "y", "next");
             check("④ 批量确认：去重没有报错（重复下标不算「输入错误」）", !out.contains("输入错误"));
             check("④ 批量确认：整批当场确认并加入队伍（打印「已选:」）", out.contains("已选:"));
             check("④ 批量确认：整行一次确认（y 没有被拆成「先确认再重来」两批）—— 「已选角色:"
-                            + fifthName + "」出现 " + countOf(out, "已选角色:" + fifthName) + " 次",
-                    countOf(out, "已选角色:" + fifthName) == 1);
+                            + fifthName + "」出现 " + countConfirmed(out, indexFiveName) + " 次",
+                    countConfirmed(out, indexFiveName) == 1);
 
             /* ④′ 重复下标的另一半：**跨行**再写一遍同一个下标，也只算一次 */
             out = startAFightWithInput("next", "next", "next",
                     "5", "5", "y", "next", "0", "y", "next", "0", "y", "next");
-            check("④′ 跨行去重：同一个下标分两行选，也只算一次 —— 「已选角色:" + fifthName
-                            + "」出现 " + countOf(out, "已选角色:" + fifthName) + " 次",
-                    countOf(out, "已选角色:" + fifthName) == 1 && !out.contains("输入错误"));
+            /* ④′ 一行数字选完之后就进入「等确认」阶段，此时再敲数字是非法输入 ——
+             *    ⚠️ 所以「跨行重选同一个下标」在当前状态机下**不可达**，走不到去重那一步。
+             *    去重本身由 ② / ④（同一行内重复）钉住；这里钉的是"确认阶段敲数字 = 输入错误"。 */
+            check("④′ 确认阶段再敲数字 = 输入错误（跨行重选同一个下标到不了选人那一步）—— 「已选:"
+                            + indexFiveName + "」出现 " + countConfirmed(out, indexFiveName) + " 次",
+                    countConfirmed(out, indexFiveName) == 1 && out.contains("输入错误"));
 
             /* ⑤ 一行的分隔符语义：1/2/3/y = 选三个 + 当场确认整批 */
             out = startAFightWithInput("next", "next", "next",
@@ -2952,19 +3133,31 @@ public class TestCommandSystem {
             check("⑤ 一行多个：三个下标都打印了名字与介绍",
                     out.contains(firstName) && out.contains(secondName) && out.contains(thirdName)
                             && out.contains(firstDesc));
-            check("⑤ 一行多个：三个一次性确认（确认提示里写着 3 个）", out.contains("(3 个)"));
+            /* ⑤ 只看**第一条**确认行（选角色那一批）：后面选对手、选奖励也各会打一条「已选:」，
+             *    所以不能拿全局 countOf 数"确认了几批"。 */
+            String firstConfirmLine = java.util.Arrays.stream(out.split("\n"))
+                    .map(String::trim)
+                    .filter(line -> line.startsWith("已选:"))
+                    .findFirst()
+                    .orElse("<没有已选:行>");
+            String pickedThird = templates.get(3).getName();
+            check("⑤ 一行多个：三个下标一次确认（确认行里三个名字都在）—— 实际第一行「"
+                            + firstConfirmLine + "」，期望含 " + secondName + " / " + thirdName
+                            + " / " + pickedThird,
+                    firstConfirmLine.contains(secondName) && firstConfirmLine.contains(thirdName)
+                            && firstConfirmLine.contains(pickedThird));
 
             /* ⑥ n 的语义一个字没变（老代码里 n 先匹配 next，两个阶段都是收口）、
              *    而"放弃这一批"要写全 no —— 这条就是文档 §5.10 与代码不一致过的那个点 */
             out = startAFightWithInput("next", "next", "next",
                     "1", "n", "1", "no", "1", "y", "next", "0", "y", "next", "0", "y", "next");
             check("⑥ 确认阶段：单个 n = next（跳过确认、不加入，也没有被当成「缺数字」）",
-                    !out.contains("请先输入数字选择") && countOf(out, "已选角色:" + firstName) == 1);
+                    !out.contains("请先输入数字选择") && countConfirmed(out, firstName) == 1);
             check("⑥ 确认阶段：写全的 no = 放弃这一批（打印「放弃已选:」）",
                     out.contains("放弃已选:"));
             check("⑥ 放弃之后重选同一个下标仍然选得上 —— 确认行出现 "
-                            + countOf(out, "已选角色:" + firstName) + " 次",
-                    countOf(out, "已选角色:" + firstName) == 1 && out.contains("已选:"));
+                            + countConfirmed(out, firstName) + " 次",
+                    countConfirmed(out, firstName) == 1 && out.contains("已选:"));
 
             /* ⑦ next 前进：每一段都要能被 next 收口，否则整局卡在选择界面 */
             out = startAFightWithInput("next", "next", "next",
@@ -2997,13 +3190,13 @@ public class TestCommandSystem {
                     "1/y/2", "next", "0", "y", "next", "0", "y", "next");
             check("⑨ 多余段丢弃：y 之后同一行的 2 没有被并进这一批（确认行里只有第一个）"
                             + "—— 实际「已选角色:" + firstName + "」",
-                    countOf(out, "已选角色:" + firstName) == 1);
+                    countConfirmed(out, firstName) == 1);
             check("⑨ 多余段丢弃：确认本身照常成功", out.contains("已选:"));
             out = startAFightWithInput("next", "next", "next",
                     "1/next/2", "1", "y", "next", "0", "y", "next", "0", "y", "next");
             check("⑨ 收口后的残留段确实丢掉了：next 后面的 2 没生效（确认行里只有第一个），"
                             + "而选择阶段读到 1 时照旧算数",
-                    countOf(out, "已选角色:" + firstName) == 1 && out.contains("已选:"));
+                    countConfirmed(out, firstName) == 1 && out.contains("已选:"));
 
             /* ⑩ 奖励那一段与角色 / 对手共用同一套状态机（只有介绍那一行） */
             out = startAFightWithInput("next", "next", "next",
@@ -3034,9 +3227,9 @@ public class TestCommandSystem {
             out = startAFightWithInput("next", "next", "next",
                     "1", "no", "1", "yes", "next", "2", "yes", "next", "0", "yes", "next");
             check("⑬ 老写法：no 照旧是「放弃这一批」（放弃之后重选同一个下标，确认行只出现一次）—— "
-                            + "「已选角色:" + firstName + "」出现 "
-                            + countOf(out, "已选角色:" + firstName) + " 次",
-                    out.contains("放弃已选:") && countOf(out, "已选角色:" + firstName) == 1);
+                            + "「已选:" + secondName + "」出现 "
+                            + countConfirmed(out, secondName) + " 次",
+                    out.contains("放弃已选:") && countConfirmed(out, secondName) == 1);
 
             /* ⚠️ 没验的：quit / q 会 System.exit(0)，会把整个自测进程带走，所以这里不喂它
              *    （关键字判定本身由 testSelectionInputSyntax 钉住）。 */
@@ -3058,17 +3251,93 @@ public class TestCommandSystem {
     }
 
     /**
-     * 选择状态机（{@link cn.gfhnv.game.GameMain.SelectionFlow#selectBatch}）的<b>纯函数</b>级断言：
-     * 输入由 {@code InputReader} 的脚本构造器直接喂，<b>一个字节的标准输入都不读</b>。
+     * <b>尸体清理</b>：{@code allEntities} 要摘掉死者（{@code /list} 与 {@code @e} 读的就是这条），
+     * 而战斗逻辑读的 {@code fighterList} / {@code enemiesList} <b>不动</b>。
      * <p>
-     * <b>它为什么必须存在</b>：上一轮"缩写 + 一行多个"只验了"这些输入不是命令"，
-     * 状态机本身没有任何不读键盘的守卫，于是确认分支断了也没人知道；而补一条端到端断言的代价
-     * 是"脚本写短了就把整个自测挂住"（用户实测卡死就是这么来的）。
-     * 这一组是**闸门正确的**那一半：脚本用完时 {@code InputReader} 自己抛
-     * {@link java.util.NoSuchElementException}，断言只关心"返回的那一批对不对"。
-     *
-     * @author AI（DeepSeek）生成
+     * 不清的话，打久了（尤其盗火行者那种一直召唤容器的 BOSS）{@code /list} 里全是死人和残骸。
      */
+    private static void testDeadRemovedFromAllEntities() {
+        section("尸体清理：allEntities 摘掉死者，fighterList 不动");
+
+        LivingThing aliveProbe =
+                new cn.gfhnv.game.officialStuff.customEntity.players.PlayerOne(100).copy();
+        LivingThing deadProbe =
+                new cn.gfhnv.game.officialStuff.customEntity.monsters.CommonInsect(100L).copy();
+
+        java.util.List<LivingThing> fighters = new java.util.ArrayList<>();
+        fighters.add(aliveProbe);
+        java.util.List<LivingThing> enemies = new java.util.ArrayList<>();
+        enemies.add(deadProbe);
+        cn.gfhnv.game.system.fight.Fight fight =
+                new cn.gfhnv.game.system.fight.Fight(enemies, new java.util.ArrayList<>(), fighters);
+        fight.setAllEntities(new java.util.ArrayList<>(java.util.List.of(aliveProbe, deadProbe)));
+
+        // ⚠️ 必须把血打到 0，不能只 setAlive(false)：isAlive() 里"hp > 0 就强制 alive = true"，
+        //    直接设标志会被下一次 isAlive() 覆盖回去。
+        deadProbe.setHp(0);
+        int removed = fight.removeDeadFromAllEntities();
+        check("allEntities：死者被摘掉（返回摘掉了 " + removed + " 个）",
+                removed == 1 && fight.getAllEntities().size() == 1);
+        check("allEntities：留下的是活的那个", fight.getAllEntities().contains(aliveProbe));
+        check("fighterList / enemiesList **不动**（那是战斗逻辑在读的，半路摘人会改变技能打谁）",
+                fight.getFighterList().contains(aliveProbe)
+                        && fight.getEnemiesList().contains(deadProbe));
+    }
+
+    private static void testIndividualMultipleAreaChain() {
+        section("单体伤害倍率：多来源乘数（与减伤同形）");
+
+        cn.gfhnv.game.entity.LivingThing probe =
+                new cn.gfhnv.game.officialStuff.customEntity.players.PlayerOne(100).copy();
+        probe.setIndividualMultipleArea(2.0);
+
+        Object sourceA = new Object();
+        Object sourceB = new Object();
+
+        check("乘区①：没有来源时 = 面板基础值（行为与以前逐位相同）",
+                Math.abs(probe.getIndividualMultipleArea() - 2.0) < 1e-9);
+
+        probe.addIndividualMultipleArea(sourceA, 1.5);
+        check("乘区②：挂一个来源 → 基础 × 1.5 —— 实际 " + probe.getIndividualMultipleArea(),
+                Math.abs(probe.getIndividualMultipleArea() - 3.0) < 1e-9);
+
+        probe.addIndividualMultipleArea(sourceB, 2.0);
+        check("乘区③：两个来源是**连乘**（2.0 × 1.5 × 2.0 = 6.0，不是相加的 5.5）—— 实际 "
+                        + probe.getIndividualMultipleArea(),
+                Math.abs(probe.getIndividualMultipleArea() - 6.0) < 1e-9);
+
+        probe.addIndividualMultipleArea(sourceA, 0.5);
+        check("乘区④：同一个来源再挂一次是**覆盖**（不是叠加）—— 实际 "
+                        + probe.getIndividualMultipleArea(),
+                Math.abs(probe.getIndividualMultipleArea() - 2.0) < 1e-9);
+
+        // ⚠️ 先摘再拼消息：直接写在 check 的两个参数里的话，消息会在 remove 之前算出来，
+        //    失败时打出的"实际"是**删除前**的值 —— 那种消息比没有还坑。
+        boolean removedB = probe.removeIndividualMultipleArea(sourceB);
+        check("乘区⑤：能按来源摘掉其中一个（2.0 × 0.5 = 1.0）—— 实际 "
+                        + probe.getIndividualMultipleArea(),
+                removedB && Math.abs(probe.getIndividualMultipleArea() - 1.0) < 1e-9);
+
+        probe.addIndividualMultipleArea(sourceB, 3.0);
+        probe.clearIndividualMultipleAreaModifiers();
+        check("乘区⑥：clear 之后只剩面板基础值",
+                Math.abs(probe.getIndividualMultipleArea() - 2.0) < 1e-9);
+
+        probe.addIndividualMultipleArea(sourceA, 4.0);
+        probe.whenFightEnds();
+        check("乘区⑦：whenFightEnds() 清掉**来源乘数**，但面板基础值不清（清了就是永久削弱角色）"
+                        + "—— 实际 " + probe.getIndividualMultipleArea(),
+                Math.abs(probe.getIndividualMultipleArea() - 2.0) < 1e-9);
+
+        // 来源乘数跟着副本走（复制构造器原来 `addAll` 那一行就是唯一保证）——
+        // 那张表搬进属性组件之后这条要一起跟过去，否则副本会丢掉"挂着的那几层加成"。
+        probe.addIndividualMultipleArea(sourceA, 1.5);
+        LivingThing areaCopy = probe.copy();
+        check("乘区⑧：来源乘数**跟着副本走**（copy() 之后副本的生效值也含这层加成）—— 实际 "
+                        + areaCopy.getIndividualMultipleArea(),
+                Math.abs(areaCopy.getIndividualMultipleArea() - 3.0) < 1e-9);
+    }
+
     private static void testSelectBatchPure() {
         section("选择状态机（纯函数级：不读标准输入）");
 
@@ -3081,16 +3350,16 @@ public class TestCommandSystem {
         check("① 纯：确认的就是下标 1 那一个 —— 实际 " + draft.things(),
                 draft.things().equals(List.of("乙")));
 
-        // ② 重复下标（同一行里写三遍）：只算一次，且不报错
+        // ② 重复下标（同一行里写三遍）：**允许重复** —— 写几遍就加几个
         draft = selectBatch(candidates, "2/2/2/y");
-        check("② 纯：同一行里同一个下标写三遍 = 只算一次 —— 实际 " + draft.things(),
-                draft.things().equals(List.of("丙")));
-        check("② 纯：去重账本记的是下标（每个候选都换成了新对象也不会重复）",
+        check("② 纯：同一行里同一个下标写三遍 = 加三个（允许重复选同一个目标）—— 实际 " + draft.things(),
+                draft.things().equals(List.of("丙", "丙", "丙")));
+        check("② 纯：账本记的是下标（Set 会折叠成一个 2，但那只是账本，不再影响重复加入）",
                 draft.chosen().equals(java.util.Set.of(2)));
 
-        // ②′ 跨行的重复下标也只算一次
+        // ②′ 一行数字选完就进「等确认」，此时再敲数字是非法输入 —— 所以"跨行重复"到不了选人这一步
         draft = selectBatch(candidates, "3", "3", "y");
-        check("②′ 纯：同一个下标分两行选，也只算一次 —— 实际 " + draft.things(),
+        check("②′ 纯：确认阶段再敲数字 = 输入错误，不会再添一个 —— 实际 " + draft.things(),
                 draft.things().equals(List.of("丁")));
 
         // ③ 越界 / 负数只跳过那一个，同一行里其它下标照旧生效
@@ -3215,10 +3484,16 @@ public class TestCommandSystem {
             }, true, "UTF-8");
             System.setOut(capturing);
             cn.gfhnv.game.GameMain.startAFight();
-        } catch (IllegalStateException e) {
-            if (!String.valueOf(e.getMessage())
-                    .startsWith(cn.gfhnv.game.GameMain.SCRIPT_EXHAUSTED_MARKER)) {
-                fail("startAFight 抛了别处的 IllegalStateException（不是脚本用完）：" + e);
+        } catch (RuntimeException e) {
+            // 「剧本用完」是**测试自己喂的行不够**，不是被测代码的失败。
+            // ⚠️ 以前这里只 catch IllegalStateException，而输入脚本在另一条路径上抛的是
+            //    NoSuchElementException（消息同样是 SCRIPT_EXHAUSTED_MARKER）—— 于是那两处
+            //    被误记成失败；又因为 System.out 被劫持去捕获游戏输出，连 [FAIL] 都没进日志，
+            //    只在汇总里剩下"失败 2 条"。现在按**消息**判，两种异常一视同仁。
+            boolean scriptExhausted = String.valueOf(e.getMessage())
+                    .startsWith(cn.gfhnv.game.GameMain.SCRIPT_EXHAUSTED_MARKER);
+            if (!scriptExhausted) {
+                fail("startAFight 抛出异常：" + e);
             }
         } catch (Exception e) {
             fail("startAFight 抛出异常：" + e);
@@ -3234,11 +3509,6 @@ public class TestCommandSystem {
         // ⚠️ 必须整段按 UTF-8 解码：按字节逐个拼字符串会把中文拆成乱码（断言会全部落空）
         return sink.toString(java.nio.charset.StandardCharsets.UTF_8);
     }
-
-    /**
-     * 抓回来的输出最多留这么多行（防止外层空转把内存打爆；断言只看前面这些行）。
-     */
-    private static final int MAX_CAPTURED_LINES = 200;
 
     /**
      * 数一段文本里出现了几次某个词（用来钉"重复下标只算一次""选了两次"这类事）。
@@ -3258,6 +3528,42 @@ public class TestCommandSystem {
             count++;
             from = at + word.length();
         }
+    }
+
+    /**
+     * 数「确认了这一批」出现了几次：{@code 已选:名字} 算一次，但<b>不算</b>「放弃已选:名字」那一句。
+     * <p>
+     * <b>为什么要减一次</b>：放弃那句打的是 {@code 放弃已选:…}，它<b>包含</b> {@code 已选:…} 这个子串 ——
+     * 直接用 {@link #countOf} 会把「放弃」也算成「确认」。而"这一批到底确认了几次"是选人这组用例的
+     * 核心断言（去重、多余段丢弃、放弃后重选都靠它），数错就会把对的代码判成错的。
+     * <p>
+     * 顺带说明：确认行打的是 {@code 已选:名字}，而"这一行选完了、等你确认"那一步打的是
+     * {@code 已选角色:名字} —— 两者只在<b>不同阶段</b>出现，所以断言确认次数必须认 {@code 已选:}。
+     *
+     * @param text 文本
+     * @param name 那一批里的第一个名字
+     * @return 确认次数（放弃不算）
+     */
+    private static int countConfirmed(String text, String name) {
+        int count = 0;
+        for (String line : text.split("\n")) {
+            String trimmed = line.trim();
+            // 只认「已选:」开头的确认行，并且这一行里出现了这个名字。
+            // 这样批量确认（已选:玩家一、冰虫子）与单个确认（已选:冰虫子）都算数，
+            // 而「放弃已选:…」与「已选角色:…」都不会被误数进来。
+            if (trimmed.startsWith("已选:") && trimmed.contains(name)) {
+                count++;
+            }
+        }
+        if (count == 0) {
+            // 没数到就把实际出现的「已选…」行打出来 —— 下次失败不用再猜是名字对不上还是流程没走到
+            for (String line : text.split("\n")) {
+                if (line.trim().startsWith("已选")) {
+                    System.out.println("    [countConfirmed] 实际确认行：「" + line.trim() + "」");
+                }
+            }
+        }
+        return count;
     }
 
     /**
@@ -3307,8 +3613,8 @@ public class TestCommandSystem {
         check("数据里有 name", data.get("name") != null && probe.getName().equals(data.get("name").asString()));
         // 数据名是对外 API：Java 字段名难看时用 @DataField 改名（见 TIPS §5.10）。
         // 这一批 Java 名已经订正过（2026-10-03），所以数据名与 Java 名现在一致 —— 但**数据名一个字都没变**。
-        check("暴击率的数据名是 criticalRate（订正 Java 名之后仍然是这个键）",
-                data.get("criticalRate") != null);
+        check("暴击率的数据名是 baseCriticalRate（2026-10-24 起的规范名）",
+                data.get("baseCriticalRate") != null);
         check("存活标志的数据名是小写 alive（不是 Alive）",
                 data.get("alive") != null && data.get("Alive") == null);
         // ⚠️ 这一条盯着**静默失效**：{@code DataBridge#trySetter} 是拿 Java 字段名拼 setter 名的
@@ -3326,14 +3632,18 @@ public class TestCommandSystem {
                         && DataBridge.toCompound(probe).get("enhance").asDouble() == 0.5d);
         probe.setEnhance(beforeEnhance);
         check("改名之后照样能写（setter 是按 Java 字段名找的，所以 setCriticalRate 仍然命中）",
-                DataBridge.merge(probe, Snbt.parseCompound("{criticalRate:0.5}")) == 1
+                DataBridge.merge(probe, Snbt.parseCompound("{baseCriticalRate:0.5}")) == 1
                         && probe.getCriticalRate() == 0.5d
-                        && DataBridge.toCompound(probe).get("criticalRate").asDouble() == 0.5d);
+                        && DataBridge.toCompound(probe).get("baseCriticalRate").asDouble() == 0.5d);
         check("效果列表与成长系数的数据名都换成了短名字",
                 DataBridge.dataNames(probe.getClass()).containsAll(List.of(
                         "effects", "hpGrow", "attackGrow", "defenceGrow", "metalManaGrow")));
-        // 上一条只钉住 criticalRate 一个；这里把规则推广到**每个**能写的标量字段（先扫实体自己，
-        // 再下潜进 @DataFlatten 组件 —— 订正过名字的那 9 个正是靠这条一起兜住的）。
+        // 上一条只钉住 criticalRate 一个；这里把规则推广到**每个**能写的标量字段。
+        // 扫描口径直接借 {@code DataBridge#accessors}（= /data 看到的那一面）：
+        // 它会展开 @DataFlatten 组件，于是"字段搬进属性组件"之后这条断言**不会缩水**
+        // （只扫实体自己声明的话，搬走的字段会静默从覆盖面里消失 = 假绿）。
+        // 判据与 DataBridge#trySetter 一致：setter 找的是**字段所在那个对象**的类
+        // （组件里的字段就找组件自己的 setXxx，实体上的转发 setter 不会被 /data 用到）。
         // 两个例外（**只读**：dump 得出来、但从来不是"写入口"）：
         //   ignitionMax —— 派生值，getIgnitionMax() 按当前血量现算（低血 15 / 满血 10）；
         //   lastIgnition —— 内部记账（上一次的燃点，用来算【燃点】变动带来的面积增量）。
@@ -3341,20 +3651,34 @@ public class TestCommandSystem {
         java.util.Set<String> readOnlyScalars = new java.util.HashSet<>(
                 java.util.Arrays.asList("ignitionMax", "lastIgnition"));
         List<String> missingSetters = new ArrayList<>();
-        for (Class<?> type = probe.getClass(); type != null && type != Object.class; type = type.getSuperclass()) {
-            for (java.lang.reflect.Field field : type.getDeclaredFields()) {
-                if (java.lang.reflect.Modifier.isStatic(field.getModifiers()) || field.isSynthetic()) continue;
-                if (field.isAnnotationPresent(cn.gfhnv.game.data.NoData.class)) continue;
-                if (field.isAnnotationPresent(cn.gfhnv.game.data.DataFlatten.class)) continue;
-                if (!isScalarType(field.getType())) continue;
-                if (java.lang.reflect.Modifier.isFinal(field.getModifiers())) continue;
-                if (readOnlyScalars.contains(field.getName())) continue;
-                if (hasMatchingSetter(probe.getClass(), field)) continue;
-                missingSetters.add(field.getName());
-            }
+        List<String> scannedWritable = new ArrayList<>();
+        for (cn.gfhnv.game.data.DataBridge.DataAccessor accessor
+                : cn.gfhnv.game.data.DataBridge.accessors(probe)) {
+            java.lang.reflect.Field field = accessor.field();
+            if (java.lang.reflect.Modifier.isStatic(field.getModifiers()) || field.isSynthetic()) continue;
+            if (!isScalarType(field.getType())) continue;
+            if (java.lang.reflect.Modifier.isFinal(field.getModifiers())) continue;
+            if (readOnlyScalars.contains(field.getName())) continue;
+            scannedWritable.add(field.getName());
+            if (hasMatchingSetter(accessor.container().getClass(), field)) continue;
+            missingSetters.add(field.getName());
         }
+        check("前提：这条扫描真的下潜进了 @DataFlatten 组件（字段搬进组件后不会从覆盖面里静默消失）"
+                        + "—— 扫到 " + scannedWritable.size() + " 个能写的标量",
+                scannedWritable.contains("attackEnhancePercent")
+                        && scannedWritable.contains("metalResistance"));
         check("写回契约：每个 /data 能写的标量字段都挂着一个同名 setter（字段改名时 setter 必须跟着改）"
                 + "—— 缺 setter 的：" + missingSetters, missingSetters.isEmpty());
+        // 这一条盯着"搬家把副作用搬丢了"：{@code setHpEnhancePercent} 原来在实体上，
+        // 除了赋值还会 {@code renewHp()} 把当前生命夹回新上限。它搬进属性组件之后，
+        // {@code /data merge} 的写回落点是**组件**，副作用必须跟着搬过去 ——
+        // 否则改小生命增强就会留下 hp > 上限的怪状态（实测踩到过：4664 血 / 466 上限）。
+        ActorLiXiaoYan hpProbe = new ActorLiXiaoYan(125);
+        long hpCapBefore = hpProbe.getHpMax();
+        DataBridge.merge(hpProbe, Snbt.parseCompound("{hpEnhancePercent:-0.9}"));
+        check("写回契约：把生命增强改小之后当前生命被夹回新上限（副作用跟着字段搬走了）—— "
+                        + hpCapBefore + " → hp " + hpProbe.getHp() + " / 上限 " + hpProbe.getHpMax(),
+                hpProbe.getHpMax() < hpCapBefore && hpProbe.getHp() == hpProbe.getHpMax());
         // 这条盯着一个踩过的坑：字段搬进 @DataFlatten 组件之后，组件类型必须进
         // DataBridge#isDataObject 白名单 —— 漏了的话整个组件在 /data 里**静默消失**
         // （不报错、只是查不到）。所以这里断言的是"组件字段真的 dump 出来了一个"，
@@ -3364,9 +3688,9 @@ public class TestCommandSystem {
                 data.get("metalResistance") != null && data.get("attributes") == null
                         && data.get("elements") == null);
         // 从实体搬进组件的三个「全局组」面板属性，也必须是**顶层**键（不是 attributes.xxx）
-        check("搬进组件的全局组面板属性仍是顶层键（penetration / enhance / criticalDMG 不带前缀）",
+        check("搬进组件的全局组面板属性仍是顶层键（penetration / enhance / criticalDamage 不带前缀）",
                 data.get("penetration") != null && data.get("enhance") != null
-                        && data.get("criticalDMG") != null);
+                        && data.get("baseCriticalDamage") != null);
         check("试算标志 anticipating 被 @NoData 排除（它只在试算期间为 true，dump 出来是噪音）",
                 !DataBridge.dataNames(probe.getClass()).contains("anticipating"));
         check("uuid 可见（只读，因为它是 final）", data.get("uuid") != null);
@@ -3393,6 +3717,27 @@ public class TestCommandSystem {
         probe.setHp(probe.getHpMax());
         DataBridge.merge(probe, Snbt.parseCompound("{hp:99999999}"));
         check("写 hp 会被 setHp 钳到生命上限", probe.getHp() == probe.getHpMax());
+        // 这一条盯着"搬字段把副作用搬丢"的另一半：{@code setHp} 除了夹血，还要发
+        // {@code HpLossEvent} / {@code HpRestorationEvent}（{@code HurtCommand} / {@code KillCommand}
+        // 的 javadoc 明确承诺模组可以监听）。副作用现在住在属性组件里（{@code /data} 的写回落点），
+        // 所以事件也要一起钉住 —— 光断言"血被夹住了"抓不住"事件没人发"。
+        ProbeHpEventListener hpEvents = new ProbeHpEventListener();
+        EventBus.register(hpEvents);
+        try {
+            ActorLiXiaoYan eventProbe = new ActorLiXiaoYan(125);
+            long eventHpMax = eventProbe.getHpMax();
+            DataBridge.merge(eventProbe, Snbt.parseCompound("{hp:1}"));
+            int lossesAfterHit = hpEvents.losses;
+            DataBridge.merge(eventProbe, Snbt.parseCompound("{hp:99999999}"));
+            check("写回契约：/data 写 hp 会发 HpLossEvent（扣血）与 HpRestorationEvent（回血），"
+                            + "并被夹回上限 —— 扣血事件 " + lossesAfterHit + " 次、回血事件 "
+                            + hpEvents.restorations + " 次，hp " + eventProbe.getHp()
+                            + " / 上限 " + eventHpMax,
+                    lossesAfterHit == 1 && hpEvents.restorations == 1
+                            && eventProbe.getHp() == eventHpMax);
+        } finally {
+            EventBus.unregister(hpEvents);
+        }
         DataBridge.merge(probe, Snbt.parseCompound("{ignition:99}"));
         check("写 ignition 会被夹到上限", probe.getIgnition() == probe.getIgnitionMax());
         DataBridge.merge(probe, Snbt.parseCompound("{ignition:-5}"));
@@ -3649,17 +3994,23 @@ public class TestCommandSystem {
         run("data modify entity @s attackGrow set 23", true);
         run("data modify entity @s defenceGrow set 6", true);
         run("data modify entity @s metalManaGrow set 7", true);
-        run("data modify entity @s criticalRate set 0.25", true);
+        run("data modify entity @s baseCriticalRate set 0.25", true);
         run("data modify entity @s alive set 0b", true);
         // alive 要**直接读字段**：isAlive() 会按 getHp() 现算并覆盖字段（满血 → 永远 true），
         // 拿它当判据就等于没测（这条只想证明"这个键写得进去、而且走的是 setter"）。
         boolean aliveField = false;
         try {
-            java.lang.reflect.Field aliveFieldRef = LivingThing.class.getDeclaredField("alive");
+            // alive 2026-10-04 搬进了 AttributeProfile（用户确认它是"状态"），
+            // 所以要先拿到组件实例、再去组件里读字段。
+            java.lang.reflect.Field attributesField = LivingThing.class.getDeclaredField("attributes");
+            attributesField.setAccessible(true);
+            Object profile = attributesField.get(renameProbe);
+            java.lang.reflect.Field aliveFieldRef = cn.gfhnv.game.entity.AttributeProfile.class
+                    .getDeclaredField("alive");
             aliveFieldRef.setAccessible(true);
-            aliveField = aliveFieldRef.getBoolean(renameProbe);
+            aliveField = profile != null && aliveFieldRef.getBoolean(profile);
         } catch (ReflectiveOperationException e) {
-            check("反射读不到 LivingThing.alive 字段：" + e, false);
+            check("反射读不到 AttributeProfile.alive 字段：" + e, false);
         }
         check("订正 Java 名之后 /data modify 仍能写这几个键（各自落在正确的字段上）",
                 renameProbe.getHpGrow() == 61.0
@@ -3739,8 +4090,8 @@ public class TestCommandSystem {
                         .filter(sort -> !"UNIVERSAL".equals(sort.name()))
                         .allMatch(sort -> DataKeys.ELEMENTS.contains(sort.name().toLowerCase())));
 
-        check("别名：配置里认 element 与 manaGrow（规范名仍是数据名 elementSort / *ManaGrow）",
-                "elementSort".equals(DataKeys.canonical("element", false))
+        check("别名：只剩 manaGrow（element 2026-10-24 起就是规范名，不再有别名）",
+                "element".equals(DataKeys.canonical("element", false))
                         && "manaGrow".equals(DataKeys.canonical("manaGrow", false))
                         && "metalManaGrow".equals(DataKeys.canonical("metal", true))
                         && DataKeys.canonical("nope", false) == null);
@@ -3804,7 +4155,7 @@ public class TestCommandSystem {
         check("生成器（classState）：白厄的模板有 classState 段（火种/上限/灾厄/燃点那些键就在那里）",
                 classStateSection != null);
         java.util.Set<String> expectedPhainonClassKeys = new java.util.TreeSet<>(Arrays.asList(
-                "coreflame", "coreflame_max", "soulscorch", "scourge", "scourge_max",
+                "coreflame", "coreflameMax", "soulscorch", "scourge", "scourgeMax",
                 "extraAbilityTier"));
         check("生成器（classState）：白厄那一段写全了 " + expectedPhainonClassKeys.size()
                         + " 个键 —— 实际 "
@@ -4034,7 +4385,7 @@ public class TestCommandSystem {
             long oldHpMax = probe.getHpMax();
             cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.Report one =
                     cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.applyJson(
-                            "{\"entities\":{\"game_official_content:playerOne\":{\"base\":{\"speed\":200}}}}",
+                            "{\"entities\":{\"game_official_content:playerOne\":{\"base\":{\"baseSpeed\":200}}}}",
                             "自测-只改速度");
             check("补丁：只写一个键时，没有报错也没有跳过 —— " + one.errors() + one.skippedEntries(),
                     one.isClean() && one.appliedEntries().size() == 1);
@@ -4044,7 +4395,7 @@ public class TestCommandSystem {
             cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.Snapshot.of(probe).restore();
 
             /* ⑤-3 改成长系数必须连带重算：派生值只在 setLevel 里算，不补一次就是"改了没反应"
-             *     （注意**不要**同时写 derived.hpMax —— 那是有意覆盖公式结果的写法，
+             *     （注意**不要**同时写 derived.baseHpMax —— 那是有意覆盖公式结果的写法，
              *      会把重算出来的值再盖回去，看起来就像"改了没反应"） */
             LivingThing growth = entityTemplateOf("game_official_content:playerOne");
             long hpMaxBefore = growth.getHpMax();
@@ -4099,7 +4450,7 @@ public class TestCommandSystem {
             long attackBeforeDerived = derived.getAttack();
             cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.applyJson(
                     "{\"entities\":{\"game_official_content:playerOne\":"
-                            + "{\"derived\":{\"hpMax\":12345,\"attack\":777}}}}", "自测-派生值");
+                            + "{\"derived\":{\"baseHpMax\":12345,\"baseAttack\":777}}}}", "自测-派生值");
             check("补丁：derived 的固定值覆盖公式结果（hpMax=" + derived.getHpMax()
                             + "，attack=" + derived.getAttack() + "，旧攻击 " + attackBeforeDerived + "）",
                     derived.getHpMax() == 12345L && derived.getAttack() == 777L);
@@ -4107,7 +4458,7 @@ public class TestCommandSystem {
             cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.applyJson(
                     "{\"entities\":{\"game_official_content:playerOne\":"
                             + "{\"derived\":{\"hp\":99999}}}}", "自测-血量顺序");
-            check("补丁：只写 hp 时被现有上限夹住（顺序写死：hpMax 先、hp 后）—— hp="
+            check("补丁：只写 hp 时被现有上限夹住（顺序写死：baseHpMax 先、hp 后）—— hp="
                             + derived.getHp() + "，上限=" + derived.getHpMax(),
                     derived.getHp() == derived.getHpMax());
             snapshots.get("game_official_content:playerOne").restore();
@@ -4130,9 +4481,9 @@ public class TestCommandSystem {
             cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.Report broken =
                     cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.applyJson(
                             "{\"entities\":{"
-                                    + "\"game_official_content:playerOne\":{\"base\":{\"speed\":\"快\",\"nope\":1}},"
-                                    + "\"game_official_content:noSuchEntity\":{\"base\":{\"speed\":1}},"
-                                    + "\"commonInsect\":{\"base\":{\"speed\":95}}"
+                                    + "\"game_official_content:playerOne\":{\"base\":{\"baseSpeed\":\"快\",\"nope\":1}},"
+                                    + "\"game_official_content:noSuchEntity\":{\"base\":{\"baseSpeed\":1}},"
+                                    + "\"commonInsect\":{\"base\":{\"baseSpeed\":95}}"
                                     + "}}", "自测-容错");
             String brokenText = broken.errors() + " " + broken.skippedEntries();
             check("容错：一个坏键不再废掉整份配置（同一份里其余项照常生效）—— 跳过 "
@@ -4140,7 +4491,7 @@ public class TestCommandSystem {
                     broken.skippedEntries().size() == 2 && broken.errors().size() == 1
                             && broken.appliedEntries().size() == 1);
             check("容错：类型不对的项被点名道姓（键名 + 实际类型）",
-                    brokenText.contains("base.speed") && brokenText.contains("字符串"));
+                    brokenText.contains("base.baseSpeed") && brokenText.contains("字符串"));
             check("容错：未知键被点名（不再静默忽略）", brokenText.contains("base.nope"));
             check("容错：找不到的实体也被点名（改名 = 配置静默失效，这里要看得见）",
                     brokenText.contains("noSuchEntity"));
@@ -4157,7 +4508,7 @@ public class TestCommandSystem {
                     cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.applyJson(
                             "{\"entities\":{\"game_official_content:playerOne\":{\"base\":"
                                     + "{\"metalPenetration\":0.5},"
-                                    + "\"temporary\":{\"criticalRate\":0.5}}}}",
+                                    + "\"temporary\":{\"baseCriticalRate\":0.5}}}}",
                             "自测-不支持的键");
             String notSupportedText = notSupported.skippedEntries().toString();
             check("不支持键：五元素穿透被点名，而且说清它是「临时属性、配了不生效」"
@@ -4259,9 +4610,9 @@ public class TestCommandSystem {
             double oldLoss = panel.getDefenseLoss();
             cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.applyJson(
                     "{\"entities\":{\"game_official_content:playerOne\":{\"base\":"
-                            + "{\"criticalRate\":0.5,\"criticalDMG\":1.5,\"enhance\":0.25,"
-                            + "\"penetration\":0.3,\"defenseLoss\":0.1}}}}", "自测-面板键");
-            check("面板键：criticalRate / criticalDMG / enhance / penetration / defenseLoss 真的写进去了"
+                            + "{\"baseCriticalRate\":0.5,\"baseCriticalDamage\":1.5,\"enhance\":0.25,"
+                            + "\"penetration\":0.3,\"defenceLoss\":0.1}}}}", "自测-面板键");
+            check("面板键：criticalRate / criticalDamage / enhance / penetration / defenceLoss 真的写进去了"
                             + "（以前它们在 META 里声明能配，写进去一点反应都没有）",
                     panel.getCriticalRate() == 0.5 && panel.getCriticalDMG() == 1.5
                             && panel.getEnhance() == 0.25 && panel.getPenetration() == 0.3
@@ -4361,7 +4712,7 @@ public class TestCommandSystem {
             // D5（自愈）：把两份改成"用户只改了一个键"的样子，再 writeAll ——
             //     缺的键要补齐，**已有的值一个字节都不许动**
             java.nio.file.Files.writeString(entityFile.toPath(),
-                    "{\"entities\":{\"game_official_content:playerOne\":{\"base\":{\"speed\":321}}}}",
+                    "{\"entities\":{\"game_official_content:playerOne\":{\"base\":{\"baseSpeed\":321}}}}",
                     java.nio.charset.StandardCharsets.UTF_8);
             java.nio.file.Files.writeString(rulesFile.toPath(),
                     "{\"version\":1,\"formula\":{\"hpBase\":999}}",
@@ -4381,11 +4732,11 @@ public class TestCommandSystem {
             check("落盘自愈（D5）：用户已经写的值一个字都不许覆盖（speed 321 / hpBase 999 原样）—— 实际 "
                             + healedEntity.getJSONObject("entities")
                             .getJSONObject("game_official_content:playerOne")
-                            .getJSONObject("base").opt("speed") + " / "
+                            .getJSONObject("base").opt("baseSpeed") + " / "
                             + healedRules.getJSONObject("formula").opt("hpBase"),
                     healedEntity.getJSONObject("entities")
                             .getJSONObject("game_official_content:playerOne")
-                            .getJSONObject("base").optInt("speed") == 321
+                            .getJSONObject("base").optInt("baseSpeed") == 321
                             && healedRules.getJSONObject("formula").optInt("hpBase") == 999);
             List<String> third = cn.gfhnv.game.system.configLoadingSystem.ConfigDefaultWriter
                     .writeAll(tempDir);
@@ -4514,14 +4865,14 @@ public class TestCommandSystem {
                         referenceMismatch.add(id + "/" + section + " 键不一致：" + left.keySet()
                                 + " vs " + right.keySet());
                     }
-                    if (left.optLong("hpMax", -1) != right.optLong("hpMax", -1)) {
-                        referenceMismatch.add(id + "/hpMax " + left.opt("hpMax") + " vs "
-                                + right.opt("hpMax"));
+                    if (left.optLong("baseHpMax", -1) != right.optLong("baseHpMax", -1)) {
+                        referenceMismatch.add(id + "/baseHpMax " + left.opt("baseHpMax") + " vs "
+                                + right.opt("baseHpMax"));
                     }
                 }
             }
             check("参考副本（①）：与 EntityData.json 是同一个口径（每个官方模板都在、base/derived 的键"
-                            + "逐位相同、hpMax 数值相同）—— 不一致的 " + referenceMismatch,
+                            + "逐位相同、baseHpMax 数值相同）—— 不一致的 " + referenceMismatch,
                     referenceMismatch.isEmpty());
             check("参考副本（①）：写的是 UTF-8 中文（不是乱码）",
                     java.nio.file.Files.readString(referenceFile.toPath(),
@@ -5008,6 +5359,186 @@ public class TestCommandSystem {
         }
         check("技能自测收尾：所有技能都还原成了补丁之前的样子（后面用例看到的是干净注册表）—— 没还原 "
                 + notRestored, notRestored.isEmpty());
+    }
+
+    /**
+     * <b>AI 评分加成</b>（{@code IAiScoreBonus}，2026-10-24 用户拍板）：让"0 伤害但很关键"的技能
+     * （白厄的变身大招）也能被 {@code ThinkingControllerAI} 选中。
+     * <p>
+     * <b>原来为什么选不中</b>：{@code evaluateAction} 的分数是"权重 + 按伤害/血量算的 bonus − 蓝耗惩罚"。
+     * 大招 {@code aims=0} → 目标是自己、满血 → 一个加分项都拿不到，预测伤害 0 → 也拿不到斩杀加分，
+     * 最后只剩"权重 − 蓝耗惩罚"。**它的 {@code ATTACK} 权重是 10，但那玩意儿只决定"选哪一类 Tag"**，
+     * 同一类里比的是分数 —— 所以它永远输给普攻。
+     * <p>
+     * 这里验四件事：① 火种够且没变身时，大招的分数**真的压过普攻**（差值 ≈ {@code aiPriority}）；
+     * ② 火种不够 / 已经变身时**加分归零**（否则会带着负火种变身，或重排时间轴）；
+     * ③ {@code aiPriority} 可配（它就是 {@code SkillData.json} 里那个键）；
+     * ④ 三参 {@code canUse} 也认火种门槛（AI 与 {@code use(...)} 走的都是它）。
+     */
+    private static void testAiScoreBonus() {
+        section("AI 评分加成：变身技能能被思维 AI 选中（原来永远输给普攻）");
+
+        Phainon phainon = new Phainon(125);
+        phainon.setCoreflame(15);
+        cn.gfhnv.game.system.thinkingSystem.ThinkingControllerAI ai =
+                new cn.gfhnv.game.system.thinkingSystem.ThinkingControllerAI(new ArrayList<>(), phainon);
+        cn.gfhnv.game.officialStuff.customSkill.universalSkill.CommonAttack normalAttack =
+                new cn.gfhnv.game.officialStuff.customSkill.universalSkill.CommonAttack(0.0, 1.0, 0.0, 1);
+        cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.UltimateAttack ultimate =
+                new cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.UltimateAttack();
+        LivingThing dummy = entityTemplateOf("game_official_content:commonInsect");
+
+        double ultimateScore = ai.scoreOf(null, ultimate, phainon);   // aims=0 → AI 传的目标就是自己
+        double attackScore = ai.scoreOf(null, normalAttack, dummy);
+        check("AI 评分：火种够且没变身时，大招的分数压过普攻（差值 ≈ aiPriority 100）—— 实际 "
+                        + ultimateScore + " vs " + attackScore,
+                ultimateScore - attackScore > 50);
+
+        // ② 两个"不该加"的条件
+        Phainon poor = new Phainon(125);
+        poor.setCoreflame(3);
+        check("AI 评分：火种不够时加分归零（不然会带着负火种变身）—— 实际加分 "
+                        + ultimate.aiScoreBonus(null, poor, poor),
+                ultimate.aiScoreBonus(null, poor, poor) == 0);
+        Phainon awakened = new Phainon(125);
+        awakened.setCoreflame(15);
+        awakened.setAwaken(true);
+        check("AI 评分：已经觉醒时加分归零（不然会重排整条时间轴）—— 实际加分 "
+                        + ultimate.aiScoreBonus(null, awakened, awakened),
+                ultimate.aiScoreBonus(null, awakened, awakened) == 0);
+        check("AI 评分：对非白厄一律 0（这个技能只属于他）—— 实际加分 "
+                        + ultimate.aiScoreBonus(null, dummy, dummy),
+                ultimate.aiScoreBonus(null, dummy, dummy) == 0);
+
+        // ③ 可配：改 aiPriority 只影响差值
+        cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.UltimateAttack doubled =
+                new cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.UltimateAttack();
+        doubled.setCoefficientValue("aiPriority", 250d);
+        check("AI 评分：aiPriority 可配（100 → 250 时分数正好多 150，其余项不受影响）—— 实际 "
+                        + ai.scoreOf(null, doubled, phainon) + " vs " + ultimateScore,
+                Math.abs(ai.scoreOf(null, doubled, phainon) - ultimateScore - 150d) < 1e-9);
+
+        // ④ 三参 canUse 认火种门槛（AI 与 use(...) 都走它）
+        check("AI 可用性：三参 canUse 也认火种门槛（3 层火种 → AI 眼里不可用）",
+                !ultimate.canUse(null, poor, null) && ultimate.canUse(null, phainon, null));
+    }
+
+    /**
+     * <b>白厄变身那一套数</b>（2026-10-24 用户拍板"可以外配"）：
+     * {@code LastAttack} 的每回合折扣 {@code 0.125} / 上限 {@code 7}，
+     * {@code UltimateAttack} 的 {@code 12} 火种 / {@code 8} 个额外回合。
+     * <p>
+     * 三条要证明的（与其它具名系数同一个标准）：
+     * <ol>
+     *     <li><b>出厂值逐位不变</b>：{@code 0.125 / 7 / 12 / 8} —— 外置之前它们写在方法体里，
+     *     外置之后一个字都没动，所以"最后一击"与"变身时间轴"的行为与之前完全一致；</li>
+     *     <li><b>改了真的改变行为</b>：折扣/上限走 {@code magnificationFor(...)} 的数值对照，
+     *     火种走 {@code canUse} 的门槛对照，回合数走 {@code scheduledExtraTurns()}
+     *     （时间轴条目数就是它，不再另写一个 8）；</li>
+     *     <li><b>copy() 带着走</b>：配置打在模板上，副本靠 {@code copy()} 白送 —— 漏复制就是"改了没反应"。</li>
+     * </ol>
+     */
+    private static void testAwakenNumbersExternalized() {
+        section("白厄变身的四个数：0.125 / 上限 7 / 12 火种 / 8 个额外回合（已外配）");
+
+        cn.gfhnv.game.officialStuff.customSkill.phainonSkills.awakenSkills.LastAttack last =
+                new cn.gfhnv.game.officialStuff.customSkill.phainonSkills.awakenSkills.LastAttack();
+        cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.UltimateAttack ultimate =
+                new cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.UltimateAttack();
+
+        check("出厂值：最后一击每剩余回合折扣 0.125、上限 7 —— 实际 perTurn="
+                        + last.coefficientValues().get("lastAttackPerTurn")
+                        + "、maxTurns=" + last.coefficientValues().get("lastAttackMaxTurns"),
+                last.coefficientValues().get("lastAttackPerTurn") == 0.125d
+                        && last.coefficientValues().get("lastAttackMaxTurns") == 7.0d);
+        check("出厂值：大招烧 12 火种、排 8 个额外回合 —— 实际 coreflameCost="
+                        + ultimate.coefficientValues().get("coreflameCost")
+                        + "、awakenExtraTurns=" + ultimate.coefficientValues().get("awakenExtraTurns"),
+                ultimate.coefficientValues().get("coreflameCost") == 12.0d
+                        && ultimate.coefficientValues().get("awakenExtraTurns") == 8.0d);
+
+        // ① 最后一击的倍率表（与 60-COMBAT.md §5.7 那张表逐位对齐）
+        check("倍率表（出厂）：剩 0 个额外回合 = 满倍率 13，剩 7 个 = 1.625，剩 8 个被上限压成 1.625 —— 实际 "
+                        + last.magnificationFor(0) + " / " + last.magnificationFor(7) + " / " + last.magnificationFor(8),
+                Math.abs(last.magnificationFor(0) - 13.0d) < 1e-9
+                        && Math.abs(last.magnificationFor(7) - 1.625d) < 1e-9
+                        && Math.abs(last.magnificationFor(8) - 1.625d) < 1e-9);
+
+        // ② 改两个系数 → 倍率真的变（折扣 0.25、上限 2：剩 5 个被压成 2 个 → 13 × (1 − 0.5) = 6.5）
+        last.setCoefficientValue("lastAttackPerTurn", 0.25d);
+        last.setCoefficientValue("lastAttackMaxTurns", 2d);
+        check("外配生效：折扣改 0.25 / 上限改 2 之后，剩 5 个也按 2 个算（13 × (1 − 2×0.25) = 6.5）—— 实际 "
+                        + last.magnificationFor(5),
+                Math.abs(last.magnificationFor(5) - 6.5d) < 1e-9);
+
+        // ③ 大招的火种门槛与额外回合数
+        Phainon cheap = new Phainon(125);
+        cheap.setCoreflame(3);
+        check("外配生效：火种门槛按配置走（3 层火种 + 默认 12 → 放不出来；改成 3 → 放得出来）—— ",
+                !ultimate.canUse(null, cheap)
+                        && ultimateWithCost(3).canUse(null, cheap));
+        check("外配生效：变身的额外回合数按配置走（默认 8 → 改 2 → 改 0 夹回 1）—— 实际 "
+                        + ultimate.scheduledExtraTurns() + " / " + ultimateWithTurns(2).scheduledExtraTurns()
+                        + " / " + ultimateWithTurns(0).scheduledExtraTurns(),
+                ultimate.scheduledExtraTurns() == 8
+                        && ultimateWithTurns(2).scheduledExtraTurns() == 2
+                        && ultimateWithTurns(0).scheduledExtraTurns() == 1);
+
+        // ③-b 技能阵营：大招是 aims=0 的"给自己"变身技，**不该是 forEnemies**
+        //（`Skill` 的字段默认值是 true，2026-10-24 用户实测发现这条一直是 true）
+        check("大招是「给自己」的变身技（aims=0 且 forEnemies=false）—— 实际 aims=" + ultimate.getAims()
+                        + "、forEnemies=" + ultimate.isForEnemies(),
+                ultimate.getAims() == 0 && !ultimate.isForEnemies());
+
+        // ③-c 具名系数的**键名**必须就是 /data 里的字段名 —— 否则配置写一个名、dump 显示另一个名，
+        // 用户按 dump 里的名字去配会"未知键"。（本轮就踩过：字段曾叫 awakenTurnCount，配置键是 awakenExtraTurns）
+        List<String> missingDumpKeys = new ArrayList<>();
+        for (cn.gfhnv.game.skill.Skill skill : List.of(last, ultimate)) {
+            java.util.Set<String> dumpKeys = new java.util.HashSet<>(DataBridge.dataNames(skill.getClass()));
+            for (String key : ((cn.gfhnv.game.skill.SkillCoefficientTunable) skill).coefficientValues().keySet()) {
+                if (!dumpKeys.contains(key)) {
+                    missingDumpKeys.add(skill.getClass().getSimpleName() + "：" + key);
+                }
+            }
+        }
+        check("具名系数的键名 == /data 里的字段名（配置键与 dump 键同一套名字，不留第二套）—— 对不上的 "
+                + missingDumpKeys, missingDumpKeys.isEmpty());
+
+        // ④ 副本带着配置走（漏复制 = "改了没反应"）
+        cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.UltimateAttack ultimateCopy =
+                (cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.UltimateAttack)
+                        ultimateWithTurns(2).copy();
+        cn.gfhnv.game.officialStuff.customSkill.phainonSkills.awakenSkills.LastAttack lastCopy =
+                (cn.gfhnv.game.officialStuff.customSkill.phainonSkills.awakenSkills.LastAttack) last.copy();
+        check("copy() 带着配置走：副本的额外回合数仍是 2、最后一击的折扣仍是 0.25 —— 实际 "
+                        + ultimateCopy.scheduledExtraTurns() + " / "
+                        + lastCopy.coefficientValues().get("lastAttackPerTurn"),
+                ultimateCopy.scheduledExtraTurns() == 2
+                        && lastCopy.coefficientValues().get("lastAttackPerTurn") == 0.25d);
+    }
+
+    /**
+     * @param coreflameCost 火种门槛
+     * @return 配了该门槛的大招实例（不改注册表，纯局部对象）
+     */
+    private static cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.UltimateAttack
+    ultimateWithCost(int coreflameCost) {
+        cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.UltimateAttack skill =
+                new cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.UltimateAttack();
+        skill.setCoefficientValue("coreflameCost", coreflameCost);
+        return skill;
+    }
+
+    /**
+     * @param turns 额外回合数
+     * @return 配了该回合数的大招实例（不改注册表，纯局部对象）
+     */
+    private static cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.UltimateAttack
+    ultimateWithTurns(int turns) {
+        cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.UltimateAttack skill =
+                new cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.UltimateAttack();
+        skill.setCoefficientValue("awakenExtraTurns", turns);
+        return skill;
     }
 
     /**
@@ -6012,7 +6543,7 @@ public class TestCommandSystem {
      * <b>「同一个血量有两个入口」的那条语义</b>（2026-10-03 用户报："盗火行者血量一个值两个入口"）。
      * <p>
      * 事实：{@code GameRules.json} 的 {@code flameReaver.baseHpMax} 只在<b>构造时</b>读一次
-     * （{@code FlameReaver.java:282-283}），而 {@code EntityData.json} 的 {@code derived.hpMax}
+     * （{@code FlameReaver.java:282-283}），而 {@code EntityData.json} 的 {@code derived.baseHpMax}
      * 是<b>构造之后</b>打的补丁 —— 两个都写时规则表那个数看不出效果，而此前<b>控制台一句话都不说</b>。
      * <p>
      * 这一段钉住的结论是：<b>派生键（{@code EntityData.json}）赢</b>，而且这件事<b>必须被点名</b>；
@@ -6026,7 +6557,7 @@ public class TestCommandSystem {
         final String flameBaseHpRule = DataKeys.Rule.FlameReaver.BASE_HP_MAX;
         final String insectBaseHpRule = DataKeys.Rule.InsectBoss.BASE_HP;
         final String flamePatch = "{\"entities\":{\"game_official_content:flameReaver\":"
-                + "{\"derived\":{\"hpMax\":77777}}}}";
+                + "{\"derived\":{\"baseHpMax\":77777}}}}";
         final long defaultFlameHp = cn.gfhnv.game.system.configLoadingSystem.RuleKeySpecs
                 .defaults().get(flameBaseHpRule) instanceof Number number ? number.longValue() : -1L;
         LivingThing flameTemplate = entityTemplateOf("game_official_content:flameReaver");
@@ -6049,12 +6580,12 @@ public class TestCommandSystem {
                     cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher
                             .applyJson(flamePatch, "自测-两个入口同时写");
             String bothText = both.notices().toString();
-            check("两个入口：EntityData.json 的 derived.hpMax 赢（规则表写 123456，实际 "
+            check("两个入口：EntityData.json 的 derived.baseHpMax 赢（规则表写 123456，实际 "
                             + flameTemplate.getHpMax() + "）",
                     flameTemplate.getHpMax() == 77777L);
             check("两个入口：这件事被点名了（不再静默）—— 提醒 " + both.notices(),
                     both.notices().size() == 1 && bothText.contains("两个入口对不上")
-                            && bothText.contains("derived.hpMax") && bothText.contains(flameBaseHpRule));
+                            && bothText.contains("derived.baseHpMax") && bothText.contains(flameBaseHpRule));
             check("两个入口：提醒里写清了「谁赢、为什么、想让它生效该怎么办」"
                             + "（含规则表的出厂值 " + defaultFlameHp + "）",
                     bothText.contains("赢") && bothText.contains("构造之后")
@@ -6066,15 +6597,15 @@ public class TestCommandSystem {
 
             /* ---------- ② 只写派生键、而且写的就是规则表那个数（= 生成的默认文件的形状）：不许吵 ---------- */
             // ⚠️ 判据是"两个数对不对得上"，所以这里必须写**规则表生效的那个数**：
-            //    生成出来的 EntityData.json 里 derived.hpMax 与 flameReaver.baseHpMax 本来就是同一个数，
+            //    生成出来的 EntityData.json 里 derived.baseHpMax 与 flameReaver.baseHpMax 本来就是同一个数，
             //    这才是"只写派生键"的出厂形状。随手写 77777 反而会（正确地）触发提醒 —— 那属于新用例②。
             cn.gfhnv.game.system.configLoadingSystem.GameRules.resetForTest();
             cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.Report derivedOnly =
                     cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher
                             .applyJson("{\"entities\":{\"game_official_content:flameReaver\":"
-                                            + "{\"derived\":{\"hpMax\":" + defaultFlameHp + "}}}}",
+                                            + "{\"derived\":{\"baseHpMax\":" + defaultFlameHp + "}}}}",
                                     "自测-只写派生键");
-            check("两个入口：只写 derived.hpMax、而且写的就是规则表生效值（= 默认文件的形状）时不发提醒"
+            check("两个入口：只写 derived.baseHpMax、而且写的就是规则表生效值（= 默认文件的形状）时不发提醒"
                             + " —— 这是文档里的推荐做法，提醒 " + derivedOnly.notices(),
                     derivedOnly.notices().isEmpty()
                             && flameTemplate.getHpMax() == defaultFlameHp);
@@ -6088,8 +6619,8 @@ public class TestCommandSystem {
             cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.Report ruleOnly =
                     cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher
                             .applyJson("{\"entities\":{\"game_official_content:flameReaver\":"
-                                    + "{\"derived\":{\"attack\":999}}}}", "自测-只写规则表");
-            check("两个入口：规则表写了、补丁里没有 hpMax 时不发提醒（提醒只针对 hpMax 撞车）—— "
+                                    + "{\"derived\":{\"baseAttack\":999}}}}", "自测-只写规则表");
+            check("两个入口：规则表写了、补丁里没有 baseHpMax 时不发提醒（提醒只针对 baseHpMax 撞车）—— "
                     + ruleOnly.notices(), ruleOnly.notices().isEmpty());
             flameSnapshot.restore();
 
@@ -6101,7 +6632,7 @@ public class TestCommandSystem {
             cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.Report insectBoth =
                     cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher
                             .applyJson("{\"entities\":{\"game_official_content:insectBoss\":"
-                                    + "{\"derived\":{\"hpMax\":54321}}}}", "自测-虫皇两个入口");
+                                    + "{\"derived\":{\"baseHpMax\":54321}}}}", "自测-虫皇两个入口");
             check("两个入口：虫皇（insectBoss.baseHpMax）也走同一条判定，一并点名 —— "
                             + insectBoth.notices(),
                     insectBoth.notices().size() == 1
@@ -6130,7 +6661,7 @@ public class TestCommandSystem {
      * <b>「血液两个入口」那条提醒的误报修掉之后的行为</b>（2026-10-03 第 2 轮，用户报）。
      * <p>
      * 用户看到的那条提醒原文有约 250 字，而它<b>每次启动必然响</b> —— 因为生成的
-     * {@code EntityData.json} 本来就<b>一定</b>有 {@code derived.hpMax}（全量 dump），
+     * {@code EntityData.json} 本来就<b>一定</b>有 {@code derived.baseHpMax}（全量 dump），
      * {@code GameRules.json} 本来就<b>一定</b>有 {@code flameReaver.baseHpMax}（也是全量 dump）：
      * <b>"两个入口都写了"是默认状态，不是冲突</b>。真正的判据只能是<b>两个数对不对得上</b>。
      * <p>
@@ -6160,7 +6691,7 @@ public class TestCommandSystem {
             cn.gfhnv.game.system.configLoadingSystem.GameRules.resetForTest();
             cn.gfhnv.game.system.configLoadingSystem.GameRules.beginLoad();
             String defaultPatch = "{\"entities\":{\"game_official_content:flameReaver\":"
-                    + "{\"derived\":{\"hpMax\":" + factory + "}}}}";
+                    + "{\"derived\":{\"baseHpMax\":" + factory + "}}}}";
             cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.Report same =
                     cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher
                             .applyJson(defaultPatch, "自测-两份默认文件");
@@ -6197,7 +6728,7 @@ public class TestCommandSystem {
             cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.Report agreed =
                     cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher
                             .applyJson("{\"entities\":{\"game_official_content:flameReaver\":"
-                                    + "{\"derived\":{\"hpMax\":" + changed + "}}}}", "自测-两处改成同一个数");
+                                    + "{\"derived\":{\"baseHpMax\":" + changed + "}}}}", "自测-两处改成同一个数");
             check("误报修复③：两处都改了、且改成同一个数 → 不吵（判据是值，不是「写过没写过」）—— 提醒 "
                             + agreed.notices(),
                     agreed.notices().isEmpty() && flame.getHpMax() == changed);
@@ -6351,7 +6882,7 @@ public class TestCommandSystem {
                         + "\"names\":[\"甲\",\"乙\",7],\"flag\":true,\"speed\":2.5}");
         org.json.JSONObject commonGroup = new org.json.JSONObject(
                 "{\"containerLimit\":8,\"entities\":{\"game_official_content:playerOne\":"
-                        + "{\"base\":{\"speed\":222}}}}");
+                        + "{\"base\":{\"baseSpeed\":222}}}}");
         cn.gfhnv.game.mod.config.ModConfigDocument document =
                 new cn.gfhnv.game.mod.config.ModConfigDocument("drunkenSword", ownGroup, commonGroup);
         check("模组文档：读得到自己的分组（含默认值回退）",
@@ -6388,7 +6919,8 @@ public class TestCommandSystem {
         int mustImplement = 0;
         int optionalCount = 0;
         for (java.lang.reflect.Method method : awareMethods) {
-            if (method.isDefault()) optionalCount++; else mustImplement++;
+            if (method.isDefault()) optionalCount++;
+            else mustImplement++;
         }
         check("模组契约：ModDataAware 只有 1 个<b>必须实现</b>的方法（实扫 " + awareMethods.length
                         + " 个：必须 " + mustImplement + " / 可选 " + optionalCount + "）",
@@ -6461,7 +6993,7 @@ public class TestCommandSystem {
         java.io.File dataDir = new java.io.File(tempDir, "config/data");
         String goodJson = "{\"version\":1,"
                 + "\"common\":{\"entities\":{\"game_official_content:playerOne\":"
-                + "{\"base\":{\"speed\":222}}}},"
+                + "{\"base\":{\"baseSpeed\":222}}}},"
                 + "\"drunkenSword\":{\"initialStacks\":4}}";
         try {
             if (!dataDir.mkdirs() && !dataDir.isDirectory()) {
@@ -6491,7 +7023,7 @@ public class TestCommandSystem {
                     speedProbe.getSpeed() == 222L);
             cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher
                     .applyJson("{\"entities\":{\"game_official_content:playerOne\":"
-                            + "{\"base\":{\"speed\":" + speedBefore + "}}}}", "自测-还原速度");
+                            + "{\"base\":{\"baseSpeed\":" + speedBefore + "}}}}", "自测-还原速度");
             check("模组配置：还原之后速度回到原样（后面的用例看到的是干净注册表）",
                     speedProbe.getSpeed() == speedBefore);
 
@@ -6716,8 +7248,8 @@ public class TestCommandSystem {
             long newSpeed = beforeSpeed + 7;
             double newMetal = beforeMetal + 0.5;
             org.json.JSONObject patch = new org.json.JSONObject()
-                    .put("criticalRate", newCritical)
-                    .put("speed", newSpeed)
+                    .put("baseCriticalRate", newCritical)
+                    .put("baseSpeed", newSpeed)
                     .put("metalResistance", newMetal);
             System.out.println("  [信息] 补丁（键名 = /data 数据名）：" + patch);
             cn.gfhnv.game.system.configLoadingSystem.ReflectionConfigBridge.Applied applied =
@@ -6766,9 +7298,17 @@ public class TestCommandSystem {
                 noReason.add(entry.getKey());
             }
         }
-        check("② 挡板：uuid / alive / presentTurn 都在 @NoConfig 清单里（少一个就是配置面漏了）—— 实扫 "
-                        + blockedOfClass.keySet(),
-                blockedOfClass.keySet().containsAll(Arrays.asList("uuid", "alive", "presentTurn")));
+        boolean aliveBlockedInProfile;
+        try {
+            aliveBlockedInProfile = cn.gfhnv.game.entity.AttributeProfile.class.getDeclaredField("alive")
+                    .isAnnotationPresent(cn.gfhnv.game.data.NoConfig.class);
+        } catch (NoSuchFieldException e) {
+            aliveBlockedInProfile = false;
+        }
+        check("② 挡板：uuid / presentTurn 在 LivingThing 的 @NoConfig 里，alive 在 AttributeProfile 里"
+                        + "（2026-10-04 搬过去了，理由跟着搬）—— 实扫 " + blockedOfClass.keySet(),
+                blockedOfClass.keySet().containsAll(Arrays.asList("uuid", "presentTurn"))
+                        && aliveBlockedInProfile);
         check("② 挡板：每个 @NoConfig 都写了理由（防止有人只加注解不加说明）—— 没写理由的 " + noReason,
                 noReason.isEmpty());
         // 反射面的候选规则是"非 @NoConfig + 标量"：集合/对象一律在配置面之外
@@ -7121,29 +7661,39 @@ public class TestCommandSystem {
             }
             check("classState：数据名就在反射面上（键名 = /data 数据名，不需要另起一套别名）—— 白厄身上有 "
                     + onPhainon, onPhainon.containsAll(Arrays.asList(
-                    "coreflame", "coreflame_max", "soulscorch", "scourge", "scourge_max")));
+                    "coreflame", "coreflameMax", "soulscorch", "scourge", "scourgeMax")));
 
             cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.Report fire = cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.applyJson(
                     "{\"entities\":{\"game_official_content:phainon\":{\"classState\":"
-                            + "{\"coreflame_max\":20,\"coreflame\":18,\"scourge_max\":9,\"scourge\":5,"
+                            + "{\"coreflameMax\":20,\"coreflame\":18,\"scourgeMax\":9,\"scourge\":5,"
                             + "\"soulscorch\":3}}}}", "自测-classState-白厄");
             System.out.println("  [信息] 白厄 classState 补丁：应用 " + fire.appliedEntries()
                     + "，跳过 " + fire.skippedEntries());
             check("classState 生效：classState 块里的 5 个键全部落地、没有跳过 —— " + fire.errors()
                             + fire.skippedEntries(),
                     fire.isClean() && fire.appliedEntries().size() == 5);
-            check("classState 生效：coreflame_max 真的变成 20（旧值见快照）",
-                    phainon.getCoreflame_max() == 20);
+            check("classState 生效：coreflameMax 真的变成 20（旧值见快照）",
+                    phainon.getCoreflameMax() == 20);
             check("classState 生效：coreflame 真的变成 18（setter 仍然夹到上限）",
                     phainon.getCoreflame() == 18);
-            check("classState 生效：scourge_max 9 / scourge 5 / soulscorch 3",
-                    phainon.getScourge_max() == 9 && phainon.getScourge() == 5
+            check("classState 生效：scourgeMax 9 / scourge 5 / soulscorch 3",
+                    phainon.getScourgeMax() == 9 && phainon.getScourge() == 5
                             && phainon.getSoulscorch() == 3);
             // setter 的钳制还在：写超过上限的值会被压到上限（不是"裸写字段"）
             cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.applyJson("{\"entities\":{\"game_official_content:phainon\":"
                     + "{\"coreflame\":999}}}", "自测-classState-钳制");
-            check("classState 生效：写超过上限的 coreflame 会被 setter 夹到 coreflame_max（钳制没被绕开）—— 999 → "
-                    + phainon.getCoreflame(), phainon.getCoreflame() == phainon.getCoreflame_max());
+            check("classState 生效：写超过上限的 coreflame 会被 setter 夹到 coreflameMax（钳制没被绕开）—— 999 → "
+                    + phainon.getCoreflame(), phainon.getCoreflame() == phainon.getCoreflameMax());
+
+            // 顺序保证：`JSONObject` 背后是 HashMap，**用户写的键顺序靠不住**，
+            // 所以这一层必须自己保证"上限键先写"（`ReflectionConfigBridge#upperBoundFirst`）。
+            // 这条把键**故意写反**（先值 99、后上限 21）：只要上限先应用，99 就会被夹到 21；
+            // 反过来说，如果哪天有人把这层改成"照 JSON 顺序写"，这里会红。
+            cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.applyJson("{\"entities\":{\"game_official_content:phainon\":"
+                    + "{\"classState\":{\"coreflame\":99,\"coreflameMax\":21}}}}", "自测-classState-顺序");
+            check("classState 生效：补丁里\"先值后上限\"也先抬上限（不靠 JSON 的键顺序）—— coreflame "
+                            + phainon.getCoreflame() + " / coreflameMax " + phainon.getCoreflameMax(),
+                    phainon.getCoreflameMax() == 21 && phainon.getCoreflame() == 21);
 
             // 裸键写法等价（两种写法都认）
             cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.Report bare = cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.applyJson(
@@ -7203,7 +7753,7 @@ public class TestCommandSystem {
             boolean before = phainon.isAwaken();
             cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.Report blocked = cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.applyJson(
                     "{\"entities\":{\"game_official_content:phainon\":"
-                            + "{\"classState\":{\"isAwaken\":true,\"extraTurns\":9}}}}",
+                            + "{\"classState\":{\"awaken\":true,\"extraTurns\":9}}}}",
                     "自测-classState-运行时");
             System.out.println("  [信息] 运行时状态：写 isAwaken/extraTurns（awaken 在反射面上： "
                     + awakenOnSurface + "）→ 应用 " + blocked.appliedEntries()
@@ -7211,7 +7761,7 @@ public class TestCommandSystem {
             check("classState：isAwaken / extraTurns 写不进去（还是「未知键 + 为什么」，不是静默生效）"
                             + "—— 觉醒状态 " + before + " → " + phainon.isAwaken(),
                     blocked.appliedEntries().isEmpty()
-                            && blocked.skippedEntries().toString().contains("isAwaken")
+                            && blocked.skippedEntries().toString().contains("awaken")
                             && blocked.skippedEntries().toString().contains("extraTurns")
                             && String.valueOf(before).equals(String.valueOf(phainon.isAwaken())));
         } finally {
@@ -7227,7 +7777,7 @@ public class TestCommandSystem {
         check("classState：这一段的默认值能被 dump 出来（键名 + 当前值），白厄写出 "
                         + phainonClassState.size() + " 个键",
                 phainonClassState.keySet().containsAll(Arrays.asList(
-                        "coreflame", "coreflame_max", "soulscorch", "scourge", "scourge_max",
+                        "coreflame", "coreflameMax", "soulscorch", "scourge", "scourgeMax",
                         "extraAbilityTier")));
     }
 
@@ -7619,6 +8169,10 @@ public class TestCommandSystem {
     private static void fail(String message) {
         failures++;
         System.out.println("  [FAIL] " + message);
+        // 再打一遍到 stderr：有些用例会临时劫持 System.out 去捕获游戏输出，
+        // 落在捕获区里的失败会跟着那段输出一起被丢掉（日志里一条 [FAIL] 都没有，
+        // 汇总却说"失败 N 条"—— 这种静默失败比失败本身更坑）。stderr 不会被那套替换。
+        System.err.println("  [FAIL] " + message);
     }
 
     /**
@@ -8026,6 +8580,45 @@ public class TestCommandSystem {
             if (seenTurns >= 3) {
                 cn.gfhnv.game.GameMain.setFightInProgressForSelfTest(false);
             }
+        }
+    }
+
+    /**
+     * 自测用的"数收到了几条血量事件"的监听器。
+     * <p>
+     * 它盯的是 {@code setHp} 的副作用：扣血发 {@link cn.gfhnv.game.event.HpLossEvent}、
+     * 回血发 {@link cn.gfhnv.game.event.HpRestorationEvent}。这个副作用在 2026-10-24
+     * 跟着 {@code hp} 字段搬进了属性组件（{@code /data} 的写回落点也就跟着变成组件），
+     * 事件要是没跟着搬，只有"血被夹住了"那一半还看得见，模组的联动会**静默**失效。
+     *
+     * @author AI（DeepSeek）生成
+     */
+    private static class ProbeHpEventListener {
+
+        /**
+         * 收到的扣血事件数。
+         */
+        private int losses = 0;
+
+        /**
+         * 收到的回血事件数。
+         */
+        private int restorations = 0;
+
+        /**
+         * @param event 扣血事件
+         */
+        @cn.gfhnv.game.annotation.SubscribeEvent
+        public void onHpLoss(cn.gfhnv.game.event.HpLossEvent event) {
+            losses++;
+        }
+
+        /**
+         * @param event 回血事件
+         */
+        @cn.gfhnv.game.annotation.SubscribeEvent
+        public void onHpRestoration(cn.gfhnv.game.event.HpRestorationEvent event) {
+            restorations++;
         }
     }
 

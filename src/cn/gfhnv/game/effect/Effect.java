@@ -25,6 +25,21 @@ import java.util.Objects;
  */
 public class Effect {
     private String id;
+    /**
+     * 效果的<b>显示名</b>（例如「破容器之赏」）。{@code null} = 没单独起名。
+     * <p>
+     * 它和 {@link #id} 是<b>两件事</b>：{@code id} 是效果的<b>身份</b> ——
+     * {@link #equals(Object)} 用它判等、{@code /effect} 用它寻址、{@code /data} 里也是这个键；
+     * {@code name} 纯粹是<b>给人看的</b>。
+     * <p>
+     * 为什么需要它：同一个效果类可以有多个"名字" —— 比如同一个增伤效果，由不同来源给的时候
+     * 希望日志里显示「破容器之赏」而不是干巴巴的 {@code damageEnhanceEffect}。
+     * 以前要靠"给每个用途单独写一个效果类"才能做到（{@code ContainerReward} 就是这么来的，
+     * 其实它和 {@code DamageEnhanceEffect} 走的是同一条 {@code setEnhance} 路）。
+     * <p>
+     * 它会出现在 {@code /data} 里（读得到、写不了 —— {@code effects} 整个列表是只读的）。
+     */
+    private String name;
     private int level = 1;//效果等级
     private int lastTime;//turns
     private String origin = "null";
@@ -50,6 +65,7 @@ public class Effect {
      */
     public Effect(Effect effect) {
         this.id = effect.id;
+        this.name = effect.name;
         this.level = effect.level;
         this.lastTime = effect.lastTime;
     }
@@ -121,6 +137,7 @@ public class Effect {
     public String toString() {
         return "Effect{" +
                 "id='" + id + '\'' +
+                ", name='" + getName() + '\'' +
                 ", effectTagsList=" + effectTagsList +
                 ", origin='" + origin + '\'' +
                 '}';
@@ -140,6 +157,39 @@ public class Effect {
      */
     public void setId(String id) {
         this.id = id;
+    }
+
+    /**
+     * @return 效果的<b>显示名</b>；没单独起名时回退到 {@link #getId()}
+     * <p>
+     * 回退是为了「界面上永远有东西可显示、而且 {@code /data} 里一定看得到 name」——
+     * 没起名时它等于 id，起名后就是你给的那个名字。
+     */
+    public String getName() {
+        return name == null ? id : name;
+    }
+
+    /**
+     * 给效果起一个<b>显示名</b>（链式调用，与 {@link #setOrigin(String)} 同形）。
+     * <p>
+     * 传 {@code null} = 恢复成"回退到 id"。
+     *
+     * @param name 显示名
+     * @return 当前效果实例
+     */
+    public Effect setName(String name) {
+        this.name = name;
+        return this;
+    }
+
+    /**
+     * @return 这个效果<b>有没有单独起过名字</b>（{@link #setName(String)} 传过非 {@code null}）
+     * <p>
+     * 为什么不能拿 {@link #getName()} 判断：它没起名时会回退到 id，永远不为 {@code null}。
+     * 有些效果想"**起了名才播报**"（例如【破容器之赏】），就靠这个区分。
+     */
+    public boolean hasCustomName() {
+        return name != null;
     }
 
     /**

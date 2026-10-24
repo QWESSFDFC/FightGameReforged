@@ -12,6 +12,11 @@ public class DamageEnhanceEffect extends Effect {
 
     public DamageEnhanceEffect(DamageEnhanceEffect effect) {
         super(effect.getID());
+        // ⚠️ 这里必须**手动**把显示名带过来：`super(String id)` 那个构造器不复制 name，
+        //    漏了的话副本 hasCustomName() 变 false → 播报消失、日志里又变回类名。
+        if (effect.hasCustomName()) {
+            this.setName(effect.getName());
+        }
         // 副本也是同一种效果，UNIVERSAL / POSITIVE 标签要一起复制，否则副本 isUniversal() 会变成 false
         this.getEffectTagsList().add(EffectTags.UNIVERSAL);
         this.getEffectTagsList().add(EffectTags.POSITIVE);
@@ -69,6 +74,12 @@ public class DamageEnhanceEffect extends Effect {
     public void comeIntoEffect(LivingThing thing) {
         if (!isOn) {
             thing.setEnhance(thing.getEnhance() + enhanceN);
+            // **起了名才播报**：没起名的通用增伤（`/effect add damageEnhanceEffect`）会每回合触发，
+            // 每次都打一行会刷屏；起了名的（例如【破容器之赏】）就是要让人看见的那一次。
+            if (hasCustomName()) {
+                System.out.println("【" + getName() + "】" + thing.getName() + " 增伤 +"
+                        + Math.round(enhanceN * 100) + "%（" + getLastTime() + " 回合）");
+            }
         }
         this.isOn = true;
     }
@@ -77,6 +88,9 @@ public class DamageEnhanceEffect extends Effect {
     public void whenLastTimeEnd(LivingThing livingThing) {
         livingThing.setEnhance(livingThing.getEnhance() - enhanceN);
         this.isOn = false;
+        if (hasCustomName()) {
+            System.out.println("【" + getName() + "】" + livingThing.getName() + " 的增伤结束了");
+        }
     }
 
 }

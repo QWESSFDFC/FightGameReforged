@@ -18,7 +18,7 @@ import java.util.function.BiConsumer;
  *     （{@link #meta()} / {@link #groups()}）。</li>
  * </ul>
  * <b>顺序就是应用顺序</b>：{@code level} 排在最前（{@code Entity#setLevel} 会重算一遍三围），
- * {@code hp} 排在 {@code hpMax} 之后（{@code setHp} 会夹到 {@code getHpMax()}）。
+ * {@code hp} 排在 {@code baseHpMax} 之后（{@code setHp} 会夹到 {@code getHpMax()}）。
  * <p>
  * <b>五行不再手写 switch</b>：抗性与法力成长各五行都用
  * {@link ElementSort} 循环生成（加第六个元素只需改枚举，这里自动跟上）。
@@ -39,15 +39,20 @@ public final class EntityKeySpecs {
 
     /**
      * 用固定值覆盖公式结果的四个键，<b>顺序 = 应用顺序</b>（{@code hp} 必须最后）。
+     * <p>
+     * ⚠️ 这四行的<b>读</b>取的是"最终值"（{@code getAttack()} / {@code getHpMax()} 会叠
+     * {@code *Enhance*}），<b>写</b>进去的是"基础值"。因为有 {@code *Enhance*} 的实例只可能出现在
+     * 战斗里，而生成默认值只对<b>注册表模板</b>做（模板上增强恒为 0），所以两边逐位相同 ——
+     * 这也是 {@code derived.baseHpMax} 这个名字成立的前提（它写的确实是基础值）。
      */
     public static final List<KeySpec<LivingThing>> DERIVED = List.of(
             spec(DataKeys.Derived.HP_MAX, DataKeys.GROUP_DERIVED, KeySpec.Kind.LONG,
                     LivingThing::getHpMax, longs(LivingThing::setHpMax),
-                    "生命上限（覆盖公式结果）"),
-            spec(DataKeys.Derived.ATTACK, DataKeys.GROUP_DERIVED, KeySpec.Kind.LONG,
+                    "基础生命上限（覆盖公式结果；最终上限还要叠 hpEnhance*）"),
+            spec(DataKeys.Derived.BASE_ATTACK, DataKeys.GROUP_DERIVED, KeySpec.Kind.LONG,
                     LivingThing::getAttack, longs(LivingThing::setAttack),
                     "基础攻击力（覆盖公式结果）"),
-            spec(DataKeys.Derived.DEFENCE, DataKeys.GROUP_DERIVED, KeySpec.Kind.LONG,
+            spec(DataKeys.Derived.BASE_DEFENCE, DataKeys.GROUP_DERIVED, KeySpec.Kind.LONG,
                     LivingThing::getDefence, longs(LivingThing::setDefence),
                     "基础防御力（覆盖公式结果）"),
             spec(DataKeys.Derived.HP, DataKeys.GROUP_DERIVED, KeySpec.Kind.LONG,
@@ -125,12 +130,12 @@ public final class EntityKeySpecs {
         keys.add(spec(DataKeys.Base.DESCRIPTION, DataKeys.GROUP_BASE, KeySpec.Kind.STRING,
                 ConfigDefaultWriter::descriptionForFile, strings(LivingThing::setDescription),
                 "描述文本（可能为空）"));
-        keys.add(spec(DataKeys.Base.SPEED, DataKeys.GROUP_BASE, KeySpec.Kind.LONG,
+        keys.add(spec(DataKeys.Base.BASE_SPEED, DataKeys.GROUP_BASE, KeySpec.Kind.LONG,
                 LivingThing::getSpeed, longs(LivingThing::setSpeed),
                 "速度"));
-        keys.add(spec(DataKeys.Base.ELEMENT_SORT, DataKeys.GROUP_BASE, KeySpec.Kind.ELEMENT,
+        keys.add(spec(DataKeys.Base.ELEMENT, DataKeys.GROUP_BASE, KeySpec.Kind.ELEMENT,
                 EntityKeySpecs::elementNameOf, EntityKeySpecs::setElement,
-                "元素属性（别名 element）"));
+                "元素属性（金木水火土；数据键就叫 element）"));
         keys.add(spec(DataKeys.Base.HP_GROW, DataKeys.GROUP_BASE, KeySpec.Kind.DOUBLE,
                 LivingThing::getHpGrow, doubles(LivingThing::setHpGrow),
                 "生命成长系数（不是当前血量）"));
@@ -162,10 +167,10 @@ public final class EntityKeySpecs {
                 living -> (long) living.getInventory().getSlots().size(), null,
                 "背包格数（/data 里没有这个键）"));
         // 面板属性（2026-10-03 之前它们"声明了能配、其实没人读"，现在真的接上了）
-        keys.add(spec(DataKeys.Temporary.CRITICAL_RATE, DataKeys.GROUP_TEMPORARY, KeySpec.Kind.DOUBLE,
+        keys.add(spec(DataKeys.Temporary.BASE_CRITICAL_RATE, DataKeys.GROUP_TEMPORARY, KeySpec.Kind.DOUBLE,
                 LivingThing::getCriticalRate, doubles(LivingThing::setCriticalRate),
                 "基础暴击率（面板属性：copy() 会带、战斗结束不清，配了就整局生效）"));
-        keys.add(spec(DataKeys.Temporary.CRITICAL_DMG, DataKeys.GROUP_TEMPORARY, KeySpec.Kind.DOUBLE,
+        keys.add(spec(DataKeys.Temporary.BASE_CRITICAL_DAMAGE, DataKeys.GROUP_TEMPORARY, KeySpec.Kind.DOUBLE,
                 LivingThing::getCriticalDMG, doubles(LivingThing::setCriticalDMG),
                 "暴击伤害倍率加成（面板属性，整局生效）"));
         keys.add(spec(DataKeys.Temporary.ENHANCE, DataKeys.GROUP_TEMPORARY, KeySpec.Kind.DOUBLE,
@@ -174,7 +179,7 @@ public final class EntityKeySpecs {
         keys.add(spec(DataKeys.Temporary.PENETRATION, DataKeys.GROUP_TEMPORARY, KeySpec.Kind.DOUBLE,
                 LivingThing::getPenetration, doubles(LivingThing::setPenetration),
                 "穿透（面板属性，整局生效；五行的 *Penetration 是临时属性，不在这里）"));
-        keys.add(spec(DataKeys.Temporary.DEFENSE_LOSS, DataKeys.GROUP_TEMPORARY, KeySpec.Kind.DOUBLE,
+        keys.add(spec(DataKeys.Temporary.DEFENCE_LOSS, DataKeys.GROUP_TEMPORARY, KeySpec.Kind.DOUBLE,
                 LivingThing::getDefenseLoss, doubles(LivingThing::setDefenseLoss),
                 "防御削减系数（面板属性，整局生效）"));
         return List.copyOf(keys);

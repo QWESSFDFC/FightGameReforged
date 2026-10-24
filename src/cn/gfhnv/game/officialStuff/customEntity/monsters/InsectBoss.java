@@ -37,7 +37,7 @@ public class InsectBoss extends LivingThing {
      * （成长公式是 {@code (等级-1) × 系数 + 200}，改等级会连带把血量放大到无法预期的量级）。
      * <p>
      * <b>构造时读一次</b>：它不是"公式的一部分"，而是"这个模板出厂时的血量"——
-     * 想改一只<b>已经造出来</b>的虫皇的血，用 {@code EntityData.json} 的 {@code derived.hpMax}。
+     * 想改一只<b>已经造出来</b>的虫皇的血，用 {@code EntityData.json} 的 {@code derived.baseHpMax}。
      * 配置键 {@code insectBoss.baseHpMax}，出厂值
      * {@value cn.gfhnv.game.system.configLoadingSystem.RuleDefaults#INSECT_BOSS_BASE_HP}。
      *

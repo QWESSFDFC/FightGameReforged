@@ -3,6 +3,7 @@ package cn.gfhnv.game.system.thinkingSystem;
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entityController.UniversalController;
+import cn.gfhnv.game.interfaces.IAiScoreBonus;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
@@ -24,6 +25,19 @@ public class ThinkingControllerAI extends UniversalController {
 
     public ThinkingControllerAI(List<Skill> skills, LivingThing owner) {
         super(skills, owner);
+    }
+
+    /**
+     * 复制成"还是思维 AI"的新实例。
+     * <p>
+     * 不重写的话副本会退化成通用随机控制器（AI 的决策全丢） —— 这是最容易漏的一种"静默降级"。
+     *
+     * @param newOwner 副本对应的实体
+     * @return 新的思维 AI 控制器
+     */
+    @Override
+    public UniversalController copy(LivingThing newOwner) {
+        return new ThinkingControllerAI(this, newOwner);
     }
 
     // ================================================================
@@ -314,6 +328,16 @@ public class ThinkingControllerAI extends UniversalController {
                 break;
         }
 
+        // ----- 技能自己申报的评分加成（见 IAiScoreBonus）-----
+        // 为什么要有这一步：上面那些 bonus 全是"按伤害/血量算"的，于是 0 伤害但很关键的技能
+        // （白厄的变身大招就是）永远打不过普攻 —— 它的目标是自己（满血 → 0 分）、
+        // 预测伤害也是 0（拿不到斩杀加分），最后只剩"权重 − 蓝耗惩罚"。
+        // 注意：**`ATTACK` 权重再高也救不了它**，权重只决定"选哪一类 Tag"，
+        // 同一类里比的是这里算出来的分数。
+        if (skill instanceof IAiScoreBonus scoredSkill) {
+            bonus += scoredSkill.aiScoreBonus(fight, self, target);
+        }
+
         // 成本惩罚：法力消耗（如果有）
         double costPenalty = 0;
         Mana consumed = skill.getConsumedMana();
@@ -324,6 +348,24 @@ public class ThinkingControllerAI extends UniversalController {
         }
 
         return baseScore + bonus - costPenalty;
+    }
+
+    /**
+     * 算一个技能对某个目标的评分（内部就是 {@link #evaluateAction}）。
+     * <p>
+     * <b>为什么公开</b>：{@code evaluateAction} 是私有的，而自测在另一个包里 ——
+     * 没有这个入口就只能"跑一局看日志"，那验的是运气不是评分。它只读、无副作用。
+     * <p>
+     * ⚠️ {@code fight} 可以为 {@code null}（自测里不建战斗）：评分本身不读战斗，
+     * 只把它传给 {@link IAiScoreBonus}。
+     *
+     * @param fight  当前战斗（可为 {@code null}）
+     * @param skill  技能
+     * @param target 目标
+     * @return 分数（越高越想放）
+     */
+    public double scoreOf(Fight fight, Skill skill, LivingThing target) {
+        return evaluateAction(fight, skill, target);
     }
 
     /**

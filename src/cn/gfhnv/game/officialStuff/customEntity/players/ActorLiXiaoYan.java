@@ -55,6 +55,7 @@ public class ActorLiXiaoYan extends LivingThing {
     private int ignitionMax = Rule.ignitionMax();
     private int lastIgnition = Rule.resetIgnition();
     private double memorizedRate = -1;
+
     public ActorLiXiaoYan(ActorLiXiaoYan other) {
         super(other);
         this.ignition = other.ignition;
@@ -64,6 +65,7 @@ public class ActorLiXiaoYan extends LivingThing {
         this.setIndividualMultipleArea(other.getIndividualMultipleArea());
 
     }
+
     public ActorLiXiaoYan(long l) {
         // 防御成长 3 → 5（2026-09 加强）：原来 125 级只有 572 防，是三名角色里最低的
         super("李晓焰", "actorLiXiaoYan", 0.4, 0.0, 0.0, 0.0, 0.0, 120, l, "player", 58, 22, 5, ElementSort.FIRE);

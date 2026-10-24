@@ -434,6 +434,180 @@ setter 生效时哨兵被整体覆盖，只裸写字段时哨兵还在。
 - **验收判据写死**：`/data modify entity @s attack set X` 仍写基础值；
   `/data get entity @s hp` 仍被夹到上限；`getHpMax()` 的合并结果与现在完全一致。
 
+#### 阶段 2 第 1 小步（2026-10-24）：12 个 `*Enhance*` 搬进 `AttributeProfile`
+
+> 计划里的第 2 步（`TODO.md` 编号第 2 条）。**只搬字段，一个数值、一个公式、一处结算顺序都没动。**
+
+| 文件 | 改动 |
+|---|---|
+| `src/cn/gfhnv/game/entity/AttributeProfile.java` | 新增 12 个字段（8 个 `double` 百分比 + 4 个 `long` 固定值）+ 24 个 getter/setter；`ENHANCE_REASON` 常量从 `LivingThing` 搬过来（12 个字段共用一句 `@NoConfig` 理由）；`resetTemporary()` 多清这 12 个（现在一共 **22 个数值 + 2 个状态位**）；类 javadoc 的生命周期分组从"两类"改成"面板 / 临时（含这一族）/ 状态" |
+| `src/cn/gfhnv/game/entity/LivingThing.java` | 删掉 2 条字段声明（12 个名字）与 `ENHANCE_REASON`；24 个访问器改成转发；6 个派生公式（`getAttack` / `getDefence` / `getSpeed` / `getHpMax` / `getCriticalRate` / `getCriticalDMG`）改成从组件取；`clearTemporaryAttributes()` 从 12 行清零缩成 2 行（12 个数值交给 `attributes.resetTemporary()`） |
+| `src/cn/gfhnv/game/data/DataFlatten.java` | 只改 javadoc 里的用法示例（构造器现在要传宿主） |
+| `src/cn/gfhnv/debug_tools/TestCommandSystem.java` | ①「每个 /data 能写的标量字段都得挂同名 setter」那条扫描改成走 `DataBridge#accessors`（会展开 `@DataFlatten` 组件）—— 否则搬走的 12 个会**从覆盖面里静默消失**；② 新增 2 条断言（扫描确实下潜进组件；改小生命增强后当前生命被夹回新上限） |
+
+**为什么这 12 个能一起搬**：它们的生命周期完全一样（效果/技能成对加减 → 整场结束清零 → `copy()` 不带），
+和上一轮那 10 个"五元素穿透/增伤"是同一类，差别只在这 12 个**有真实写入点**。
+
+**这一步真正的坑**：搬到组件里之后，`/data` 的写回落点从**实体**变成了**组件**
+（`DataBridge#apply` 用的是"字段所在对象"的 setter），而 `setHpEnhancePercent` /
+`setHpEnhanceAmount` 除了赋值还带一个副作用 —— `renewHp()`：把上限调小之后当前生命可能超出，
+要夹回新上限。搬家当时这个副作用**掉了**，探针实测：
+
+| 场景 | 搬之前 | 搬之后（未修） |
+|---|---|---|
+| `merge {hpEnhancePercent:-0.9}` | `hp 4664 → 466`，上限 466（一致） | `hp 4664`，上限 **466**（hp > hpMax） |
+| `merge {hpEnhanceAmount:-99999999}` | `hp 0`，上限 −99995335 | `hp 4664`，上限 −99995335 |
+
+**修法**：`AttributeProfile` 在构造时拿到**宿主实体**（`new AttributeProfile(this)`，字段上 `@NoData`
+所以既不进 `/data` 也不进配置面），`setHpEnhance*` 在组件里 `host.renewHp()`；
+`LivingThing` 那两个转发 setter 里**不再重复调** `renewHp()`（一个副作用只留一处）。
+修完探针对照**与搬之前逐位一致**（`466 / 466`、`0 / -99995335`），并固化成断言。
+
+**`/data` 契约的验证方式**（铁律 ①：键名一个都不许变）：
+12 个键在 `/data get entity @s` 里**仍是顶层键**、类型没变、`@NoConfig` 理由照旧被读到 ——
+守卫「第 1 步现形的那 24 个键全部落在 `@NoConfig` 清单里」逐字通过（实扫里那 12 个都在）；
+守卫「反射面 == 手写表的标量键」仍是 `29 vs 29`（这 12 个本来就被挡住，不进 `candidates`）。
+
+**回归证据（自带 JDK 实跑，2026-10-24）**：`check-sources.ps1` → `CHECK OK`（226 个文件）/
+`javac` exit 0 / 自测 **919 → 921 / 0**；`src` 文件数不变（**226**）；`LivingThing.java`
+**2584 → 2533 行**、`AttributeProfile.java` **634 → 942 行**；`mods/` 4 个模组一个字没改；
+用户 `config/gameConfig/` 下那几份文件全程只读（自测只落 `out/tmp*`）。
+
+**剩下的（`TODO.md` 里那 4 步）**：`criticalRate` + `hp/hpMax/attack/defence/speed` + 三个成长系数、
+`elementSort` + `manas`、`defenseLoss` + `individualMultipleArea`、最后把 23 条清零并进 `resetTemporary()`。
+⚠️ **每步都会再撞一次上面那个"副作用跟着字段走"的坑** —— 搬之前先问一句：
+**这个字段的 setter 除了赋值还干了什么？**（`setHp` 发事件 + 夹上限、`setLevel` 重算派生值、`setIgnition` 夹上下限……）
+
+#### 阶段 2 第 2 小步（2026-10-24）：面板组 9 个基础值搬进 `AttributeProfile`
+
+> `TODO.md` 编号第 3 条。**只搬字段**：一个数值、一个公式、一处结算顺序都没动。
+> 上面那句"每步都会再撞一次"当场应验 —— 这次撞在 `setHp` 上。
+
+| 文件 | 改动 |
+|---|---|
+| `src/cn/gfhnv/game/entity/AttributeProfile.java` | 新增 ⓪ 面板组 9 个字段（`hp` / `hpMax` / `attack` / `defence` / `speed` / `criticalRate` 与 `hpGrow` / `attackGrow` / `defenceGrow`）+ 18 个访问器；`copyFrom` 把这 9 个一起带过去（**面板属性**）；新增 `initPanel(hp, defence, attack)` 给构造期铺值；`setHp` 带着**事件与夹取**一起搬进来 |
+| `src/cn/gfhnv/game/entity/LivingThing.java` | 删 9 个字段；18 个访问器改转发；5 个「最终值」公式（`getHpMax` / `getAttack` / `getDefence` / `getSpeed` / `getCriticalRate`）改成读组件；复制构造器删掉 10 行逐字段赋值（交给 `copyFrom`）；十三参构造器改 `initPanel(...)` + `setSpeed(...)`；`facSet*` 链式 setter（`HpMax` / `CriticalRate` / `Dfk` / `Speed` / `Afk`）跟着改转发 |
+| `src/cn/gfhnv/debug_tools/TestCommandSystem.java` | ① `panelAttributes` 从 1 个扩到 **10 个**，并新增"整场结束**不清**这 9 个基础值"的断言（原来只盯 `individualMultipleArea`）；② 新增 `ProbeHpEventListener` +「`/data` 写 hp 会发 `HpLossEvent` / `HpRestorationEvent`」的守卫；③ 扫描前提清单补上面板组 9 个名字 |
+
+**这一步真正的坑（比上一轮深）**：`setHp` 的副作用是**两条**，而 `/data` 的写回落点搬到组件之后两条都会丢：
+① 夹取（`0 ≤ hp ≤ 最终上限`）—— 上一轮的守卫「写 hp 会被 setHp 钳到生命上限」正好还盯着它；
+② **发 `HpLossEvent` / `HpRestorationEvent`** —— **没有任何守卫盯着**（游戏里今天也没有订阅者，
+但 `HurtCommand` / `KillCommand` 的 javadoc 明确承诺"模组可以监听"，所以它是对外契约）。
+搬家时两条一起写进组件的 `setHp`（用宿主发事件、用 `host.getHpMax()` 拿最终上限），
+并**补了一条会数事件的守卫**：实测 `/data merge {hp:1}` 之后扣血事件 1 次、`{hp:99999999}` 之后回血事件 1 次、`hp == 上限`。
+
+**构造期为什么不走 `setHp`**：十三参构造器原本是**裸赋值**（`this.hp = …; this.hpMax = this.hp;`）。
+改成 `attributes.setHp(...)` 会在构造时发一个 `HpRestorationEvent`（刚造出来的注册表模板去通知所有监听器），
+所以新增 `initPanel(...)` 做裸赋值 —— **这是"搬字段"与"改行为"的分界线**，注释写在方法上。
+
+**两个同名 getter 是刻意的**：`AttributeProfile#getBaseHpMax()` 返回**基础值**（= `/data` 的 `baseHpMax` 键；这个键 2026-10-24 之前叫 `hpMax`，后来按键名规范化改掉了，对照表见 `notes_for_llm/70-DATA.md` 的 §5.10.0），
+`LivingThing#getHpMax()` 返回**最终值**（× `hpEnhancePercent` + `hpEnhanceAmount`）。
+`attack` / `defence` / `speed` / `criticalRate` 同理 —— 键名必须与 Java 字段名一致，而"合并"只有实体做得对。
+组件的类注释顶部写明了这条约定。
+
+**`/data` 契约的验证方式**：9 个键仍是顶层键、类型未变；守卫「反射面 == 手写表的标量键」仍是 `29 vs 29`
+（`candidates` 口径会展开组件，所以这 9 个**还在**可配置清单里 —— 与上一轮那 12 个临时属性相反）；
+`/data merge {hp:…}` 的夹取与事件都还在（见上）；`derived.hp` / `derived.hpMax` / `base.*Grow` 的配置路照旧生效。
+
+**回归证据（自带 JDK 实跑，2026-10-24）**：`check-sources.ps1` → `CHECK OK`（226 个文件）/
+`javac` exit 0 / 自测 **921 → 925 / 0**（+4：面板不清零 ×2、面板前提 ×1、hp 事件 ×1）；
+`src` 文件数不变（**226**）；`LivingThing.java` **2533 → 2502 行**、`AttributeProfile.java` **942 → 1178 行**；
+`mods/` 4 个模组一个字没改；用户 `config/gameConfig/` 下那几份文件全程只读。
+数值侧的旁证：`playerOne` 的 `hp 4664 / attack 3706 / defence 820 / speed 120`
+与搬之前**逐位相同**（自测里那条"把当前默认值打回去，数值逐字段不变"逐字段比过）。
+
+**剩下的（`TODO.md` 里那 2 步）**：`defenseLoss` + `individualMultipleArea`（含多来源乘数表）、
+最后把 `clearTemporaryAttributes()` 剩下那几条并进 `resetTemporary()`。
+
+#### 阶段 2 第 3 小步（2026-10-24）：`elementSort` + 法力表 `manas` 搬进 `AttributeProfile`
+
+> `TODO.md` 编号第 4 条。**这一步不是纯标量**：一个是枚举（配置面还认别名 `element`），
+> 一个是**可变集合**（`initialMana()` 整表替换），所以搬法和前两步不一样。
+
+| 文件 | 改动 |
+|---|---|
+| `src/cn/gfhnv/game/entity/AttributeProfile.java` | ⓪ 面板组末尾加 `elementSort`；新增 ⑧「容器 · 法力表」段放 `manas`（`@NoConfig` 跟着搬）；`copyFrom` 里 `elementSort` 照抄、`manas` **深拷贝**（`new Mana(mana)` 逐个重建）；4 个访问器 |
+| `src/cn/gfhnv/game/entity/LivingThing.java` | 删 2 个字段；`get/setElementSort`、`get/setManas` 改转发；`initialMana()` 改成"先建局部表 `rebuilt`、最后 `attributes.setManas(rebuilt)` 整表替换"；`getMana(...)` / `recoverManaEveryTurn()` 里的 `for (Mana mana : manas)` 改走 `getManas()`；复制构造器删掉"逐条 `new Mana(mana)`"那一段 |
+| `src/cn/gfhnv/debug_tools/TestCommandSystem.java` | ① `panelAttributes` 加上 `elementSort`（"整场结束不清"那条现在覆盖 10 个）；② 新增「法力表是**深拷贝**」守卫（改模板的蓝不会传到副本） |
+
+**坑（这次是"集合"特有的两条）**：
+
+1. **`initialMana()` 是整表替换**（`this.manas = new ArrayList<>()`），不是 `clear()` 后再填。
+   直接改字段的话搬完就编不过；改成"局部表 + 最后 `setManas`"**语义完全等价**（旧表被丢弃、
+   新表进组件），而且不依赖"组件的列表是哪一个实例"。
+2. **复制构造器原来是深拷贝**（`for (Mana mana : other.getManas()) this.getManas().add(new Mana(mana))`）。
+   搬进 `copyFrom` 时必须**逐条 `new Mana(mana)`**，否则模板与副本共享同一批 `Mana` ——
+   症状是"选人时改一个人的蓝，另一个也跟着变"，而且模板会被一局一局地改掉。
+   这条以前没有任何守卫（复制构造器里那几行就是唯一保证），现在补了一条。
+
+**`/data` 契约**：`elementSort` 与 `manas` **仍是顶层键**，`manas` 仍是
+`[{amount, amountMax, elementSort}, …]` 的形状；`/data modify entity @s manas[3].amount set 100`、
+`manas[0:2]` 切片、`manas[{amount:516.0d}]` 过滤、`manas[99]` 越界报错、`manas set …` 整段替换被拒 ——
+自测里那几条一条没改、全部照旧通过。
+⚠️ **唯一的可见变化是 `/data get` 里的键顺序**：`elementSort` 现在紧跟 `defenceGrow`、
+`manas` 排在 `*Enhance*` 之后（键的**顺序**取决于字段声明顺序，组件按自己那份声明顺序展开）。
+键名与取值一个都没变 —— 顺序不是契约（没有任何断言依赖它），但用户看起来会觉得"dump 长得不一样了"。
+
+**回归证据（自带 JDK 实跑，2026-10-24）**：`check-sources.ps1` → `CHECK OK`（226 个文件）/
+`javac` exit 0 / 自测 **925 → 926 / 0**（+1：法力表深拷贝守卫）；
+`src` 文件数不变（**226**）；`LivingThing.java` **2502 → 2486 行**、`AttributeProfile.java` **1178 → 1250 行**；
+`mods/` 4 个模组一个字没改；用户 `config/gameConfig/` 下那几份文件全程只读。
+数值旁证：`playerOne` 仍是 `hp 4664 / attack 3706 / defence 820 / speed 120`、
+`manas` 仍是 `METAL 1260 / WOOD 144 / WATER 516 / FIRE 1260 / DIRT 2680`，与搬之前逐位相同。
+
+**剩下的（`TODO.md` 里那 1 步）**：`defenseLoss` + `individualMultipleArea`（含 2026-10-04 新加的
+"多来源乘数"列表 `individualMultipleAreaModifiers` —— 那个列表本身是 `@NoData` + 战斗结束清空）。
+
+#### 阶段 2 第 4 小步（2026-10-24）：`defenseLoss` + `individualMultipleArea`（含多来源乘数表）
+
+> `TODO.md` 编号第 5 条。这一小步里有个**嵌套 record** 要一起搬，还牵出一个"文档按行号引用"的收尾问题。
+
+| 文件 | 改动 |
+|---|---|
+| `src/cn/gfhnv/game/entity/AttributeProfile.java` | ⓪ 面板组加 `defenseLoss`；新增 ⑨「派生面板倍率」段：`individualMultipleArea`（`@NoConfig` 跟着搬）+ `individualMultipleAreaModifiers`（`@NoData`，`final`）+ **嵌套 `record AreaMultiple`**；`copyFrom` 带过去 3 样（基础值照抄、来源乘数整表 `addAll`）；**多来源连乘的 `getIndividualMultipleArea()` 也搬进来了**，`add/remove/clear` 三个方法跟着搬 |
+| `src/cn/gfhnv/game/entity/LivingThing.java` | 删 3 个字段 + 嵌套 `AreaMultiple`；6 个方法全部改转发（含 `facSetDefenseLoss`）；复制构造器删 3 行；`describeReductionSource(...)` 从 `private static` 降成**包内可见**（组件挂乘数时要按**同一个口径**取来源名字 —— 两处各写一套就会一个显示 `id`、一个显示类名） |
+| `src/cn/gfhnv/debug_tools/TestCommandSystem.java` | `panelAttributes` 加上 `defenseLoss`（"整场结束不清"现在覆盖 11 个）；新增「乘区⑧：来源乘数**跟着副本走**」（复制构造器原来那行 `addAll` 也是唯一保证） |
+
+**`/data` 契约没动**：`defenseLoss` / `individualMultipleArea` 仍是顶层键，且 `/data` 读的是
+**字段**（= 面板基础值），多来源乘数不进 `/data`（`@NoData`）—— 与搬之前逐位一致。
+
+**回归证据（自带 JDK 实跑，2026-10-24）**：`check-sources.ps1` → `CHECK OK` / `javac` exit 0 /
+自测 **926 → 927 / 0**（+1）；`LivingThing.java` 又短了一截、`AttributeProfile.java` 又长了一截
+（第 4 小步与收尾两轮合起来：**2486 → 2369** 行 / **1250 → 1440** 行，见收尾那一节的分项）；
+那 7 条「乘区①~⑦」一条没改、全过（连乘 / 按来源覆盖 / 摘掉 / clear / `whenFightEnds` 清来源不清基础值）。
+
+#### 收尾（2026-10-24）：死字段 `extraDamage` 搬进组件 + **删掉 `clearTemporaryAttributes()`**
+
+> `TODO.md` 编号第 6 条，也是整个 `LivingThing` 拆分的最后一步。
+
+| 文件 | 改动 |
+|---|---|
+| `src/cn/gfhnv/game/entity/AttributeProfile.java` | 新增 ⑩「死字段」段放 `extraDamage`（`@NoConfig` 跟着搬）+ 两个访问器；`resetTemporary()` 里加一句清零（**23 个数值 + 2 个状态位**），javadoc 把"与 copyFrom 互补"正式写成组件自己的契约 |
+| `src/cn/gfhnv/game/entity/LivingThing.java` | 删掉 `extraDamage` 字段与两个访问器（改转发）；**删掉 `clearTemporaryAttributes()`**，`whenFightEnds()` 直接调 `attributes.resetTemporary()` —— **实体这边从此没有任何"清零"职责** |
+| `src/cn/gfhnv/game/system/configLoadingSystem/DataKeys.java` | 一段 javadoc 原来指着 `LivingThing#clearTemporaryAttributes()`，改成 `AttributeProfile#resetTemporary()` |
+| `CONTENT-GUIDE.md` | 三处：加字段的次序（"临时属性要进 `clearTemporaryAttributes()`" → `resetTemporary`）、面板/临时对照表里那一格、以及"两个互补位置"那一段（现在两处**都在 `AttributeProfile` 里**） |
+
+**这一步的意义**：整个拆分的初衷是"把生命周期规则从**靠记性**变成**靠结构**"。收尾之后，
+"复制哪些、清零哪些"这两张表**只住在 `AttributeProfile` 一个文件里**，
+`LivingThing` 不再是第二个记账点 —— 以后再搬字段（或加字段），漏掉的概率从"两处都能漏"变成"一处"。
+
+**契约验证**：`extraDamage` 仍是 `/data` 的顶层键、仍是 `@NoConfig` 挡着（配置面那条"死字段"提示照旧命中）；
+自测里"不复制集合与临时属性清单完全一致（不带 **23** / 清单 **23**）"逐字通过 ——
+`extraDamage` 从实体的字段变成组件的字段，但仍在"临时属性"那一侧。
+
+**回归证据（自带 JDK 实跑，2026-10-24）**：`check-sources.ps1` → `CHECK OK`（226 个文件）/ `javac` exit 0 /
+自测 **927 / 0**；两小步合起来 `LivingThing.java` **2486 → 2369 行**、`AttributeProfile.java` **1250 → 1440 行**；
+`src` 文件数不变（**226**）；`mods/` 4 个模组一个字没改。
+
+**整个拆分到此完成**：`LivingThing` 从这一轮开工前的 **2584 行**降到 **2369 行**（−215 行），
+`AttributeProfile` 从 634 行长到 **1440 行**；**两个文件加起来 3222 → 3809 行（+587）** ——
+这是拆分的真实代价，别指望"文件变小"：每个字段现在是**组件里一份带注释的 getter/setter +
+实体上一份转发器**，总量一定是涨的（本文 §5 当初估的"能瘦到约 1000 行"没算转发器与注释）。
+换到的是：`copy()` / `reset()` 两张表只剩一个记账点，字段漏复制 / 漏清零这类 bug 从"两处都能漏"变成"一处"。
+对外契约（`/data` 键名、13 参构造器、public getter/setter、`mods/` API）**一个都没变**，
+唯一可见变化是 `/data get` 的**键顺序**（见第 3 小步）。
+
+
 ### 阶段 3（按需）：行为抽取 + 瘦身
 
 - 打印（`printAttackLine`）、伤害结算、减伤汇总抽成协作类；没有前置需求就别做。
@@ -536,3 +710,8 @@ $tl = [System.IO.File]::ReadAllLines('.\src\cn\gfhnv\debug_tools\TestCommandSyst
 *2026-10-03 同日追加：阶段 0、阶段 1 与"阶段 1 收尾 / 阶段 2.5"（改名 + 订正 9 个 Java 名）
 均**已落地并实跑通过**（`通过 542 条，失败 0 条`），落地记录见第七节各阶段末尾；
 本文档里凡标"2026-09-26"的落地/拍板记录，日期已订正为 **2026-10-03**（属性分离是 10-03 才开始的）。*
+
+*2026-10-24 追加：`alive` / `anticipating` 搬进组件（第 1 步）与 12 个 `*Enhance*` 搬进组件
+（阶段 2 第 1 小步）都已落地，各自 `CHECK OK` + `javac` 0 + 自测全绿；剩余步骤见仓库根目录
+`TODO.md`（`.gitignore` 里，不提交）。**当前基线不写在这里** —— 那是"现状"，以
+`notes_for_llm/90-STATE.md` 的 §9.1 为准。*
