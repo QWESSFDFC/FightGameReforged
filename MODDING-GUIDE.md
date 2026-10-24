@@ -350,12 +350,23 @@ public class MyListener {
 // 记得注册：EventBus.register(new MyListener());
 ```
 
-`EventBus` 有两个必须知道的特性（`EventBus.java:21、60`）：
+`EventBus` 的契约（**2026-10-24 重写内部实现，签名与用法一个没变**）：
 
-1. **精确类匹配**：`post` 按 `event.getClass()` 查表，注册父类事件的监听器收不到子类事件；
-2. **不扫父类方法**：注册时用 `getDeclaredMethods()`，写在父类里的 `@SubscribeEvent` 不生效。
+1. **按"可赋值"派发**：`post(new SubEvent())` 会送给监听 `SubEvent` **和它所有父类**（含 `Event`）的监听器
+   —— 旧版只按 `event.getClass()` 精确匹配，子类事件会被父类监听器静默漏掉；
+2. **不扫父类方法**：注册时用 `getDeclaredMethods()`，写在**父类里的** `@SubscribeEvent` **不生效**
+   （这条没改 —— 把方法写在监听器类自己身上）；
+3. **注册去重**：同一个对象 + 同一个方法注册两次只跑**一次**（旧版会跑两次）；
+4. **异常隔离**：一个监听器抛异常**不再打断**后面的监听器，异常记进 `EventBus.dispatchErrorCount()` /
+   `recentDispatchErrors()`（旧版直接抛 `RuntimeException`，后面的监听器这一轮收不到事件）；
+5. **派发中注销生效**：`post` 里把某个监听器 `unregister` 掉，它**本轮就不再被调用**（旧版迭代副本，照样跑）。
 
-优先级默认 `3`（数字越小越先执行，同优先级按注册顺序）；`Event#setCanceled(true)` 会跳过后续监听器。
+优先级默认 `3`（数字越小越先执行，同优先级按注册顺序）；`Event#setCanceled(true)` 会跳过后续监听器
+（⚠️ 全项目 0 处调用，别指望它）。
+
+**排查"我的监听器到底挂上没有"**：`EventBus.dump()`（事件类型 → 监听器类名#方法名）、
+`EventBus.handlerCount()` / `handlerCount(某个事件类)`、`EventBus.audit("标签")`。
+**漏了 `unregister` 的监听器就藏在这里** —— 以前完全看不见。
 
 ---
 
