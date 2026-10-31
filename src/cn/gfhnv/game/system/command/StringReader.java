@@ -206,10 +206,65 @@ public class StringReader {
             throw CommandSyntaxException.expectedInput(this, "一段文本");
         }
         int start = cursor;
+        // 以引号开头 → 这就是一个"带引号的文本"，按带引号字符串读（word() 类型的参数也支持引号）
+        char first = string.charAt(cursor);
+        if (first == '"' || first == '\'') {
+            return readQuotedString();
+        }
         while (cursor < string.length() && !isWhitespace(string.charAt(cursor))) {
             cursor++;
         }
-        return string.substring(start, cursor);
+        String word = string.substring(start, cursor);
+        // 未加引号的"裸词"里不许出现非英文字符（中文、【】、· 之类）——
+        // 裸词是给 id / 路径 / 数字 / 选择器用的，混进非 ASCII 之后报出来的错误会指向别处
+        // （"找不到这个实体"），非常难查；在入口就拦住，并直接告诉玩家怎么写。
+        // ⚠️ 引号**内部**的内容不算（选择器里那种 `@e[name="千冶·刃"]` 是合法的）。
+        int bad = indexOfNonAsciiOutsideQuotes(word);
+        if (bad >= 0) {
+            cursor = start + bad;
+            String hint = word.startsWith("@")
+                    ? "（选择器里的值也一样，例如 @e[name=\"千冶\u00b7刃\"]）"
+                    : "（写成 \"" + word + "\"）";
+            throw CommandSyntaxException.at(this, "「" + word + "」里有非英文字符「" + word.charAt(bad)
+                    + "」—— 命令里带非英文字符的内容必须用引号括起来" + hint);
+        }
+        return word;
+    }
+
+    /**
+     * 找出字符串里<b>引号外</b>第一个非 ASCII 字符的位置（引号内的内容跳过，支持 {@code \"} 转义）。
+     *
+     * @param text 要检查的文本
+     * @return 下标；引号外全是 ASCII 时返回 {@code -1}
+     */
+    private static int indexOfNonAsciiOutsideQuotes(String text) {
+        char quote = 0;
+        boolean escaped = false;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            if (c == '\\') {
+                escaped = true;
+                continue;
+            }
+            if (quote != 0) {
+                if (c == quote) {
+                    quote = 0;
+                }
+                continue;
+            }
+            if (c == '"' || c == '\'') {
+                quote = c;
+                continue;
+            }
+            if (c > 0x7E) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     /**

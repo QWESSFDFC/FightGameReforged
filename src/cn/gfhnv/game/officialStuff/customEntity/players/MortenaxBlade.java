@@ -415,11 +415,13 @@ public class MortenaxBlade extends Player {
                         + " 点充能，回复 " + cn.gfhnv.game.officialStuff.customEvent.mortenaxBladeEvents
                         .MortalBladeChargeListener.ENERGY_PER_PAYOFF + " 点能量并额外施放一次【刃下，归葬】");
                 extra.comeToEffect(fight, this, new java.util.ArrayList<>(fight.getOpponentList(this)));
-            }
-            // E1「我殁之前，我仍未成形」：这次兑现之后，倒计时延后 15%（一次兑现只延后一次）
-            if (castTimes > 0 && eidolon >= 1 && furyCountdown != null) {
-                furyCountdown.delayByPercent(0.15d);
-                System.out.println(getName() + "【我殁之前，我仍未成形】：倒计时延后 15%");
+                // E1「我殁之前，我仍未成形」：**每一次**额外战技都让倒计时延后 15%
+                // （用户 2026-10-24 明确：一回合里连打 5 次就延后 5 次，不是"这批只延一次"）
+                if (eidolon >= 1 && furyCountdown != null) {
+                    furyCountdown.delayByPercent(0.15d);
+                    System.out.println(getName() + "【我殁之前，我仍未成形】：倒计时延后 15%（第 "
+                            + castTimes + " 次额外战技）");
+                }
             }
         } finally {
             payoffBusy = false;

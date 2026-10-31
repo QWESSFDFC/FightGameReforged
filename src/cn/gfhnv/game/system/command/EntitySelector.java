@@ -129,7 +129,9 @@ public class EntitySelector {
                 throw CommandSyntaxException.create("筛选条件必须写成 键=值 的形式，但读到「" + item + "」");
             }
             String key = item.substring(0, equalsIndex).trim().toLowerCase();
-            String value = item.substring(equalsIndex + 1).trim();
+            // 值允许加引号（`name="千冶·刃"`）：命令系统要求"非英文字符必须加引号"，
+            // 所以这里必须把外层引号剥掉再比较，否则筛选会拿 `"千冶·刃"`（带引号）去比 `千冶·刃`。
+            String value = unquote(item.substring(equalsIndex + 1).trim());
             switch (key) {
                 case "type" -> selector.typeFilter = value;
                 case "name" -> selector.nameFilter = value;
@@ -141,6 +143,41 @@ public class EntitySelector {
             }
         }
         return selector;
+    }
+
+    /**
+     * 去掉一层外层引号（{@code "x"} / {@code 'x'} → {@code x}），并还原 {@code \"} 转义。
+     * <p>
+     * 不加引号的值原样返回 —— 选择器本来就有大量不带引号的写法（{@code type=playerOne}）。
+     *
+     * @param text 原始值
+     * @return 去掉引号后的值
+     */
+    private static String unquote(String text) {
+        if (text.length() < 2) {
+            return text;
+        }
+        char first = text.charAt(0);
+        char last = text.charAt(text.length() - 1);
+        if ((first != '"' && first != '\'') || first != last) {
+            return text;
+        }
+        StringBuilder builder = new StringBuilder();
+        boolean escaped = false;
+        for (int i = 1; i < text.length() - 1; i++) {
+            char c = text.charAt(i);
+            if (escaped) {
+                builder.append(c);
+                escaped = false;
+                continue;
+            }
+            if (c == '\\') {
+                escaped = true;
+                continue;
+            }
+            builder.append(c);
+        }
+        return builder.toString();
     }
 
     /**

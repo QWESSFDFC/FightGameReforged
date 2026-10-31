@@ -10,6 +10,7 @@ import cn.gfhnv.game.event.FightPastOneTurnEvent;
 import cn.gfhnv.game.interfaces.ISpecialAction;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.command.CommandManager;
+import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.fight.ActionSignal;
 import cn.gfhnv.game.system.fight.TurnEntry;
 import cn.gfhnv.game.system.fight.TurnManager;
@@ -26,6 +27,41 @@ import java.util.List;
 public class FightTurnPastListener {
     private static List<LivingThing> theDeath = new ArrayList<>();
     private static TurnEntry presentTurn;
+
+    /**
+     * <b>把动作队列排空</b>：反复"取快照 → 清空 → 逐个执行"，直到队列真的空了。
+     * <p>
+     * <b>为什么不能直接 {@code list.iterator()} 遍历活列表</b>（2026-10-24 用户实测踩到）：
+     * 动作执行期间会<b>追加</b>动作 —— 追打、免死后的最后一击、转阶段的播报……
+     * 用迭代器遍历会在下一次 {@code next()} 抛 {@code ConcurrentModificationException}，
+     * 表现是"这一回合剩下的动作全没跑、提示也没了"，而且会被 EventBus 的异常隔离吞掉，极难查。
+     * <p>
+     * 改成"快照 + 清空"之后，追加的动作进到<b>下一轮</b>，仍然在本回合内执行完，顺序也不乱。
+     * <p>
+     * <b>不设轮数上限</b>（用户 2026-10-24 拍板）：会往队列里追加动作的都是我们自己的机制
+     * （追打、免死后的最后一击、转阶段播报），没有"自己无限追加自己"这种东西；
+     * 真出现那是设计错误，应当让它暴露出来，而不是被一个上限悄悄截断。
+     * 所以"技能不许在自己的执行里无限往队列塞自己"这条靠评审保证，不靠运行时兜底。
+     *
+     * @param fight       当前战斗
+     * @param presentTurn 当前回合（执行时的 actor）
+     * @param queue       要排空的队列（会被清空）
+     * @param label       队列名（只用于报警文案）
+     * @return 实际执行了多少个动作
+     */
+    public static int runExecuteList(Fight fight, TurnEntry presentTurn, List<ISpecialAction> queue,
+                                    String label) {
+        int executed = 0;
+        while (!queue.isEmpty()) {
+            List<ISpecialAction> batch = new ArrayList<>(queue);
+            queue.clear();
+            for (ISpecialAction action : batch) {
+                action.execute(fight, presentTurn.getLivingThing());
+                executed++;
+            }
+        }
+        return executed;
+    }
 
     /**
      * 是否正在由本监听器驱动回合循环。
@@ -200,12 +236,8 @@ public class FightTurnPastListener {
                         + " 水" + manaOf(actor.getWaterMana())
                         + " 火" + manaOf(actor.getFireMana())
                         + " 土" + manaOf(actor.getDirtMana()));
-                if (!presentTurn.getFirstExecuteList().isEmpty()) {
-                    Iterator<ISpecialAction> iterator = presentTurn.getFirstExecuteList().iterator();
-                    while (iterator.hasNext()) {
-                        iterator.next().execute(fightPastOneTurnEvent.getFight(), presentTurn.getLivingThing());
-                    }
-                }
+                runExecuteList(fightPastOneTurnEvent.getFight(), presentTurn,
+                        presentTurn.getFirstExecuteList(), "开场");
                 if (!presentTurn.getLivingThing().isAlive()) presentTurn.setActionSignal(ActionSignal.SKIP);
                 if (presentTurn.getLivingThing().getShowSpecialMes() != null) {
                     presentTurn.getLivingThing().getShowSpecialMes().show(presentTurn.getLivingThing());
@@ -227,13 +259,8 @@ public class FightTurnPastListener {
                 } else if (presentTurn.getActionSignal().equals(ActionSignal.WITHOUT_NEW_TURN)) {
                     presentTurn.getLivingThing().getController().act(fightPastOneTurnEvent.getFight());
                 }
-                if (!presentTurn.getLastExecuteList().isEmpty()) {
-                    Iterator<ISpecialAction> it = presentTurn.getLastExecuteList().iterator();
-                    while (it.hasNext()) {
-                        it.next().execute(fightPastOneTurnEvent.getFight(), presentTurn.getLivingThing());
-                    }
-
-                }
+                runExecuteList(fightPastOneTurnEvent.getFight(), presentTurn,
+                        presentTurn.getLastExecuteList(), "收尾");
 
                 EventBus.post(new EffectUpdateEvent(presentTurn.getLivingThing(), presentTurn));
                 // 本回合处理完毕，回到 turnLoop 开头取下一个回合（不再递归 post 事件）

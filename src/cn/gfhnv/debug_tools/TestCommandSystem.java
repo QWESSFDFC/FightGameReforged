@@ -2,6 +2,7 @@ package cn.gfhnv.debug_tools;
 
 import cn.gfhnv.game.annotation.SubscribeEvent;
 import cn.gfhnv.game.damage.DamageCalculate;
+import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.data.*;
 import cn.gfhnv.game.entity.DamageReductionSource;
 import cn.gfhnv.game.entity.LivingThing;
@@ -178,6 +179,8 @@ public class TestCommandSystem {
         testMortalBladeChargeLoop();
         testDamageTakenIncrease();
         testAttackLineShowsIntendedDamage();
+        testTurnActionQueueDrains();
+        testCommandRequiresQuotesForNonAscii();
         testDataModify();
         testDataFiltersAndStorage();
         testConfigDefaultsAndPatch();
@@ -383,7 +386,7 @@ public class TestCommandSystem {
 
         run("list", true);
         run("list @e", true);
-        run("list @e[name=*虫*]", true);
+        run("list @e[name=\"*虫*\"]", true);
         run("help", true);
         run("help kill", true);
 
@@ -400,7 +403,7 @@ public class TestCommandSystem {
         run("kill @e[bad=1]", false);
         run("hurt @s abc", false);
         run("hurt @s 1 2", false);
-        run("kill @e[type=根本没有这个类型]", false);
+        run("kill @e[type=\"根本没有这个类型\"]", false);
 
         /* 参数节点的报错不能被吞成笼统的「无法继续解析」。
          * 典型场景：选择器少写了 @（用户实测踩过），这时选择器自己那句
@@ -639,7 +642,7 @@ public class TestCommandSystem {
         run("execute as @s", false);
         run("execute as @s run", false);
         run("execute run list", false);
-        run("execute as @e[type=根本没有这个类型] run list", false);
+        run("execute as @e[type=\"根本没有这个类型\"] run list", false);
         run("execute as @s run nosuchcommand", false);
 
         // 嵌套上限：9 层 execute 必须被挡住（不然会一路递归到 StackOverflowError）
@@ -4058,6 +4061,111 @@ public class TestCommandSystem {
     }
 
     /**
+     * <b>命令里的非英文字符必须加引号</b>（2026-10-24 用户要求）。
+     * <p>
+     * 之前 {@code /summon CommonInsect 敌方}、{@code /data modify entity @s name set 千冶·刃}
+     * 这种"裸中文"能直接过 —— 但它们混进 id / 路径 / 选择器之后，报出来的错会指向别处
+     * （"找不到这个实体"），很难查。现在裸词里出现非 ASCII 直接报错并提示写法；
+     * 加引号之后一切照旧（选择器里的值也认引号：{@code @e[name="千冶·刃"]}）。
+     */
+    private static void testCommandRequiresQuotesForNonAscii() {
+        section("命令：非英文字符必须加引号（裸词直接报错）");
+        PlayerOne hero = new PlayerOne(125);
+        Fight fight = new Fight(new ArrayList<>(List.of(hero)), new ArrayList<>(),
+                new ArrayList<>(List.of(hero)));
+
+        // ① 裸中文：报错，并且提示"要用引号"
+        String bare = errorOf("summon CommonInsect 敌方", fight);
+        check("裸中文报错，并提示要加引号 —— 实际「" + bare + "」",
+                bare.contains("引号") && bare.contains("敌方"));
+
+        // ② 同样的命令加引号就能用
+        int enemiesBefore = fight.getEnemiesList().size();
+        run("summon CommonInsect \"敌方\"", fight, true);
+        check("同样的命令加引号之后可用（敌方列表 " + enemiesBefore + " → "
+                        + fight.getEnemiesList().size() + "）",
+                fight.getEnemiesList().size() == enemiesBefore + 1);
+
+        // ③ 选择器里的值也支持引号，而且不影响筛选
+        // 成功时 message 为空（输出直接打出去了），所以这里验"命令成功 + 选到的对象数"
+        cn.gfhnv.game.system.command.CommandResult quotedSelector =
+                CommandManager.executeResult("list @e[name=\"玩家一\"]", fight);
+        check("选择器里的值加引号也认（@e[name=\"玩家一\"] 命令成功、影响 1 个对象）—— 实际 "
+                        + (quotedSelector.isSuccess() ? "成功" : "失败：" + quotedSelector.getMessage()),
+                quotedSelector.isSuccess());
+
+        // ④ 选择器里**不加引号**的中文仍然要报错
+        String bareSelector = errorOf("list @e[name=玩家一]", fight);
+        check("选择器里裸中文同样报错 —— 实际「" + bareSelector + "」", bareSelector.contains("引号"));
+
+        // ⑤ 纯 ASCII 的裸词不受影响（别把正常命令一起拦了）
+        run("list @e[type=playerOne]", fight, true);
+    }
+
+    /**
+     * <b>回合动作队列要"排空"，不是"遍历一遍"</b>（2026-10-24 修回归）。
+     * <p>
+     * 踩过的坑：回合循环用 {@code Iterator} 遍历 {@code lastExecuteList}，
+     * 而"转阶段播报"在动作执行中往同一个列表里 {@code add} → 下一次 {@code next()} 抛
+     * {@code ConcurrentModificationException} → 这一回合剩下的动作全没跑、提示也丢了，
+     * 还被 EventBus 的异常隔离吞掉。现在换成"快照 + 清空 + 再来一轮"。
+     * <p>
+     * 验三件事：① 执行中追加的动作**在同一个回合内**跑完；② 顺序不乱（先 A 后 B）；
+     * ③ 有动作自己追加自己时**停下来报警**，不会把游戏卡死。
+     */
+    private static void testTurnActionQueueDrains() {
+        section("回合动作队列：执行中追加的动作也要跑完（防 CME 回归）");
+
+        PlayerOne actor = new PlayerOne(125);
+        Fight fight = new Fight(new ArrayList<>(), new ArrayList<>(), new ArrayList<>(List.of(actor)));
+        cn.gfhnv.game.system.fight.TurnEntry turn =
+                new cn.gfhnv.game.system.fight.TurnEntry(actor, java.math.BigDecimal.ONE, java.math.BigDecimal.ZERO);
+
+        // ① + ②：A 跑的时候往队列里追加 B
+        java.util.List<String> order = new ArrayList<>();
+        turn.getLastExecuteList().add((f, u) -> {
+            order.add("A");
+            turn.getLastExecuteList().add((f2, u2) -> order.add("B"));
+        });
+        int executed = cn.gfhnv.game.eventListener.FightTurnPastListener.runExecuteList(
+                fight, turn, turn.getLastExecuteList(), "收尾");
+        check("队列排空：执行中追加的动作也跑了（A → B），共执行 " + executed + " 个 —— 实际 " + order,
+                order.equals(List.of("A", "B")) && executed == 2);
+
+        // 开场队列（firstExecuteList）走的是同一个排空函数 —— 单独钉一条，免得以后有人只改收尾
+        java.util.List<String> opening = new ArrayList<>();
+        turn.getFirstExecuteList().add((f, u) -> {
+            opening.add("开场-A");
+            turn.getFirstExecuteList().add((f2, u2) -> opening.add("开场-B"));
+        });
+        int openingExecuted = cn.gfhnv.game.eventListener.FightTurnPastListener.runExecuteList(
+                fight, turn, turn.getFirstExecuteList(), "开场");
+        check("队列排空：开场队列也一样（执行中追加的也跑完，A → B）—— 实际 " + opening,
+                opening.equals(List.of("开场-A", "开场-B")) && openingExecuted == 2);
+
+        // 效果 tick 遍历中给同一个对象新挂效果：不能抛 CME
+        LivingThing ticked = entityTemplateOf("game_official_content:commonInsect").copy();
+        ticked.getEntityEffectList().add(new cn.gfhnv.game.officialStuff.customEffect.universalEffects.Taunt(2, 1));
+        turn.getLastExecuteList().clear();
+        cn.gfhnv.game.event.EffectUpdateEvent updateEvent =
+                new cn.gfhnv.game.event.EffectUpdateEvent(ticked, turn);
+        boolean threw = false;
+        int beforeCount = ticked.getEntityEffectList().size();
+        try {
+            EventBus.post(updateEvent);
+        } catch (Exception e) {
+            threw = true;
+        }
+        check("效果 tick：遍历中不会因为列表被改而抛异常（tick 前后效果数 " + beforeCount + " → "
+                        + ticked.getEntityEffectList().size() + "）", !threw);
+
+        // ③：动作自己追加自己 → 到达上限后强制停止并报警（不能无限循环）
+        // ③（2026-10-24 用户拍板去掉了 64 轮上限）：只验"排空"这件事，
+        // 不再拿"自己无限追加自己"来撞上限 —— 没有上限之后那种动作会真的死循环，
+        // 属于设计错误（靠评审保证），不该写成用例。
+    }
+
+    /**
      * <b>攻击行显示"应该造成的伤害"，不是"实际掉血"</b>（2026-10-24 用户拍板）。
      * <p>
      * 例：一刀 90000 打在只剩 400 血的敌人身上 —— 旧日志显示 {@code -400}（HP 变化量），
@@ -4238,6 +4346,26 @@ public class TestCommandSystem {
                         + chargeBeforeStop + " → " + blade.getCharge() + "、血 " + blade.getHp(),
                 blade.getCharge() == chargeBeforeStop + 1 - 2 * threshold && blade.getHp() == 1);
 
+        // E1：一回合里连打 N 次 → 倒计时延后 N 次（每次 ×1.15）
+        blade.setEidolon(1);
+        blade.setHp(blade.getHpMax());
+        blade.setCharge(threshold * 3);
+        java.math.BigDecimal countdownBefore = blade.getFuryCountdown().getEntry().getNeedTime();
+        TurnEntry delayTurn = new TurnEntry(ally, java.math.BigDecimal.ONE, java.math.BigDecimal.ZERO);
+        cn.gfhnv.game.eventListener.FightTurnPastListener.setPresentTurn(delayTurn);
+        EventBus.post(new SelectTargetEvent(ally, new ArrayList<>(List.of(enemy)), fight));
+        for (cn.gfhnv.game.interfaces.ISpecialAction action
+                : new ArrayList<>(delayTurn.getLastExecuteList())) {
+            action.execute(fight, ally);
+        }
+        cn.gfhnv.game.eventListener.FightTurnPastListener.setPresentTurn(null);
+        double expected = countdownBefore.doubleValue() * Math.pow(1.15d, 3);
+        double actual = blade.getFuryCountdown().getEntry().getNeedTime().doubleValue();
+        check("E1：连打 3 次额外战技 → 倒计时延后 3 次（" + countdownBefore + " → " + actual
+                        + "，期望 ≈ " + Math.round(expected) + "）",
+                Math.abs(actual - expected) < 1e-6);
+        blade.setEidolon(0);
+
         // E2：阈值 7 → 同样 81 点能打 11 次（血量足够的话）
         blade.endInfiniteFury();
         blade.setEidolon(2);
@@ -4307,9 +4435,9 @@ public class TestCommandSystem {
         common.use(fight, blade, List.of(enemy));
         check("能量途径：普攻把能量顶到上限时顺手清掉自身负面（嘲讽被清）—— 能量 " + blade.getEnergy()
                         + "、剩余负面 " + blade.getEntityEffectList().stream()
-                        .filter(cn.gfhnv.game.effect.Effect::isNegative).count(),
+                        .filter(Effect::isNegative).count(),
                 blade.getEnergy() >= blade.getEnergyMax()
-                        && blade.getEntityEffectList().stream().noneMatch(cn.gfhnv.game.effect.Effect::isNegative));
+                        && blade.getEntityEffectList().stream().noneMatch(Effect::isNegative));
 
         // E1：天赋追打之后倒计时延后 15%
         // ⚠️ 充能监听器是 whenFightStart 注册的，不调它就没有"追打"这条链
@@ -4734,7 +4862,7 @@ public class TestCommandSystem {
         blade.getEntityEffectList().add(new cn.gfhnv.game.officialStuff.customEffect.universalEffects.Taunt(1));
         blade.gainEnergy(10);
         check("能量：攒到上限时解除自身所有负面效果（150 + 10 → 160，嘲讽被清）—— 剩余负面数 "
-                        + blade.getEntityEffectList().stream().filter(cn.gfhnv.game.effect.Effect::isNegative).count(),
+                        + blade.getEntityEffectList().stream().filter(Effect::isNegative).count(),
                 blade.getEnergy() == 160 && blade.getEntityEffectList().isEmpty());
 
         blade.setEnergy(0);
@@ -9203,9 +9331,9 @@ public class TestCommandSystem {
         /* ② 指定阵营：英文与中文都认 */
         run("summon commonInsect enemy", fight, true);
         check("summon：enemy 进敌方列表", fight.getEnemiesList().size() == enemiesBefore + 1);
-        run("summon CommonInsect 敌方", fight, true);
+        run("summon CommonInsect \"敌方\"", fight, true);
         check("summon：中文「敌方」也认", fight.getEnemiesList().size() == enemiesBefore + 2);
-        run("summon CommonInsect 我方", fight, true);
+        run("summon CommonInsect \"我方\"", fight, true);
         check("summon：中文「我方」也认", fight.getFighterList().size() == fightersBefore + 2);
         run("summon CommonInsect ally", fight, true);
         check("summon：ally 也当我方", fight.getFighterList().size() == fightersBefore + 3);
@@ -9213,7 +9341,7 @@ public class TestCommandSystem {
         /* ③ 错误分支与名字的三种写法 */
         run("summon", fight, false);
         run("summon NoSuchEntity", fight, false);
-        String badSide = errorOf("summon CommonInsect 中间派", fight);
+        String badSide = errorOf("summon CommonInsect \"中间派\"", fight);
         check("summon：阵营填错时报错里给出可填的值", badSide.contains("our") && badSide.contains("enemy"));
         // 类名写法：BrokenContainer 忽略大小写正好等于短名 brokenContainer，于是命中残破容器
         run("summon BrokenContainer", fight, true);
