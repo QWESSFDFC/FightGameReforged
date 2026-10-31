@@ -986,7 +986,7 @@ public class FlameReaver extends LivingThing {
         long healPool = PainEntanglement.take(this, Math.max(0, container.getPainCost()));
         long heal = Math.max(0, Math.min(healPool, getHpMax() - getHp()));
         if (heal > 0) {
-            this.setHp(getHp() + heal);
+            this.heal(heal);
         }
         container.markAbsorbed();
         container.absorb();
@@ -1121,9 +1121,21 @@ public class FlameReaver extends LivingThing {
         this.phaseTwo = true;
         this.setHp(getHpMax());
         this.addDamageReduction(PHASE_TWO_REDUCTION_KEY, phaseTwoDamageReduction());
-        System.out.println(ConsoleColor.yellow("【" + getName()
+        // ⚠️ 这句**不能当场打**：enterPhaseTwo 是从伤害修正器里调的，而攻击行
+        // （"A 攻击了 B  -伤害 → HP …"）要等 getDamage 返回之后才打印 ——
+        // 当场打的话，这句会跑到"造成它的那一击"前面去（用户 2026-10-24 报的就是这个）。
+        // 排进当前回合的 lastExecuteList：等这一回合彻底结算完再播报（用户要求"转阶段放在 lastAction"）。
+        String phaseLine = ConsoleColor.yellow("【" + getName()
                 + "】挡下致命一击，进入二阶段：生命回满，并获得高额免伤（"
-                + Math.round(phaseTwoDamageReduction() * 100) + "%）"));
+                + Math.round(phaseTwoDamageReduction() * 100) + "%）");
+        cn.gfhnv.game.system.fight.TurnEntry presentTurn =
+                cn.gfhnv.game.eventListener.FightTurnPastListener.getPresentTurn();
+        if (presentTurn == null) {
+            // 自测 / 战斗已结束：没有"回合"可排，只能当场打
+            System.out.println(phaseLine);
+        } else {
+            presentTurn.getLastExecuteList().add((fight, user) -> System.out.println(phaseLine));
+        }
         if (getController() instanceof FixOrderController controller) {
             controller.setRotationByName(rotationNames());
         }

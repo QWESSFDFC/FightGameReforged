@@ -339,12 +339,12 @@
     },
     "game_official_content:mortenax_blade": {
       "base": {
-        "name": "千冶•刃",
+        "name": "千冶·刃",
         "level": 125,
         "mass": 1.0,
         "type": "player",
-        "description": "这是千冶•刃",
-        "baseSpeed": 125,
+        "description": "这是千冶·刃",
+        "baseSpeed": 107,
         "element": "FIRE",
         "hpGrow": 60.0,
         "attackGrow": 12.0,
@@ -365,6 +365,14 @@
         "enhance": 0.0,
         "penetration": 0.0,
         "defenceLoss": 0.0
+      },
+      "classState": {
+        "energy": 0,
+        "energyMax": 160,
+        "energyOverflowMax": 80,
+        "charge": 0,
+        "chargeMax": 9,
+        "eidolon": 0
       },
       "derived": {
         "baseHpMax": 7640,
@@ -559,6 +567,7 @@
       "forEnemies": false,
       "coreflameCost": 12,
       "awakenExtraTurns": 8,
+      "aiPriority": 100,
       "consumedMana": {
         "amount": 0.0,
         "element": "UNIVERSAL"
@@ -778,6 +787,36 @@
       "consumedMana": null,
       "tags": {
         "ATTACK": 3.0
+      }
+    },
+    "game_official_content:mortenax_blade#残锋，掠尽": {
+      "aims": 1,
+      "coolDown": 0,
+      "hpMagnification": 0.5,
+      "atkMagnification": 0.0,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "consumedMana": {
+        "amount": 0.0,
+        "element": "FIRE"
+      },
+      "tags": {
+        "ATTACK": 3.0
+      }
+    },
+    "game_official_content:mortenax_blade#骸骨当炉，血肉即薪": {
+      "aims": 0,
+      "coolDown": 0,
+      "hpMagnification": 0.0,
+      "atkMagnification": 0.0,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "consumedMana": {
+        "amount": 0.0,
+        "element": "FIRE"
+      },
+      "tags": {
+        "ATTACK": 4.0
       }
     }
   }

@@ -53,7 +53,7 @@ public class CommonAttack extends cn.gfhnv.game.officialStuff.customSkill.univer
         super.comeToEffect(fight, user, enemies);
 
         long lostHp = (long) (user.getHpMax() - user.getHp());
-        user.setHp(user.getHp() + (long) (lostHp * LOST_HP_HEAL_RATE));
+        user.heal((long) (lostHp * LOST_HP_HEAL_RATE));
         if (user instanceof ActorLiXiaoYan li) {
             // 【燃点】一路攒到上限为止（10 层，血少时 15），封顶交给 setIgnition 的夹取。
             // 2026-09 加强前这里写的是"涨一层再扣一层"，于是普攻在 7 层就永远涨不动，

@@ -50,7 +50,7 @@ public class AwakeEndListener {
         endEvent.getPhainon().setName("白厄");
         endEvent.getPhainon().setAttackEnhancePercent(endEvent.getPhainon().getAttackEnhancePercent() - 0.8);
         endEvent.getPhainon().setHpEnhancePercent(endEvent.getPhainon().getHpEnhancePercent() - 2.7);
-        endEvent.getPhainon().setHp((long) (endEvent.getPhainon().getHp() + endEvent.getPhainon().getHpMax() * 0.25));
+        endEvent.getPhainon().heal((long) (endEvent.getPhainon().getHpMax() * 0.25));
         endEvent.getPhainon().getController().setActionSignal(ActionSignal.NORMAL);
         endEvent.getPhainon().setAbsorbDamage(false);
         endEvent.getPhainon().getController().setSkills(endEvent.getPhainon().getSkills());

@@ -23,12 +23,38 @@
       "atkMagnification": 0,
       "tags": {"ATTACK": 3}
     },
+    "game_official_content:mortenax_blade#骸骨当炉，血肉即薪": {
+      "hpMagnification": 0,
+      "aims": 0,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": {
+        "amount": 0,
+        "element": "FIRE"
+      },
+      "coolDown": 0,
+      "atkMagnification": 0,
+      "tags": {"ATTACK": 4}
+    },
     "game_official_content:flameReaver#幽冥的悼念": {
       "hpMagnification": 0,
       "aims": 0,
       "defMagnification": 0,
       "forEnemies": true,
       "consumedMana": null,
+      "coolDown": 0,
+      "atkMagnification": 0,
+      "tags": {"ATTACK": 3}
+    },
+    "game_official_content:mortenax_blade#残锋，掠尽": {
+      "hpMagnification": 0.5,
+      "aims": 1,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": {
+        "amount": 0,
+        "element": "FIRE"
+      },
       "coolDown": 0,
       "atkMagnification": 0,
       "tags": {"ATTACK": 3}

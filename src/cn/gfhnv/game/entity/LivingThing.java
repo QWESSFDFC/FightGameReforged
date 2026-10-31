@@ -74,7 +74,7 @@ public class LivingThing extends Entity {
      * {@code baseSpeed} /
      * {@code baseCriticalRate} 与 3 个成长系数）、五行组（5 抗性 + 5 单元素穿透 + 5 元素增伤 +
      * 5 法力成长系数）、全局组（{@code penetration} 全属性穿透、{@code enhance} 全属性增伤、
-     * {@code criticalDamage} 暴击伤害）、12 个 {@code *Enhance*} 运行时加成，
+     * {@code criticalDamage} 暴击伤害）、13 个 {@code *Enhance*} 运行时加成，
      * 以及 {@code alive} / {@code anticipating} 两个状态位。
      * <p>
      * <b>{@code @DataFlatten} 是关键</b>：它让组件的字段被<b>无前缀</b>并进本对象的复合标签，
@@ -382,6 +382,44 @@ public class LivingThing extends Entity {
      */
     public void setHpEnhanceAmount(long hpEnhanceAmount) {
         this.attributes.setHpEnhanceAmount(hpEnhanceAmount);
+    }
+
+    /**
+     * @return 受到的治疗量加成（百分比；{@code 0.5} = 治疗量 +50%）
+     */
+    public double getHealEnhancePercent() {
+        return attributes.getHealEnhancePercent();
+    }
+
+    /**
+     * 设置受到的治疗量加成（百分比）。千冶·刃的【千锻魂】就是在结界期间加 {@code 0.5}、结束时减回去。
+     *
+     * @param healEnhancePercent 受到的治疗量加成
+     */
+    public void setHealEnhancePercent(double healEnhancePercent) {
+        this.attributes.setHealEnhancePercent(healEnhancePercent);
+    }
+
+    /**
+     * <b>统一治疗入口</b>：把 {@code amount} 按「受到的治疗量加成」放大后回血，并夹在上限内。
+     * <p>
+     * <b>为什么要有它</b>：以前治疗散落在各处（技能、物品、效果）写着
+     * {@code setHp(getHp() + n)}，{@code healEnhancePercent} 无处生效。现在凡是"治疗"都走这里：
+     * 实际回血 = {@code amount × (1 + getHealEnhancePercent())}。
+     * <p>
+     * <b>它不负责</b>：伤害、生命上限变化、消耗生命 —— 那些仍直接 {@link #setHp(long)}。
+     *
+     * @param amount 原始治疗量（正数；{@code <= 0} 直接返回 0）
+     * @return 实际回了多少（已按上限夹取，可能小于放大后的值）
+     */
+    public long heal(long amount) {
+        if (amount <= 0) {
+            return 0;
+        }
+        long before = getHp();
+        long boosted = (long) (amount * (1 + getHealEnhancePercent()));
+        setHp(before + boosted);
+        return getHp() - before;
     }
 
     /**
@@ -1651,20 +1689,28 @@ public class LivingThing extends Entity {
      * 增加一个减伤来源（<b>乘算</b>叠加）。
      * <p>
      * 承伤倍率 = Π(1 − 每个减伤)：50% 与 25% 两个来源 → 只受 37.5% 伤害。
-     * 同一个来源（按对象身份判断）重复添加只保留最后一次，所以技能反复触发不会越叠越多；
-     * 比例会被夹到 [0,1]，因此减伤叠再多也只会把伤害压到 0，<b>不会算成负数</b>
-     * （负数会被 {@link #getDamage(DamageEvent)} 当成治疗）。
+     * 同一个来源（按对象身份判断）重复添加只保留最后一次，所以技能反复触发不会越叠越多。
+     * <p>
+     * <b>负数 = 增伤</b>（2026-10-24 起）：{@code -0.5} 表示"受到的伤害 +50%"（承伤倍率 ×1.5），
+     * 千冶·刃的【煞火缠身】就是这么写的。比例夹在 {@code [-1, 1]}：
+     * 正的那一头最多减到 0 伤害（{@link #getDamage(DamageEvent)} 不会算出负伤害 = 治疗），
+     * 负的那一头最多翻倍。
+     * <p>
+     * ⚠️ 旧实现在这里把负数<b>静默丢掉</b>（钳制 {@code [0,1]} + 只保留 {@code > 0}），
+     * 于是"写 -0.5 想增伤"会看起来完全没效果 —— 改这个语义时<b>两处都得动</b>。
      *
      * @param source  来源，按对象身份区分（效果实例、技能、装备都可以）
-     * @param percent 减伤比例（0.25 = 少受 25% 伤害）
+     * @param percent 减伤比例（0.25 = 少受 25%；{@code -0.5} = 多受 50%）
      */
     public void addDamageReduction(Object source, double percent) {
         if (source == null) {
             return;
         }
         removeDamageReduction(source);
-        double clamped = Math.max(0, Math.min(1, percent));
-        if (clamped > 0) {
+        // 2026-10-24：允许负数 —— 负的减伤 = 增伤（-0.5 → 承伤 ×1.5）。
+        // 旧实现在这里 Math.max(0, ...) + if (>0) 把负数静默丢掉了，写 -0.5 会看起来完全没效果。
+        double clamped = Math.max(-1, Math.min(1, percent));
+        if (clamped != 0) {
             damageReductions.add(new DamageReduction(source, describeReductionSource(source), clamped));
         }
     }
@@ -1694,19 +1740,25 @@ public class LivingThing extends Entity {
     }
 
     /**
-     * 承伤倍率：{@code Π(1 − 每个减伤)}，最后夹在 [0,1]。
+     * 承伤倍率：{@code Π(1 − 每个减伤)}。
      * <p>
      * 例：50% 与 25% → {@code 0.5 × 0.75 = 0.375}（只受 37.5% 伤害），而不是相加的 25%。
      * 伤害计算（{@link cn.gfhnv.game.damage.DamageCalculate}）用的就是这个值。
+     * <p>
+     * <b>可以 &gt; 1</b>（2026-10-24 起）：负数减伤 = 增伤，例如一个 {@code -0.5} 的来源 →
+     * 倍率 1.5（多受 50%）。<b>下界仍然是 0</b> —— 减伤叠满只会把伤害压到 0，
+     * 不能算出负伤害（负数会被 {@link #getDamage(DamageEvent)} 当成治疗）。
      *
-     * @return 承伤倍率；没有任何减伤时是 1
+     * @return 承伤倍率；没有任何减伤时是 1；有增伤时 &gt; 1
      */
     public double getDamageTakenMultiplier() {
         double multiplier = 1;
         for (DamageReduction reduction : damageReductions) {
             multiplier *= (1 - reduction.percent());
         }
-        return Math.max(0, Math.min(1, multiplier));
+        // 上界不再夹：负数减伤 = 增伤，倍率可以 > 1。下界仍是 0 —— 减伤叠满只能把伤害压到 0，
+        // 不能算出负伤害（负数会被 getDamage(DamageEvent) 当成治疗）。
+        return Math.max(0, multiplier);
     }
 
     /**
@@ -2082,11 +2134,12 @@ public class LivingThing extends Entity {
     public void makeDamage(LivingThing attacked, Skill skill) {
         DamageEvent damageEvent = new DamageEvent(this, attacked, skill);
         EventBus.post(damageEvent);
-        long hpBefore = attacked.getHp();
         attacked.getDamage(damageEvent);
-        // 打"实际掉血"而不是算出来的值：伤害修正器可能把这一击拦下（免死锁 1 血之类），
-        // 显示实际值才和后面的 HP 对得上（侵蚀那边同理）。
-        printAttackLine(attacked, skill, Math.max(0, hpBefore - attacked.getHp()));
+        // 显示**"应该造成的伤害"**（伤害公式算出来的那一刀），不是"这一击实际掉了多少血"。
+        // 理由（2026-10-24 用户拍板）：90000 打在只剩 400 血的敌人身上，打"实际掉血"会显示 -400，
+        // 看不出这一刀的威力；显示 -90000 才是玩家想看的数。
+        // 代价：被免死/高额免伤拦下时，这一行的数字会大于"HP 前后差" —— 那是**故意的**。
+        printAttackLine(attacked, skill, damageEvent.getDamage().getDamageAmount());
     }
 
     /**
@@ -2102,7 +2155,7 @@ public class LivingThing extends Entity {
      *
      * @param attacked 被打的目标
      * @param skill    使用的技能；可为 {@code null}
-     * @param damage   实际掉血量
+     * @param damage   <b>应该造成的伤害</b>（伤害公式算出来的值，可能大于目标剩余血量）
      */
     private void printAttackLine(LivingThing attacked, Skill skill, long damage) {
         StringBuilder line = new StringBuilder(getNameWithUuidAndSide()).append("攻击了")

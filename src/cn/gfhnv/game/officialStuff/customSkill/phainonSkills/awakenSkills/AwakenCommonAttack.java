@@ -69,7 +69,7 @@ public class AwakenCommonAttack extends Skill implements SkillCoefficientTunable
 
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
-        user.setHp((long) (user.getHp() + user.getHpMax() * healRatio));
+        user.heal((long) (user.getHpMax() * healRatio));
         for (LivingThing livingThing : enemies) {
             user.makeDamage(livingThing, this);
         }

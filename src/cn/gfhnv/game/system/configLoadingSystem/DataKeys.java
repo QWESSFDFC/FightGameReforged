@@ -433,6 +433,7 @@ public final class DataKeys {
                 ReadOnly.SPEED_ENHANCE_AMOUNT, ReadOnly.HP_ENHANCE_AMOUNT,
                 ReadOnly.CRITICAL_DAMAGE_ENHANCE_PERCENT, ReadOnly.CRITICAL_DAMAGE_ENHANCE_AMOUNT,
                 ReadOnly.CRITICAL_RATE_ENHANCE_PERCENT, ReadOnly.CRITICAL_RATE_ENHANCE_AMOUNT,
+                ReadOnly.HEAL_ENHANCE_PERCENT,
                 ReadOnly.INDIVIDUAL_MULTIPLE_AREA,
                 Temporary.SHOW_SPECIAL_MES));
         for (String element : ELEMENTS) {
@@ -451,7 +452,9 @@ public final class DataKeys {
                 "ignition",
                 // 白厄（Phainon）：火种 / 上限、灾厄 / 上限、觉醒段数
                 "coreflame", "coreflameMax", "soulscorch", "scourge", "scourgeMax",
-                "extraAbilityTier")));
+                "extraAbilityTier",
+                // 千冶·刃（MortenaxBlade，2026-10-24）：能量 / 上限 / 溢出上限、充能 / 上限、命座等级
+                "energy", "energyMax", "energyOverflowMax", "charge", "chargeMax", "eidolon")));
     }
 
     /**
@@ -461,6 +464,9 @@ public final class DataKeys {
         return Collections.unmodifiableSet(new LinkedHashSet<>(Arrays.asList(
                 // 李晓焰（ActorLiXiaoYan）：上限与"上次燃点"由规则表与流程维护（ignitionMax 没有 setter）
                 "ignitionMax", "lastIgnition", "memorizedRate",
+                // 千冶·刃（MortenaxBlade，2026-10-24）：结界状态由终结技与倒计时维护；
+                // chargeListenerRegistered 只是"我的监听器注册过没有"的记账，不是数据
+                "infiniteFury", "chargeListenerRegistered", "payoffBusy",
                 // 白厄（Phainon）：觉醒状态、单调计数器与技能表
                 "awaken", "appliedExtraAbilityTier", "absorbDamage", "pendingLastAttack",
                 "extraTurns", "skills",
@@ -1043,6 +1049,10 @@ public final class DataKeys {
          * 暴击率增强（固定值）。
          */
         public static final String CRITICAL_RATE_ENHANCE_AMOUNT = "criticalRateEnhanceAmount";
+        /**
+         * 受到的治疗量加成（2026-10-24 加的第 13 个运行时加成；只由效果/技能加减，不开放配置）。
+         */
+        public static final String HEAL_ENHANCE_PERCENT = "healEnhancePercent";
         /**
          * 单次攻击的独立倍率区（由角色自己的构造器按玩法算出来）。
          */

@@ -94,7 +94,7 @@ public class RestorationHealthSkill extends Skill implements NumericSkillTunable
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         long restoredHP = (long) (user.getHp() * this.getHpMagnification() + user.getDefence() * this.getDefMagnification() + user.getAttack() * this.getAtkMagnification());
         for (LivingThing e : enemies) {
-            e.setHp(e.getHp() + restoredHP);
+            e.heal(restoredHP);
             System.out.println(user.getNameWithUuidAndSide() + "为" + e.getNameWithUuidAndSide() + "恢复了" + restoredHP + "点生命值");
         }
 

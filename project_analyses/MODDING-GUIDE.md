@@ -1,16 +1,18 @@
 # 模组编写指南（人 & AI 都能照着做）
 
+> **文档分类**：[B] 操作指南 ｜ **这是什么**：写模组：目录约定、Mod API、模板、踩坑、完整示例 ｜ **读者**：模组作者 / 引擎开发者 ｜ **时效**：随代码更新
+
 > 这份文档同时面向**人类开发者**和**AI 助手**：正文按"怎么做"组织，需要的精确签名、
 > 行号、坑与自检手段都写进去了；第 8 节是给 AI 的压缩版契约，可以直接整段丢给 AI 当上下文。
 >
 > - 适用版本：**Java 25 + 当前源码**（`src/cn/gfhnv`，215 个 java 文件）；
 > - 本文与源码不一致时，**以源码为准**；
 > - 配套阅读：
->   [`README.md`](README.md)（怎么玩、各个系统在哪）、
->   [`project_analyses/COMMAND-SYSTEM-2026-08.md`](project_analyses/COMMAND-SYSTEM-2026-08.md)（命令系统）、
->   [`project_analyses/ANALYSIS-2026-08.md`](project_analyses/ANALYSIS-2026-08.md) **§8 模组系统评价**
+>   [`README.md`](../README.md)（怎么玩、各个系统在哪）、
+>   [`COMMAND-SYSTEM-2026-08.md`](COMMAND-SYSTEM-2026-08.md)（命令系统）、
+>   [`ANALYSIS-2026-08.md`](ANALYSIS-2026-08.md) **§8 模组系统评价**
 >   （深度体检：4 个"会让游戏起不来"的缺陷、安全边界、"能做什么/不能做什么"）、
->   [`project_analyses/ANALYSIS-review4.md`](project_analyses/ANALYSIS-review4.md)（最新一轮整体复核）。
+>   [`ANALYSIS-review4.md`](ANALYSIS-review4.md)（最新一轮整体复核）。
 >
 > 官方示例：`mods/exampleModByGFHNV/`、`mods/abstractLaunchingWords/`（只打印一行，最小骨架）。
 > 完整实战示例：**`mods/drunkenSword/`**（新角色 + 2 效果 + 2 物品 + 3 个技能，见第 7 节）。
@@ -338,7 +340,7 @@ CommandManager.register(new MyCommand());
 
 命令树的完整写法（节点类型、参数类型、选择器、补全、返回值语义）见
 `officialStuff/customCommands/` 下的 9 个官方命令与
-[`project_analyses/COMMAND-SYSTEM-2026-08.md`](project_analyses/COMMAND-SYSTEM-2026-08.md)。
+[`COMMAND-SYSTEM-2026-08.md`](COMMAND-SYSTEM-2026-08.md)。
 
 ### 4.6 监听器（可选，但很有用）
 
@@ -759,16 +761,16 @@ thing.addModifyDamage(...) / thing.addDamageReduction(...) / 效果实现 IDefen
 
 | 想了解 | 看哪里 |
 |---|---|
-| 怎么玩、命令怎么用、项目结构 | [`README.md`](README.md) |
-| 命令系统的实现（含返回值、选择器、补全） | [`project_analyses/COMMAND-SYSTEM-2026-08.md`](project_analyses/COMMAND-SYSTEM-2026-08.md) |
-| 模组系统的深度体检（崩溃级缺陷、安全边界、类加载细节） | [`project_analyses/ANALYSIS-2026-08.md`](project_analyses/ANALYSIS-2026-08.md) §8 |
-| 整体架构与最新复核 | [`project_analyses/ANALYSIS-review4.md`](project_analyses/ANALYSIS-review4.md) |
+| 怎么玩、命令怎么用、项目结构 | [`README.md`](../README.md) |
+| 命令系统的实现（含返回值、选择器、补全） | [`COMMAND-SYSTEM-2026-08.md`](COMMAND-SYSTEM-2026-08.md) |
+| 模组系统的深度体检（崩溃级缺陷、安全边界、类加载细节） | [`ANALYSIS-2026-08.md`](ANALYSIS-2026-08.md) §8 |
+| 整体架构与最新复核 | [`ANALYSIS-review4.md`](ANALYSIS-review4.md) |
 | 给 AI 的工作约定、框架坑、当前进度 | `TIPS_FOR_LLM.md`（**在 `.gitignore` 里，不随仓库发布**） |
 | 官方内容怎么写（角色/技能/效果/物品的完整实现） | `src/cn/gfhnv/game/officialStuff/` |
 | 官方命令怎么写 | `src/cn/gfhnv/game/officialStuff/customCommands/` |
-| **游戏自己的数值怎么调**（实体 / 技能 / 魔法数字） | [`README.md`](README.md) 的「数值怎么调」一节；设计文档 [`project_analyses/EXTERNAL-DATA-LOADING-2026-10.md`](project_analyses/EXTERNAL-DATA-LOADING-2026-10.md) |
+| **游戏自己的数值怎么调**（实体 / 技能 / 魔法数字） | [`README.md`](../README.md) 的「数值怎么调」一节；设计文档 [`EXTERNAL-DATA-LOADING-2026-10.md`](EXTERNAL-DATA-LOADING-2026-10.md) |
 
 ---
 
-*本文档由 AI（DeepSeek）生成，基于对 `src/`、`mods/` 与 `project_analyses/` 的实际阅读；
+*本文档由 AI（DeepSeek）生成，基于对 `src/`、`mods/` 与 `` 的实际阅读；
 如与源码不符，以源码为准。*

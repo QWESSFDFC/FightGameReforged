@@ -27,7 +27,8 @@ import java.util.List;
  *     全局组的 {@code penetration} / {@code enhance} / {@code criticalDamage}。
  *     {@link #copyFrom} 要把它们带过去，{@link #resetTemporary} <b>不动</b>它们；</li>
  *     <li><b>临时属性</b> —— 效果/技能给的一次性加成：五行组的 5 单元素穿透 + 5 元素增伤，
- *     以及 12 个 {@code *Enhance*} 运行时加成。不复制，整场结束时由 {@link #resetTemporary} 清零。</li>
+ *     以及 13 个 {@code *Enhance*} 运行时加成（其中 {@code healEnhancePercent} 是 2026-10-24 加的治疗量加成）。
+ * 不复制，整场结束时由 {@link #resetTemporary} 清零。</li>
  * </ul>
  * <p>
  * <b>字段名就是 {@code /data} 的键名</b>（数据名是对外 API，见 TIPS §5.10）——
@@ -59,14 +60,14 @@ public class AttributeProfile {
             "临时属性：copyFrom 刻意不带（副本从干净状态开始）、每局结束 resetTemporary 清零，"
                     + "且全项目零写入点（预留未接线）→ 配在模板上不生效，要加请用效果/技能";
     /**
-     * 那 12 个 {@code *Enhance*} 运行时加成共同的 {@code @NoConfig} 理由。
+     * 那 13 个 {@code *Enhance*} 运行时加成（含 {@code healEnhancePercent}）共同的 {@code @NoConfig} 理由。
      * <p>
      * <b>为什么 12 个字段共用一句话</b>：它们的生命周期完全一样（不复制、清零），
      * 逐字抄 12 遍只会让"改一个忘十一个"更容易。真正的依据写在
      * {@link #copyFrom(AttributeProfile)} 与 {@link #resetTemporary()} 上。
      * <p>
      * <b>这句话必须是真的</b>（{@code @NoConfig} 的纪律：写不出真理由就不该挡）——
-     * 两条依据：① {@link #copyFrom(AttributeProfile)} 只带面板属性、不带这 12 个；
+     * 两条依据：① {@link #copyFrom(AttributeProfile)} 只带面板属性、不带这 13 个；
      * ② {@link #resetTemporary()} 每局结束把它们清零。所以"配在注册表模板上"
      * 对任何一局战斗都不生效。
      */
@@ -382,6 +383,14 @@ public class AttributeProfile {
      */
     @NoConfig(ENHANCE_REASON)
     private long hpEnhanceAmount;
+    /**
+     * <b>受到的治疗量加成</b>（百分比，2026-10-24 加的第 13 个运行时加成）。
+     * <p>
+     * 一次治疗最终回 {@code 原值 × (1 + 它)}，夹取由 {@link LivingThing#heal(long)} 统一做。
+     * 千冶·刃的「千锻魂」（结界期间受到的治疗量 +50%）就是往这里加 {@code 0.5}、结束时减回去。
+     */
+    @NoConfig(ENHANCE_REASON)
+    private double healEnhancePercent;
 
     /* ------------------------------------------------------------------
      * ⑧ 容器 · 法力表（面板属性：copyFrom 深拷贝，resetTemporary 不动）
@@ -576,7 +585,7 @@ public class AttributeProfile {
         this.dirtDamageEnhance = 0;
         // 死字段（活的那套在 Skill#extraDamage 上）
         this.extraDamage = 0;
-        // 12 个 *Enhance*（效果与技能成对加减；这里清一遍是兜底）
+        // 13 个 *Enhance*（效果与技能成对加减；这里清一遍是兜底）
         this.attackEnhancePercent = 0;
         this.attackEnhanceAmount = 0;
         this.defenceEnhancePercent = 0;
@@ -589,6 +598,7 @@ public class AttributeProfile {
         this.criticalDamageEnhanceAmount = 0;
         this.criticalRateEnhancePercent = 0;
         this.criticalRateEnhanceAmount = 0;
+        this.healEnhancePercent = 0;
         // 状态类（2026-10-04 搬进来的）：战斗结束回到"活着、不在试算"
         this.alive = true;
         this.anticipating = false;
@@ -1419,6 +1429,22 @@ public class AttributeProfile {
     public void setHpEnhanceAmount(long hpEnhanceAmount) {
         this.hpEnhanceAmount = hpEnhanceAmount;
         this.host.renewHp();
+    }
+
+    /**
+     * @return 受到的治疗量加成（百分比；一次治疗 = 原值 × {@code (1 + 它)}）
+     */
+    public double getHealEnhancePercent() {
+        return healEnhancePercent;
+    }
+
+    /**
+     * 设置受到的治疗量加成（百分比）。改动立即生效 —— 治疗结算时读它。
+     *
+     * @param healEnhancePercent 受到的治疗量加成
+     */
+    public void setHealEnhancePercent(double healEnhancePercent) {
+        this.healEnhancePercent = healEnhancePercent;
     }
 
     /**

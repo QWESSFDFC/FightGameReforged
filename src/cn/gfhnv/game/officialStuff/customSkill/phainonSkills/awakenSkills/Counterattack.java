@@ -117,7 +117,7 @@ public class Counterattack extends Skill implements SkillCoefficientTunable {
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         int soulscorch = 0;
-        user.setHp((long) (user.getHp() + user.getHpMax() * healRatio));
+        user.heal((long) (user.getHpMax() * healRatio));
         double randomMag = extraHitMagnification;
         if (user instanceof Phainon phainon) {
             soulscorch = phainon.getSoulscorch();

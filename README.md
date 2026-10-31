@@ -1,3 +1,5 @@
+> **文档分类**：[A] 入口 ｜ **这是什么**：项目总览：怎么跑、怎么改数值、文档去哪找 ｜ **读者**：所有人 ｜ **时效**：随代码更新
+
 作者自己写的介绍.
 如果看的力竭了,见谅.
 这是一个使用java编写的游戏.目前只有文字(添加了颜色),大概能正常玩了?
@@ -93,8 +95,8 @@ AI代码里面好像都标注了(作者DeepSeek)
 | `EntityData.json` | **实体数值**：血量 / 攻击 / 防御 / 速度 / 抗性 / 成长系数 / 五行法力成长 / 背包格数 | `{"entities": {"game_official_content:playerOne": {"base": {"baseSpeed": 200}}}}` |
 | `SkillData.json` | **技能数值**：三个倍率 / 目标数 / 冷却 / 消耗 / 阵营 / AI 权重 | `{"skills": {"game_official_content:playerOne#枪射击": {"atkMagnification": 10.0}}}` |
 | `GameRules.json` | **魔法数字与 BOSS 旋钮**：面板公式基座 / 初始法力基座 / 盗火行者（减伤层数、容器上限、完整容器概率……）/ 虫皇血量 / 李晓焰的燃点规则 | `{"flameReaver": {"completeContainerChance": 0.5}}` |
-| `EntityData.default.json` | 上面几份的**出厂值参考副本**（游戏**不读**它）—— 改乱了想对照"原来是多少"就看它 | — |
-| `config/data/<模组id>.json` | **模组配置**（没有这个文件时模组用代码里的默认值） | 见 `MODDING-GUIDE.md` 的 §4.7 |
+| `EntityData.default.json` | 上面几份的**出厂值参考副本**（游戏**不读**它，改它没有任何效果）—— 改乱了想对照"原来是多少"就看它。文件头那个 `_note` 键就是这段说明（2026-10 加，**读一眼就知道该改哪份**） | — |
+| `config/data/<模组id>.json` | **模组配置**（没有这个文件时模组用代码里的默认值） | 见 `project_analyses/MODDING-GUIDE.md` 的 §4.7 |
 | `TagConfig.json` | AI 行为的 Tag 权重。⚠️ **目前对玩法零影响**（没有任何生物在用那套权重，见 `TIPS_FOR_LLM.md` §5.10） | — |
 | ~~`PropertyConfig.json`~~ | ⚠️ **已经不存在了**（2026-10 删掉：它本来就"已废弃、全项目零读取"）。今天 `config/gameConfig/` 里只有上面那几份，实体数值请写 `EntityData.json` | — |
 
@@ -108,7 +110,9 @@ AI代码里面好像都标注了(作者DeepSeek)
 3. **删掉一个键 = 回到出厂值**；删掉整个文件 = 下次启动会重新生成一份全量默认值。
    ⚠️ 生成器**只在文件缺失时写**，绝不覆盖你改过的文件。
    （`EntityData.default.json` 是**导出物**：启动时它里面**没有实体**才会按当前注册表重写一份全量，
-   已经有内容就一个字节都不动 —— 所以"删掉它重启"拿到的是全量值，而不是以前那个 106 字节的空壳。）
+   已经有内容就一个字节都不动 —— 所以"删掉它重启"拿到的是全量值，而不是以前那个 106 字节的空壳。
+   它开头那个 `_note` 键把"这是导出物、要改数值请改 `EntityData.json` / `SkillData.json`"写进了文件本身，
+   省得有人对着它改半天。）
 4. **想改的数值找不到键** → 直接看那份默认文件（它就是"当前全量默认值"），键名与 `/data get entity @s`
    **是同一套名字**（`hpGrow` / `attackGrow` / `baseSpeed` / `fireResistance`……），
    所以你可以先用 `/data get entity @s` 看到当前生效值，再把它抄进配置文件。
@@ -376,7 +380,7 @@ build-output\FightGameReforged\FightGameReforged.exe
 
 ## 🧱 写一个自己的模组（怎么用模组系统）
 
-> 📘 **完整写法见 [`MODDING-GUIDE.md`](MODDING-GUIDE.md)**（目录约定、`Mod` API、
+> 📘 **完整写法见 [`project_analyses/MODDING-GUIDE.md`](project_analyses/MODDING-GUIDE.md)**（目录约定、`Mod` API、
 > 实体/技能/效果/物品各自的模板、14 条踩坑清单、可照抄的完整示例）。
 > 下面只是最小骨架。
 
@@ -451,17 +455,17 @@ public class mainClass extends Mod {
 
 `mods/drunkenSword/`（「醉剑仙」）是一个可直接照抄的完整例子：新角色「酒剑仙」+
 【醉意】层数资源 + 2 个效果 + 2 件物品，全部内容都在 `invokeWhenLoaded()` 里注册。
-文件清单、数值与玩法见 [`MODDING-GUIDE.md`](MODDING-GUIDE.md) §7。
+文件清单、数值与玩法见 [`project_analyses/MODDING-GUIDE.md`](project_analyses/MODDING-GUIDE.md) §7。
 
 想**改官方角色的数值/机制**（而不是新增内容），看 `mods/liXiaoYanPlus/`（「李晓焰加强」）与
-[`MODDING-GUIDE.md`](MODDING-GUIDE.md) **§7.1** 的"现有扩展点速查表"。
+[`project_analyses/MODDING-GUIDE.md`](project_analyses/MODDING-GUIDE.md) **§7.1** 的"现有扩展点速查表"。
 
 > ⚠️ 模组的源码是在**同一个 JVM、同一权限**下编译并立刻执行的，没有沙箱
 > （可以读写文件、联网、`System.exit`）。**安装模组 = 授予该模组与游戏同等的权限，请只加载你信得过的源码。**
 
 ---
 
-![运行示意图](./screenshots/图1.PNG)
+![运行示意图](screenshots/图1.PNG)
 
 ---
 
@@ -503,13 +507,14 @@ FightGameReforged/
 │   └── debug_tools/              # 调试与自测程序（不需要玩就能跑：命令系统自测、预期伤害试算、行动条实验）
 ├── mods/                # 外部模组目录（2 个示例骨架 + 「醉剑仙」完整示例 + 「李晓焰加强」特殊机制示例；各模组的 bin/ 是编译产物）
 ├── config/gameConfig/   # EntityData.json（实体数值）/ SkillData.json（技能数值）/ GameRules.json（魔法数字与 BOSS 旋钮）
-│                        # + EntityData.default.json（出厂值参考副本，游戏不读）
+│                        # + EntityData.default.json（出厂值参考副本，游戏不读；文件头有 _note 说明）
 │                        # + TagConfig.json（AI Tag 权重，目前对玩法零影响）/ PropertyConfig.json（已废弃，见下方「数值怎么调」）
 ├── config/data/         # 模组配置：<模组id>.json（**游戏只读不写**；没有这个文件时模组用代码里的默认值）
-├── project_analyses/    # 分析文档与命令系统说明（当前基准：PROJECT-ANALYSIS-2026-09.md；其余为历史轮次）
+├── project_analyses/    # 进仓库的文档（**除了根目录的 README.md**）：
+│                        # 指南（MODDING-GUIDE / CONTENT-GUIDE）、角色文档（MORTENAX-BLADE）、
+│                        # 分析记录（当前基准 PROJECT-ANALYSIS-2026-09.md + 历史轮次）
 ├── screenshots/         # 运行截图
 ├── out/                 # javac/gradle 的临时输出（自测脚本用它）
-├── MODDING-GUIDE.md             # 模组编写指南（目录约定 / API / 模板 / 踩坑 / 完整示例）
 ├── test-command-system.ps1      # 命令系统自测脚本（编译整个 src + 跑全部自测断言）
 ├── 启动游戏-UTF8.bat             # 启动脚本（切 UTF-8 控制台；内容纯 ASCII）
 ├── build.gradle / gradle.properties
@@ -528,15 +533,34 @@ FightGameReforged/
 | 角色/怪物/技能/物品 | `officialStuff/` 下对应的 `customXxx/` 子包 |
 | 事件有哪些、谁在监听 | `event/`、`eventListener/` |
 | 加载外部模组 | `mod/ModLoader.java`、`mod/Mod.java` |
-| 想写一个自己的模组 | `MODDING-GUIDE.md`（完整指南）、`mods/drunkenSword/`（可照抄的示例） |
-| 想改官方角色的数值 / 上限（特殊机制模组） | `MODDING-GUIDE.md` 的 §7.1、`mods/liXiaoYanPlus/` |
+| 想写一个自己的模组 | `project_analyses/MODDING-GUIDE.md`（完整指南）、`mods/drunkenSword/`（可照抄的示例） |
+| 想改官方角色的数值 / 上限（特殊机制模组） | `project_analyses/MODDING-GUIDE.md` 的 §7.1、`mods/liXiaoYanPlus/` |
+| 想看千冶·刃怎么玩 / 怎么调 / 它有哪些"没做" | [`project_analyses/MORTENAX-BLADE.md`](project_analyses/MORTENAX-BLADE.md) |
 | 命令怎么写 | `system/command/`、`officialStuff/customCommands/`、`project_analyses/COMMAND-SYSTEM-2026-08.md` |
 | NBT / 数据读写（`/data`） | `data/`（`NbtTag`/`Snbt`/`DataPath`/`DataBridge`）、`officialStuff/customCommands/DataCommand.java`、`TIPS_FOR_LLM.md` §5.10 |
 | AI 怎么做决策 | `system/thinkingSystem/`、`config/gameConfig/TagConfig.json` |
 | **数值怎么调（实体 / 技能 / 魔法数字）** | **`config/gameConfig/` 下的三份 JSON**，见下方「🎛️ 数值怎么调」 |
-| **模组怎么读配置** | `MODDING-GUIDE.md` 的 §4.7、`mod/config/`、`config/data/` |
+| **模组怎么读配置** | `project_analyses/MODDING-GUIDE.md` 的 §4.7、`mod/config/`、`config/data/` |
 | 想给项目做体检 | `project_analyses/PROJECT-ANALYSIS-2026-09.md`（**当前基准**，含旧缺陷的逐条复核）；其余几份是历史轮次，注意看文档开头的时效说明 |
 | 想做 NBT / `/data` 命令 / 存档 | `project_analyses/NBT-AND-DATA-COMMAND-2026-09.md`（可行性分析，**尚未实现**） |
+
+### 📚 文档地图（本文在仓库根；其余进仓库的文档都在 `project_analyses/` 一个文件夹里；分 5 类）
+
+每份文档第二行都有一句 `> **文档分类**：…` —— 打开任何一份就知道它属于哪类、给谁看、**几号的快照**。
+
+| 类 | 文档 | 读者 | 时效 |
+|---|---|---|---|
+| **[A] 入口** | [`README.md`](README.md)（本文：怎么跑、怎么调数值、去哪找） | 所有人 | 随代码更新 |
+| **[B] 操作指南** | [`project_analyses/MODDING-GUIDE.md`](project_analyses/MODDING-GUIDE.md) —— 写模组（目录约定 / `Mod` API / 模板 / 踩坑 / 完整示例）<br>[`project_analyses/CONTENT-GUIDE.md`](project_analyses/CONTENT-GUIDE.md) —— 加内容（实体 / 技能 / 规则）+ **配置能改到什么** | 模组作者 / 内容作者 | 随代码更新 |
+| **[C] 内容文档** | [`project_analyses/MORTENAX-BLADE.md`](project_analyses/MORTENAX-BLADE.md) —— 千冶·刃（玩法 / 机制 / 调参 / 验证 / 已知差异） | 玩家 / 内容作者 | 随角色更新 |
+| **[D1] 当前基准分析** | [`project_analyses/PROJECT-ANALYSIS-2026-09.md`](project_analyses/PROJECT-ANALYSIS-2026-09.md) —— 全项目复核 + 缺陷清单 | 引擎开发者 | 2026-09-26 快照 |
+| **[D2] 已落地的分析** | [`project_analyses/MORTENAX-BLADE-2026-10.md`](project_analyses/MORTENAX-BLADE-2026-10.md)、[`project_analyses/FLAME-REAVER-2026-09.md`](project_analyses/FLAME-REAVER-2026-09.md)（设计稿 → 实现记录） | 引擎开发者 / 内容作者 | 各自日期快照 |
+| **[D3] 方案评估（看结论，别照抄实现）** | `ENTITY-ATTRIBUTE-SPLIT-2026-10`（已落地）、`EXTERNAL-DATA-LOADING-2026-10`（已落地）、`CONFIG-LOADING-DECOUPLING-2026-10`（已落地）、`NBT-AND-DATA-COMMAND-2026-09`（后已实现）、`COMMAND-SYSTEM-2026-08`（命令说明）、**`TABLE-DEFINITION-CODEGEN-2026-10`（用户否决，别照它做）** | 引擎开发者 | 各自日期快照 |
+| **[D4] 历史快照（过时，别当现状）** | `project_analyses/ANALYSIS.md`、`project_analyses/ANALYSIS-2026-08.md`、`project_analyses/ANALYSIS-review4.md`、`project_analyses/STATUS-2026-08-review2.md`、`project_analyses/STATUS-2026-08-review3.md` | — | 只作考古 |
+
+**不进仓库的**（在 `.gitignore` 里，属于作者 / AI 的私域，这里只是说明它们存在 —— 它们仍在仓库根：
+`TODO.md`（作者草稿）、`TIPS_FOR_LLM.md`、`notes_for_llm/`（给 AI 的工作笔记：现状 / 工作流 / 踩坑清单……））。
+**它们的时效不代表仓库文档的时效** —— 仓库文档一律以自己那行横幅的日期为准。
 
 **写监听器前请先知道 EventBus 的三个特点**（踩坑预警）：
 

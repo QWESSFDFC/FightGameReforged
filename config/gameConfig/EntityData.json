@@ -226,6 +226,14 @@
       }
     },
     "game_official_content:mortenax_blade": {
+      "classState": {
+        "chargeMax": 9,
+        "charge": 0,
+        "energyOverflowMax": 80,
+        "eidolon": 0,
+        "energyMax": 160,
+        "energy": 0
+      },
       "derived": {
         "baseAttack": 1598,
         "hp": 7640,
@@ -235,7 +243,7 @@
       "base": {
         "waterManaGrow": 1,
         "mass": 1,
-        "description": "这是千冶\u2022刃",
+        "description": "这是千冶·刃",
         "type": "player",
         "waterResistance": 0,
         "baseCriticalDamage": 0,
@@ -247,14 +255,14 @@
         "inventorySlots": 0,
         "level": 125,
         "penetration": 0,
-        "baseSpeed": 125,
+        "baseSpeed": 107,
         "dirtResistance": 0,
         "woodResistance": 0,
         "defenceLoss": 0,
         "attackGrow": 12,
         "dirtManaGrow": 10,
         "woodManaGrow": 10,
-        "name": "千冶\u2022刃",
+        "name": "千冶·刃",
         "metalManaGrow": 4,
         "defenceGrow": 6,
         "fireManaGrow": 20,

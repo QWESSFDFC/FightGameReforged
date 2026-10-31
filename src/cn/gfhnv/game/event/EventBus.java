@@ -6,13 +6,7 @@ import cn.gfhnv.game.system.logSystem.LogWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Consumer;
 
 /**
@@ -60,26 +54,22 @@ public class EventBus {
      * <b>只在注册/注销/清空后重建</b>，{@link #post(Event)} 只读它 —— 于是每次派发不再分配列表。
      */
     private static final Map<Class<?>, List<EventHandler>> dispatchCache = new HashMap<>();
-
-    /**
-     * 注册序号（同一优先级内按它保序，与旧实现的"插入到同优先级末尾"等价）。
-     */
-    private static long sequence = 0;
-
-    /**
-     * 派发过程中被监听器抛出来的异常次数（只增不减，{@link #resetDispatchErrors()} 可清）。
-     */
-    private static int dispatchErrorCount = 0;
-
     /**
      * 最近若干次派发异常的摘要（带监听器类名 + 方法名 + 异常类型，够定位就行）。
      */
     private static final List<String> recentDispatchErrors = new ArrayList<>();
-
     /**
      * 最多记住几条派发异常（不无限涨）。
      */
     private static final int MAX_REMEMBERED_ERRORS = 8;
+    /**
+     * 注册序号（同一优先级内按它保序，与旧实现的"插入到同优先级末尾"等价）。
+     */
+    private static long sequence = 0;
+    /**
+     * 派发过程中被监听器抛出来的异常次数（只增不减，{@link #resetDispatchErrors()} 可清）。
+     */
+    private static int dispatchErrorCount = 0;
 
     /**
      * 工具类，不允许实例化。
