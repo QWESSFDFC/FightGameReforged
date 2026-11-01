@@ -504,7 +504,8 @@ FightGameReforged/
 │   │   ├── data/                 # NBT 数据层（NbtTag / Snbt / DataPath / DataBridge）—— /data 命令用它
 │   │   ├── utils/                # JSONHelper（org.json 薄封装）、ConsoleColor（ANSI 着色，不引第三方库）
 │   │   └── world/                # World：全局注册表（实体/物品/效果/模组/运行时对象）
-│   └── debug_tools/              # 调试与自测程序（不需要玩就能跑：命令系统自测、预期伤害试算、行动条实验）
+│   └── debug_tools/              # 自测（TestCommandSystem 只是 runner；TestKit 断言底座 /
+│                                 # TestSupport 工具 / TestProbes 探针 / 20 个按主题的 *Tests）+ 试算工具
 ├── mods/                # 外部模组目录（2 个示例骨架 + 「醉剑仙」完整示例 + 「李晓焰加强」特殊机制示例；各模组的 bin/ 是编译产物）
 ├── config/gameConfig/   # EntityData.json（实体数值）/ SkillData.json（技能数值）/ GameRules.json（魔法数字与 BOSS 旋钮）
 │                        # + EntityData.default.json（出厂值参考副本，游戏不读；文件头有 _note 说明）

@@ -13,6 +13,7 @@ import cn.gfhnv.game.event.HpRestorationEvent;
 import cn.gfhnv.game.interfaces.IDefenceIgnore;
 import cn.gfhnv.game.interfaces.IModifyDamage;
 import cn.gfhnv.game.interfaces.IShowSpecialMes;
+import cn.gfhnv.game.item.Item;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.configLoadingSystem.DataKeys;
@@ -43,7 +44,7 @@ import java.util.function.Supplier;
  * <ul>
  *     <li><b>战斗属性</b>：生命值（hp）、攻击（baseAttack）、防御（baseDefence）、速度（baseSpeed）、
  *     生命上限（baseHpMax）、
- *     暴击率/爆伤（criticalRate / criticalDamage）；</li>
+ *     暴击率/爆伤（baseCriticalRate / baseCriticalDamage）；</li>
  *     <li><b>五行系统</b>：拥有金木水火土五种元素抗性、穿透与元素法力（{@link Mana}），
  *     伤害计算时根据元素属性（{@link ElementSort}）取对应抗性/增伤/穿透；</li>
  *     <li><b>效果列表</b>：可携带多个 {@link Effect}（Buff/Debuff），由 {@link #addEffect} 管理叠加；</li>
@@ -74,7 +75,7 @@ public class LivingThing extends Entity {
      * {@code baseSpeed} /
      * {@code baseCriticalRate} 与 3 个成长系数）、五行组（5 抗性 + 5 单元素穿透 + 5 元素增伤 +
      * 5 法力成长系数）、全局组（{@code penetration} 全属性穿透、{@code enhance} 全属性增伤、
-     * {@code criticalDamage} 暴击伤害）、13 个 {@code *Enhance*} 运行时加成，
+     * {@code baseCriticalDamage} 暴击伤害）、13 个 {@code *Enhance*} 运行时加成，
      * 以及 {@code alive} / {@code anticipating} 两个状态位。
      * <p>
      * <b>{@code @DataFlatten} 是关键</b>：它让组件的字段被<b>无前缀</b>并进本对象的复合标签，
@@ -142,7 +143,7 @@ public class LivingThing extends Entity {
      */
     public LivingThing(LivingThing other) {
         super(other.getName(), other.getId(), other.getLevel());
-        // 属性组件里"面板属性"的那一半（五行组 5 抗性 + 5 法力成长，全局组 penetration / enhance / criticalDamage）
+        // 属性组件里"面板属性"的那一半（五行组 5 抗性 + 5 法力成长，全局组 penetration / enhance / baseCriticalDamage）
         // 跟着副本走；五行组的 5 单元素穿透 / 5 元素增伤是临时属性，刻意不带过去（见 AttributeProfile#copyFrom）。
         this.attributes.copyFrom(other.attributes);
         this.description = other.description;
@@ -295,19 +296,17 @@ public class LivingThing extends Entity {
     }
 
     /**
-     * @return 主元素法力的基数（默认 {@value cn.gfhnv.game.system.configLoadingSystem.RuleDefaults#MANA_MAIN_BASE}）
+     * @return 主元素法力的基数（默认 {@value RuleDefaults#MANA_MAIN_BASE}）
      */
     private static long manaMainBase() {
-        return cn.gfhnv.game.system.configLoadingSystem.GameRules
-                .getLong(cn.gfhnv.game.system.configLoadingSystem.DataKeys.Rule.Mana.MAIN_BASE);
+        return GameRules.getLong(DataKeys.Rule.Mana.MAIN_BASE);
     }
 
     /**
-     * @return 其余元素法力的基数（默认 {@value cn.gfhnv.game.system.configLoadingSystem.RuleDefaults#MANA_OTHER_BASE}）
+     * @return 其余元素法力的基数（默认 {@value RuleDefaults#MANA_OTHER_BASE}）
      */
     private static long manaOtherBase() {
-        return cn.gfhnv.game.system.configLoadingSystem.GameRules
-                .getLong(cn.gfhnv.game.system.configLoadingSystem.DataKeys.Rule.Mana.OTHER_BASE);
+        return GameRules.getLong(DataKeys.Rule.Mana.OTHER_BASE);
     }
 
     /**
@@ -333,7 +332,7 @@ public class LivingThing extends Entity {
         if (source instanceof Skill skill) {
             return skill.getName() == null ? skill.getClass().getSimpleName() : skill.getName();
         }
-        if (source instanceof cn.gfhnv.game.item.Item item) {
+        if (source instanceof Item item) {
             return item.getId() == null ? item.getClass().getSimpleName() : item.getId();
         }
         if (source instanceof CharSequence text) {
@@ -629,53 +628,51 @@ public class LivingThing extends Entity {
     }
 
     /**
+     * 五行法力表的固定顺序（金木水火土）。
+     * <p>
+     * ⚠️ <b>不能用</b> {@link ElementSort#values()}：那里还有第 6 个常量
+     * {@link ElementSort#UNIVERSAL}，它<b>没有</b>五行法力，遍历 {@code values()} 会凭空多造一条。
+     */
+    private static final List<ElementSort> MANA_ELEMENTS = List.of(
+            ElementSort.METAL, ElementSort.WOOD, ElementSort.WATER, ElementSort.FIRE, ElementSort.DIRT);
+
+    /**
      * 初始化五行法力。主元素法力上限为 {@code 成长 * (等级-1) + 200}，其余元素为
      * {@code 成长 * (等级-1) + 20}。
      * <p>
      * 那两个基数可以在 {@code config/gameConfig/GameRules.json} 的 {@code mana} 段里改
-     * （{@code mainBase} / {@code otherBase}）；不写就用 {@link RuleDefaults} 里的出厂值，
-     * 与本方法原来的字面量逐字相等。
+     * （{@code mainBase} / {@code otherBase}）；不写就用 {@link RuleDefaults} 里的出厂值。
+     * <p>
+     * 法力表<b>恒为 5 条、顺序固定</b>（见 {@link #MANA_ELEMENTS}）；元素属性不是五行之一
+     * （{@link ElementSort#UNIVERSAL}，或者还没设元素）时表格为空 —— 不凭空造 5 条。
      */
     public void initialMana() {
-        List<Mana> rebuilt = new ArrayList<>();
-        switch (this.getElementSort()) {
-            case METAL -> {
-                rebuilt.add(new Mana(this.attributes.getMetalManaGrow() * (this.getLevel() - 1) + manaMainBase(), ElementSort.METAL));
-                rebuilt.add(new Mana(this.attributes.getWoodManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WOOD));
-                rebuilt.add(new Mana(this.attributes.getWaterManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WATER));
-                rebuilt.add(new Mana(this.attributes.getFireManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.FIRE));
-                rebuilt.add(new Mana(this.attributes.getDirtManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.DIRT));
-            }
-            case WOOD -> {
-                rebuilt.add(new Mana(this.attributes.getMetalManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.METAL));
-                rebuilt.add(new Mana(this.attributes.getWoodManaGrow() * (this.getLevel() - 1) + manaMainBase(), ElementSort.WOOD));
-                rebuilt.add(new Mana(this.attributes.getWaterManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WATER));
-                rebuilt.add(new Mana(this.attributes.getFireManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.FIRE));
-                rebuilt.add(new Mana(this.attributes.getDirtManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.DIRT));
-            }
-            case WATER -> {
-                rebuilt.add(new Mana(this.attributes.getMetalManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.METAL));
-                rebuilt.add(new Mana(this.attributes.getWoodManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WOOD));
-                rebuilt.add(new Mana(this.attributes.getWaterManaGrow() * (this.getLevel() - 1) + manaMainBase(), ElementSort.WATER));
-                rebuilt.add(new Mana(this.attributes.getFireManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.FIRE));
-                rebuilt.add(new Mana(this.attributes.getDirtManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.DIRT));
-            }
-            case FIRE -> {
-                rebuilt.add(new Mana(this.attributes.getMetalManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.METAL));
-                rebuilt.add(new Mana(this.attributes.getWoodManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WOOD));
-                rebuilt.add(new Mana(this.attributes.getWaterManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WATER));
-                rebuilt.add(new Mana(this.attributes.getFireManaGrow() * (this.getLevel() - 1) + manaMainBase(), ElementSort.FIRE));
-                rebuilt.add(new Mana(this.attributes.getDirtManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.DIRT));
-            }
-            case DIRT -> {
-                rebuilt.add(new Mana(this.attributes.getMetalManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.METAL));
-                rebuilt.add(new Mana(this.attributes.getWoodManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WOOD));
-                rebuilt.add(new Mana(this.attributes.getWaterManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.WATER));
-                rebuilt.add(new Mana(this.attributes.getFireManaGrow() * (this.getLevel() - 1) + manaOtherBase(), ElementSort.FIRE));
-                rebuilt.add(new Mana(this.attributes.getDirtManaGrow() * (this.getLevel() - 1) + manaMainBase(), ElementSort.DIRT));
+        ElementSort main = this.getElementSort();
+        List<Mana> rebuilt = new ArrayList<>(MANA_ELEMENTS.size());
+        if (MANA_ELEMENTS.contains(main)) {
+            long levelFactor = this.getLevel() - 1;
+            for (ElementSort element : MANA_ELEMENTS) {
+                long base = element == main ? manaMainBase() : manaOtherBase();
+                rebuilt.add(new Mana(this.manaGrowOf(element) * levelFactor + base, element));
             }
         }
         this.attributes.setManas(rebuilt);
+    }
+
+    /**
+     * @param element 五行之一（{@link #MANA_ELEMENTS} 里的元素，调用方负责保证）
+     * @return 该元素的法力成长系数
+     */
+    private double manaGrowOf(ElementSort element) {
+        return switch (element) {
+            case METAL -> this.attributes.getMetalManaGrow();
+            case WOOD -> this.attributes.getWoodManaGrow();
+            case WATER -> this.attributes.getWaterManaGrow();
+            case FIRE -> this.attributes.getFireManaGrow();
+            case DIRT -> this.attributes.getDirtManaGrow();
+            // UNIVERSAL 不是五行之一（也不在 MANA_ELEMENTS 里），没有成长系数
+            case UNIVERSAL -> 0;
+        };
     }
 
     /**
@@ -1156,15 +1153,6 @@ public class LivingThing extends Entity {
      */
     public void clearIndividualMultipleAreaModifiers() {
         this.attributes.clearIndividualMultipleAreaModifiers();
-    }
-
-    /**
-     * 创建一个空的生物实例（子类可重写此方法返回自己的工厂实例）。
-     *
-     * @return 新的生物实例
-     */
-    public LivingThing livingThingFactory() {
-        return new LivingThing();
     }
 
     /**
@@ -2095,13 +2083,17 @@ public class LivingThing extends Entity {
 
         setPresentTurn(null);
         setHp((long) getHpMax());
-        // 临时属性全在属性组件里（五元素穿透/增伤 + 12 个 *Enhance* + 死字段 + 两个状态位）——
+        // ⚠️ 顺序要紧（2026-10-25 修，`80-EFFECTS.md` 的 K3）：
+        // **先**让每个效果自己收尾，**再** resetTemporary() 统一清零。
+        // 反过来（旧写法是反的）会让"减回去"落在已经被清零的字段上 → 战后 13 个 *Enhance* 变**负值**
+        // （例如 hpEnhancePercent: -0.2），而 `HpEnhanceEffect` 的 renewHp() 还会把血夹到 0.8×上限。
+        // 注意：resetTemporary() 不清 `enhance` / `defenceLoss`（它们是面板属性），
+        // 所以效果把它们减回去仍然是有意义的。
+        for (Effect effect : new ArrayList<>(getEntityEffectList())) effect.whenLastTimeEnd(this);
+        this.setEntityEffectList(new ArrayList<>());
+        // 临时属性全在属性组件里（五元素穿透/增伤 + 13 个 *Enhance* + 死字段 + 两个状态位）——
         // 实体这边不再有任何"清零"职责，面板属性也不在这张表里（它们跟着副本走）。
         this.attributes.resetTemporary();
-        // 顺序要紧：**先**让每个效果自己收尾（它们在自己的 whenLastTimeEnd 里摘掉挂上去的减伤），
-        // **再**统一打扫剩下的。反过来的话，效果收尾时看到的是已经被清空的列表。
-        for (Effect effect : getEntityEffectList()) effect.whenLastTimeEnd(this);
-        this.setEntityEffectList(new ArrayList<>());
         // 效果走完之后再扫一遍减伤：技能/机制挂上来的那些**不走效果生命周期**，
         // 战斗结束时没人摘，留着会渗进下一局 —— 最典型的是白厄【灾厄】那 75%
         // （`CalamitySoulscorchEdict` 挂、`Counterattack` 摘），变身打到一半战斗结束就带走了。

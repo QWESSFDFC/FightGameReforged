@@ -66,10 +66,20 @@ Write-Host ("Java files: {0}" -f $files.Count)
 # every simple class name defined anywhere in the project, plus its package
 $allClasses = @{}
 $pkgOfClass = @{}
+# 嵌套类型（class/interface/enum/record 写在别的类里面）-> 它所属的顶层类名。
+# 静态导入 `import static pkg.Outer.*;` 之后，`Inner` 这种名字在别的文件里能直接用，
+# 所以"某个简单名是不是嵌套类型"必须能在这里查到，否则会误报 IMPORT?。
+$nestedOwner = @{}
 foreach ($f in $files) {
     $allClasses[$f.BaseName] = $true
     $decl = [regex]::Match($content[$f.FullName], '(?m)^package\s+([\w.]+);')
     if ($decl.Success) { $pkgOfClass[$f.BaseName] = $decl.Groups[1].Value }
+    # 顶层类名之外的 class/interface/enum/record 声明 = 嵌套类型，记下它归属谁
+    foreach ($m in [regex]::Matches($content[$f.FullName],
+            '(?m)^\s*(?:public|protected|private)?\s*(?:static\s+)?(?:final\s+)?(?:abstract\s+)?(?:class|interface|enum|record)\s+(\w+)')) {
+        $inner = $m.Groups[1].Value
+        if ($inner -ne $f.BaseName) { $nestedOwner[$inner] = $f.BaseName }
+    }
 }
 
 $javaLang = @(
@@ -176,6 +186,12 @@ foreach ($f in $files) {
     foreach ($m in [regex]::Matches($body, '<\s*([A-Z])\s+extends')) { $skipped[$m.Groups[1].Value] = $true }
     foreach ($m in [regex]::Matches($body, '\b([A-Z][A-Z0-9_]{2,})\b')) { $skipped[$m.Groups[1].Value] = $true }
 
+    # `import static pkg.Outer.*;` / `import static pkg.Outer.member;` 覆盖的名字
+    $staticOwners = @{}
+    foreach ($m in [regex]::Matches($text, '(?m)^\s*import\s+static\s+[\w.]+?\.(\w+)(?:\.\*|\.\w+)?;')) {
+        $staticOwners[$m.Groups[1].Value] = $true
+    }
+
     $missing = @{}
     foreach ($rule in $missingRules) {
         foreach ($m in [regex]::Matches($body, $rule, 'Multiline')) {
@@ -190,6 +206,8 @@ foreach ($f in $files) {
             # `import cn.gfhnv.game.item.Item;` slip through and cost a javac round-trip
             # (OfficialGameContent.java, 2026-09), because Item does exist elsewhere.
             if ($pkgOfClass.ContainsKey($name) -and $pkgOfClass[$name] -eq $pkg) { continue }
+            # 静态导入放行的嵌套类型（例如 TestProbes.ProbeMod 被 `import static ...TestProbes.*` 带进来）
+            if ($nestedOwner.ContainsKey($name) -and $staticOwners.ContainsKey($nestedOwner[$name])) { continue }
             if ($javaLang -contains $name) { continue }
             if ($wildcardPackages.Count -gt 0) {
                 $covered = $false

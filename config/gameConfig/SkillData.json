@@ -27,7 +27,7 @@
       "hpMagnification": 0,
       "aims": 0,
       "defMagnification": 0,
-      "forEnemies": true,
+      "forEnemies": false,
       "consumedMana": {
         "amount": 0,
         "element": "FIRE"
@@ -35,6 +35,19 @@
       "coolDown": 0,
       "atkMagnification": 0,
       "tags": {"ATTACK": 4}
+    },
+    "game_official_content:mortenax_blade#千冶铸一，万劫烬灭": {
+      "hpMagnification": 3.5,
+      "aims": -1,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": {
+        "amount": 0,
+        "element": "FIRE"
+      },
+      "coolDown": 0,
+      "atkMagnification": 0,
+      "tags": {"ATTACK": 8}
     },
     "game_official_content:flameReaver#幽冥的悼念": {
       "hpMagnification": 0,
@@ -115,6 +128,19 @@
       "coolDown": 0,
       "atkMagnification": 1,
       "tags": {"ATTACK": 1}
+    },
+    "game_official_content:mortenax_blade#淬锋，断魄": {
+      "hpMagnification": 1,
+      "aims": 1,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": {
+        "amount": 0,
+        "element": "FIRE"
+      },
+      "coolDown": 0,
+      "atkMagnification": 0,
+      "tags": {"ATTACK": 5}
     },
     "game_official_content:actorLiXiaoYan#灼血泵动": {
       "hpMagnification": 2,
@@ -371,6 +397,19 @@
       "coolDown": 0,
       "atkMagnification": 0.45,
       "tags": {"ATTACK": 5}
+    },
+    "game_official_content:mortenax_blade#刃下，归葬": {
+      "hpMagnification": 0.72,
+      "aims": -1,
+      "defMagnification": 0,
+      "forEnemies": true,
+      "consumedMana": {
+        "amount": 0,
+        "element": "FIRE"
+      },
+      "coolDown": 0,
+      "atkMagnification": 0,
+      "tags": {"ATTACK": 6}
     }
   },
   "version": 1

@@ -338,9 +338,13 @@ public class MortenaxBlade extends Player {
      */
     @Override
     public void whenFightEnds() {
-        super.whenFightEnds();
-        // 结界（倒计时条目）必须一起收：否则时间轴上会留一条指向"死掉"的条目
+        // ⚠️ 顺序要紧（2026-10-25）：**先**解结界，**再** super。
+        // `endInfiniteFury` 会把自己加的那几条手动减回去（治疗 +50% / 增伤 +75% / E1 穿透 +20%）；
+        // 而 `super.whenFightEnds()` 里 `resetTemporary()` 会把 13 个 *Enhance* **清零** ——
+        // 先 super 再解结界的话，"减 0.5"落在零点上 → 战后 `healEnhancePercent = -0.5`（治疗变减半）。
+        // 结界（倒计时条目）也必须一起收：否则时间轴上会留一条指向"死掉"的条目。
         this.endInfiniteFury();
+        super.whenFightEnds();
         // 充能监听器也要摘：不摘的话下一场它还挂在总线上（泄漏 + 给上一场那个对象加充能）
         cn.gfhnv.game.event.EventBus.unregister(this.chargeListener);
         this.chargeListenerRegistered = false;
@@ -626,12 +630,21 @@ public class MortenaxBlade extends Player {
      * + <b>千冶铸一，万劫烬灭</b>（全新终结技）
      * <p>
      * 与普通形态的差别：残锋 → 淬锋（普攻强化）、多出刃下归葬（战技解放）、骸骨当炉 → 千冶铸一。
+     * <p>
+     * ⚠️ 这三招取自 {@code World#prototypeCopyOf}（登记在千冶·刃名下的原型），
+     * <b>不是 {@code new}</b> —— 那样 {@code SkillData.json} 里对它们的改动一点都不会生效。
      */
     private java.util.List<Skill> infiniteFurySkills() {
         java.util.List<Skill> skills = new java.util.ArrayList<>();
-        skills.add(new cn.gfhnv.game.officialStuff.customSkill.mortenaxBlade.MortalBladeSkill());
-        skills.add(new cn.gfhnv.game.officialStuff.customSkill.mortenaxBlade.BladeUnderBurial());
-        skills.add(new cn.gfhnv.game.officialStuff.customSkill.mortenaxBlade.TenaxPerIgnem());
+        // ⚠️ 必须从**原型副本**造，不能 `new`：这三招平时不在控制器里，
+        // 它们的配置值只存在于「登记在千冶·刃名下的原型」上（见 OfficialGameContent）。
+        // 直接 `new` 的话，SkillData.json 里改的倍率对这一份**完全不生效**。
+        skills.add(cn.gfhnv.game.world.World.prototypeCopyOf(
+                cn.gfhnv.game.officialStuff.customSkill.mortenaxBlade.MortalBladeSkill.class));
+        skills.add(cn.gfhnv.game.world.World.prototypeCopyOf(
+                cn.gfhnv.game.officialStuff.customSkill.mortenaxBlade.BladeUnderBurial.class));
+        skills.add(cn.gfhnv.game.world.World.prototypeCopyOf(
+                cn.gfhnv.game.officialStuff.customSkill.mortenaxBlade.TenaxPerIgnem.class));
         return skills;
     }
 

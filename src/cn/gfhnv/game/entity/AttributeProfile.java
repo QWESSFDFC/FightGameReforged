@@ -24,7 +24,7 @@ import java.util.List;
  *     （{@code hp} / {@code baseHpMax} / {@code baseAttack} / {@code baseDefence} / {@code baseSpeed} /
  *     {@code baseCriticalRate}）
  *     与 3 个成长系数 + {@code element}、法力表 {@code manas}，五行组的 5 抗性 + 5 法力成长，
- *     全局组的 {@code penetration} / {@code enhance} / {@code criticalDamage}。
+ *     全局组的 {@code penetration} / {@code enhance} / {@code baseCriticalDamage}。
  *     {@link #copyFrom} 要把它们带过去，{@link #resetTemporary} <b>不动</b>它们；</li>
  *     <li><b>临时属性</b> —— 效果/技能给的一次性加成：五行组的 5 单元素穿透 + 5 元素增伤，
  *     以及 13 个 {@code *Enhance*} 运行时加成（其中 {@code healEnhancePercent} 是 2026-10-24 加的治疗量加成）。
@@ -487,7 +487,7 @@ public class AttributeProfile {
      * 从另一个组件复制<b>面板属性</b>：
      * 面板组的基础值（{@code hp} / {@code baseHpMax} / {@code baseAttack} / {@code baseDefence} /
      * {@code baseSpeed} / {@code baseCriticalRate} 与三个成长系数）、五行组的 5 抗性 + 5 法力成长，
-     * 以及全局组的 {@code penetration} / {@code enhance} / {@code criticalDamage}。
+     * 以及全局组的 {@code penetration} / {@code enhance} / {@code baseCriticalDamage}。
      * <p>
      * <b>刻意不带临时属性</b>（5 单元素穿透、5 元素增伤与 12 个 {@code *Enhance*}）：
      * 那是效果/技能给的一次性加成，副本必须从干净的状态开始（与 {@link #resetTemporary} 是互补的两张表，
@@ -540,7 +540,7 @@ public class AttributeProfile {
     /**
      * 铺一批<b>基础值</b>：{@code hp}、{@code baseHpMax}（= hp）、{@code defence}、{@code attack}。
      * <p>
-     * 只给 {@link LivingThing} 的十三参构造器用：构造期必须<b>直接赋值</b>，不能走 {@link #setHp(long)}
+     * 只给 {@link LivingThing} 的十四参构造器用：构造期必须<b>直接赋值</b>，不能走 {@link #setHp(long)}
      * —— 那个会发 {@code HpRestorationEvent}（刚造出来的模板不该通知任何监听器）、
      * 还会拿"还没铺好的"上限去夹。
      *
@@ -560,7 +560,7 @@ public class AttributeProfile {
      * 死字段 {@code extraDamage}，以及两个状态位（{@code alive} 回到真、{@code anticipating} 回到假）。
      * <p>
      * <b>面板组的基础值与抗性、法力成长、全局组（{@code penetration} / {@code enhance} /
-     * {@code criticalDamage}）、{@code element}、{@code defenceLoss}、{@code manas} 与
+     * {@code baseCriticalDamage}）、{@code element}、{@code defenceLoss}、{@code manas} 与
      * {@code individualMultipleArea} 都不清</b> —— 它们是面板属性，清掉就是永久削弱这个角色。
      * （{@code hp} 的"每局补满"由 {@link LivingThing#whenFightEnds()} 自己
      * {@code setHp(getHpMax())} 做，那是一次有意的复位、不是清零。）

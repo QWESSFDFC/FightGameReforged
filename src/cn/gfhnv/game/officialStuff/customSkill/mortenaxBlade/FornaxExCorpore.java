@@ -69,6 +69,10 @@ public class FornaxExCorpore extends Skill implements IAiScoreBonus {
                 0, 0, 0, 0);
         this.setCoolDown(0);
         this.setConsumedMana(new Mana(0, ElementSort.FIRE));
+        // ⚠️ 必须显式关掉：`Skill` 的 `forEnemies` 默认是 **true**（"打敌方"）。
+        // 这一招是**强化 / 开结界**（挂完【煞火缠身】就只对自己生效），
+        // 留着 true 会让"选目标/能不能放/AI 判定"都按攻击技能处理（用户 2026-10-25 实机发现）。
+        this.setForEnemies(false);
         this.getTags().put(TagType.ATTACK, new Tag(4));
     }
 

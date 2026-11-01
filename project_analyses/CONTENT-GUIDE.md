@@ -306,6 +306,31 @@ CommandManager.initialize()
 4. 生成器**只给真的有这个字段的模板写这一段**（`ReflectionConfigBridge.classStateValues`
    的口径是"实体上 dump 得出来才写"）—— 所以给白厄加的东西不会跑到玩家一身上。
 
+### 2.5.5 要写测试？先看这条规则（2026-10-25 起）
+
+> **不同内容的测试写进不同的类** —— 别再把用例往一个巨型类里堆。
+> （2026-10-24 之前 `TestCommandSystem.java` 一个文件 10,233 行、145 个成员，
+> 每件小事都要动它；现在拆成了下面的结构，条数一条没变。）
+
+`src/cn/gfhnv/debug_tools/` 的结构是**固定的**：
+
+| 文件 | 放什么 |
+|---|---|
+| `TestCommandSystem.java` | **只是 runner**：`main` 里按顺序调各个 `*Tests.runAll()` |
+| `TestKit.java` | 断言底座：`check` / `section` / `fail` / `run` / `errorOf` / `summary` / `useUtf8Output` + 通过/失败计数 |
+| `TestSupport.java` | 多个测试类共用的工具（造实体、找效果、读配置、抓输出……）+ 被别的用例调用的"子用例" |
+| `TestProbes.java` | 探针类型（假实体 / 假模组 / 假效果 / 假技能 / 假监听器） |
+| `XxxTests.java` | **一个主题一个类**：该主题的 `testXxx()` 和 `runAll()`（例：`DamageTests`、`ConfigTests`、`MortalBladeTests`） |
+
+**加一条测试**：
+
+1. 找主题 → 在对应的 `XxxTests` 里加 `private static void testYyy()`，
+   断言用 `check("说明", 条件)`，分节用 `section("标题")`；
+2. 在它的 `runAll()` 里**按位置**调用（顺序有意义：配置类测试会改全局状态，别随便挪）；
+3. **主题是新的** → 新建 `YyyTests.java`（类注释写清"主题 + 由谁调用"），
+   并在 `TestCommandSystem#main` 里加一行；
+4. 跑下面 §2.6 / §3.3 的两条命令：`CHECK OK` + `失败 0 条`，且**条数只涨不跌**。
+
 ### 2.6 加完之后怎么验证
 
 **① 自测（AI 也能跑，最快）**：
@@ -313,11 +338,11 @@ CommandManager.initialize()
 ```powershell
 # 静态自查（快）
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force; & .\check-sources.ps1
-#   期望：Java files: 226（新增文件会 +1，删文件会 -1） / CHECK OK
+#   期望：Java files: 261（新增文件会 +1，删文件会 -1） / CHECK OK
 
 # 权威：全量编译 + 自测
 powershell -ExecutionPolicy Bypass -File .\test-command-system.ps1
-#   期望：通过 N 条，失败 0 条（N 只能涨不能跌；当前基线 853，见 30-WORKFLOW.md 的 §6.2）
+#   期望：通过 N 条，失败 0 条（N 只能涨不能跌；当前基线 1074）
 ```
 
 自测会替你验：**新字段能配**、**全量默认值打回去数值逐字段不变**、**`copy()` 带得过去**、
@@ -351,7 +376,7 @@ powershell -ExecutionPolicy Bypass -File .\test-command-system.ps1
 | # | 要求 | 漏了会怎样 | 证据 |
 |---|---|---|---|
 | 1 | ⚠️ **`copy()` 必须带当前数值** —— 走复制构造器，**不要** `return new Xxx()` | 配置**静默失效**：打在模板上的值**永远传不到副本**（实测过：模板改 3.25、副本还是 7.5）。**9 个技能类踩过这个坑** | `MODDING-GUIDE.md`「技能实例是复用的」；`SkillCoefficientTunable` 的 javadoc 把这条写成实现约定 |
-| 2 | ⚠️ **技能要"看得见"**：在**控制器里**，或者**登记成技能原型** | **配不到**：配置沿 `World.getEntityList() → controller.getSkills()` 找技能（`SkillDataPatcher.java` 的 `targetsOf` / `all`），**`new` 出来的不在视野里** | 白厄那 5 个觉醒技能原来就是这个 ❌，**2026-10-03 已修**（见下） |
+| 2 | ⚠️ **技能要"看得见"**：在**控制器里**，或者**登记成技能原型**；运行时用到它时**拿原型副本**，别 `new` | **配不到**：配置沿 `World.getEntityList() → controller.getSkills()` + 原型表找技能（`SkillDataPatcher` 的 `targetsOf` / `all`），**`new` 出来的既不在视野里、也不吃配置** | ① 白厄那 5 个觉醒技能原来就是 ❌（2026-10-03 修）；② **千冶·刃的 3 个"只在结界里出现"的技能**同样漏了（2026-10-25 用户实测：`SkillData.json` 里只有 2 条），修法见下 |
 | 3 | **默认值 = 外置之前写在方法体里的那个字面量，逐位相同** | 数值会在你没察觉的时候漂一下 | 自测第一条就钉这个（"出厂值逐位相同"） |
 | 4 | ⚠️ **必须有 id**：不用自己拼、也不用在构造器里塞字符串 —— 只要**让注册表看得见**（第 2 条），`World#indexSkill` 就会给**每一份实例**落上"显式 id 优先 / 否则类名派生 + `模组id:` 前缀"的 id | 那份技能在 `/data get` 里就是**没有 `id` 字段**的一条（同一份内容看起来"登记了一半"），按 id 找它的地方也找不到它 | 用户实测（2026-10-03）：卡厄斯兰那的 `skills` 是 `[null, …:normalSkill, …:ultimateAttack]` —— 「普通攻击」的类被别的模板先登记过，它这份就没 id；**已修**，自测探针 `testSkillIdCoverage` 现在断言"25 份实例 / 0 份没 id" |
 
@@ -362,6 +387,13 @@ powershell -ExecutionPolicy Bypass -File .\test-command-system.ps1
 > 在官方内容里写 `this.addSkill(phainon, new FoundationStardeathVerdict())`（模组里同理，
 > **归属模板必须传**，否则配置不知道该挂在谁名下），运行时改成
 > `World.prototypeCopyOf(FoundationStardeathVerdict.class)`（**= 原型.copy()**）。
+> ⚠️ **"形态技能"是最容易漏的一类**（2026-10-25 踩过）：千冶·刃普通形态只有 2 条技能，
+> 【无量忿怒】里另有 3 条（{@code 淬锋，断魄} / {@code 刃下，归葬} / {@code 千冶铸一，万劫烬灭}）。
+> 它们**平时不在控制器里**，所以要**两头都做**：
+> ① 在 `OfficialGameContent` 里 `addSkill(千冶刃模板, new Xxx())` 登记原型（否则配置里没有这个键）；
+> ② 切形态时的技能表用 `World.prototypeCopyOf(Xxx.class)` 造（否则即使有键，改了也不生效）。
+> **自测已经钉住这两条**：`SkillDataTests#testSkillKeysCoverEveryFormSkill`（键覆盖）、
+> `MortalBladeTests#testInfiniteFurySkillsTakeConfig`（改原型倍率 → 表里那份跟着变）。
 > ⚠️ **原型不能直接拿去用**（它是全场共用、也是配置打补丁的那一份）；
 > ⚠️ **技能 id = `模组id:短id`**（显式 id 优先、否则类名首字母小写），
 > **派生出来撞名会直接报错**（项目里有两对同名类就是这么解决的，见 `70-DATA.md` §5.10.3）；

@@ -66,7 +66,19 @@ public class OfficialGameContent extends Mod {
         this.addEntity(new BrokenContainer(new FlameReaver(150)));
         // 完整容器是同一个类的另一种"种类"（见 BrokenContainer.Kind）
         this.addEntity(new BrokenContainer(new FlameReaver(150), BrokenContainer.Kind.COMPLETE));
-        this.addEntity(new MortenaxBlade(125L));
+        MortenaxBlade mortenaxBlade = new MortenaxBlade(125L);
+        this.addEntity(mortenaxBlade);
+        // 千冶·刃的 3 个"只在【无量忿怒】里出现"的技能：平时不在控制器里
+        // （普通形态只有【残锋，掠尽】+【骸骨当炉，血肉即薪】），配置层沿
+        // "实体 → 控制器 → 技能"看不到它们 —— 不登记的话 SkillData.json 里
+        // **根本不会出现这三个键**，改倍率会静默无效（2026-10-25 用户实测踩到）。
+        // 和白厄的觉醒技能同理：`addSkill(owner, skill)` 的归属参数就是键的落点。
+        this.addSkill(mortenaxBlade,
+                new cn.gfhnv.game.officialStuff.customSkill.mortenaxBlade.MortalBladeSkill());
+        this.addSkill(mortenaxBlade,
+                new cn.gfhnv.game.officialStuff.customSkill.mortenaxBlade.BladeUnderBurial());
+        this.addSkill(mortenaxBlade,
+                new cn.gfhnv.game.officialStuff.customSkill.mortenaxBlade.TenaxPerIgnem());
         // 白厄的 5 个觉醒技能：它们由大招（UltimateAttack）在变身那一刻现场造出来，
         // 平时不在任何控制器里，配置层沿"实体 → 控制器 → 技能"看不到它们。
         // 登记成"挂在白厄名下"的原型之后：
