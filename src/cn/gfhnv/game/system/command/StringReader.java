@@ -50,6 +50,42 @@ public class StringReader {
     }
 
     /**
+     * 找出字符串里<b>引号外</b>第一个非 ASCII 字符的位置（引号内的内容跳过，支持 {@code \"} 转义）。
+     *
+     * @param text 要检查的文本
+     * @return 下标；引号外全是 ASCII 时返回 {@code -1}
+     */
+    private static int indexOfNonAsciiOutsideQuotes(String text) {
+        char quote = 0;
+        boolean escaped = false;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            if (c == '\\') {
+                escaped = true;
+                continue;
+            }
+            if (quote != 0) {
+                if (c == quote) {
+                    quote = 0;
+                }
+                continue;
+            }
+            if (c == '"' || c == '\'') {
+                quote = c;
+                continue;
+            }
+            if (c > 0x7E) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
      * @return 被读取的完整字符串
      */
     public String getString() {
@@ -229,42 +265,6 @@ public class StringReader {
                     + "」—— 命令里带非英文字符的内容必须用引号括起来" + hint);
         }
         return word;
-    }
-
-    /**
-     * 找出字符串里<b>引号外</b>第一个非 ASCII 字符的位置（引号内的内容跳过，支持 {@code \"} 转义）。
-     *
-     * @param text 要检查的文本
-     * @return 下标；引号外全是 ASCII 时返回 {@code -1}
-     */
-    private static int indexOfNonAsciiOutsideQuotes(String text) {
-        char quote = 0;
-        boolean escaped = false;
-        for (int i = 0; i < text.length(); i++) {
-            char c = text.charAt(i);
-            if (escaped) {
-                escaped = false;
-                continue;
-            }
-            if (c == '\\') {
-                escaped = true;
-                continue;
-            }
-            if (quote != 0) {
-                if (c == quote) {
-                    quote = 0;
-                }
-                continue;
-            }
-            if (c == '"' || c == '\'') {
-                quote = c;
-                continue;
-            }
-            if (c > 0x7E) {
-                return i;
-            }
-        }
-        return -1;
     }
 
     /**

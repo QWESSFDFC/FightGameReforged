@@ -84,7 +84,7 @@ public class LockedRite extends Effect {
         if (thing == null || thing.getEntityEffectList() == null) {
             return false;
         }
-        return thing.getEntityEffectList().removeIf(effect -> effect instanceof LockedRite);
+        return thing.removeEffectsIf(effect -> effect instanceof LockedRite);
     }
 
     @Override

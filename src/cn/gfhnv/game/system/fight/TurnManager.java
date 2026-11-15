@@ -1,8 +1,6 @@
 package cn.gfhnv.game.system.fight;
 
 import cn.gfhnv.game.entity.LivingThing;
-import cn.gfhnv.game.event.EventBus;
-import cn.gfhnv.game.event.FightPastOneTurnEvent;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -45,6 +43,30 @@ public class TurnManager {
         );
     }
 
+    /**
+     * 时间轴统一入口：<b>需要时间 = 基值 / 速度</b>（{@code 基值} 来自
+     * {@code GameRules.json} 的 {@code formula.turnTimeBase}，出厂 10000）。
+     * <p>
+     * <b>速度守卫只在这里做</b>（2026-11-15 第 77 批）：以前 {@code 10000 / speed} 在 6 处各写一遍，
+     * 只有 Builder 拦了 {@code speed<=0}；配置写 {@code baseSpeed: 0} 或负百分比加成会把速度压到 0，
+     * 除法直接抛 {@code ArithmeticException}。现在速度统一夹到 {@code >=1}，除法只此一处。
+     *
+     * @param thing 要排进时间轴的生物（可为 {@code null}，按速度 1 处理）
+     * @return 需要的行动时间（scale 10，四舍五入）
+     */
+    public static BigDecimal needTimeOf(LivingThing thing) {
+        long speed = thing == null ? 1L : thing.getSpeed();
+        if (speed <= 0) {
+            speed = 1L;
+        }
+        double base = cn.gfhnv.game.system.configLoadingSystem.GameRules.getDouble(
+                cn.gfhnv.game.system.configLoadingSystem.DataKeys.Rule.Formula.TURN_TIME_BASE);
+        if (!(base > 0) || Double.isInfinite(base)) {
+            base = cn.gfhnv.game.system.configLoadingSystem.RuleDefaults.TURN_TIME_BASE;
+        }
+        return BigDecimal.valueOf(base).divide(BigDecimal.valueOf(speed), 10, RoundingMode.HALF_UP);
+    }
+
     public static void init(Fight fight) {
         presentTime = BigDecimal.ZERO;
         List<LivingThing> canActEntity = new ArrayList<>();
@@ -57,18 +79,13 @@ public class TurnManager {
             return;
         }
         for (LivingThing livingThing : canActEntity) {
-            turns.add(new TurnEntry(livingThing, BigDecimal.valueOf(10000)
-                    .divide(BigDecimal.valueOf(livingThing.getSpeed()), 10, RoundingMode.HALF_UP), TurnManager.getPresentTime()));
+            turns.add(new TurnEntry(livingThing, needTimeOf(livingThing), TurnManager.getPresentTime()));
         }
         if (turns.isEmpty()) {
             return;
         }
         isInitialized = true;
         sort();
-    }
-
-    public static void nextTurn(Fight fight) {
-        EventBus.post(new FightPastOneTurnEvent(fight));
     }
 
     /**
@@ -146,11 +163,11 @@ public class TurnManager {
         TurnManager.turns = turns;
     }
 
-    public static boolean isIsInitialized() {
+    public static boolean isInitialized() {
         return isInitialized;
     }
 
-    public static void setIsInitialized(boolean isInitialized) {
+    public static void setInitialized(boolean isInitialized) {
         TurnManager.isInitialized = isInitialized;
     }
 

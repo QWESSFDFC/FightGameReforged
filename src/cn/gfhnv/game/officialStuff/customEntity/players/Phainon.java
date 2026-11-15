@@ -2,9 +2,9 @@ package cn.gfhnv.game.officialStuff.customEntity.players;
 
 import cn.gfhnv.game.data.NoConfig;
 import cn.gfhnv.game.data.NoData;
-import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entity.Player;
+import cn.gfhnv.game.entity.PropertyEnhanceType;
 import cn.gfhnv.game.entityController.PlayerController;
 import cn.gfhnv.game.entityController.UniversalController;
 import cn.gfhnv.game.event.DamageEvent;
@@ -27,9 +27,19 @@ import cn.gfhnv.game.world.World;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.ListIterator;
 
 public class Phainon extends Player {
+
+    /**
+     * 「变身」那两笔加成（攻击 +80%、生命上限 +270%）的来源键：
+     * 大招 {@code UltimateAttack} 挂、退出协议 {@code AwakeEndListener} 按它摘。
+     */
+    public static final Object AWAKEN_ENHANCE_SOURCE = new Object();
+
+    /**
+     * 「额外能力等级」那笔攻击加成的来源键：等级变了就整条替换（幂等），整场结束由 resetTemporary 清掉。
+     */
+    public static final Object TIER_ENHANCE_SOURCE = new Object();
 
     /**
      * 「灾厄·弑魂焚诏」带来的减伤在 {@code LivingThing} 减伤列表里的来源键。
@@ -116,6 +126,10 @@ public class Phainon extends Player {
 
     public Phainon(long l) {
         super("白厄", "phainon", 0.7, 0, 0, 0, 0, 120, l, "player", 29, 40, 25, ElementSort.FIRE);
+        // 玩家角色的基础暴击率 5% + 基础暴伤 50%（2026-11-15 第 71/73 批，用户定；
+        // 只给默认用 PlayerController 的玩家实体加，怪物 / 召唤物没有暴击机制）
+        this.setCriticalRate(0.05);
+        this.setCriticalDamage(0.5);
         List<Skill> skillList = new ArrayList<>();
         skillList.add(new CommonAttack(0.0, 1.0, 0.0, 1));
         skillList.getFirst().setName("普通攻击:逐火救世,行则将至");
@@ -400,7 +414,8 @@ public class Phainon extends Player {
     public void whenFightEnds() {
         super.whenFightEnds();
 
-        this.setAttackEnhancePercent(this.getAttackEnhancePercent() - appliedExtraAbilityTier * 0.5);
+        // 属性加成已经由 super.whenFightEnds() 的 resetTemporary() 清空（容器化之后不再需要减回去，
+        // 旧写法在这里减 0.5 会把 heal/attack 变成负值 —— 那是 K3 那类坑）
         appliedExtraAbilityTier = 0;
         extraAbilityTier = 0;
         coreflame = 0;
@@ -446,19 +461,18 @@ public class Phainon extends Player {
     public void updateSelf() {
         super.updateSelf();
         if (awaken) {
-            ListIterator<Effect> listedIterator = this.getEntityEffectList().listIterator();
-            while (listedIterator.hasNext()) {
-                Effect effect = listedIterator.next();
+            this.removeEffectsIf(effect -> {
                 if (effect.isNegative()) {
                     effect.whenLastTimeEnd(this);
-                    listedIterator.remove();
+                    return true;
                 }
-            }
+                return false;
+            });
 
         }
 
-        this.setAttackEnhancePercent(this.getAttackEnhancePercent()
-                + (extraAbilityTier - appliedExtraAbilityTier) * 0.5);
+        // 按来源整条替换：等级升/降都只留一条，重复调用是幂等的
+        this.addPropertyEnhance(PropertyEnhanceType.ATTACK, extraAbilityTier * 0.5, 0, TIER_ENHANCE_SOURCE);
         appliedExtraAbilityTier = extraAbilityTier;
 
 

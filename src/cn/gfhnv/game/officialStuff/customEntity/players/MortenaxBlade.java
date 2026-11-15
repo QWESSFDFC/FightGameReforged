@@ -3,6 +3,7 @@ package cn.gfhnv.game.officialStuff.customEntity.players;
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entity.Player;
+import cn.gfhnv.game.entity.PropertyEnhanceType;
 import cn.gfhnv.game.entityController.PlayerController;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
@@ -12,7 +13,7 @@ import cn.gfhnv.game.system.fight.Fight;
  * 千冶·刃（Mortenax Blade）—— 火属性、生命上限型伤害、结界 + 无量忿怒。
  * <p>
  * <b>设计稿</b>：`TODO.md` 的 15~170 行（中英两版，**以中文数值为准**）。
- * <b>施工单与机制映射</b>：`project_analyses/MORTENAX-BLADE-2026-10.md`。
+ * <b>施工单与机制映射</b>：`project_analyses/current/MORTENAX-BLADE-2026-10.md`。
  * <p>
  * <b>本类现在只有"属性 + 资源"这一层</b>（P0 第 1 步）：速度 107、能量（160 上限 + 80 溢出）、
  * 充能（9 点，E2 降到 7）。技能 / 结界 / 无量忿怒还没写 —— 它们分别落在
@@ -26,6 +27,16 @@ import cn.gfhnv.game.system.fight.Fight;
  * @author AI（DeepSeek）生成；设计稿作者：仓库作者
  */
 public class MortenaxBlade extends Player {
+
+    /**
+     * 【千锻魂】那笔「受到的治疗量 +50%」的来源键：开结界时挂、收结界时按它摘。
+     */
+    public static final Object HEAL_ENHANCE_SOURCE = new Object();
+
+    /**
+     * 【千锻魂】那笔「+20% 穿透」的来源键：开结界时挂、收结界时按它摘。
+     */
+    public static final Object PENETRATION_ENHANCE_SOURCE = new Object();
 
     /**
      * 【万淬心】给队友的增伤比例（设计：我方目标造成的伤害提高 50%）——
@@ -119,6 +130,10 @@ public class MortenaxBlade extends Player {
     public MortenaxBlade(long l) {
         // 名字里的「·」是 U+00B7（GBK 可编码）；别用 U+2022 的「•」，那个在 GBK 控制台会显示成 ?
         super("千冶\u00b7刃", "mortenax_blade", 0.7, 0, 0, 0, 0, 107, l, "player", 60, 12, 6, ElementSort.FIRE);
+        // 玩家角色的基础暴击率 5% + 基础暴伤 50%（2026-11-15 第 71/73 批，用户定；
+        // 只给默认用 PlayerController 的玩家实体加，怪物 / 召唤物没有暴击机制）
+        this.setCriticalRate(0.05);
+        this.setCriticalDamage(0.5);
         this.setDescription("这是千冶\u00b7刃");
         // ⚠️ 控制器不能省：回合循环与 whenFightEnds 都会遍历 getController().getSkills()，
         // 没有控制器直接 NPE。技能表按设计稿顺序：普攻 → 战技 →（终结技/强化技能在 P0 第 3~4 步加入）
@@ -359,7 +374,7 @@ public class MortenaxBlade extends Player {
      * {@code getEntityEffectList()} 返回的是活列表。
      */
     private void cleanseNegativeEffects() {
-        this.getEntityEffectList().removeIf(Effect::isNegative);
+        this.removeEffectsIf(Effect::isNegative);
         System.out.println(this.getName() + "能量已满，解除了自身所有负面效果");
     }
 
@@ -515,13 +530,13 @@ public class MortenaxBlade extends Player {
         this.getController().setSkills(this.infiniteFurySkills());
         // 【千锻魂】：减伤 50% + 受到的治疗量 +50%（走现成的两条链）
         this.addDamageReduction(KENDUAN_REDUCTION_SOURCE, 0.5);
-        this.setHealEnhancePercent(this.getHealEnhancePercent() + 0.5);
+        this.addPropertyEnhance(PropertyEnhanceType.HEAL, 0.5, 0, HEAL_ENHANCE_SOURCE);
         // 【万淬心】：自己额外增伤 +75%，队友 +50%（队友靠 DamageEnhanceEffect）
         this.setEnhance(this.getEnhance() + 0.75);
         applyAllyEnhance(fight);
         // E1「我殁之前，我仍未成形」：结界期间 +20% 穿透（设计原文是敌方全抗 -20%）
         if (eidolon >= 1) {
-            this.setPenetration(this.getPenetration() + 0.2);
+            this.addPenetration(null, 0.2, PENETRATION_ENHANCE_SOURCE);
         }
         // 「千锻魂」的受击那一半：只在结界期间注册
         cn.gfhnv.game.event.EventBus.register(this.furyHitListener);
@@ -552,16 +567,19 @@ public class MortenaxBlade extends Player {
         for (cn.gfhnv.game.effect.Effect effect : new java.util.ArrayList<>(this.getEntityEffectList())) {
             if (effect instanceof cn.gfhnv.game.officialStuff.customEffect.mortenaxBladeEffects.InfiniteFuryEffect) {
                 effect.whenLastTimeEnd(this);
-                this.getEntityEffectList().remove(effect);
+                this.removeEffect(effect);
             }
         }
         // 撤回【千锻魂】/【万淬心】/E1 那几条（加了什么就在这儿减什么，两边必须成对）
         this.removeDamageReduction(KENDUAN_REDUCTION_SOURCE);
-        this.setHealEnhancePercent(this.getHealEnhancePercent() - 0.5);
+        this.removePropertyEnhance(HEAL_ENHANCE_SOURCE);
         this.setEnhance(this.getEnhance() - 0.75);
         clearAllyEnhance();
+        // 2026-11-15 第 78 批（分析 P1-7）：javadoc 一直写着"结界解除时也要调一次"，
+        // 但这里之前没调 —— 结界结束时能量停在结算值（可能 0），下一个终结技直接放不出来。
+        this.ensureEnergyFloor();
         if (eidolon >= 1) {
-            this.setPenetration(this.getPenetration() - 0.2);
+            this.removePenetration(PENETRATION_ENHANCE_SOURCE);
         }
         cn.gfhnv.game.event.EventBus.unregister(this.furyHitListener);
         this.getController().setSkills(this.normalSkills());
@@ -607,7 +625,7 @@ public class MortenaxBlade extends Player {
             LivingThing ally = entry.getKey();
             cn.gfhnv.game.effect.Effect effect = entry.getValue();
             effect.whenLastTimeEnd(ally);
-            ally.getEntityEffectList().remove(effect);
+            ally.removeEffect(effect);
         }
         allyEnhanceEffects.clear();
     }

@@ -10,8 +10,6 @@ import cn.gfhnv.game.officialStuff.customSkill.flameReaverSkills.SacrificeCloudO
 import cn.gfhnv.game.officialStuff.customSkill.flameReaverSkills.SacrificeFateDrawsNear;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
-import cn.gfhnv.game.system.configLoadingSystem.DataKeys;
-import cn.gfhnv.game.system.configLoadingSystem.GameRules;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.mana.Mana;
 
@@ -194,8 +192,9 @@ public class BrokenContainer extends LivingThing {
         if (thing == null || thing.getEntityEffectList() == null) {
             return false;
         }
-        boolean removed = thing.getEntityEffectList()
-                .removeIf(effect -> effect instanceof SacrificeRite);
+        // ⚠️ 必须走 removeEffectsIf：getEntityEffectList() 是只读视图，
+        // 直接 removeIf 会命中只读迭代器 → UnsupportedOperationException（2026-11-15 第 79 批修复）。
+        boolean removed = thing.removeEffectsIf(effect -> effect instanceof SacrificeRite);
         if (removed) {
             System.out.println("【残破容器】的共祭状态结束了");
         }
@@ -203,54 +202,24 @@ public class BrokenContainer extends LivingThing {
     }
 
     /**
-     * 容器的生命上限占盗火行者最大生命的比例。
-     * <p>
-     * 容器太脆的话"吸收"永远来不及发生（玩家一个多目标技能就清场），
-     * 苦痛缠绕的账本也就形同虚设；太厚又会让清场变成负担。
-     * <p>
-     * 15%（2026-09 用户要求"容器本体加强"时从 12% 提到这里）：
-     * 取消召唤上限之后容器会越积越多，单只更耐打一点，玩家的多目标技能就"清不完"，
-     * 必须专门分火力去打 —— 这样"清场"才是一个要做的决策，而不是顺手就清掉了。
-     * 80000 血的 BOSS 下 = 12000 血。
-     * <p>
-     * <b>每次构造读一次</b>（刻意用方法而不是 {@code static final}：静态常量在"类第一次被加载"时取值，
-     * 而类的加载时机不受配置文件控制，那样会让配置静默失效）。
-     * 配置键 {@code flameReaver.containerHpRatio}，出厂值
-     * {@value cn.gfhnv.game.system.configLoadingSystem.RuleDefaults#FLAME_REAVER_CONTAINER_HP_RATIO}。
-     *
-     * @return 生命比例
+     * @return 这个容器所属盗火行者身上的旋钮（{@code FlameReaver} 的实例字段）
      */
-    public static double hpRatio() {
-        return GameRules.getDouble(DataKeys.Rule.FlameReaver.CONTAINER_HP_RATIO);
+    public double hpRatio() {
+        return this.owner.getContainerHpRatio();
     }
 
     /**
-     * 容器的攻击占盗火行者攻击的比例。
-     * <p>
-     * 30% → <b>40%</b>（2026-09 用户要求"容器本体加强"）。
-     * 注意容器的输出走的是【共祭 · 亡死的黑云】/【共祭 · 将尽的命数】，
-     * 那两个技能的倍率本身只有 0.1×，所以这里提到 40% 之后单次仍然很轻
-     * （≈ BOSS 攻击的 4%），真正的压力来自"容器多了以后每轮一起打"。
-     * <p>
-     * 配置键 {@code flameReaver.containerAttackRatio}，出厂值
-     * {@value cn.gfhnv.game.system.configLoadingSystem.RuleDefaults#FLAME_REAVER_CONTAINER_ATTACK_RATIO}。
-     *
-     * @return 攻击比例
+     * @return 这个容器所属盗火行者身上的旋钮（{@code FlameReaver} 的实例字段）
      */
-    public static double attackRatio() {
-        return GameRules.getDouble(DataKeys.Rule.FlameReaver.CONTAINER_ATTACK_RATIO);
+    public double attackRatio() {
+        return this.owner.getContainerAttackRatio();
     }
 
     /**
-     * 【完整容器】的生命占盗火行者最大生命的比例（比残破容器厚得多，所以更难清掉）。
-     * <p>
-     * 配置键 {@code flameReaver.completeContainerHpRatio}，出厂值
-     * {@value cn.gfhnv.game.system.configLoadingSystem.RuleDefaults#FLAME_REAVER_COMPLETE_CONTAINER_HP_RATIO}。
-     *
-     * @return 完整容器的生命比例
+     * @return 这个容器所属盗火行者身上的旋钮（{@code FlameReaver} 的实例字段）
      */
-    public static double completeHpRatio() {
-        return GameRules.getDouble(DataKeys.Rule.FlameReaver.COMPLETE_CONTAINER_HP_RATIO);
+    public double completeHpRatio() {
+        return this.owner.getCompleteContainerHpRatio();
     }
 
     /**
@@ -296,7 +265,7 @@ public class BrokenContainer extends LivingThing {
                 return;
             }
         }
-        getEntityEffectList().add(rite);
+        addEffectDirect(rite);
         rite.initialEffect(this);
     }
 
@@ -425,11 +394,11 @@ public class BrokenContainer extends LivingThing {
      * @param da 伤害事件
      */
     @Override
-    public void getDamage(DamageEvent da) {
+    public void takeDamage(DamageEvent da) {
         if (da != null) {
             rememberAttacker(da.getAttacker());
         }
-        super.getDamage(da);
+        super.takeDamage(da);
     }
 
     /**

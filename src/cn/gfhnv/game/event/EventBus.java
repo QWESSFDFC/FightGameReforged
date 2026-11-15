@@ -350,7 +350,8 @@ public class EventBus {
         }
         recentDispatchErrors.add(summary);
         try {
-            LogWriter.writeLog("[事件总线] " + summary);
+            // 2026-11-15 第 80 批：除了一行摘要，再写完整堆栈到日志（无 message 的异常也能定位）
+            LogWriter.writeThrowable("[事件总线] " + summary, error);
         } catch (Throwable ignored) {
             // 日志本身失败（例如文件被占用）也绝不能影响派发
         }

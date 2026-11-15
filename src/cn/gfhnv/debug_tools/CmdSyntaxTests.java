@@ -1,7 +1,7 @@
 package cn.gfhnv.debug_tools;
 
-import cn.gfhnv.game.data.*;
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.entity.PropertyEnhanceType;
 import cn.gfhnv.game.entityController.FixOrderController;
 import cn.gfhnv.game.inventory.Slot;
 import cn.gfhnv.game.item.Item;
@@ -12,15 +12,16 @@ import cn.gfhnv.game.officialStuff.customEntity.players.PlayerOne;
 import cn.gfhnv.game.officialStuff.customItem.ANiceSword;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.command.*;
-import cn.gfhnv.game.system.fight.*;
+import cn.gfhnv.game.system.fight.Fight;
+import cn.gfhnv.game.system.fight.TargetStrategies;
 import cn.gfhnv.game.world.World;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static cn.gfhnv.debug_tools.TestKit.*;
-import static cn.gfhnv.debug_tools.TestSupport.*;
 import static cn.gfhnv.debug_tools.TestProbes.*;
+import static cn.gfhnv.debug_tools.TestSupport.*;
 
 /**
  * 自测：**命令系统**。
@@ -30,6 +31,9 @@ import static cn.gfhnv.debug_tools.TestProbes.*;
  * 由 {@code TestCommandSystem#main} 按顺序调用 {@code CmdSyntaxTests#runAll()}。
  */
 public final class CmdSyntaxTests {
+
+    private CmdSyntaxTests() {
+    }
 
     /**
      * 测试 {@link StringReader} 的读取行为。
@@ -317,8 +321,8 @@ public final class CmdSyntaxTests {
         }
 
         // 构造函数参数语法：效果名(参数,...)
-        run("effect @s add CriticalDMGEnhanceEffect(1,5)", true);
-        check("按构造函数参数创建成功", hasEffect(hero, "criticalDMGEnhanceEffect"));
+        run("effect @s add CriticalDamageEnhanceEffect(1,5)", true);
+        check("按构造函数参数创建成功", hasEffect(hero, "criticalDamageEnhanceEffect"));
         run("effect @s add frozen(2)", true);
         check("单参数构造函数（frozen(2)）可用", hasEffect(hero, "frozenEffect"));
         run("effect @s remove all", true);
@@ -328,29 +332,30 @@ public final class CmdSyntaxTests {
 
         // ---- 数字的单位：2 个参数一定是百分比，固定值必须写满 3 个参数 ----
         run("effect @s remove all", true);
-        long fixedBefore = hero.getAttackEnhanceAmount();
-        double percentBefore = hero.getAttackEnhancePercent();
+        double fixedBefore = hero.getPropertyEnhanceAmount(PropertyEnhanceType.ATTACK);
+        double percentBefore = hero.getPropertyEnhancePercent(PropertyEnhanceType.ATTACK);
 
         run("effect @s add AttackEnhance(1,2)", true);
         check("AttackEnhance(1,2) 的 1 是百分比（percent +1.0）",
-                Math.abs(hero.getAttackEnhancePercent() - (percentBefore + 1.0)) < 1e-9);
-        check("AttackEnhance(1,2) 不会动固定值", hero.getAttackEnhanceAmount() == fixedBefore);
+                Math.abs(hero.getPropertyEnhancePercent(PropertyEnhanceType.ATTACK) - (percentBefore + 1.0)) < 1e-9);
+        check("AttackEnhance(1,2) 不会动固定值",
+                Math.abs(hero.getPropertyEnhanceAmount(PropertyEnhanceType.ATTACK) - fixedBefore) < 1e-9);
         run("effect @s remove all", true);
         check("remove all 会把改过的属性一起还回去",
-                hero.getAttackEnhanceAmount() == fixedBefore
-                        && Math.abs(hero.getAttackEnhancePercent() - percentBefore) < 1e-9);
+                Math.abs(hero.getPropertyEnhanceAmount(PropertyEnhanceType.ATTACK) - fixedBefore) < 1e-9
+                        && Math.abs(hero.getPropertyEnhancePercent(PropertyEnhanceType.ATTACK) - percentBefore) < 1e-9);
 
         run("effect @s add AttackEnhance(0,2,2)", true);
         check("AttackEnhance(0,2,2) 的 2 是固定值（amount +2）",
-                hero.getAttackEnhanceAmount() == fixedBefore + 2);
+                Math.abs(hero.getPropertyEnhanceAmount(PropertyEnhanceType.ATTACK) - (fixedBefore + 2)) < 1e-9);
         check("AttackEnhance(0,2,2) 不会动百分比",
-                Math.abs(hero.getAttackEnhancePercent() - percentBefore) < 1e-9);
+                Math.abs(hero.getPropertyEnhancePercent(PropertyEnhanceType.ATTACK) - percentBefore) < 1e-9);
         run("effect @s remove all", true);
 
         run("effect @s add AttackEnhance(0.5,3,2)", true);
         check("AttackEnhance(0.5,3,2) 两个数值都生效",
-                Math.abs(hero.getAttackEnhancePercent() - (percentBefore + 0.5)) < 1e-9
-                        && hero.getAttackEnhanceAmount() == fixedBefore + 3);
+                Math.abs(hero.getPropertyEnhancePercent(PropertyEnhanceType.ATTACK) - (percentBefore + 0.5)) < 1e-9
+                        && Math.abs(hero.getPropertyEnhanceAmount(PropertyEnhanceType.ATTACK) - (fixedBefore + 3)) < 1e-9);
         run("effect @s remove all", true);
 
         // 守护：5 个「百分比 / 固定值」效果都只允许有 1 个双参数 + 1 个三参数构造函数
@@ -359,7 +364,7 @@ public final class CmdSyntaxTests {
                 cn.gfhnv.game.officialStuff.customEffect.universalEffects.HpEnhanceEffect.class,
                 cn.gfhnv.game.officialStuff.customEffect.universalEffects.SpeedEnhanceEffect.class,
                 cn.gfhnv.game.officialStuff.customEffect.universalEffects.CriticalRateEnhanceEffect.class,
-                cn.gfhnv.game.officialStuff.customEffect.universalEffects.CriticalDMGEnhanceEffect.class
+                cn.gfhnv.game.officialStuff.customEffect.universalEffects.CriticalDamageEnhanceEffect.class
         };
         StringBuilder confused = new StringBuilder();
         for (Class<?> type : percentStyle) {
@@ -618,12 +623,12 @@ public final class CmdSyntaxTests {
         // 攻击药水：走一遍「使用物品」的那一步（PlayerController.useItem 做的就是 comeToEffect）
         Item attackPotion = itemTemplateOf("attackPotion");
         check("注册表里有攻击药水", attackPotion != null);
-        double attackPercentBefore = hero.getAttackEnhancePercent();
+        double attackPercentBefore = hero.getPropertyEnhancePercent(PropertyEnhanceType.ATTACK);
         if (attackPotion != null) {
             attackPotion.copy().comeToEffect(hero, fight);
         }
         check("攻击药水：使用后攻击百分比 +0.2",
-                Math.abs(hero.getAttackEnhancePercent() - (attackPercentBefore + 0.2)) < 1e-9);
+                Math.abs(hero.getPropertyEnhancePercent(PropertyEnhanceType.ATTACK) - (attackPercentBefore + 0.2)) < 1e-9);
         cn.gfhnv.game.effect.Effect attackEffect = effectOf(hero, "attackEnhanceEffect");
         check("攻击药水：效果来源记的是这件物品的 id",
                 attackEffect != null && "game_official_content:attackPotion".equals(attackEffect.getOrigin()));
@@ -757,10 +762,10 @@ public final class CmdSyntaxTests {
             check("目标策略 first()：打候选里的第一个（甲虫）",
                     actionLog.size() == 1 && actionLog.get(0).equals("点杀→甲虫"));
 
-            // 冷却语义（统一后）：释放完 nowCoolDown = coolDown，所以 coolDown=0 的技能可以接着再用。
-            // 这里同时也是「目标策略」那几条断言能连续跑的前提 —— 不能再有 coolDown + 1 那套规则。
+            // 冷却语义（统一后）：coolDown == 0 = 没有冷却，释放完仍是 0（可以接着再用）；
+            // coolDown > 0 时 nowCoolDown = coolDown + 1。这里同时也是「目标策略」那几条断言能连续跑的前提。
             Skill pointKill = skillNamed(attacker, "点杀");
-            check("冷却语义统一：带目标技能释放后 nowCoolDown = coolDown",
+            check("冷却语义统一：没有冷却（coolDown=0）的技能释放后 nowCoolDown 仍是 0",
                     pointKill != null && pointKill.getCoolDown() == 0 && pointKill.getNowCoolDown() == 0);
 
             // ⑦ 嘲讽（2026-10-04 重做）：**A 给 B 施加 → B 打人时优先打 A**。
@@ -799,8 +804,5 @@ public final class CmdSyntaxTests {
         testEntitySelectorSyntax();
         testRegistrationAndExecution();
         testFixOrderController();
-    }
-
-    private CmdSyntaxTests() {
     }
 }

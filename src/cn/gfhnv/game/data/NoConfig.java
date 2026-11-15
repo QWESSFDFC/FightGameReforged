@@ -34,7 +34,7 @@ import java.lang.annotation.Target;
  * 自测里有一条断言要求它非空（防止有人只写注解不写理由）。
  * <p>
  * <b>不改变任何数据名</b>：本注解只过滤配置面，{@code /data} 的键名一个字都不动
- * （见 {@code notes_for_llm/70-DATA.md} §5.10：数据名是对外 API）。
+ * （见 {@code notes_for_llm/subsystems/70-DATA.md} §5.10：数据名是对外 API）。
  *
  * @author AI（DeepSeek）生成
  */

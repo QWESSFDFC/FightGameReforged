@@ -1,14 +1,18 @@
 package cn.gfhnv.debug_tools;
 
-import cn.gfhnv.game.data.*;
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.entity.PropertyEnhanceType;
 import cn.gfhnv.game.officialStuff.customEntity.players.PlayerOne;
-import cn.gfhnv.game.system.command.*;
-import cn.gfhnv.game.system.fight.*;
+import cn.gfhnv.game.skill.Skill;
+import cn.gfhnv.game.system.fight.ActionSignal;
+import cn.gfhnv.game.system.fight.TurnEntry;
+import cn.gfhnv.game.system.fight.TurnManager;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import static cn.gfhnv.debug_tools.TestKit.*;
-import static cn.gfhnv.debug_tools.TestSupport.*;
-import static cn.gfhnv.debug_tools.TestProbes.*;
+import static cn.gfhnv.debug_tools.TestProbes.ProbeSkill;
 
 /**
  * 自测：**战斗底座**。
@@ -18,6 +22,9 @@ import static cn.gfhnv.debug_tools.TestProbes.*;
  * 由 {@code TestCommandSystem#main} 按顺序调用 {@code CombatCoreTests#runAll()}。
  */
 public final class CombatCoreTests {
+
+    private CombatCoreTests() {
+    }
 
     /**
      * <b>治疗量加成</b>（{@code healEnhancePercent}，2026-10-24 加的第 13 个运行时加成）+ 统一治疗入口
@@ -34,15 +41,16 @@ public final class CombatCoreTests {
 
         PlayerOne probe = new PlayerOne(125);
         probe.setHp(probe.getHpMax() / 2);
-        check("治疗量加成：出厂 0（不配就是老行为）", probe.getHealEnhancePercent() == 0d
-                && DataBridge.toCompound(probe).get("healEnhancePercent") != null);
+        check("治疗量加成：出厂时一条条目都没有（不配就是老行为）",
+                probe.getPropertyEnhancePercent(PropertyEnhanceType.HEAL) == 0d
+                        && probe.getPropertyEnhances().isEmpty());
 
         long before = probe.getHp();
         long healed = probe.heal(100);
         check("治疗量加成：0% 时 heal(100) 就回 100 —— 实际 " + healed,
                 healed == 100 && probe.getHp() == before + 100);
 
-        probe.setHealEnhancePercent(0.5d);
+        probe.addPropertyEnhance(PropertyEnhanceType.HEAL, 0.5d, 0, "自测-治疗量加成");
         healed = probe.heal(100);
         check("治疗量加成：+50% 时 heal(100) 回 150 —— 实际 " + healed, healed == 150);
 
@@ -54,7 +62,7 @@ public final class CombatCoreTests {
 
         probe.whenFightEnds();
         check("治疗量加成：每局结束清零（它是临时属性，不是面板属性）—— 实际 "
-                + probe.getHealEnhancePercent(), probe.getHealEnhancePercent() == 0d);
+                + probe.getPropertyEnhancePercent(PropertyEnhanceType.HEAL), probe.getPropertyEnhancePercent(PropertyEnhanceType.HEAL) == 0d);
 
         check("治疗量加成：heal(0) / 负数 一律回 0（不会把自己治成负血）",
                 probe.heal(0) == 0 && probe.heal(-500) == 0);
@@ -115,13 +123,51 @@ public final class CombatCoreTests {
     }
 
     /**
+     * 冷却语义（2026-11-15 第 72 批，B1）：<b>有冷却的 +1，没冷却的保持 0</b>。
+     * <p>
+     * 白厄变身后的整套技能、普攻都是 {@code coolDown == 0} —— 它们**不能**因为这次改动多出冷却。
+     */
+    private static void testCooldownSemantics() {
+        section("冷却语义：有冷却 +1、无冷却保持 0");
+        try {
+            LivingThing user = new PlayerOne(125);
+            LivingThing enemy = new cn.gfhnv.game.officialStuff.customEntity.monsters.CommonInsect(125L);
+            List<LivingThing> fighters = new ArrayList<>();
+            fighters.add(user);
+            List<LivingThing> enemies = new ArrayList<>();
+            enemies.add(enemy);
+            cn.gfhnv.game.system.fight.Fight fight = new cn.gfhnv.game.system.fight.Fight(
+                    enemies, new ArrayList<>(), fighters);
+
+            Skill noCooldown = new ProbeSkill("无冷却", new ArrayList<>());
+            noCooldown.setCoolDown(0);
+            boolean used = noCooldown.use(fight, user);
+            check("① coolDown=0（普攻 / 白厄变身技能那类）：释放后 nowCoolDown 仍是 0 —— 实际 used="
+                            + used + "，nowCoolDown=" + noCooldown.getNowCoolDown(),
+                    used && noCooldown.getNowCoolDown() == 0);
+
+            Skill hasCooldown = new ProbeSkill("冷却二", new ArrayList<>());
+            hasCooldown.setCoolDown(2);
+            boolean used2 = hasCooldown.use(fight, user);
+            check("② coolDown=2：释放后 nowCoolDown = 3（+1）—— 实际 used=" + used2
+                            + "，nowCoolDown=" + hasCooldown.getNowCoolDown(),
+                    used2 && hasCooldown.getNowCoolDown() == 3);
+
+            check("③ 白厄变身技能确实声明了 coolDown=0（靠上一条的 guard 才不会多出冷却）",
+                    new cn.gfhnv.game.officialStuff.customSkill.phainonSkills.awakenSkills.AwakenCommonAttack()
+                            .getCoolDown() == 0);
+        } catch (Exception e) {
+            fail("冷却语义测试抛出异常：" + e);
+        }
+    }
+
+    /**
      * 跑本主题的全部用例（顺序 = 下面列的顺序）。
      */
     public static void runAll() throws Exception {
+
+        testCooldownSemantics();
         testCountdownEntity();
         testHealEnhancePercent();
-    }
-
-    private CombatCoreTests() {
     }
 }

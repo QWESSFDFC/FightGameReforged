@@ -116,6 +116,23 @@ public class PlayerController extends UniversalController {
     }
 
     /**
+     * 判断玩家输入是不是"是"：<b>大小写不敏感</b>，接受 {@code yes} 与 {@code y}。
+     * <p>
+     * 2026-11-15 第 76 批（作者要求）：以前只认全小写 {@code yes}，敲 {@code Y} / {@code Yes}
+     * 会被当成"不使用物品"静默跳过。
+     *
+     * @param input 玩家输入（可为 {@code null}）
+     * @return 是否同意
+     */
+    public static boolean isAffirmative(String input) {
+        if (input == null) {
+            return false;
+        }
+        String normalized = input.trim();
+        return normalized.equalsIgnoreCase("yes") || normalized.equalsIgnoreCase("y");
+    }
+
+    /**
      * 复制成"还是玩家控制器"的新实例。
      * <p>
      * 玩家控制器没有额外状态，复制语义全在 {@link UniversalController#copy(LivingThing)} 里；
@@ -155,7 +172,7 @@ public class PlayerController extends UniversalController {
             if (fightIsOver()) {
                 return;
             }
-            if (input.equals("yes")) {
+            if (isAffirmative(input)) {
                 this.useItem(fight);
             }
         }

@@ -3,6 +3,7 @@ package cn.gfhnv.game.officialStuff.customEffect.universalEffects;
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.effect.EffectTags;
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.entity.PropertyEnhanceType;
 
 public class AttackEnhance extends Effect {
     private boolean isOn = false;
@@ -63,8 +64,7 @@ public class AttackEnhance extends Effect {
     @Override
     public void comeIntoEffect(LivingThing thing) {
         if (!isOn) {
-            thing.setAttackEnhanceAmount(thing.getAttackEnhanceAmount() + amount);
-            thing.setAttackEnhancePercent(thing.getAttackEnhancePercent() + percent);
+            thing.addPropertyEnhance(PropertyEnhanceType.ATTACK, percent, amount, this);
         }
         isOn = true;
     }
@@ -72,8 +72,7 @@ public class AttackEnhance extends Effect {
     @Override
     public void whenLastTimeEnd(LivingThing thing) {
         isOn = false;
-        thing.setAttackEnhanceAmount(thing.getAttackEnhanceAmount() - amount);
-        thing.setAttackEnhancePercent(thing.getAttackEnhancePercent() - percent);
+        thing.removePropertyEnhance(this);
     }
 
     @Override

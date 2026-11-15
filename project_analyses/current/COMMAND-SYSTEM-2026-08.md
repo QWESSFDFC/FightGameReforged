@@ -146,7 +146,7 @@ CommandManager.describeState();                  // 当前状态（调试）
 | `/hurt <目标> <数值>` | 改生命值，正数扣血、负数回血 |
 | `/effect <目标> list` | 列出目标身上的效果（id、等级、剩余回合、正面/负面） |
 | `/effect <目标> add <效果> [等级] [持续回合]` | 从效果注册表取模板并施加到目标身上 |
-| `/effect <目标> add <效果>(参数,…)` | 用指定的构造函数参数新建效果实例，例如 `CriticalDMGEnhanceEffect(1,5)` |
+| `/effect <目标> add <效果>(参数,…)` | 用指定的构造函数参数新建效果实例，例如 `CriticalDamageEnhanceEffect(1,5)` |
 | `/effect <目标> remove <效果>` | 按 id 移除目标身上的该效果 |
 | `/effect <目标> remove all` | 清空目标身上的全部效果（`*` 同义） |
 | `/execute as <目标> run <命令>` | 以指定对象的身份运行另一条命令（内层 `@s` 指向它） |
@@ -171,7 +171,7 @@ CommandManager.describeState();                  // 当前状态（调试）
 （它只能这么写）。撞名时直接报错要求写全 id，不会随手挑第一个。
 
 **`/effect` 的效果名**：效果注册表（`World.getEffectList()`）里的名字，规则同上。
-`frozen`（官方短名）、`damageEnhanceEffect`、`CriticalDMGEnhanceEffect(1,5)`、
+`frozen`（官方短名）、`damageEnhanceEffect`、`CriticalDamageEnhanceEffect(1,5)`、
 `drunkenSword:xxx`（模组效果）。写错时会报错并列出当前所有可用的通用效果。
 **角色专属/机制性效果不能通过命令施加**——判定用的是效果自身的标签
 （`EffectTags.UNIVERSAL`，`Effect.isUniversal()`），没有这个标签就拒绝，
@@ -184,7 +184,7 @@ CommandManager.describeState();                  // 当前状态（调试）
 /effect @s add AttackEnhance(0.2,3)      2 个参数 = 只给百分比 → 3 回合内攻击 +20%
 /effect @s add AttackEnhance(0,2,3)      3 个参数 = 百分比,固定值,回合 → 3 回合内攻击 +2 点
 /effect @s add AttackEnhance(0.5,3,3)    3 回合内攻击 +50% 且 +3 点
-/effect @s add CriticalDMGEnhanceEffect(1,5)    暴击伤害 +100%（1.0 = 100%）
+/effect @s add CriticalDamageEnhanceEffect(1,5)    暴击伤害 +100%（1.0 = 100%）
 ```
 
 同一组数字如果能同时匹配两个构造函数，命令会**直接报错并列出候选**，不会替你猜；
@@ -280,7 +280,7 @@ CommandManager.describeState();                  // 当前状态（调试）
 /list @e[type=Phainon]
 /effect @s add frozen
 /effect @s add DamageEnhanceEffect 2 5
-/effect @s add CriticalDMGEnhanceEffect(1,5)
+/effect @s add CriticalDamageEnhanceEffect(1,5)
 /effect @s remove frozenEffect
 /effect @s list
 /execute as @e[type=CommonInsect] run kill @s
@@ -408,7 +408,7 @@ System.console() = 可用       console.charset() = UTF-8   isTerminal = true
 7. **效果命令**（战斗中，随便哪个阶段有 `@s` 能选中自己就行）：
    - `/effect @s add frozen` → 提示「已对 1 个目标添加效果 frozenEffect...」
    - `/effect @s list` → 能看到 `frozenEffect 等级 1 剩余 N 回合`
-   - `/effect @s add CriticalDMGEnhanceEffect(1,5)` → 按构造函数参数创建（这条专门验证「参数从括号里传」）
+   - `/effect @s add CriticalDamageEnhanceEffect(1,5)` → 按构造函数参数创建（这条专门验证「参数从括号里传」）
    - `/effect @s add AttackEnhance(0,2,3)` → 3 个参数 = 百分比,固定值,回合（验证合并后的构造函数）
    - `/effect @s remove all` 之后再 `/effect @s list`：确认攻击力等加成已经还回去了（不是只清了列表）
    - `/effect @s add memorizedHp` → 应当被拒绝并列出可用效果（角色专属效果没有 `UNIVERSAL` 标签）
@@ -559,7 +559,7 @@ System.console() = 可用       console.charset() = UTF-8   isTerminal = true
   于是 {@code AttackEnhance(1,1)} 两个都能匹配（int 既能转 long 也能转 double），
   `getConstructors()` 的返回顺序又没有规定 —— 也就是「1 是 1.0 还是 1L」全看 JVM 心情。
   现在这 5 个效果（AttackEnhance / HpEnhanceEffect / SpeedEnhanceEffect /
-  CriticalRateEnhanceEffect / CriticalDMGEnhanceEffect）改成
+  CriticalRateEnhanceEffect / CriticalDamageEnhanceEffect）改成
   **把可能混的数值并进同一个构造函数**：
   ```java
   public AttackEnhance(double percent, long amount, int lastTime)  // 完整版（3 参数）

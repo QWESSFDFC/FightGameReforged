@@ -1,6 +1,6 @@
 package cn.gfhnv.game.officialStuff.customSkill.phainonSkills.awakenSkills;
 
-import cn.gfhnv.game.effect.Effect;
+import cn.gfhnv.game.damage.DamageType;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.officialStuff.customEntity.players.Phainon;
 import cn.gfhnv.game.skill.Skill;
@@ -106,14 +106,13 @@ public class FoundationStardeathVerdict extends Skill implements SkillCoefficien
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         List<LivingThing> e = new ArrayList<>(enemies);
         user.heal((long) (user.getHpMax() * healRatio));
-        ListIterator<Effect> listedIterator = user.getEntityEffectList().listIterator();
-        while (listedIterator.hasNext()) {
-            Effect effect = listedIterator.next();
+        user.removeEffectsIf(effect -> {
             if (effect.isNegative()) {
                 effect.whenLastTimeEnd(user);
-                listedIterator.remove();
+                return true;
             }
-        }
+            return false;
+        });
         if (user instanceof Phainon phainon) {
             int scourge = Math.min(phainon.getScourge(), scourgeCostCap);//消耗的数量
             phainon.setScourge(phainon.getScourge() - scourge);
@@ -127,7 +126,7 @@ public class FoundationStardeathVerdict extends Skill implements SkillCoefficien
                 }
                 Collections.shuffle(e);
                 LivingThing livingThing = e.getFirst();
-                user.makeDamage(livingThing, this);
+                user.makeDamage(livingThing, this, DamageType.UltimateAttack);
             }
             if (scourge != scourgeCostCap) {
                 this.setAtkMagnification(0.45);
@@ -141,7 +140,7 @@ public class FoundationStardeathVerdict extends Skill implements SkillCoefficien
             }
             this.setAtkMagnification(finishMagnification / e.size());
             for (LivingThing livingThing : e) {
-                user.makeDamage(livingThing, this);
+                user.makeDamage(livingThing, this, DamageType.UltimateAttack);
             }
 
         }

@@ -171,7 +171,7 @@ public final class EntityKeySpecs {
                 LivingThing::getCriticalRate, doubles(LivingThing::setCriticalRate),
                 "基础暴击率（面板属性：copy() 会带、战斗结束不清，配了就整局生效）"));
         keys.add(spec(DataKeys.Temporary.BASE_CRITICAL_DAMAGE, DataKeys.GROUP_TEMPORARY, KeySpec.Kind.DOUBLE,
-                LivingThing::getCriticalDMG, doubles(LivingThing::setCriticalDMG),
+                LivingThing::getCriticalDamage, doubles(LivingThing::setCriticalDamage),
                 "暴击伤害倍率加成（面板属性，整局生效）"));
         keys.add(spec(DataKeys.Temporary.ENHANCE, DataKeys.GROUP_TEMPORARY, KeySpec.Kind.DOUBLE,
                 LivingThing::getEnhance, doubles(LivingThing::setEnhance),
@@ -180,7 +180,7 @@ public final class EntityKeySpecs {
                 LivingThing::getPenetration, doubles(LivingThing::setPenetration),
                 "穿透（面板属性，整局生效；五行的 *Penetration 是临时属性，不在这里）"));
         keys.add(spec(DataKeys.Temporary.DEFENCE_LOSS, DataKeys.GROUP_TEMPORARY, KeySpec.Kind.DOUBLE,
-                LivingThing::getDefenseLoss, doubles(LivingThing::setDefenseLoss),
+                LivingThing::getDefenceLoss, doubles(LivingThing::setDefenceLoss),
                 "防御削减系数（面板属性，整局生效）"));
         return List.copyOf(keys);
     }

@@ -8,7 +8,7 @@
 > 保留本文档仅供追溯分析过程。
 
 > 本文档由 AI 通读源码后生成，仅作参考，请以源码为准。
-> 复核范围：`../src` 下全部 **112 个 Java 文件（约 8318 行）**、`../mods` 两个示例模组、`../config`、`../build.gradle`、`../logs`、`../build-output`。
+> 复核范围：`../../src` 下全部 **112 个 Java 文件（约 8318 行）**、`../../mods` 两个示例模组、`../../config`、`../../build.gradle`、`../../logs`、`../../build-output`。
 > 本文档与仓库内已有的 `ANALYSIS.md` / `ProjectStatus.txt` 是**不同轮次**的分析结果；本文档纠正了其中若干**已被当前源码推翻**的结论（见 §7）。
 
 ---
@@ -22,7 +22,7 @@
 | 3 | `canUse()` 里扣蓝 | `RestorationHealthSkill.java:37` | 反复扣蓝；蓝扣光后 `PlayerController` **死循环卡死** |
 | 4 | `Skill.extraDamage` 只增不减 + 整数除法 | `PyrohemicPumping.java:29` | `extraDamage` 每回合 ×1.5 指数增长，伤害数值崩坏 |
 | 5 | `Skill(Skill)` 不复制 `tags` | `Skill.java:55-68` | 复制后的技能 AI 丢标签，`ThinkingControllerAI` 判断失真 |
-| 6 | `getCriticalDMG()` 取错字段 | `LivingThing.java:1813` | `criticalDMGEnhanceAmount` 永不生效 |
+| 6 | `getCriticalDamage()` 取错字段 | `LivingThing.java:1813` | `criticalDamageEnhanceAmount` 永不生效 |
 | 7 | 回合靠递归推进 | `TurnManager.java:57` | 长战斗爆栈（约几千回合触顶） |
 | 8 | `canUse/use` 两套重载冷却不一致 + `canUse(...,null)` | `Skill.java:254/292`、`UniversalController.java:90` | 冷却多算 1 回合；给模组作者埋 NPE 坑 |
 | 9 | `FightTurnPastListener.presentTurn` 是 `static` | `FightTurnPastListener.java:24` | 白厄觉醒/锁血反击依赖它，非当前回合的伤害会写错对象 |
@@ -53,9 +53,9 @@
 | 维度 | 结论 |
 |---|---|
 | 类型 | 命令行回合制文字战斗游戏，纯 Java，**无任何游戏引擎** |
-| 版本 / 构建 | v1.2.1；Gradle + `com.gradleup.shadow` 打 fat jar；另有 jpackage 产物（`../build-output/FightGameReforged/FightGameReforged.exe` + 内嵌 runtime） |
+| 版本 / 构建 | v1.2.1；Gradle + `com.gradleup.shadow` 打 fat jar；另有 jpackage 产物（`../../build-output/FightGameReforged/FightGameReforged.exe` + 内嵌 runtime） |
 | 语言 | Java **25**（`sourceCompatibility/targetCompatibility = VERSION_25`，本机为 Zulu 25） |
-| 依赖 | 唯一第三方依赖 `org.json`（Gradle 声明 20240303，`../lib` 里放的是 20231013，两者不一致） |
+| 依赖 | 唯一第三方依赖 `org.json`（Gradle 声明 20240303，`../../lib` 里放的是 20231013，两者不一致） |
 | 入口 | `cn.gfhnv.game.GameStarter` → `GameMain.main` |
 | 代码分布 | `LivingThing.java` 1840 行，占全项目 **22%**；`Skill` 481 行；`ThinkingControllerAI` 340 行；其余多为 <150 行 |
 | 许可证 | MIT；作者注明不接受 PR |
@@ -175,18 +175,18 @@ use(fight, user, enemies)      // 冷却设为 coolDown + 1   ← 两者不一�
 - **`UniversalController.act:90` 传 `null`**：`skill.canUse(fight, getOwner(), null)`。基类忽略该参数所以不炸；任何未来重写三参版本并解引用 `enemies` 的模组技能会立刻 NPE。这是**给模组作者埋的坑**。
 - **`Skill.copy()` 不复制 `tags`**（`Skill.java:55-68`）：`name/description/倍率/aims/cd/mana/extraDamage` 都复制了，唯独 `tags` 漏了。于是"复制后的技能 AI 看不到标签"——`getSkillMainTag` 会 fallback 成 `ATTACK`。而 `UniversalController.setSkills` 恰好对每个技能调 `skill.copy()`，所以**玩家/怪物在 `Phainon` 觉醒或任何 `setSkills` 路径下都会丢技能标签**。
 
-### 4.5 `LivingThing.getCriticalDMG()` 取错字段
+### 4.5 `LivingThing.getCriticalDamage()` 取错字段
 
 ```java
 // LivingThing.java:1812-1814
-public double getCriticalDMG() {
-    return criticalDMG * (1 + criticalDMGEnhancePercent) + criticalDMGEnhancePercent;
+public double getCriticalDamage() {
+    return criticalDamage * (1 + criticalDamageEnhancePercent) + criticalDamageEnhancePercent;
     //                                                          ^^^^^^^^^^^^^^^^^^^^^^^^
-    //                                                          应为 criticalDMGEnhanceAmount
+    //                                                          应为 criticalDamageEnhanceAmount
 }
 ```
 
-`criticalDMGEnhanceAmount` 字段被 set/get 但**从未参与任何计算**。`CriticalDMGEnhanceEffect` 若走"固定值"路线会完全无效。伤害公式里 `criticalDamageEnhance += attacker.getCriticalDMG()`，所以这是实际战斗数值错误。
+`criticalDamageEnhanceAmount` 字段被 set/get 但**从未参与任何计算**。`CriticalDamageEnhanceEffect` 若走"固定值"路线会完全无效。伤害公式里 `criticalDamageEnhance += attacker.getCriticalDamage()`，所以这是实际战斗数值错误。
 
 ### 4.6 `Mana` 只有一个"上限"，元素属性是装饰
 
@@ -401,9 +401,9 @@ if (other.getController() instanceof PlayerController) {
 
 **(c) 所有 `*Enhance*` 字段、五元素穿透/增伤、`individualMultipleArea`、`showSpecialMes` 也没复制**
 
-`LivingThing` 复制构造器复制的字段只有：抗性 ×5、`elementSort`、`description`、`speed`、`type`、`Alive`、`defenseLoss`、`enhance`、成长系数 ×8、`hp/defence/attack/hpMax`、`criticalDMG`、`getCriticalRATE`、效果列表、`penetration`、`damageAbsorbedPercent`、`manas`、`inventory`、`tags`。
+`LivingThing` 复制构造器复制的字段只有：抗性 ×5、`elementSort`、`description`、`speed`、`type`、`Alive`、`defenseLoss`、`enhance`、成长系数 ×8、`hp/defence/attack/hpMax`、`criticalDamage`、`getCriticalRATE`、效果列表、`penetration`、`damageAbsorbedPercent`、`manas`、`inventory`、`tags`。
 
-**未复制**：`attackEnhancePercent/Amount`、`defenceEnhance*`、`speedEnhance*`、`hpEnhance*`、`criticalDMGEnhancePercent/Amount`、`criticalRateEnhancePercent/Amount`、`metal/wood/water/fire/dirtPenetration`、`metal/wood/water/fire/dirtDamageEnhance`、`individualMultipleArea`、`showSpecialMes`、`modifyDamage`、`extraDamage`。
+**未复制**：`attackEnhancePercent/Amount`、`defenceEnhance*`、`speedEnhance*`、`hpEnhance*`、`criticalDamageEnhancePercent/Amount`、`criticalRateEnhancePercent/Amount`、`metal/wood/water/fire/dirtPenetration`、`metal/wood/water/fire/dirtDamageEnhance`、`individualMultipleArea`、`showSpecialMes`、`modifyDamage`、`extraDamage`。
 
 后果举例：`ActorLiXiaoYan:43` 的 `setIndividualMultipleArea(1.0 + 0.04 * ignition)` 写的倍率**在副本上是 1**（构造函数默认值），于是 `updateSelf()` 里的增量修正（`:121-124`）作用在一个错误的基准上——李晓焰的"燃点越高伤害越高"整体失真。另外 `showSpecialMes` 丢失意味着**副本不再打印"燃点层数"**（白厄的 `showSpecialMes` 能工作，是因为 `Phainon(Phainon)` 里手动重建了）。
 
@@ -448,7 +448,7 @@ for (LivingThing living : fighters)
 `isAlive()` 内部会 `setActionSignal(NORMAL); setSpecialAction(null)`（`LivingThing.java:1467-1471`）。它被 `removeIf` 在每回合开头无条件调用，也被 `TurnManager.removeTheDeath` 调用。**"查询存活"会顺手清掉冰冻/特殊行动状态**——`Frozen` 设置的 `SPECIAL_ACTION` 与 `SkipTurn` 有可能被这句抹掉，属隐蔽的行为耦合。
 
 ### 5.7 日志与输出
-- `LogWriter` 每次启动把 `../logs/latest.log` 改名成时间戳文件，但 `archiveLatestLog()` 只移动不清理 → `../logs` 会无限增长（当前已 9 个文件）。
+- `LogWriter` 每次启动把 `../../logs/latest.log` 改名成时间戳文件，但 `archiveLatestLog()` 只移动不清理 → `../../logs` 会无限增长（当前已 9 个文件）。
 - **游戏文本全部 `System.out`，与日志、调试输出混在一起**，且 `LogWriter` 只记启动时间与用户名，几乎没记游戏事件。
 - 日志本身是 UTF-8（已验字节 `E7 94 A8 ...` = "用户"），用 Windows 记事本按 GBK 打开会显示乱码——不是 bug，但容易被误认为 bug。
 - `LogWriter.writeLog(e.getMessage())` 在 `getMessage()==null` 时写入字符串 `"null"`。
@@ -461,7 +461,7 @@ for (LivingThing living : fighters)
 | `system/useItemSystem` | **空包**（无任何文件） |
 | `entityController/FixOrderController` | 实现了固定顺序队列，**无任何引用** |
 | `ThinkingController` | 有设计注释，`act()` 末尾**无条件回退随机**；`getWeight` 用了却算出未使用的 `attackPos/defendPos/...`。实际生效的是 `ThinkingControllerAI` |
-| `../config/gameConfig/PropertyConfig.json` | 全项目**无任何代码读取** |
+| `../../config/gameConfig/PropertyConfig.json` | 全项目**无任何代码读取** |
 | `HealthRestoreEffect:55` | `long hp2 = ...` 计算后未使用 |
 | `Engine.Statistics`（Thing/Entity 中的若干 `facSetXxx`） | 大量工厂方法无调用点 |
 
@@ -748,8 +748,8 @@ HP     = 200 + (等级-1) × hpGrow
 
 - **没有任何实体设置基础暴击率**（`facSetCriticalRATE` / `setGetCriticalRATE` 零调用）→ `DamageCalculate:52` 的 `Math.random() <= criticalRate` 实际是 `<= 0`，**永远不会暴击**。
 - `CriticalRateEnhanceEffect` **从未被实例化**（见 §6.11）。
-- 唯一被用到的 `CriticalDMGEnhanceEffect(0.3, 3)`（白厄被选为目标时挂的）因此**纯空转**。
-- 再加上 §4.5 的 `getCriticalDMG()` 取错字段 → 这一整条属性链事实上不存在。
+- 唯一被用到的 `CriticalDamageEnhanceEffect(0.3, 3)`（白厄被选为目标时挂的）因此**纯空转**。
+- 再加上 §4.5 的 `getCriticalDamage()` 取错字段 → 这一整条属性链事实上不存在。
 
 **(c) "200% 增伤"其实每次普攻都在吃，纸面倍率与实战脱节 3~4 倍**
 
@@ -829,13 +829,13 @@ if (m == null) {
 4. **`deleteDirectory` 忽略返回值**（`:226`、`:230`）：bin 删不干净 → 紧随其后的 `mkdirs()` 失败 → 误报"无法创建 bin 目录"并**静默跳过该模组**。另外 `listFiles()` 会跟随 junction/符号链接，对 `bin/` 内的链接会**递归删掉链接目标**（危险）。
 5. **每次启动全量重编译，不复用旧 `.class`**（`:85-107`），且**先删 `bin/` 再判断能不能编译**（`:93-96` → `:103-107`、`:179-183`）：没有缓存、没有回退。
 
-   > **实测证据**：`mods/*/bin/*.class` 三个文件的 mtime 全是 `2026/8/13 20:41:34`，`../logs/latest.log` 是 `20:41:35` —— 同一次运行；class 文件头 `major = 69`（Java 25）。确实是"每次启动重编译"，复用不了。
+   > **实测证据**：`mods/*/bin/*.class` 三个文件的 mtime 全是 `2026/8/13 20:41:34`，`../../logs/latest.log` 是 `20:41:35` —— 同一次运行；class 文件头 `major = 69`（Java 25）。确实是"每次启动重编译"，复用不了。
    >
-   > **好消息（已核实，推翻我先前的担心）**：官方 jpackage 产物**带编译器**。`../build-output/FightGameReforged/runtime/release` 显示 `JAVA_VERSION="25.0.1"`，且 `MODULES` 含 `java.compiler` **与 `jdk.compiler`**。所以"发布的 exe 版加载不了模组"**不成立**，`ToolProvider.getSystemJavaCompiler()` 在打包版里能拿到编译器。
+   > **好消息（已核实，推翻我先前的担心）**：官方 jpackage 产物**带编译器**。`../../build-output/FightGameReforged/runtime/release` 显示 `JAVA_VERSION="25.0.1"`，且 `MODULES` 含 `java.compiler` **与 `jdk.compiler`**。所以"发布的 exe 版加载不了模组"**不成立**，`ToolProvider.getSystemJavaCompiler()` 在打包版里能拿到编译器。
    >
    > **仍然存在的风险**：若将来用 `jlink` 裁一个不含 `jdk.compiler` 的 runtime，或把游戏放进只读目录，模组会**永久不可用**——而那时上次能用的 `.class` 已经被删掉了。建议改成"先编译到临时目录，成功后再替换 `bin/`"。
 
-6. **硬编码 `"./mods"`**（`:25`）：取决于进程工作目录。从别处启动 exe 会在错误位置新建一个空 `../mods` 并"成功加载 0 个模组"，只打印"mods目录创建: 成功"。`../build-output/FightGameReforged/mods` 正是一个空目录——因为路径是相对的，**`../mods` 必须紧邻 exe 放置**。
+6. **硬编码 `"./mods"`**（`:25`）：取决于进程工作目录。从别处启动 exe 会在错误位置新建一个空 `../../mods` 并"成功加载 0 个模组"，只打印"mods目录创建: 成功"。`../../build-output/FightGameReforged/mods` 正是一个空目录——因为路径是相对的，**`../../mods` 必须紧邻 exe 放置**。
 7. **模组加载失败不进日志**：`ModLoader` 全程 `System.out/err`，不接 `LogWriter`，`logs/*.log` 里查不到任何加载失败信息（实测 `latest.log` 只有 37 字节 = 一行运行时间 + 一行用户名）。
 8. **`-cp` 取 `System.getProperty("java.class.path")`**（`:190`）：fat jar / jpackage 形态下该值包含 `FightGameReforged.jar`（jpackage 经 `app.mainjar` 设置），所以模组能编译到游戏类、运行期也能经父加载器解析——**这一条实测没发现问题**，但换构建方式（如模块化运行）时需重新确认。
 
@@ -863,7 +863,7 @@ if (m == null) {
 
 ### 8.5 安全（必须写进 README）
 
-**完全无沙箱**：`../mods` 下的 `.java` 在游戏内编译后，以 `initialize=true` 在**同一 JVM、同一权限**下立即执行。模组可以 `Runtime.exec`、任意读写删文件、联网、`System.exit`、起无限线程、在静态块里死循环挂起（加载器无超时）。
+**完全无沙箱**：`../../mods` 下的 `.java` 在游戏内编译后，以 `initialize=true` 在**同一 JVM、同一权限**下立即执行。模组可以 `Runtime.exec`、任意读写删文件、联网、`System.exit`、起无限线程、在静态块里死循环挂起（加载器无超时）。
 
 - **Java 25 已永久禁用 `SecurityManager`（JEP 486）**，所以"用策略文件隔离"这条路在 JDK 25 上是堵死的。要真隔离只能上独立进程。
 - 模组可反射访问游戏私有状态（`EventBus` 自己就在 `:23` 调 `setAccessible(true)`），可清空/篡改 `World` 静态注册表。
@@ -878,16 +878,16 @@ if (m == null) {
 - 每模组一个 loader、父优先委托，当前没问题；但 `World`、`EventBus.handlers`、`Mod` 的内部 List 全是无同步的静态/可变集合。当前单线程（`GameMain.java:32`）所以只是潜在问题。
 - `GameStartEvent.getMods()`、`World.getModList()/getItemList()`（`:118-120`、`:177-179`）**返回活动列表本身**，不是防御性拷贝，模组可随时改全局注册表。
 
-### 8.7 `../.gitignore` 观察
+### 8.7 `../../.gitignore` 观察
 
-`../.gitignore` 里有两行很说明作者意图的规则：
+`../../.gitignore` 里有两行很说明作者意图的规则：
 
 ```
 ./ANALYSIS.md
 /ANALYSIS.md
 ```
 
-即 `ANALYSIS.md` 被**刻意排除在版本控制之外**（分析报告不入库）。而本次生成的 `ANALYSIS-2026-08.md` 不在该规则内 —— 如果你想保持一致，需要自己补一行或改名。另外 `/mods/*/bin/`、`/lib/`、`/logs/`、`../build-output`、`../build-input`、`.env`、`*.key` 都已忽略，这部分是合理的。
+即 `ANALYSIS.md` 被**刻意排除在版本控制之外**（分析报告不入库）。而本次生成的 `ANALYSIS-2026-08.md` 不在该规则内 —— 如果你想保持一致，需要自己补一行或改名。另外 `/mods/*/bin/`、`/lib/`、`/logs/`、`../../build-output`、`../../build-input`、`.env`、`*.key` 都已忽略，这部分是合理的。
 
 ---
 
@@ -897,7 +897,7 @@ if (m == null) {
 | `ProjectStatus.txt`：「`ThinkingController` 决策框架注释丰富但实现未完成，所有 NPC 实际走随机 AI」 | **已不准确**。`ThinkingControllerAI` 是完整 Utility AI 实现；`LivingThing` 复制构造器也会按控制器类型重建它。 |
 | `ANALYSIS.md`：「`EffectEventListener` 无限效果只生效不减持续；持续时间耗尽触发 `whenLastTimeEnd`」 | **漏了最关键的一句**：第 20 行有 `return`，导致上述逻辑**只对效果列表的第一个元素成立**。 |
 | `ANALYSIS.md`：「`Skill` 复制构造器复制……AI 标签」类描述 | 实际 `Skill(Skill)` **没有复制 `tags`**。 |
-| `ANALYSIS.md`/`ProjectStatus.txt` 未提 | `getCriticalDMG()` 取了 `criticalDMGEnhancePercent` 两次（应为 `Amount`）。 |
+| `ANALYSIS.md`/`ProjectStatus.txt` 未提 | `getCriticalDamage()` 取了 `criticalDamageEnhancePercent` 两次（应为 `Amount`）。 |
 | `ProjectStatus.txt`：「`LivingThing` 复制构造器 tags 判断条件疑似写反(我刚修复)」 | 当前代码 `if (!other.getTags().isEmpty())` 已正确。 |
 | 两份旧报告都称物理系统"预留能力" | 更准确：**无发布者，永不执行**。 |
 | 两份旧报告都把模组系统整体评为"亮点/实用" | 机制描述没错，但**没有查出 §8.1 的 4 个崩溃级缺陷**（不接 `Error`、`return` 当 `continue`、`invokeWhenLoaded` 异常无兜底、loader 提前 close）。 |
@@ -936,7 +936,7 @@ if (m == null) {
 2. `LivingThing.makeDamage` 补 `EventBus.post(damageEvent)`（让 `DamageEvent` 监听器真正生效）
 3. `RestorationHealthSkill.canUse` 去掉扣蓝副作用（否则玩家会被死循环卡住）
 4. `AttackEnhance:44` 补 `isOn = true;`（一行）
-5. `LivingThing.getCriticalDMG:1813` 末项改用 `criticalDMGEnhanceAmount`
+5. `LivingThing.getCriticalDamage:1813` 末项改用 `criticalDamageEnhanceAmount`
 
 *第二梯队（复制契约 / 状态污染）*
 
@@ -956,7 +956,7 @@ if (m == null) {
 16. `JSONHelper` 加 UTF-8 + 剥 BOM；`main.json` 校验给出可操作的错误信息
 17. 数值返工：给实体设置基础暴击率、下调 `Freeze` 倍率、去掉普攻自带的 +200% 增伤、对齐玩家/怪物等级
 18. 物理系统/`ActEvent`/`FixOrderController`/`PropertyConfig.json`：要么接线，要么删掉，避免"看起来有但从不生效"的误导
-19. README 补三句：模组安装=授予同等权限；`../mods` 必须紧邻 exe；模组不能带资源/第三方 jar
+19. README 补三句：模组安装=授予同等权限；`../../mods` 必须紧邻 exe；模组不能带资源/第三方 jar
 
 *强烈建议加的一条工程实践*
 

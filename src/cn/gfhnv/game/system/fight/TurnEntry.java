@@ -30,12 +30,18 @@ public class TurnEntry {
      * 白厄变身的连击只用了前者，没有动排序。
      */
     public static final int PRIORITY_EXTRA = 100;
-
+    /**
+     * 回合内的<b>行动队列</b>（一条队列，按 {@link ActEntry#priority()} 取队首）。
+     * <p>
+     * 原来的 {@code firstExecuteList} / {@code lastExecuteList} 变成它的两个<b>优先级视图</b>
+     * （见 {@link #getFirstExecuteList()} / {@link #getLastExecuteList()}）：
+     * 老调用方 {@code list.add(action)} 照样能用，只是落成 {@link ActEntry#PRIORITY_FIRST} /
+     * {@link ActEntry#PRIORITY_LAST} 两种优先级的条目。
+     */
+    private final List<ActEntry> actQueue = new ArrayList<>();
     private LivingThing livingThing;
     private BigDecimal startTime;
     private BigDecimal needTime;
-    private List<ISpecialAction> lastExecuteList = new ArrayList<>();
-    private List<ISpecialAction> firstExecuteList = new ArrayList<>();
     private boolean isExtra = false;
     private int priority = PRIORITY_NORMAL;
     /**
@@ -64,12 +70,18 @@ public class TurnEntry {
         this.actionSignal = actionSignal;
     }
 
+    /**
+     * @return 开场动作的<b>优先级视图</b>（增删都落到 {@link ActEntry#PRIORITY_FIRST} 那一档）
+     */
     public List<ISpecialAction> getFirstExecuteList() {
-        return firstExecuteList;
+        return new BandView(ActEntry.PRIORITY_FIRST);
     }
 
+    /**
+     * @param firstExecuteList 新的开场动作表（整档替换）
+     */
     public void setFirstExecuteList(List<ISpecialAction> firstExecuteList) {
-        this.firstExecuteList = firstExecuteList;
+        replaceBand(ActEntry.PRIORITY_FIRST, firstExecuteList);
     }
 
     public ActionSignal getActionSignal() {
@@ -132,22 +144,69 @@ public class TurnEntry {
         return this;
     }
 
+    /**
+     * @return 收尾动作的<b>优先级视图</b>（增删都落到 {@link ActEntry#PRIORITY_LAST} 那一档）
+     */
     public List<ISpecialAction> getLastExecuteList() {
-        return lastExecuteList;
+        return new BandView(ActEntry.PRIORITY_LAST);
     }
 
+    /**
+     * @param lastExecuteList 新的收尾动作表（整档替换）
+     */
     public void setLastExecuteList(List<ISpecialAction> lastExecuteList) {
-        this.lastExecuteList = lastExecuteList;
+        replaceBand(ActEntry.PRIORITY_LAST, lastExecuteList);
     }
 
     public TurnEntry addLastSpecialAction(ISpecialAction iSpecialAction) {
-        lastExecuteList.add(iSpecialAction);
-        return this;
+        return addAct(iSpecialAction, ActEntry.PRIORITY_LAST);
     }
 
     public TurnEntry addFirstAction(ISpecialAction iSpecialAction) {
-        firstExecuteList.add(iSpecialAction);
+        return addAct(iSpecialAction, ActEntry.PRIORITY_FIRST);
+    }
+
+    /**
+     * 往回合内队列里加一条行动条目。
+     *
+     * @param action   要做的事
+     * @param priority 优先级（越大越先执行；同优先级按入队顺序）
+     * @return 当前条目（链式）
+     */
+    public TurnEntry addAct(ISpecialAction action, int priority) {
+        if (action != null) {
+            this.actQueue.add(new ActEntry(action, priority, null));
+        }
         return this;
+    }
+
+    /**
+     * @return 回合内行动队列（活的；执行前想摘掉某条就 {@code removeIf} 它）
+     */
+    public List<ActEntry> getActQueue() {
+        return this.actQueue;
+    }
+
+    /**
+     * 清空回合内行动队列。
+     */
+    public void clearActs() {
+        this.actQueue.clear();
+    }
+
+    /**
+     * 整档替换某个优先级下的动作。
+     *
+     * @param priority 优先级
+     * @param actions  新动作表
+     */
+    private void replaceBand(int priority, List<ISpecialAction> actions) {
+        this.actQueue.removeIf(entry -> entry.priority() == priority);
+        if (actions != null) {
+            for (ISpecialAction action : actions) {
+                addAct(action, priority);
+            }
+        }
     }
 
     public BigDecimal getStartTime() {
@@ -178,14 +237,80 @@ public class TurnEntry {
     public String toString() {
         return "TurnEntry{" +
                 "livingThing=" + livingThing +
-                ", firstExecuteList=" + firstExecuteList +
+                ", actQueue=" + actQueue +
                 ", startTime=" + startTime +
                 ", needTime=" + needTime +
-                ", lastExecuteList=" + lastExecuteList +
                 ", isExtra=" + isExtra +
                 ", priority=" + priority +
                 ", tag=" + tag +
                 ", actionSignal=" + actionSignal +
                 '}';
+    }
+
+    /**
+     * 某一个优先级档的<b>视图</b>：让老调用方继续把队列当 {@code List<ISpecialAction>} 用。
+     */
+    private final class BandView extends java.util.AbstractList<ISpecialAction> {
+
+        /**
+         * 这一档的优先级。
+         */
+        private final int band;
+
+        private BandView(int band) {
+            this.band = band;
+        }
+
+        /**
+         * @return 这一档在整条队列里的下标列表
+         */
+        private java.util.List<Integer> indices() {
+            java.util.List<Integer> result = new java.util.ArrayList<>();
+            for (int i = 0; i < actQueue.size(); i++) {
+                if (actQueue.get(i).priority() == band) {
+                    result.add(i);
+                }
+            }
+            return result;
+        }
+
+        @Override
+        public ISpecialAction get(int index) {
+            return actQueue.get(indices().get(index)).action();
+        }
+
+        @Override
+        public int size() {
+            return indices().size();
+        }
+
+        @Override
+        public boolean add(ISpecialAction action) {
+            return actQueue.add(new ActEntry(action, band, null));
+        }
+
+        @Override
+        public void add(int index, ISpecialAction element) {
+            add(element);
+        }
+
+        @Override
+        public ISpecialAction set(int index, ISpecialAction element) {
+            int real = indices().get(index);
+            ISpecialAction old = actQueue.get(real).action();
+            actQueue.set(real, new ActEntry(element, band, null));
+            return old;
+        }
+
+        @Override
+        public ISpecialAction remove(int index) {
+            int real = indices().get(index);
+            return actQueue.remove(real).action();
+        }
+
+        @Override
+        public void clear() {
+            actQueue.removeIf(entry -> entry.priority() == band);
+        }
     }
 }

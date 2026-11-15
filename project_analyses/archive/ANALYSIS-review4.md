@@ -8,7 +8,7 @@
 > 同目录下其它 5 份分析（`ANALYSIS.md`、`ANALYSIS-2026-08.md`、`ProjectStatus.txt`、
 > `STATUS-2026-08-review2/3.md`）均为更早轮次、已加历史标注；**要了解项目现状请看 `PROJECT-ANALYSIS-2026-09.md`**。
 > 注意：本文档也**不包含命令系统**（那是之后新增的，见
-> [`COMMAND-SYSTEM-2026-08.md`](COMMAND-SYSTEM-2026-08.md)），且此后代码又有变动，
+> [`COMMAND-SYSTEM-2026-08.md`](../current/COMMAND-SYSTEM-2026-08.md)），且此后代码又有变动，
 > 最终仍以**当前源码**为准。
 
 > 本文档由 AI 通读源码后生成，仅作参考，请以源码为准。
@@ -56,7 +56,7 @@
 | 回合递归推进 → 长战斗爆栈 | ✅ `turnLoop` 循环 + `isDriving` 重入闸 + `finally` 复位 + `turns` 空兜底 | `FightTurnPastListener.java:37/45/53/152-156` |
 | `Frozen` 时机错位 → NPE + 挡不住行动 | ✅ 改到 `initialEffect` 布置；`whenLastTimeEnd` 不清 `specialAction`；`getNextTurnOf` 判空 | `Frozen.java` |
 | `Skill(Skill)` 不复制 `tags` | ✅ 深拷贝 + `setTags` | `Skill.java:67-79` |
-| `getCriticalDMG()` 取错字段 | ✅ 改用 `criticalDMGEnhanceAmount` | `LivingThing.java` |
+| `getCriticalDamage()` 取错字段 | ✅ 改用 `criticalDamageEnhanceAmount` | `LivingThing.java` |
 | 复制构造器丢 `modifyDamage`/`showSpecialMes` | ✅ 已复制 | `LivingThing.java:119-120` |
 | 玩家侧共享技能对象 | ✅ `UniversalController(List,owner)` 构造时逐技能 `copy()` | `UniversalController.java:45-50` |
 | `DamageEvent` 从未 `post` | ✅ 已在 `makeDamage` 补上 | `LivingThing.java:1748` |
@@ -183,8 +183,8 @@ public void comeIntoEffect(LivingThing thing) {
 
 - **没有任何实体设置基础暴击率**（`facSetCriticalRATE` / `setGetCriticalRATE` 零调用）→ `DamageCalculate:52` 的 `Math.random() <= criticalRate` 实际是 `<= 0`，**永远不会暴击**
 - `CriticalRateEnhanceEffect` 从未被实例化
-- 唯一被用到的 `CriticalDMGEnhanceEffect(0.3, 3)`（白厄被选为目标时挂的）**纯空转**
-- `getCriticalDMG()` 字段修好了，但上游没暴击率，等于没用
+- 唯一被用到的 `CriticalDamageEnhanceEffect(0.3, 3)`（白厄被选为目标时挂的）**纯空转**
+- `getCriticalDamage()` 字段修好了，但上游没暴击率，等于没用
 
 **这是当前最值得决策的一项**，且与千冶·刃直接冲突——它的【无量忿怒】要给 +20% 暴击率。
 

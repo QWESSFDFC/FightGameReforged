@@ -7,9 +7,6 @@ import cn.gfhnv.game.system.fight.ActionSignal;
 import cn.gfhnv.game.system.fight.TurnEntry;
 import cn.gfhnv.game.system.fight.TurnManager;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-
 public class AwakeEndListener {
     /**
      * 这个监听器服务的那个白厄。
@@ -48,8 +45,7 @@ public class AwakeEndListener {
         // 连同"这一刀是不是被打断的那一刀"一起清掉：留着会让下一次免死误用上一次的剩余回合数
         endEvent.getPhainon().setInterruptedRemainingExtraTurns(-1);
         endEvent.getPhainon().setName("白厄");
-        endEvent.getPhainon().setAttackEnhancePercent(endEvent.getPhainon().getAttackEnhancePercent() - 0.8);
-        endEvent.getPhainon().setHpEnhancePercent(endEvent.getPhainon().getHpEnhancePercent() - 2.7);
+        endEvent.getPhainon().removePropertyEnhance(Phainon.AWAKEN_ENHANCE_SOURCE);
         endEvent.getPhainon().heal((long) (endEvent.getPhainon().getHpMax() * 0.25));
         endEvent.getPhainon().getController().setActionSignal(ActionSignal.NORMAL);
         endEvent.getPhainon().setAbsorbDamage(false);
@@ -62,8 +58,8 @@ public class AwakeEndListener {
             }
         });
 
-        TurnManager.getTurns().add(new TurnEntry(endEvent.getPhainon(), BigDecimal.valueOf(10000)
-                .divide(BigDecimal.valueOf(endEvent.getPhainon().getSpeed()), 10, RoundingMode.HALF_UP), TurnManager.getPresentTime()));
+        TurnManager.getTurns().add(new TurnEntry(endEvent.getPhainon(),
+                TurnManager.needTimeOf(endEvent.getPhainon()), TurnManager.getPresentTime()));
         endEvent.getPhainon().setExtraTurns(0);
         endEvent.getPhainon().setExtraAbilityTier(Math.min(2, endEvent.getPhainon().getExtraAbilityTier() + 1));
         endEvent.getPhainon().setSoulscorch(0);

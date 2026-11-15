@@ -8,7 +8,7 @@
 > 保留本文档仅供追溯分析过程。
 
 > 本文档由 AI 通读源码后生成，仅作参考，请以源码为准。
-> 复核范围：`../src` 下全部 **118 个 Java 文件（8499 行）**、git 提交历史、未提交改动、`../mods`、`../config`。
+> 复核范围：`../../src` 下全部 **118 个 Java 文件（8499 行）**、git 提交历史、未提交改动、`../../mods`、`../../config`。
 > 前两轮报告：`ANALYSIS-2026-08.md`、`STATUS-2026-08-review2.md`（均部分过时，以本文档为准）。
 
 ---
@@ -17,7 +17,7 @@
 
 | 提交 | 内容 |
 |---|---|
-| `36d76c3` | 修复 bug、加固；`../.gitignore`、`GameMain`、`LivingThing`、`HpLossEvent`、`Item`、`KillCommand`、`ActorLiXiaoYan.CommonAttack`、`PyrohemicPumping`、`Skill` |
+| `36d76c3` | 修复 bug、加固；`../../.gitignore`、`GameMain`、`LivingThing`、`HpLossEvent`、`Item`、`KillCommand`、`ActorLiXiaoYan.CommonAttack`、`PyrohemicPumping`、`Skill` |
 | `ae9911f` | `DamageCalculate` —— **`hpMagnification` 改为按生命上限结算** |
 | `62068e7` | `FightTurnPastListener` 循环化；`Phainon.scourge_max` 7 → 8 |
 | `23b2c0b` / `b6bce43` | 上一轮的 `Frozen`、`EffectEventListener`、`UniversalController`、`Skill` 标签等修复 |
@@ -36,7 +36,7 @@
 | 回合递归推进 → 长战斗爆栈 | ✅ `turnLoop` 循环 + `isDriving` 重入闸 + `finally` 复位 + `turns` 空兜底 | `FightTurnPastListener.java:37/45/53/152-156` |
 | `Frozen` 时机错位 → NPE + 挡不住行动 | ✅ 改到 `initialEffect` 布置；`whenLastTimeEnd` 不清 `specialAction`；`getNextTurnOf` 判空 | `Frozen.java:61/86-95/107-111` |
 | `Skill(Skill)` 不复制 `tags` | ✅ 深拷贝 + `setTags` | `Skill.java:67-79` |
-| `getCriticalDMG()` 取错字段 | ✅ 改用 `criticalDMGEnhanceAmount` | `LivingThing.java` |
+| `getCriticalDamage()` 取错字段 | ✅ 改用 `criticalDamageEnhanceAmount` | `LivingThing.java` |
 | 复制构造器丢 `modifyDamage`/`showSpecialMes` | ✅ 已复制 | `LivingThing.java:119-120` |
 | `UniversalController(List, owner)` 共享技能对象 | ✅ 构造时逐技能 `copy()` | `UniversalController.java:45-50` |
 | `DamageEvent` 从未 `post` | ✅ **已在 `makeDamage` 里补上** | `LivingThing.java:1748` |
@@ -142,8 +142,8 @@ public void comeIntoEffect(LivingThing thing) {
 
 - **没有任何实体设置基础暴击率**（`facSetCriticalRATE` / `setGetCriticalRATE` 零调用）→ `DamageCalculate:52` 的 `Math.random() <= criticalRate` 实际是 `<= 0`，**永远不会暴击**
 - `CriticalRateEnhanceEffect` 从未被实例化
-- 唯一被用到的 `CriticalDMGEnhanceEffect(0.3, 3)`（白厄被选为目标时挂的）**纯空转**
-- `getCriticalDMG()` 字段修好了，但上游没暴击率，等于没用
+- 唯一被用到的 `CriticalDamageEnhanceEffect(0.3, 3)`（白厄被选为目标时挂的）**纯空转**
+- `getCriticalDamage()` 字段修好了，但上游没暴击率，等于没用
 
 **这对千冶·刃有直接影响**——它的【无量忿怒】要给"+20% 暴击率"，但那会是全局第一个真正生效的暴击来源。要么给实体配基础暴击率，要么接受"只有开大期间才暴击"。
 

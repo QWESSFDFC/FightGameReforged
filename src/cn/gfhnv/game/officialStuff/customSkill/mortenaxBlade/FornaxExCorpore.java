@@ -28,7 +28,7 @@ import java.util.List;
  * <p>
  * <b>倒计时用 {@code CountdownEntity}</b>（不是"给千冶·刃自己插额外回合"）：额外回合的行动者是本体，
  * 会和本体的回合混在一条轴上（排序 / 延后 / {@code getNextTurnOf} 全污染），
- * 详见 {@code project_analyses/MORTENAX-BLADE-2026-10.md} §三.1。
+ * 详见 {@code project_analyses/current/MORTENAX-BLADE-2026-10.md} §三.1。
  * <p>
  * <b>"敌人受伤 +50%" 这一条今天没做</b>（`getDamageTakenMultiplier` 夹在 `[0,1]`，见分析文档 §三.3）。
  *

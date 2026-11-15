@@ -14,7 +14,7 @@ import java.util.Map;
  * 留在代码里（它是技能实现的一部分，还牵着"打谁、打几段、什么时候复位"），
  * 配置只能改 {@code 基数} / {@code 每层增量} 这样的<b>数</b>。
  * 用配置文件描述技能的行为逻辑等于发明一门脚本语言，本项目不做（见
- * {@code project_analyses/EXTERNAL-DATA-LOADING-2026-10.md} 第五节）。
+ * {@code project_analyses/current/EXTERNAL-DATA-LOADING-2026-10.md} 第五节）。
  * <p>
  * <b>键的形态</b>：与 {@link NumericSkillTunable} 同一个约定 —— 名字由技能自己报出来，
  * 写在 {@code SkillData.json} 的技能对象里、<b>扁平</b>放着（与 {@code aims} /

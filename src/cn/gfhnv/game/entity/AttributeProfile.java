@@ -120,6 +120,35 @@ public class AttributeProfile {
      * （数据名是对外 API），而"合并"这一步只有实体做得对。
      * ------------------------------------------------------------------ */
     /**
+     * <b>抗性条目</b>：每条 = 元素（{@code null} = 全属性）+ 平值 + 来源。
+     * <p>
+     * 基础 5 条 {@code source = ElementValue.BASE}；{@code getResistance(element)} 把
+     * "全属性条目 + 该元素条目"相加，所以以后要加"全属性抗性"不需要再改公式。
+     */
+    @cn.gfhnv.game.data.Temporary(reason = "抗性条目：基础 5 条 source=BASE 吃配置键 metalResistance 等；临时条目按来源摘、整场结束清")
+    private final List<ElementValue> resistances = new ArrayList<>();
+    /**
+     * <b>增伤条目</b>：每条 = 元素（{@code null} = 全属性）+ 平值 + 来源。
+     * <p>
+     * 伤害公式里加进 {@code enhance}：{@code 总增伤 = 全属性增伤 + 命中元素的条目之和}。
+     * 整场结束（{@link #resetTemporary()}）整表清空 —— 它们没有"基础值"。
+     */
+    @cn.gfhnv.game.data.Temporary(reason = "增伤条目：全是临时加成（效果/技能挂、按来源摘、整场结束清），配置里没有对应键")
+    private final List<ElementValue> damageEnhances = new ArrayList<>();
+    /**
+     * <b>穿透条目</b>（2026-11-14 第 49 批容器化，Step 3 第一部分）。
+     * <p>
+     * 每条 = 元素（{@code null} = 全属性）+ 平值 + {@link ElementValue#source() 来源}。
+     * <b>基础值</b>是一条 {@code source = ElementValue.BASE} 的条目（配置键 {@code penetration} 写的就是它）；
+     * 效果/技能挂上来的临时穿透带自己的来源，整场结束（{@link #resetTemporary()}）只清非基础条目。
+     * <p>
+     * 伤害公式：{@code 有效抗性 = max(0, 抗性 − (全属性条目 + 命中元素的条目))}（见 {@code DamageCalculate}）。
+     */
+    @cn.gfhnv.game.data.Temporary(reason = "穿透条目：基础值 source=BASE 吃配置键 penetration；临时条目按来源摘、整场结束清")
+    private final List<ElementValue> penetrations = new ArrayList<>();
+    @cn.gfhnv.game.data.Temporary(reason = "属性加成条目：效果/技能挂上去的，整场结束清空、按来源摘除")
+    private final List<PropertyEnhance> propertyEnhances = new ArrayList<>();
+    /**
      * 当前生命值（对外数据名 {@code hp}）。
      * <p>
      * 写它要走 {@link #setHp(long)}：那里才有夹取（0 ≤ hp ≤ 最终上限）与
@@ -150,14 +179,41 @@ public class AttributeProfile {
      * 生命成长系数（对外数据名 {@code hpGrow}）。
      */
     private double hpGrow;
+
+    /* ------------------------------------------------------------------
+     * ① 五行组 · 五行抗性（面板属性：复制，不清零；2026-11-14 第 50 批容器化）
+     *
+     * 抗性 = List<ElementValue>（元素 + 平值 + 来源），与穿透共用同一个条目类（作者要求"抗性用一样的处理"）。
+     * 基础值是 5 条 source = ElementValue.BASE 的条目（配置键 metalResistance 等写的就是它们）；
+     * 效果挂上来的临时抗性带自己的来源，整场结束（resetTemporary）只清非基础条目。
+     * ------------------------------------------------------------------ */
     /**
      * 攻击成长系数（对外数据名 {@code attackGrow}）。
      */
     private double attackGrow;
+
+    /* ------------------------------------------------------------------
+     * ② 五行组 · 五元素穿透（临时属性：不复制，清零）
+     *
+     * 这 5 个 + ③ 那 5 个一共 10 个，是 2026-10-03「反射混血」第 2 步逐个判断过的那一批：
+     * 结论是**都不能配**，所以每个字段都写了 @NoConfig（理由逐字相同，见下面那一行）。
+     * ------------------------------------------------------------------ */
+
+
+    /* ------------------------------------------------------------------
+     * ③ 五行组 · 五元素增伤（临时属性：不复制，清零；2026-11-14 第 56 批容器化）
+     *
+     * 与穿透/抗性共用 ElementValue（元素 + 平值 + 来源）。
+     * 这一组**全是临时加成**（配置里没有对应键）：效果/技能挂上来、整场结束清空。
+     * ------------------------------------------------------------------ */
     /**
      * 防御成长系数（对外数据名 {@code defenceGrow}）。
      */
     private double defenceGrow;
+
+    /* ------------------------------------------------------------------
+     * ④ 五行组 · 五行法力成长系数（面板属性：复制，不清零）
+     * ------------------------------------------------------------------ */
     /**
      * 元素属性（金木水火土）。对外数据名 {@code element}
      * （2026-10-24 之前叫 {@code elementSort}；那个名字当时还兼着"配置别名"的角色，现在没有别名了）。
@@ -173,104 +229,6 @@ public class AttributeProfile {
      * 伤害计算时由 {@code DamageCalculate} 读它把防御打折。
      */
     private double defenceLoss;
-
-    /* ------------------------------------------------------------------
-     * ① 五行组 · 五行抗性（面板属性：复制，不清零）
-     * ------------------------------------------------------------------ */
-
-    /**
-     * 金抗性。
-     */
-    private double metalResistance;
-    /**
-     * 木抗性。
-     */
-    private double woodResistance;
-    /**
-     * 水抗性。
-     */
-    private double waterResistance;
-    /**
-     * 火抗性。
-     */
-    private double fireResistance;
-    /**
-     * 土抗性。
-     */
-    private double dirtResistance;
-
-    /* ------------------------------------------------------------------
-     * ② 五行组 · 五元素穿透（临时属性：不复制，清零）
-     *
-     * 这 5 个 + ③ 那 5 个一共 10 个，是 2026-10-03「反射混血」第 2 步逐个判断过的那一批：
-     * 结论是**都不能配**，所以每个字段都写了 @NoConfig（理由逐字相同，见下面那一行）。
-     * ------------------------------------------------------------------ */
-
-    /**
-     * 金元素穿透。
-     * <p>
-     * <b>不进配置文件</b>（{@code @NoConfig}）：临时属性，而且<b>配了不生效</b> ——
-     * {@link #copyFrom(AttributeProfile)} 刻意不带它（副本从干净状态开始）、
-     * {@link #resetTemporary()} 每局结束清零，而全项目<b>零写入点</b>（预留未接线，
-     * 只被伤害计算读来加算）。要加穿透请用效果/技能。
-     */
-    @NoConfig(TEMPORARY_REASON)
-    private double metalPenetration;
-    /**
-     * 木元素穿透。
-     */
-    @NoConfig(TEMPORARY_REASON)
-    private double woodPenetration;
-    /**
-     * 水元素穿透。
-     */
-    @NoConfig(TEMPORARY_REASON)
-    private double waterPenetration;
-    /**
-     * 火元素穿透。
-     */
-    @NoConfig(TEMPORARY_REASON)
-    private double firePenetration;
-    /**
-     * 土元素穿透。
-     */
-    @NoConfig(TEMPORARY_REASON)
-    private double dirtPenetration;
-
-    /* ------------------------------------------------------------------
-     * ③ 五行组 · 五元素增伤（临时属性：不复制，清零）
-     * ------------------------------------------------------------------ */
-
-    /**
-     * 金元素伤害增强。
-     */
-    @NoConfig(TEMPORARY_REASON)
-    private double metalDamageEnhance;
-    /**
-     * 木元素伤害增强。
-     */
-    @NoConfig(TEMPORARY_REASON)
-    private double woodDamageEnhance;
-    /**
-     * 水元素伤害增强。
-     */
-    @NoConfig(TEMPORARY_REASON)
-    private double waterDamageEnhance;
-    /**
-     * 火元素伤害增强。
-     */
-    @NoConfig(TEMPORARY_REASON)
-    private double fireDamageEnhance;
-    /**
-     * 土元素伤害增强。
-     */
-    @NoConfig(TEMPORARY_REASON)
-    private double dirtDamageEnhance;
-
-    /* ------------------------------------------------------------------
-     * ④ 五行组 · 五行法力成长系数（面板属性：复制，不清零）
-     * ------------------------------------------------------------------ */
-
     /**
      * 金法力成长系数。<b>对外数据名是 {@code metalManaGrow}</b>（下面四个同理）——
      * Java 名与数据名一致，所以这五个都不需要改名注解（{@code @DataField}）。
@@ -284,6 +242,10 @@ public class AttributeProfile {
      * 水法力成长系数。
      */
     private double waterManaGrow;
+
+    /* ------------------------------------------------------------------
+     * ⑤ 全局组（面板属性：复制，不清零）
+     * ------------------------------------------------------------------ */
     /**
      * 火法力成长系数。
      */
@@ -292,110 +254,30 @@ public class AttributeProfile {
      * 土法力成长系数。
      */
     private double dirtManaGrow;
-
-    /* ------------------------------------------------------------------
-     * ⑤ 全局组（面板属性：复制，不清零）
-     * ------------------------------------------------------------------ */
-
-    /**
-     * 全属性穿透：伤害计算时与「单元素穿透」<b>相加</b>（见 {@code DamageCalculate}）。
-     * <p>
-     * 它和 5 个单元素穿透不是一个生命周期：这个是面板属性，那 5 个是临时属性。
-     */
-    private double penetration;
     /**
      * 全属性增伤百分比。
      */
     private double enhance;
+
+    /* ------------------------------------------------------------------
+     * ⑥ 运行时属性加成（临时属性：copyFrom 不带、resetTemporary 清空）
+     *
+     * 每条是一个 PropertyEnhance：属性类型 + 百分比 + 固定值 + 来源。
+     * 派生公式（LivingThing#getAttack 等）现算求和，所以效果那边**不需要**"加回去"的写法 ——
+     * 收尾就是 removePropertyEnhances(source)，重复收尾是幂等的（不会减成负数）。
+     *
+     * 不进配置文件：这是运行期加成，配置里没有对应键；/data 里看得见（只读）。
+     * ------------------------------------------------------------------ */
     /**
      * 基础暴击伤害倍率（对外数据名 {@code baseCriticalDamage}；最终值见
-     * {@link LivingThing#getCriticalDMG()}，还会叠加 {@code criticalDamageEnhancePercent} /
+     * {@link LivingThing#getCriticalDamage()}，还会叠加 {@code criticalDamageEnhancePercent} /
      * {@code criticalDamageEnhanceAmount}）。
      */
     private double baseCriticalDamage;
 
     /* ------------------------------------------------------------------
-     * ⑥ *Enhance* 运行时加成（临时属性：不复制，清零）
-     *
-     * 谁在写：六个通用强化效果（AttackEnhance / DefenseEnhanceEffect / SpeedEnhanceEffect /
-     * HpEnhanceEffect / CriticalDMGEnhanceEffect / CriticalRateEnhanceEffect）成对加减，
-     * 白厄变身（UltimateAttack / AwakeEndListener）也自己加减这几笔。
-     * 12 个字段共用一句 @NoConfig 理由，见上面 ENHANCE_REASON。
-     * ------------------------------------------------------------------ */
-
-    /**
-     * 攻击增强百分比。
-     */
-    @NoConfig(ENHANCE_REASON)
-    private double attackEnhancePercent;
-    /**
-     * 防御增强百分比。
-     */
-    @NoConfig(ENHANCE_REASON)
-    private double defenceEnhancePercent;
-    /**
-     * 速度增强百分比。
-     */
-    @NoConfig(ENHANCE_REASON)
-    private double speedEnhancePercent;
-    /**
-     * 生命增强百分比。
-     */
-    @NoConfig(ENHANCE_REASON)
-    private double hpEnhancePercent;
-    /**
-     * 暴击伤害增强百分比。
-     */
-    @NoConfig(ENHANCE_REASON)
-    private double criticalDamageEnhancePercent;
-    /**
-     * 暴击伤害增强固定值。
-     */
-    @NoConfig(ENHANCE_REASON)
-    private double criticalDamageEnhanceAmount;
-    /**
-     * 暴击率增强百分比。
-     */
-    @NoConfig(ENHANCE_REASON)
-    private double criticalRateEnhancePercent;
-    /**
-     * 暴击率增强固定值。
-     */
-    @NoConfig(ENHANCE_REASON)
-    private double criticalRateEnhanceAmount;
-    /**
-     * 攻击增强固定值。
-     */
-    @NoConfig(ENHANCE_REASON)
-    private long attackEnhanceAmount;
-    /**
-     * 防御增强固定值。
-     */
-    @NoConfig(ENHANCE_REASON)
-    private long defenceEnhanceAmount;
-    /**
-     * 速度增强固定值。
-     */
-    @NoConfig(ENHANCE_REASON)
-    private long speedEnhanceAmount;
-    /**
-     * 生命增强固定值。
-     */
-    @NoConfig(ENHANCE_REASON)
-    private long hpEnhanceAmount;
-    /**
-     * <b>受到的治疗量加成</b>（百分比，2026-10-24 加的第 13 个运行时加成）。
-     * <p>
-     * 一次治疗最终回 {@code 原值 × (1 + 它)}，夹取由 {@link LivingThing#heal(long)} 统一做。
-     * 千冶·刃的「千锻魂」（结界期间受到的治疗量 +50%）就是往这里加 {@code 0.5}、结束时减回去。
-     */
-    @NoConfig(ENHANCE_REASON)
-    private double healEnhancePercent;
-
-    /* ------------------------------------------------------------------
      * ⑧ 容器 · 法力表（面板属性：copyFrom 深拷贝，resetTemporary 不动）
      * ------------------------------------------------------------------ */
-
     /**
      * 元素法力列表（一个实体可以拥有多个 {@link Mana}）。对外数据名 {@code manas}。
      * <p>
@@ -521,18 +403,26 @@ public class AttributeProfile {
             this.manas.add(new Mana(mana));
         }
         // 五行组：抗性 + 法力成长
-        this.metalResistance = other.metalResistance;
-        this.woodResistance = other.woodResistance;
-        this.waterResistance = other.waterResistance;
-        this.fireResistance = other.fireResistance;
-        this.dirtResistance = other.dirtResistance;
+        // 抗性：只带**基础条目**（临时抗性是效果挂的，副本从干净状态开始）
+        this.resistances.clear();
+        for (ElementValue entry : other.resistances) {
+            if (entry.isBase()) {
+                this.resistances.add(entry);
+            }
+        }
         this.metalManaGrow = other.metalManaGrow;
         this.woodManaGrow = other.woodManaGrow;
         this.waterManaGrow = other.waterManaGrow;
         this.fireManaGrow = other.fireManaGrow;
         this.dirtManaGrow = other.dirtManaGrow;
         // 全局组
-        this.penetration = other.penetration;
+        // 穿透：只把**基础条目**带过去（临时穿透是效果挂的，副本从干净状态开始）
+        this.penetrations.clear();
+        for (ElementValue entry : other.penetrations) {
+            if (entry.isBase()) {
+                this.penetrations.add(entry);
+            }
+        }
         this.enhance = other.enhance;
         this.baseCriticalDamage = other.baseCriticalDamage;
     }
@@ -573,32 +463,15 @@ public class AttributeProfile {
      * {@code ENTITY-ATTRIBUTE-SPLIT-2026-10.md} 第二节说的"把生命周期规则从靠记性变成靠结构"。
      */
     public void resetTemporary() {
-        this.metalPenetration = 0;
-        this.woodPenetration = 0;
-        this.waterPenetration = 0;
-        this.firePenetration = 0;
-        this.dirtPenetration = 0;
-        this.metalDamageEnhance = 0;
-        this.woodDamageEnhance = 0;
-        this.waterDamageEnhance = 0;
-        this.fireDamageEnhance = 0;
-        this.dirtDamageEnhance = 0;
+        // 穿透 / 抗性：只清效果挂的（基础条目是面板值，留着）
+        this.penetrations.removeIf(entry -> !entry.isBase());
+        this.resistances.removeIf(entry -> !entry.isBase());
+        // 增伤：全是临时条目（没有基础值），整表清空
+        this.damageEnhances.clear();
         // 死字段（活的那套在 Skill#extraDamage 上）
         this.extraDamage = 0;
         // 13 个 *Enhance*（效果与技能成对加减；这里清一遍是兜底）
-        this.attackEnhancePercent = 0;
-        this.attackEnhanceAmount = 0;
-        this.defenceEnhancePercent = 0;
-        this.defenceEnhanceAmount = 0;
-        this.speedEnhancePercent = 0;
-        this.speedEnhanceAmount = 0;
-        this.hpEnhancePercent = 0;
-        this.hpEnhanceAmount = 0;
-        this.criticalDamageEnhancePercent = 0;
-        this.criticalDamageEnhanceAmount = 0;
-        this.criticalRateEnhancePercent = 0;
-        this.criticalRateEnhanceAmount = 0;
-        this.healEnhancePercent = 0;
+        this.propertyEnhances.clear();
         // 状态类（2026-10-04 搬进来的）：战斗结束回到"活着、不在试算"
         this.alive = true;
         this.anticipating = false;
@@ -910,225 +783,257 @@ public class AttributeProfile {
     }
 
     /**
+     * @param element 元素
+     * @return 该元素的有效抗性（全属性条目 + 该元素条目相加；可以是负数 = 弱点）
+     */
+    public double getResistance(cn.gfhnv.game.system.ElementSort element) {
+        double sum = 0;
+        for (ElementValue entry : this.resistances) {
+            if (entry.matches(element)) {
+                sum += entry.amount();
+            }
+        }
+        return sum;
+    }
+
+    /**
+     * 写<b>基础抗性</b>（配置键 {@code metalResistance} 等走这里）。
+     *
+     * @param element 元素
+     * @param value   抗性（{@code 0.3} = 30%；负数 = 弱点）
+     */
+    public void setResistance(cn.gfhnv.game.system.ElementSort element, double value) {
+        this.resistances.removeIf(entry -> entry.isBase() && entry.elementSort() == element);
+        this.resistances.add(new ElementValue(element, value, ElementValue.BASE));
+    }
+
+    /**
+     * 挂一条临时抗性（同（元素 + 来源）只保留一条：重复挂等于更新）。
+     *
+     * @param element 元素（{@code null} = 全属性）
+     * @param amount  平值（{@code 0.2} = +20%）
+     * @param source  来源对象（按身份比较，摘除时用）
+     */
+    public void addResistance(cn.gfhnv.game.system.ElementSort element, double amount, Object source) {
+        if (amount == 0 || source == null) {
+            return;
+        }
+        this.resistances.removeIf(entry -> entry.source() == source && entry.elementSort() == element);
+        this.resistances.add(new ElementValue(element, amount, source));
+    }
+
+    /**
+     * 摘掉某个来源挂的全部抗性（幂等）。
+     *
+     * @param source 来源对象
+     * @return 是否真的摘掉了东西
+     */
+    public boolean removeResistance(Object source) {
+        return this.resistances.removeIf(entry -> entry.source() == source && !entry.isBase());
+    }
+
+    /**
+     * @return 当前所有抗性条目（{@code /data} 里就是它）
+     */
+    public List<ElementValue> getResistances() {
+        return this.resistances;
+    }
+
+    /**
      * @return 金抗性
      */
     public double getMetalResistance() {
-        return metalResistance;
+        return getResistance(cn.gfhnv.game.system.ElementSort.METAL);
     }
-
-    /* ------------------------------------------------------------------
-     * ① 五行抗性
-     * ------------------------------------------------------------------ */
 
     /**
      * @param metalResistance 金抗性
      */
     public void setMetalResistance(double metalResistance) {
-        this.metalResistance = metalResistance;
+        setResistance(cn.gfhnv.game.system.ElementSort.METAL, metalResistance);
     }
 
     /**
      * @return 木抗性
      */
     public double getWoodResistance() {
-        return woodResistance;
+        return getResistance(cn.gfhnv.game.system.ElementSort.WOOD);
     }
 
     /**
      * @param woodResistance 木抗性
      */
     public void setWoodResistance(double woodResistance) {
-        this.woodResistance = woodResistance;
+        setResistance(cn.gfhnv.game.system.ElementSort.WOOD, woodResistance);
     }
 
     /**
      * @return 水抗性
      */
     public double getWaterResistance() {
-        return waterResistance;
+        return getResistance(cn.gfhnv.game.system.ElementSort.WATER);
     }
 
     /**
      * @param waterResistance 水抗性
      */
     public void setWaterResistance(double waterResistance) {
-        this.waterResistance = waterResistance;
+        setResistance(cn.gfhnv.game.system.ElementSort.WATER, waterResistance);
     }
 
     /**
      * @return 火抗性
      */
     public double getFireResistance() {
-        return fireResistance;
+        return getResistance(cn.gfhnv.game.system.ElementSort.FIRE);
     }
 
     /**
      * @param fireResistance 火抗性
      */
     public void setFireResistance(double fireResistance) {
-        this.fireResistance = fireResistance;
+        setResistance(cn.gfhnv.game.system.ElementSort.FIRE, fireResistance);
     }
 
     /**
      * @return 土抗性
      */
     public double getDirtResistance() {
-        return dirtResistance;
+        return getResistance(cn.gfhnv.game.system.ElementSort.DIRT);
     }
 
     /**
      * @param dirtResistance 土抗性
      */
     public void setDirtResistance(double dirtResistance) {
-        this.dirtResistance = dirtResistance;
+        setResistance(cn.gfhnv.game.system.ElementSort.DIRT, dirtResistance);
+    }
+
+
+    /**
+     * @param element 元素
+     * @return 只对该元素生效的增伤（不含全属性增伤 {@code enhance}）
+     */
+    public double getElementDamageEnhance(cn.gfhnv.game.system.ElementSort element) {
+        double sum = 0;
+        for (ElementValue entry : this.damageEnhances) {
+            if (entry.elementSort() == element) {
+                sum += entry.amount();
+            }
+        }
+        return sum;
     }
 
     /**
-     * @return 金元素穿透
+     * 挂一条临时增伤（同（元素 + 来源）只保留一条：重复挂等于更新）。
+     *
+     * @param element 元素（{@code null} = 全属性）
+     * @param amount  平值（{@code 0.2} = +20%）
+     * @param source  来源对象（按身份比较，摘除时用）
      */
-    public double getMetalPenetration() {
-        return metalPenetration;
-    }
-
-    /* ------------------------------------------------------------------
-     * ② 五元素穿透
-     * ------------------------------------------------------------------ */
-
-    /**
-     * @param metalPenetration 金元素穿透
-     */
-    public void setMetalPenetration(double metalPenetration) {
-        this.metalPenetration = metalPenetration;
+    public void addDamageEnhance(cn.gfhnv.game.system.ElementSort element, double amount, Object source) {
+        if (amount == 0 || source == null) {
+            return;
+        }
+        this.damageEnhances.removeIf(entry -> entry.source() == source && entry.elementSort() == element);
+        this.damageEnhances.add(new ElementValue(element, amount, source));
     }
 
     /**
-     * @return 木元素穿透
+     * 摘掉某个来源挂的全部增伤（幂等）。
+     *
+     * @param source 来源对象
+     * @return 是否真的摘掉了东西
      */
-    public double getWoodPenetration() {
-        return woodPenetration;
+    public boolean removeDamageEnhance(Object source) {
+        return this.damageEnhances.removeIf(entry -> entry.source() == source);
     }
 
     /**
-     * @param woodPenetration 木元素穿透
+     * @return 当前所有增伤条目（{@code /data} 里就是它）
      */
-    public void setWoodPenetration(double woodPenetration) {
-        this.woodPenetration = woodPenetration;
-    }
-
-    /**
-     * @return 水元素穿透
-     */
-    public double getWaterPenetration() {
-        return waterPenetration;
-    }
-
-    /**
-     * @param waterPenetration 水元素穿透
-     */
-    public void setWaterPenetration(double waterPenetration) {
-        this.waterPenetration = waterPenetration;
-    }
-
-    /**
-     * @return 火元素穿透
-     */
-    public double getFirePenetration() {
-        return firePenetration;
-    }
-
-    /**
-     * @param firePenetration 火元素穿透
-     */
-    public void setFirePenetration(double firePenetration) {
-        this.firePenetration = firePenetration;
-    }
-
-    /**
-     * @return 土元素穿透
-     */
-    public double getDirtPenetration() {
-        return dirtPenetration;
-    }
-
-    /**
-     * @param dirtPenetration 土元素穿透
-     */
-    public void setDirtPenetration(double dirtPenetration) {
-        this.dirtPenetration = dirtPenetration;
+    public List<ElementValue> getDamageEnhances() {
+        return this.damageEnhances;
     }
 
     /**
      * @return 金元素伤害增强
      */
     public double getMetalDamageEnhance() {
-        return metalDamageEnhance;
+        return getElementDamageEnhance(cn.gfhnv.game.system.ElementSort.METAL);
     }
-
-    /* ------------------------------------------------------------------
-     * ③ 五元素增伤
-     * ------------------------------------------------------------------ */
 
     /**
      * @param metalDamageEnhance 金元素伤害增强
      */
     public void setMetalDamageEnhance(double metalDamageEnhance) {
-        this.metalDamageEnhance = metalDamageEnhance;
+        this.damageEnhances.removeIf(entry -> entry.elementSort() == cn.gfhnv.game.system.ElementSort.METAL);
+        this.damageEnhances.add(new ElementValue(cn.gfhnv.game.system.ElementSort.METAL,
+                metalDamageEnhance, "set-METAL"));
     }
 
     /**
      * @return 木元素伤害增强
      */
     public double getWoodDamageEnhance() {
-        return woodDamageEnhance;
+        return getElementDamageEnhance(cn.gfhnv.game.system.ElementSort.WOOD);
     }
 
     /**
      * @param woodDamageEnhance 木元素伤害增强
      */
     public void setWoodDamageEnhance(double woodDamageEnhance) {
-        this.woodDamageEnhance = woodDamageEnhance;
+        this.damageEnhances.removeIf(entry -> entry.elementSort() == cn.gfhnv.game.system.ElementSort.WOOD);
+        this.damageEnhances.add(new ElementValue(cn.gfhnv.game.system.ElementSort.WOOD,
+                woodDamageEnhance, "set-WOOD"));
     }
 
     /**
      * @return 水元素伤害增强
      */
     public double getWaterDamageEnhance() {
-        return waterDamageEnhance;
+        return getElementDamageEnhance(cn.gfhnv.game.system.ElementSort.WATER);
     }
 
     /**
      * @param waterDamageEnhance 水元素伤害增强
      */
     public void setWaterDamageEnhance(double waterDamageEnhance) {
-        this.waterDamageEnhance = waterDamageEnhance;
+        this.damageEnhances.removeIf(entry -> entry.elementSort() == cn.gfhnv.game.system.ElementSort.WATER);
+        this.damageEnhances.add(new ElementValue(cn.gfhnv.game.system.ElementSort.WATER,
+                waterDamageEnhance, "set-WATER"));
     }
 
     /**
      * @return 火元素伤害增强
      */
     public double getFireDamageEnhance() {
-        return fireDamageEnhance;
+        return getElementDamageEnhance(cn.gfhnv.game.system.ElementSort.FIRE);
     }
 
     /**
      * @param fireDamageEnhance 火元素伤害增强
      */
     public void setFireDamageEnhance(double fireDamageEnhance) {
-        this.fireDamageEnhance = fireDamageEnhance;
+        this.damageEnhances.removeIf(entry -> entry.elementSort() == cn.gfhnv.game.system.ElementSort.FIRE);
+        this.damageEnhances.add(new ElementValue(cn.gfhnv.game.system.ElementSort.FIRE,
+                fireDamageEnhance, "set-FIRE"));
     }
 
     /**
      * @return 土元素伤害增强
      */
     public double getDirtDamageEnhance() {
-        return dirtDamageEnhance;
+        return getElementDamageEnhance(cn.gfhnv.game.system.ElementSort.DIRT);
     }
 
     /**
      * @param dirtDamageEnhance 土元素伤害增强
      */
     public void setDirtDamageEnhance(double dirtDamageEnhance) {
-        this.dirtDamageEnhance = dirtDamageEnhance;
+        this.damageEnhances.removeIf(entry -> entry.elementSort() == cn.gfhnv.game.system.ElementSort.DIRT);
+        this.damageEnhances.add(new ElementValue(cn.gfhnv.game.system.ElementSort.DIRT,
+                dirtDamageEnhance, "set-DIRT"));
     }
 
     /**
@@ -1206,21 +1111,70 @@ public class AttributeProfile {
     }
 
     /**
-     * @return 全属性穿透
+     * @return 全属性穿透（只算 {@code elementSort == null} 的条目：基础值 + 全属性临时加成）
      */
     public double getPenetration() {
-        return penetration;
+        double sum = 0;
+        for (ElementValue entry : this.penetrations) {
+            if (entry.elementSort() == null) {
+                sum += entry.amount();
+            }
+        }
+        return sum;
     }
 
-    /* ------------------------------------------------------------------
-     * ⑤ 全局组
-     * ------------------------------------------------------------------ */
-
     /**
-     * @param penetration 全属性穿透
+     * @param penetration 全属性穿透（<b>基础值</b>；配置键 {@code penetration} 走这里）
      */
     public void setPenetration(double penetration) {
-        this.penetration = penetration;
+        this.penetrations.removeIf(entry -> entry.isBase() && entry.elementSort() == null);
+        this.penetrations.add(new ElementValue(null, penetration, ElementValue.BASE));
+    }
+
+    /**
+     * @param element 伤害元素
+     * @return 只对该元素生效的穿透（不含全属性条目）
+     */
+    public double getElementPenetration(cn.gfhnv.game.system.ElementSort element) {
+        double sum = 0;
+        for (ElementValue entry : this.penetrations) {
+            if (entry.elementSort() == element) {
+                sum += entry.amount();
+            }
+        }
+        return sum;
+    }
+
+    /**
+     * 挂一条临时穿透（同（元素 + 来源）只保留一条：重复挂等于更新）。
+     *
+     * @param element 元素（{@code null} = 全属性）
+     * @param amount  平值
+     * @param source  来源对象（按身份比较，摘除时用）
+     */
+    public void addPenetration(cn.gfhnv.game.system.ElementSort element, double amount, Object source) {
+        if (amount == 0 || source == null) {
+            return;
+        }
+        this.penetrations.removeIf(entry -> entry.source() == source && entry.elementSort() == element);
+        this.penetrations.add(new ElementValue(element, amount, source));
+    }
+
+    /**
+     * 摘掉某个来源挂的<b>全部</b>穿透（幂等）。
+     *
+     * @param source 来源对象
+     * @return 是否真的摘掉了东西
+     */
+    public boolean removePenetration(Object source) {
+        return this.penetrations.removeIf(entry -> entry.source() == source && !entry.isBase());
+    }
+
+    /**
+     * @return 当前所有穿透条目（{@code /data} 里就是它）
+     */
+    public List<ElementValue> getPenetrations() {
+        return this.penetrations;
     }
 
     /**
@@ -1252,199 +1206,76 @@ public class AttributeProfile {
     }
 
     /**
-     * @return 攻击增强百分比
-     */
-    public double getAttackEnhancePercent() {
-        return attackEnhancePercent;
-    }
-
-    /* ------------------------------------------------------------------
-     * ⑥ *Enhance* 运行时加成
-     * ------------------------------------------------------------------ */
-
-    /**
-     * @param attackEnhancePercent 攻击增强百分比
-     */
-    public void setAttackEnhancePercent(double attackEnhancePercent) {
-        this.attackEnhancePercent = attackEnhancePercent;
-    }
-
-    /**
-     * @return 防御增强百分比
-     */
-    public double getDefenceEnhancePercent() {
-        return defenceEnhancePercent;
-    }
-
-    /**
-     * @param defenceEnhancePercent 防御增强百分比
-     */
-    public void setDefenceEnhancePercent(double defenceEnhancePercent) {
-        this.defenceEnhancePercent = defenceEnhancePercent;
-    }
-
-    /**
-     * @return 速度增强百分比
-     */
-    public double getSpeedEnhancePercent() {
-        return speedEnhancePercent;
-    }
-
-    /**
-     * @param speedEnhancePercent 速度增强百分比
-     */
-    public void setSpeedEnhancePercent(double speedEnhancePercent) {
-        this.speedEnhancePercent = speedEnhancePercent;
-    }
-
-    /**
-     * @return 生命增强百分比
-     */
-    public double getHpEnhancePercent() {
-        return hpEnhancePercent;
-    }
-
-    /**
-     * 设置生命增强百分比，并立即把当前生命夹回新的上限内
-     * （{@link LivingThing#renewHp()}；上限变小之后旧生命可能超出）。
+     * 挂一条属性加成。同一个（类型 + 来源）只保留一条：重复挂等于<b>更新</b>，
+     * 所以效果每回合 tick 时重复调用是安全的（旧写法会越加越多）。
      *
-     * @param hpEnhancePercent 生命增强百分比
+     * @param type    加在哪个属性上
+     * @param percent 百分比
+     * @param amount  固定值
+     * @param source  来源对象（按身份比较，摘除时用）
      */
-    public void setHpEnhancePercent(double hpEnhancePercent) {
-        this.hpEnhancePercent = hpEnhancePercent;
-        this.host.renewHp();
+    public void addPropertyEnhance(PropertyEnhanceType type, double percent, double amount, Object source) {
+        if (type == null || (percent == 0 && amount == 0)) {
+            return;
+        }
+        removePropertyEnhances(source, type);
+        this.propertyEnhances.add(new PropertyEnhance(type, percent, amount, source));
     }
 
     /**
-     * @return 暴击伤害增强百分比
-     */
-    public double getCriticalDamageEnhancePercent() {
-        return criticalDamageEnhancePercent;
-    }
-
-    /**
-     * @param criticalDamageEnhancePercent 暴击伤害增强百分比
-     */
-    public void setCriticalDamageEnhancePercent(double criticalDamageEnhancePercent) {
-        this.criticalDamageEnhancePercent = criticalDamageEnhancePercent;
-    }
-
-    /**
-     * @return 暴击伤害增强固定值
-     */
-    public double getCriticalDamageEnhanceAmount() {
-        return criticalDamageEnhanceAmount;
-    }
-
-    /**
-     * @param criticalDamageEnhanceAmount 暴击伤害增强固定值
-     */
-    public void setCriticalDamageEnhanceAmount(double criticalDamageEnhanceAmount) {
-        this.criticalDamageEnhanceAmount = criticalDamageEnhanceAmount;
-    }
-
-    /**
-     * @return 暴击率增强百分比
-     */
-    public double getCriticalRateEnhancePercent() {
-        return criticalRateEnhancePercent;
-    }
-
-    /**
-     * @param criticalRateEnhancePercent 暴击率增强百分比
-     */
-    public void setCriticalRateEnhancePercent(double criticalRateEnhancePercent) {
-        this.criticalRateEnhancePercent = criticalRateEnhancePercent;
-    }
-
-    /**
-     * @return 暴击率增强固定值
-     */
-    public double getCriticalRateEnhanceAmount() {
-        return criticalRateEnhanceAmount;
-    }
-
-    /**
-     * @param criticalRateEnhanceAmount 暴击率增强固定值
-     */
-    public void setCriticalRateEnhanceAmount(double criticalRateEnhanceAmount) {
-        this.criticalRateEnhanceAmount = criticalRateEnhanceAmount;
-    }
-
-    /**
-     * @return 攻击增强固定值
-     */
-    public long getAttackEnhanceAmount() {
-        return attackEnhanceAmount;
-    }
-
-    /**
-     * @param attackEnhanceAmount 攻击增强固定值
-     */
-    public void setAttackEnhanceAmount(long attackEnhanceAmount) {
-        this.attackEnhanceAmount = attackEnhanceAmount;
-    }
-
-    /**
-     * @return 防御增强固定值
-     */
-    public long getDefenceEnhanceAmount() {
-        return defenceEnhanceAmount;
-    }
-
-    /**
-     * @param defenceEnhanceAmount 防御增强固定值
-     */
-    public void setDefenceEnhanceAmount(long defenceEnhanceAmount) {
-        this.defenceEnhanceAmount = defenceEnhanceAmount;
-    }
-
-    /**
-     * @return 速度增强固定值
-     */
-    public long getSpeedEnhanceAmount() {
-        return speedEnhanceAmount;
-    }
-
-    /**
-     * @param speedEnhanceAmount 速度增强固定值
-     */
-    public void setSpeedEnhanceAmount(long speedEnhanceAmount) {
-        this.speedEnhanceAmount = speedEnhanceAmount;
-    }
-
-    /**
-     * @return 生命增强固定值
-     */
-    public long getHpEnhanceAmount() {
-        return hpEnhanceAmount;
-    }
-
-    /**
-     * 设置生命增强固定值，并立即把当前生命夹回新的上限内
-     * （{@link LivingThing#renewHp()}；上限变小之后旧生命可能超出）。
+     * 摘掉某个来源挂的<b>全部</b>属性加成（幂等：没有可摘的就返回 false，不会把数值减成负的）。
      *
-     * @param hpEnhanceAmount 生命增强固定值
+     * @param source 来源对象（按 {@code ==} 身份比较）
+     * @return 是否真的摘掉了东西
      */
-    public void setHpEnhanceAmount(long hpEnhanceAmount) {
-        this.hpEnhanceAmount = hpEnhanceAmount;
-        this.host.renewHp();
+    public boolean removePropertyEnhances(Object source) {
+        return this.propertyEnhances.removeIf(entry -> entry.source() == source);
     }
 
     /**
-     * @return 受到的治疗量加成（百分比；一次治疗 = 原值 × {@code (1 + 它)}）
-     */
-    public double getHealEnhancePercent() {
-        return healEnhancePercent;
-    }
-
-    /**
-     * 设置受到的治疗量加成（百分比）。改动立即生效 —— 治疗结算时读它。
+     * 摘掉某个来源挂的<b>某一种</b>属性加成。
      *
-     * @param healEnhancePercent 受到的治疗量加成
+     * @param source 来源对象
+     * @param type   属性类型
+     * @return 是否真的摘掉了东西
      */
-    public void setHealEnhancePercent(double healEnhancePercent) {
-        this.healEnhancePercent = healEnhancePercent;
+    public boolean removePropertyEnhances(Object source, PropertyEnhanceType type) {
+        return this.propertyEnhances.removeIf(entry -> entry.source() == source && entry.type() == type);
+    }
+
+    /**
+     * @param type 属性类型
+     * @return 该类型所有条目的百分比之和
+     */
+    public double percentOf(PropertyEnhanceType type) {
+        double sum = 0;
+        for (PropertyEnhance entry : this.propertyEnhances) {
+            if (entry.type() == type) {
+                sum += entry.percent();
+            }
+        }
+        return sum;
+    }
+
+    /**
+     * @param type 属性类型
+     * @return 该类型所有条目的固定值之和
+     */
+    public double amountOf(PropertyEnhanceType type) {
+        double sum = 0;
+        for (PropertyEnhance entry : this.propertyEnhances) {
+            if (entry.type() == type) {
+                sum += entry.amount();
+            }
+        }
+        return sum;
+    }
+
+    /**
+     * @return 当前所有属性加成条目（活的列表；{@code /data} 里就是它）
+     */
+    public List<PropertyEnhance> getPropertyEnhances() {
+        return this.propertyEnhances;
     }
 
     /**

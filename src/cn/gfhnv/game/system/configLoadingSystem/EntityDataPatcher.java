@@ -190,7 +190,6 @@ public final class EntityDataPatcher {
         // ④ 派生值最后打（hp 排在 baseHpMax 之后，因为 setHp 会夹到 getHpMax()）
         //    ⚠️ 必须在 SpecPatcher.patch(DERIVED) **之前**调：要提醒的是"补丁里写的这个数
         //    和规则表那个数不一样"，补丁一打下去 derived.baseHpMax 就已经盖掉构造值了
-        noticeDualEntryHpMax(target, patch, report, id);
         SpecPatcher.patch(target, patch, EntityKeySpecs.DERIVED, report, id);
         reportUnknownKeys(patch, id, report, applied);
     }
@@ -198,75 +197,6 @@ public final class EntityDataPatcher {
     /* ------------------------------------------------------------------
      * "一个值两个入口"：谁赢、为什么、怎么让人看见（2026-10-03）
      * ------------------------------------------------------------------ */
-
-    /**
-     * 检查<b>同一个"血量"的两个入口是不是真的对不上</b>，对不上才发一条提醒。
-     * <p>
-     * <b>为什么要有这一步</b>：{@code GameRules.json} 的 {@code flameReaver.baseHpMax}
-     * 是<b>构造时</b>读一次的出厂血量（{@code FlameReaver.java:282-283}），而
-     * {@code EntityData.json} 的 {@code derived.baseHpMax} 是<b>构造之后</b>打的补丁 ——
-     * 两个都写、而且写的是<b>不同的数</b>时，规则表那个数看不出效果，而此前控制台一句话都不说。
-     * 这正是项目最忌讳的"两处写真值，迟早一真一假"。
-     * <p>
-     * <b>⚠️ 判据是"两个值不一样"，不是"两个键都被写过"</b>：生成的 {@code EntityData.json}
-     * 本来就<b>一定</b>包含 {@code derived.baseHpMax}（它是全量 dump），而 {@code GameRules.json}
-     * 本来就<b>一定</b>包含 {@code flameReaver.baseHpMax}（它也是全量 dump）——
-     * 所以"两个入口都写了"是<b>出厂默认状态，不是冲突</b>，按那个判据提醒等于每次启动必然误报一次
-     * （用户 2026-10-03 报的就是它：那条提醒"写了约 250 字"，却什么也没告诉他）。
-     * 真正想提醒的情形只有一种：<b>他动了其中一处、另一处还停在旧值</b> ——
-     * 那种情形下两个数必然对不上。
-     * <p>
-     * <b>语义判定（谁赢）</b>：<b>{@code EntityData.json} 赢</b>。理由是它是"最后打上去的那个",
-     * 而且它就是为"改一只已经造出来的模板的血"设计的（规则表那一侧只决定构造那一刻的初值）。
-     * 反过来让规则表赢会破坏"补丁永远覆盖构造值"这条全项目统一的顺序。
-     * 所以这里<b>不改数值</b>,只把"谁赢了、另一个为什么没生效、想让它生效该怎么办"讲清楚。
-     * <p>
-     * <b>覆盖范围</b>：{@code classState} 那 7 个键是<b>故意</b>挡住的
-     * （{@code DataKeys.CLASS_RUNTIME} 里的 {@code damageReductionLayers} 连 setter 都没有，
-     * 补丁会报「这个键不能配置」），所以"两个入口"今天只有这两个 BOSS 的血量 ——
-     * 加新的构造期规则键时，请同步扩 {@link #constructionHpRuleKeyOf} 那张表。
-     *
-     * @param target 目标模板
-     * @param patch  实体补丁
-     * @param report 报告
-     * @param id     这个模板的 id（报错用）
-     */
-    private static void noticeDualEntryHpMax(LivingThing target, JSONObject patch, Report report, String id) {
-        if (target == null || patch == null) {
-            return;
-        }
-        // ① 这次补丁里到底写了什么 derived.baseHpMax（裸键 baseHpMax 也算 —— 那两种写法加载器都认）
-        SpecPatcher.KeySource source = SpecPatcher.lookup(patch, DataKeys.Derived.HP_MAX);
-        if (source == null || !(source.container().opt(source.key()) instanceof Number number)) {
-            return;
-        }
-        // ② 规则表里有没有这个模板的"构造期血量键"
-        String ruleKey = constructionHpRuleKeyOf(target);
-        if (ruleKey == null) {
-            return;
-        }
-        // ③ 判据就在这一行：补丁里的值 vs 规则表生效值。相等 = 出厂默认状态 = 不吵
-        //    （想验证这条断言：两份默认文件都不手工改动时不触发，只改一处时触发）
-        //    两个数都按 double 比：数量级是血条，double 表示整数完全精确
-        //    （JSON 里写 80000 与 80000.0 在这里是同一个数）
-        double patchValue = number.doubleValue();
-        double ruleValue = GameRules.getDouble(ruleKey);
-        if (patchValue == ruleValue) {
-            return;
-        }
-        String entityId = target.getId() == null || target.getId().isEmpty() ? id : target.getId();
-        report.notice("实体「" + entityId + "」的血量两个入口对不上："
-                + "EntityData.json 的「" + source.prefix() + DataKeys.Derived.HP_MAX + "」"
-                + "= " + render(patchValue)
-                + "，GameRules.json 的「" + ruleKey + "」= " + render(ruleValue) + "。"
-                + "「" + source.prefix() + DataKeys.Derived.HP_MAX + "」赢 —— 它在构造之后打补丁，"
-                + "把构造时读到的那个值整个盖掉，所以你在规则表里改「" + ruleKey + "」看不出效果。"
-                + "出厂默认时两个入口写的就是同一个数，这里不吵；"
-                + "只有你把其中一处改了、另一处还停在旧值时才提醒。"
-                + "想改这只模板的血请只留一处：改 / 删「" + source.prefix() + DataKeys.Derived.HP_MAX
-                + "」（推荐），或者把「" + ruleKey + "」改回 " + render(RuleKeySpecs.number(ruleKey))
-                + " 并删掉这个派生键。");
-    }
 
     /**
      * 把血量印成<b>人看得懂的样子</b>（整数不拖小数点，比如 {@code 80000} 而不是 {@code 80000.0}）。
@@ -281,23 +211,6 @@ public final class EntityDataPatcher {
         return String.valueOf(value);
     }
 
-    /**
-     * @param target 模板
-     * @return 这个模板的"构造期血量规则键"（{@link GameRules} 里那个只在构造时读一次的键）；
-     * 这个类没有这样的键时返回 {@code null}
-     * <p>
-     * <b>公开只给自测用</b>：自测拿它去核对"这个模板的出厂血量在规则表里是几"，
-     * 从而在不读用户真实文件的前提下钉住"默认不触发提醒"这条断言。
-     */
-    public static String constructionHpRuleKeyOf(LivingThing target) {
-        if (target instanceof cn.gfhnv.game.officialStuff.customEntity.monsters.FlameReaver) {
-            return DataKeys.Rule.FlameReaver.BASE_HP_MAX;
-        }
-        if (target instanceof cn.gfhnv.game.officialStuff.customEntity.monsters.InsectBoss) {
-            return DataKeys.Rule.InsectBoss.BASE_HP;
-        }
-        return null;
-    }
 
     /**
      * 按当前的等级与成长系数重算三围（面板属性）。

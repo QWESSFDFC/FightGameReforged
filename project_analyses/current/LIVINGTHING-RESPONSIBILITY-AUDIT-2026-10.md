@@ -64,11 +64,11 @@
 
 | 评审条目 | 事实 | 引用点数量 | 备注 |
 |---|---|---|---|
-| `getDamage(DamageEvent)` 实为"受到伤害" | ✅ 存在 | `getDamage(` 全项目 31 处，但**其中 7 处是 `DamageEvent#getDamage()`（无参）**；真正的 `LivingThing#getDamage(DamageEvent)` = **12 处**（生产 2 + 测试 9 + 覆写 1） | 与"取伤害值"的直觉冲突；`BrokenContainer.java:428` 有 `@Override` |
-| `facSetDfk` / `facSetAfk` | ✅ **存在**（`LivingThing:1319` 防御 / `:1341` 攻击） | 定义 3 个、调用 **0** | ⚠️ **我一开始说"不存在"是错的**（grep 输出被 `head` 截断了）。`dfk`/`afk` 是自造缩写、**不是拼音**；而且它们是攻击/防御/穿透**唯一**的链式 setter（没有 `facSetAttack`/`facSetDefence`/`facSetPenetration`） |
-| `facSetChuantong`（拼音） | ✅ **存在** | `LivingThing.java:1286`（@param 写"全属性穿透"） | 是拼音但**拼错**了：穿透 = `chuantou`，代码写 `chuantong`（更像"传统"）。同一批还有 `facSetDirtResistance` / `facSetCriticalDMG` |
+| `takeDamage(DamageEvent)` 实为"受到伤害" | ✅ 存在 | `getDamage(` 全项目 31 处，但**其中 7 处是 `DamageEvent#getDamage()`（无参）**；真正的 `LivingThing#takeDamage(DamageEvent)` = **12 处**（生产 2 + 测试 9 + 覆写 1） | 与"取伤害值"的直觉冲突；`BrokenContainer.java:428` 有 `@Override` |
+| `facSetDfk` / `facSetAfk` | ✅ **存在**（`LivingThing:1319` 防御 / `:1341` 攻击） | 定义 3 个、调用 **0** | ⚠️ **我一开始说"不存在"是错的**（grep 输出被 `head` 截断了）。`dfk`/`afk` 是自造缩写、**不是拼音**；而且它们是攻击/防御/穿透**唯一**的链式 setter（没有 `facSetAttack`/`facSetDefence`/`facSetPenetration`）。**2026-11-14 已改名**：`facSetDefence` / `facSetAttack` / `facSetPenetration`（第 44 批） |
+| `facSetChuantong`（拼音） | ✅ **存在** | `LivingThing.java:1286`（@param 写"全属性穿透"） | 是拼音但**拼错**了：穿透 = `chuantou`，代码写 `chuantong`（更像"传统"）。同一批还有 `facSetDirtResistance` / `facSetCriticalDamage`。**2026-11-14 已改名**为 `facSetPenetration`（第 44 批） |
 | `dirt` 表示土 | ✅ 全项目统一 | src 里 **63** 个标识符 + 两份 JSON 各 **20** 个键 | 改名 = 同时破坏 `/data` 键与用户配置 |
-| `criticalDMG` vs `criticalDamage` | ✅ 并存，但**处在两层**：Java 侧 `getCriticalDMG:2230` / `setCriticalDMG:2240` / `facSetCriticalDMG:1253`（0 调用）/ 类 `CriticalDMGEnhanceEffect` / id `criticalDMGEnhanceEffect`；**数据键**已于 2026-10-24 改成 `baseCriticalDamage` / `criticalDamageEnhancePercent` / `...Amount`，字段真名是 `baseCriticalDamage`（`AttributeProfile:315`） | `CriticalDMG` 51 行 / 15 文件；`getCriticalDMG` 37 行（src 7）；旧键 `criticalDamage` 只剩 **8 行注释/断言** | ⚠️ 我一开始说"字段叫 criticalDamage"是错的。**方法/类/id 不改**（`70-DATA:100-102`：对外 id 与 Java 方法名不跟着改）；只修那 8 行过时注释 |
+| `criticalDMG` vs `criticalDamage` | ✅ 并存，但**处在两层**：Java 侧 `getCriticalDMG` / `setCriticalDMG` / `facSetCriticalDMG`（0 调用）/ 类 `CriticalDMGEnhanceEffect` / id `criticalDMGEnhanceEffect`；**数据键**已于 2026-10-24 改成 `baseCriticalDamage` / `criticalDamageEnhancePercent` / `...Amount`，字段真名是 `baseCriticalDamage` | 当时 51 行 / 15 文件 | ✅ **已统一（2026-11-15 第 65 批）**：方法 → `getCriticalDamage/setCriticalDamage/facSetCriticalDamage`、类 → `CriticalDamageEnhanceEffect` / `CriticalDamagePotion`；**id 字符串也已改（2026-11-15 第 68 批）**：`criticalDamage*`，本项目不需要向后兼容 |
 | `facSetLevel(Long)` 与 `facSetLevel(long)` 重载 | ✅ 存在，且是**同类别两个重载**：`LivingThing:1176`（`Long`）与 `:1901`（`long`，协变重写父类 `Entity:94`） | 33 个方法；调用点全项目 **9 个 / 1 文件**（`actionBarTest/TestMain.java:19,21,23`），`Long` 版 **0 调用** | ⚠️ 我一开始说"跨类"不准确。删 `Long` 版是零风险（还要删它上面重复的 Javadoc `:1161-1175`），但**属公共 API，先问用户** |
 | `manaMainBase()` 里的全限定 `cn.gfhnv...GameRules` | ✅ **存在**（`:301-302`、`:309-310`，还有 2 行 Javadoc `{@value}`） | 4 行代码 + 2 行注释 | ⚠️ **我一开始说"查不到"是错的**：评审把包名写成 `cn.gfhnv.game`，实际是 `cn.gfhnv.game.system.configLoadingSystem.GameRules`（`:18/:19` 已 import，`:280/:287/:294` 就在用短名） |
 | `describeReductionSource` 里全限定 `cn.gfhnv.game.item.Item` | ✅ 存在 | `LivingThing.java:336` | 一行的事 |
@@ -103,14 +103,14 @@
 | **P0** | **`describeReductionSource` 加 import**（`:336` 去掉全限定 `Item`） | ⚠️ 评审说"文件已 import"**不成立** —— import 段里没有 `cn.gfhnv.game.item.Item`，要**新增**一行 import | 极低 | 无 | ✅ **已做**（新增了那行 import） |
 | **P1** | **删掉 `livingThingFactory()`**（`:1166-1168`） | 全项目 **0 调用 / 0 重写**，javadoc 却写"子类可重写"→ 纯死 API，删掉零风险 | 极低 | 无 | ✅ **已做** |
 | **P1** | **把文档里的"十三参构造器"改成"十四参"**（`70-DATA.md:128`、`90-STATE.md:605`、`AttributeProfile.java:543`） | 参数个数写错会直接误导下一个改构造器的人 | 极低 | 无 | ✅ **已做**（3 处） |
-| **P1** | **删掉 `facSetLevel(Long)` 箱子重载**（`LivingThing:1176` + 上面重复的 Javadoc `:1161-1175`） | 同类双载且 `Long` 版 **0 调用** → 零风险；留着只有"传 `null` 就 NPE"的坑 | 低 | **公共 API，先问用户** | ⏸ **待用户拍板**（`facSetLevel(100)` 三个调用点走的都是 `long` 版，加宽优先于装箱） |
+| **P1** | **删掉 `facSetLevel(Long)` 箱子重载**（`LivingThing:1176` + 上面重复的 Javadoc `:1161-1175`） | 同类双载且 `Long` 版 **0 调用** → 零风险；留着只有"传 `null` 就 NPE"的坑 | 低 | **公共 API，先问用户** | ✅ **已做（2026-11-15 第 62 批）**：`Long` 版删除（`long` 版留着） |
 | **P1** | **修那 8 行过时的 `criticalDamage` 注释/断言**（`LivingThing:46/77/145`、`AttributeProfile:27/490/563`、`DataCommandTests:149`、`ConfigTests:621`） | 旧键已废弃，注释还写着旧名会误导 | 极低 | 无（**只改注释**，不动方法/类/id） | ✅ **已做**（8 处全改成 `baseCriticalDamage`） |
-| **P1** | **`facSetDfk` / `facSetAfk` / `facSetChuantong` 改名**（`Defence`/`Attack`/`Penetration`） | 自造缩写 + 拼错的拼音；但它们是这几个属性的**唯一**链式 setter，属公共 API | 低（仓库内 0 调用、`mods/` 0 引用） | **先问用户**（`10-RULES:189` 命名归用户） | ⏸ **待用户拍板** |
-| **P2** | **抽 `CombatLogFormatter`**：把 4 个"取名/打印"方法搬走 | 实体只剩 1 处 `System.out`，搬走后彻底没有表现层 | 中（159 个文件引用 `LivingThing`，但只有少数调这几个方法） | 先统计这 4 个方法的调用点 | ⬜ **未做**（调用点已统计：§6.2 的 13 个表达式 / 9 文件） |
-| **P2** | **`getEntityEffectList()` 只读化** | 现在返回活列表：**13 处结构写入**（不是 39 —— 那个数是我数错了口径）+ 57 处只读。⚠️ **返回副本比返回不可变更糟**：13 处里有 2 处是 `listIterator().remove()`（`Phainon:449` 白厄觉醒清负面、`FoundationStardeathVerdict:109` 星裁净化），改成副本会**静默失效**（不报错、机制悄悄不生效），是最像 bug 的假象 | **高**（要先把 13 处改成走 API） | 依赖 `EffectContainer` 拆分 | ⬜ **未做** |
-| **P2** | **拆 `EffectContainer` / `DamageReceiver` / `ManaPool` / `ControllerHolder`** | 方向对，但一次拆四个会同时动伤害、效果、法力、控制器四条链 | **很高** | 每条都要单独一轮 + 全量自测 + 文档 | ⬜ **未做**（`ManaPool` 现在只差 `initialMana` / `recoverManaEveryTurn` / `manas` 三个入口，`ManaTests` 已经是它的验收用例） |
-| **P3** | **`BASE_DAMAGE_REDUCTION` 改成实例字段** | 最轻，但收益也最小（2 处引用，其中 1 处死路） | 低 | 无 | ⬜ **未做** |
-| **不做** | 见 §4（`dirt` 改名 / 重命名 `getCriticalDMG`、类名、效果 id / "基础减伤" i18n / 集合直接只读化） | | | | ❌ 仍不做 |
+| **P1** | **`facSetDfk` / `facSetAfk` / `facSetChuantong` 改名**（`Defence`/`Attack`/`Penetration`） | 自造缩写 + 拼错的拼音；但它们是这几个属性的**唯一**链式 setter，属公共 API | 低（仓库内 0 调用、`mods/` 0 引用） | **先问用户**（`10-RULES:189` 命名归用户） | ✅ **已做（2026-11-14 第 44 批）**：用户原话「修复我的拼写错误和不规范的拼写/命名」 |
+| **P2** | **抽表现层**：把 4 个"取名/打印"方法搬走 | 实体只剩 1 处 `System.out`，搬走后彻底没有表现层 | 中（159 个文件引用 `LivingThing`，但只有少数调这几个方法） | 先统计这 4 个方法的调用点 | ✅ **已做（2026-11-15 第 63 批）**：搬到 `entity/EntityDisplay`（名字含 `Display` 而非 `Formatter` —— `getNameWithSide` 要给 AI 拼提示词）；`LivingThing` 的 `System.out`/`ConsoleColor` 归零 |
+| **P2** | **`getEntityEffectList()` 只读化** | 现在返回活列表：**13 处结构写入**（不是 39 —— 那个数是我数错了口径）+ 57 处只读。⚠️ **返回副本比返回不可变更糟**：13 处里有 2 处是 `listIterator().remove()`（`Phainon:449` 白厄觉醒清负面、`FoundationStardeathVerdict:109` 星裁净化），改成副本会**静默失效**（不报错、机制悄悄不生效），是最像 bug 的假象 | **高**（要先把 13 处改成走 API） | 依赖 `EffectContainer` 拆分 | ✅ **已做（2026-11-14 第 57 批）**：`EffectContainer extends AbstractList`，13 处结构写入全部走 API（另修了 `EffectEventListener` 直接 `remove` 的隐藏 bug） |
+| **P2** | **拆 `EffectContainer` / `DamageReceiver` / `ManaPool` / `ControllerHolder`** | 方向对，但一次拆四个会同时动伤害、效果、法力、控制器四条链 | **很高** | 每条都要单独一轮 + 全量自测 + 文档 | **部分做、其余明确不做**：`EffectContainer` ✅（第 57 批）；**`ManaPool` 判定不做**（法力表本来就在 `AttributeProfile` 里，再抽只是搬方法）；**`DamageReceiver` / `ControllerHolder` 用户拍板不做**（2026-11-15） |
+| **P3** | **`BASE_DAMAGE_REDUCTION` 改成实例字段** | 最轻，但收益也最小（2 处引用，其中 1 处死路） | 低 | 无 | ✅ **已做（2026-11-15 第 64 批）**：`baseDamageReduction` 实例字段；顺手删了 `getModifyDamage()`（0 调用） |
+| **不做** | 见 §4（`dirt` 改名 / 效果 id 改名 / "基础减伤" i18n / 集合直接只读化） | | | | ❌ 仍不做（`getCriticalDamage` 与类名已于第 65 批改掉；**id 字符串仍不改**） |
 
 > 第 41 批实测：`通过 1089 条，失败 0 条`、`CHECK OK`、`src` 263 文件（新增 `ManaTests`，4 条断言）。
 > **P2 一条没动** —— 按本文 §5 的约定，动手前要先由用户确认"一次只拆一个组件"。
@@ -136,12 +136,12 @@
 
 ## 5. 交接给下一个对话的开工清单
 
-**先读**：`notes_for_llm/10-RULES.md`（§4 注释规范、§9.3 别做清单、§9.8 协作硬规则）→ `notes_for_llm/70-DATA.md`（键名契约）
-→ `project_analyses/ENTITY-ATTRIBUTE-SPLIT-2026-10.md`（上一次同类重构怎么做的）→ 本文 §3。
+**先读**：`notes_for_llm/rules/10-RULES.md`（§4 注释规范、§9.3 别做清单、§9.8 协作硬规则）→ `notes_for_llm/subsystems/70-DATA.md`（键名契约）
+→ `project_analyses/current/ENTITY-ATTRIBUTE-SPLIT-2026-10.md`（上一次同类重构怎么做的）→ 本文 §3。
 
 **开工前必须先问用户**（不许自己拍板）：
 1. ~~P0 两条（`initialMana` 去重、去全限定名）要不要做~~ → **2026-10-25 第 41 批已做**（零行为变化，`ManaTests` 上锁）；
-2. P1 的 `facSetLevel(Long)` 删不删、`facSetDfk/Afk/Chuantong` 改不改名（都涉及公共 API；**注释里那 8 处 `criticalDamage` 已在第 41 批修完，只剩删重载与改名**）；
+2. P1 的 `facSetLevel(Long)` 删不删（**改名与 8 处 `criticalDamage` 注释都已做完**：第 44 / 41 批）；
 3. P2 的 `EffectContainer` / `getEntityEffectList` 只读化 —— **必须先确认用户接受"一次只拆一个组件"**，并**先拆效果还是先抽表现层**由用户排；
 4. §4 四条一律**先问，不要顺手改**。
 
@@ -202,10 +202,10 @@
 
 | # | 建议 | 结论 | 依据 |
 |---|---|---|---|
-| 1 | `getDamage` → `takeDamage` | **暂缓**（public API，Javadoc `:1873` 已写"受到伤害"；无重载；`BrokenContainer:428` 重写） | `10-RULES:189` |
-| 2 | `facSetDfk/Afk/Chuantong` 改名 | **暂缓**（确实存在，但属公共 API；仓库内 0 调用） | 同上 |
+| 1 | `getDamage` → `takeDamage` | ✅ **已做（2026-11-15 第 62 批）**：`BrokenContainer` 覆写 + 14 处调用/文档同步 | — |
+| 2 | `facSetDfk/Afk/Chuantong` 改名 | ✅ **已做（2026-11-14 第 44 批）**：改为 `facSetDefence` / `facSetAttack` / `facSetPenetration`（仓库内 0 调用，无风险） | — |
 | 3 | `dirt` → `earth/soil` | **不做**（`src` 95 行 / 13 文件，两份 JSON 各 20 个键，还会碰 `"element":"DIRT"`） | `70-DATA:31-32` |
-| 4 | `criticalDMG` 统一 | **半做**：方法/类/效果 id **不动**（对外 id）；只修 8 行过时注释 | `70-DATA:100-102` |
+| 4 | `criticalDamage` 统一 | **半做**：方法/类/效果 id **不动**（对外 id）；只修 8 行过时注释 | `70-DATA:100-102` |
 | 5 | 删 `facSetLevel(Long)` | **可做**（同类双载、`Long` 版 0 调用），但要先问用户 | — |
 | 6 | `manaMainBase()` 去全限定 | **做**（P0，4 行 + 2 行注释） | — |
 | 7 | `describeReductionSource` 去全限定 | **做**（P0，1 行代码 + **要新增 import**） | — |

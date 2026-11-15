@@ -3,6 +3,7 @@ package cn.gfhnv.game.officialStuff.customEffect.universalEffects;
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.effect.EffectTags;
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.entity.PropertyEnhanceType;
 
 public class SpeedEnhanceEffect extends Effect {
     private boolean isOn = false;
@@ -67,16 +68,14 @@ public class SpeedEnhanceEffect extends Effect {
     @Override
     public void comeIntoEffect(LivingThing thing) {
         if (!isOn) {
-            thing.setSpeedEnhanceAmount(thing.getSpeedEnhanceAmount() + amount);
-            thing.setSpeedEnhancePercent(thing.getSpeedEnhancePercent() + percent);
+            thing.addPropertyEnhance(PropertyEnhanceType.SPEED, percent, amount, this);
         }
         isOn = true;
     }
 
     @Override
     public void whenLastTimeEnd(LivingThing thing) {
-        thing.setSpeedEnhanceAmount(thing.getSpeedEnhanceAmount() - amount);
-        thing.setSpeedEnhancePercent(thing.getSpeedEnhancePercent() - percent);
+        thing.removePropertyEnhance(this);
         isOn = false;
     }
 

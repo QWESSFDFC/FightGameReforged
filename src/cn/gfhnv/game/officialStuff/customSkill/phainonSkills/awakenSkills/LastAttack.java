@@ -1,5 +1,6 @@
 package cn.gfhnv.game.officialStuff.customSkill.phainonSkills.awakenSkills;
 
+import cn.gfhnv.game.damage.DamageType;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.officialStuff.customEffect.universalEffects.SpeedEnhanceEffect;
@@ -116,7 +117,7 @@ public class LastAttack extends Skill implements SkillCoefficientTunable {
         }
 
         for (LivingThing livingThing : enemies) {
-            user.makeDamage(livingThing, this);
+            user.makeDamage(livingThing, this, DamageType.UltimateAttack);
 
         }
         for (LivingThing livingThing : fight.getOpponentList(user)) {

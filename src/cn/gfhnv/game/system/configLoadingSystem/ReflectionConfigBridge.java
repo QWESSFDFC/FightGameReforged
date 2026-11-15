@@ -70,7 +70,7 @@ public final class ReflectionConfigBridge {
      * 第 ② 条是刻意的收窄，而且<b>它有代价</b>：{@code /data} 能改的集合键
      * （{@code inventory}、{@code damageReductions} 这些）在配置面被排除掉了 ——
      * 那些键本来也没有 setter，硬塞进去只会变成"静默退化成裸写字段"（
-     * {code notes_for_llm/70-DATA.md} §5.10 点名的坑）。
+     * {code notes_for_llm/subsystems/70-DATA.md} §5.10 点名的坑）。
      * <p>
      * {@code elementSort}（枚举）在标量里，所以它<b>在</b>面内，但键名是 {@code elementSort} 而不是
      * {@code element} —— 别名是键表那条路承载的东西，反射面拿不到。
@@ -81,7 +81,8 @@ public final class ReflectionConfigBridge {
     public static List<DataBridge.DataAccessor> candidates(Object target) {
         List<DataBridge.DataAccessor> candidates = new ArrayList<>();
         for (DataBridge.DataAccessor accessor : DataBridge.accessors(target)) {
-            if (accessor.field().isAnnotationPresent(NoConfig.class)) {
+            if (accessor.field().isAnnotationPresent(NoConfig.class)
+                    || accessor.field().isAnnotationPresent(cn.gfhnv.game.data.Temporary.class)) {
                 continue;
             }
             if (!isScalar(accessor.field())) {
@@ -104,6 +105,12 @@ public final class ReflectionConfigBridge {
             NoConfig annotation = accessor.field().getAnnotation(NoConfig.class);
             if (annotation != null) {
                 blocked.put(accessor.name(), annotation.value());
+                continue;
+            }
+            cn.gfhnv.game.data.Temporary temporary =
+                    accessor.field().getAnnotation(cn.gfhnv.game.data.Temporary.class);
+            if (temporary != null) {
+                blocked.put(accessor.name(), "临时属性（@Temporary）：" + temporary.reason());
                 continue;
             }
             if (!isScalar(accessor.field())) {

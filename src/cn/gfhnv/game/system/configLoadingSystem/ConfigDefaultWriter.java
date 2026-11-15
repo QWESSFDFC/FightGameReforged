@@ -27,7 +27,7 @@ import java.util.*;
  * "值为 null、因此 dump 不出来"的键到底认不认，它会临时设一个空串再原样设回去）。
  * 生成的文件是<b>样例</b>：用户可以照着改，也可以整段删掉 ——
  * 没写出来的键一律保持构造器算出来的值（补丁语义，见
- * {@code project_analyses/EXTERNAL-DATA-LOADING-2026-10.md}）。
+ * {@code project_analyses/current/EXTERNAL-DATA-LOADING-2026-10.md}）。
  * <p>
  * <b>四份产物</b>：
  * <ul>

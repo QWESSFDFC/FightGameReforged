@@ -1,5 +1,6 @@
 package cn.gfhnv.game.officialStuff.customSkill.phainonSkills.awakenSkills;
 
+import cn.gfhnv.game.damage.DamageType;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.officialStuff.customEntity.players.Phainon;
 import cn.gfhnv.game.skill.Skill;
@@ -71,7 +72,7 @@ public class AwakenCommonAttack extends Skill implements SkillCoefficientTunable
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         user.heal((long) (user.getHpMax() * healRatio));
         for (LivingThing livingThing : enemies) {
-            user.makeDamage(livingThing, this);
+            user.makeDamage(livingThing, this, DamageType.CommonAttack);
         }
         if (user instanceof Phainon) {
             ((Phainon) user).addScourge(scourgeGain);

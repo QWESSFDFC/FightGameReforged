@@ -1,5 +1,6 @@
 package cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills;
 
+import cn.gfhnv.game.damage.DamageType;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.officialStuff.customEntity.players.Phainon;
 import cn.gfhnv.game.skill.Skill;
@@ -44,7 +45,7 @@ public class NormalSkill extends Skill {
             System.out.println(user.getName() + "获得了两个火种");
         }
         for (LivingThing livingThing : enemies) {
-            user.makeDamage(livingThing, this);
+            user.makeDamage(livingThing, this, DamageType.SpecialSkill);
 
         }
     }

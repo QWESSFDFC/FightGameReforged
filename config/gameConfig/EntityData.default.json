@@ -25,8 +25,8 @@
         "fireManaGrow": 10.0,
         "dirtManaGrow": 20.0,
         "inventorySlots": 63,
-        "baseCriticalRate": 0.0,
-        "baseCriticalDamage": 0.0,
+        "baseCriticalRate": 0.05,
+        "baseCriticalDamage": 0.5,
         "enhance": 0.0,
         "penetration": 0.0,
         "defenceLoss": 0.0
@@ -61,14 +61,24 @@
         "fireManaGrow": 20.0,
         "dirtManaGrow": 10.0,
         "inventorySlots": 63,
-        "baseCriticalRate": 0.0,
-        "baseCriticalDamage": 0.0,
+        "baseCriticalRate": 0.05,
+        "baseCriticalDamage": 0.5,
         "enhance": 0.0,
         "penetration": 0.0,
         "defenceLoss": 0.0
       },
       "classState": {
-        "ignition": 3
+        "ignition": 3,
+        "ignitionMax": 10,
+        "lowHpIgnitionMax": 15,
+        "lowHpThreshold": 0.5,
+        "highIgnition": 8,
+        "highIgnitionBonusRate": 0.6,
+        "areaPerIgnition": 0.04,
+        "memorizeTrigger": 10,
+        "memorizeCost": 10,
+        "memorizeHealRate": 0.3,
+        "resetIgnition": 3
       },
       "derived": {
         "baseHpMax": 7392,
@@ -208,8 +218,8 @@
         "fireManaGrow": 20.0,
         "dirtManaGrow": 10.0,
         "inventorySlots": 63,
-        "baseCriticalRate": 0.0,
-        "baseCriticalDamage": 0.0,
+        "baseCriticalRate": 0.05,
+        "baseCriticalDamage": 0.5,
         "enhance": 0.0,
         "penetration": 0.0,
         "defenceLoss": 0.0
@@ -257,6 +267,18 @@
         "enhance": 0.0,
         "penetration": 0.0,
         "defenceLoss": 0.0
+      },
+      "classState": {
+        "summonHpCostRate": 0.03,
+        "disasterPowerAttackBonus": 0.08,
+        "damageReductionLayersDefault": 2,
+        "damageReductionPerLayer": 0.25,
+        "containerLimit": 0,
+        "completeContainerChance": 0.34,
+        "phaseTwoDamageReduction": 0.7,
+        "containerHpRatio": 0.15,
+        "containerAttackRatio": 0.4,
+        "completeContainerHpRatio": 0.25
       },
       "derived": {
         "baseHpMax": 80000,
@@ -360,8 +382,8 @@
         "fireManaGrow": 20.0,
         "dirtManaGrow": 10.0,
         "inventorySlots": 0,
-        "baseCriticalRate": 0.0,
-        "baseCriticalDamage": 0.0,
+        "baseCriticalRate": 0.05,
+        "baseCriticalDamage": 0.5,
         "enhance": 0.0,
         "penetration": 0.0,
         "defenceLoss": 0.0
@@ -810,13 +832,58 @@
       "hpMagnification": 0.0,
       "atkMagnification": 0.0,
       "defMagnification": 0.0,
-      "forEnemies": true,
+      "forEnemies": false,
       "consumedMana": {
         "amount": 0.0,
         "element": "FIRE"
       },
       "tags": {
         "ATTACK": 4.0
+      }
+    },
+    "game_official_content:mortenax_blade#淬锋，断魄": {
+      "aims": 1,
+      "coolDown": 0,
+      "hpMagnification": 1.0,
+      "atkMagnification": 0.0,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "consumedMana": {
+        "amount": 0.0,
+        "element": "FIRE"
+      },
+      "tags": {
+        "ATTACK": 5.0
+      }
+    },
+    "game_official_content:mortenax_blade#刃下，归葬": {
+      "aims": -1,
+      "coolDown": 0,
+      "hpMagnification": 0.72,
+      "atkMagnification": 0.0,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "consumedMana": {
+        "amount": 0.0,
+        "element": "FIRE"
+      },
+      "tags": {
+        "ATTACK": 6.0
+      }
+    },
+    "game_official_content:mortenax_blade#千冶铸一，万劫烬灭": {
+      "aims": -1,
+      "coolDown": 0,
+      "hpMagnification": 3.5,
+      "atkMagnification": 0.0,
+      "defMagnification": 0.0,
+      "forEnemies": true,
+      "consumedMana": {
+        "amount": 0.0,
+        "element": "FIRE"
+      },
+      "tags": {
+        "ATTACK": 8.0
       }
     }
   }

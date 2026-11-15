@@ -1,5 +1,6 @@
 package com.gfhnv.mods.drunkenSword;
 
+import cn.gfhnv.game.damage.DamageType;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
@@ -115,7 +116,7 @@ public class FrostSword extends Skill {
                 if (target == null || !target.isAlive()) {
                     continue;
                 }
-                user.makeDamage(target, strike);
+                user.makeDamage(target, strike, DamageType.UltimateAttack);
             }
         }
 

@@ -35,7 +35,13 @@ public class Mana {
     }
 
     public void setAmount(double amount) {
+        double before = this.amount;
         this.amount = Math.min(amount, amountMax);
+        if (this.amount != before) {
+            // 法力变化（第 74 批新增事件）：回蓝、技能扣蓝都经过这里；Mana 不持有拥有者
+            cn.gfhnv.game.event.EventBus.post(
+                    new cn.gfhnv.game.event.ManaChangedEvent(this, before, this.amount));
+        }
     }
 
     public ElementSort getElementSort() {

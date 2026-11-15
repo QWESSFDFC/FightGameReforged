@@ -1,6 +1,18 @@
 {
   "entities": {
     "game_official_content:flameReaver": {
+      "classState": {
+        "disasterPowerAttackBonus": 0.08,
+        "summonHpCostRate": 0.03,
+        "containerLimit": 0,
+        "phaseTwoDamageReduction": 0.7,
+        "completeContainerHpRatio": 0.25,
+        "damageReductionPerLayer": 0.25,
+        "completeContainerChance": 0.34,
+        "containerHpRatio": 0.15,
+        "containerAttackRatio": 0.4,
+        "damageReductionLayersDefault": 2
+      },
       "derived": {
         "baseAttack": 9050,
         "hp": 80000,
@@ -49,9 +61,9 @@
         "description": "这是玩家一.",
         "type": "player",
         "waterResistance": 0,
-        "baseCriticalDamage": 0,
+        "baseCriticalDamage": 0.5,
         "fireResistance": 0.3,
-        "baseCriticalRate": 0,
+        "baseCriticalRate": 0.05,
         "element": "DIRT",
         "enhance": 0,
         "metalResistance": 0,
@@ -73,7 +85,19 @@
       }
     },
     "game_official_content:actorLiXiaoYan": {
-      "classState": {"ignition": 3},
+      "classState": {
+        "highIgnitionBonusRate": 0.6,
+        "areaPerIgnition": 0.04,
+        "lowHpThreshold": 0.5,
+        "highIgnition": 8,
+        "lowHpIgnitionMax": 15,
+        "memorizeHealRate": 0.3,
+        "ignitionMax": 10,
+        "memorizeCost": 10,
+        "ignition": 3,
+        "resetIgnition": 3,
+        "memorizeTrigger": 10
+      },
       "derived": {
         "baseAttack": 2838,
         "hp": 7392,
@@ -86,9 +110,9 @@
         "description": "这是李晓焰.",
         "type": "player",
         "waterResistance": 0,
-        "baseCriticalDamage": 0,
+        "baseCriticalDamage": 0.5,
         "fireResistance": 0.4,
-        "baseCriticalRate": 0,
+        "baseCriticalRate": 0.05,
         "element": "FIRE",
         "enhance": 0,
         "metalResistance": 0,
@@ -202,9 +226,9 @@
         "description": "这是白厄.",
         "type": "player",
         "waterResistance": 0,
-        "baseCriticalDamage": 0,
+        "baseCriticalDamage": 0.5,
         "fireResistance": 0.7,
-        "baseCriticalRate": 0,
+        "baseCriticalRate": 0.05,
         "element": "FIRE",
         "enhance": 0,
         "metalResistance": 0,
@@ -246,9 +270,9 @@
         "description": "这是千冶·刃",
         "type": "player",
         "waterResistance": 0,
-        "baseCriticalDamage": 0,
+        "baseCriticalDamage": 0.5,
         "fireResistance": 0.7,
-        "baseCriticalRate": 0,
+        "baseCriticalRate": 0.05,
         "element": "FIRE",
         "enhance": 0,
         "metalResistance": 0,

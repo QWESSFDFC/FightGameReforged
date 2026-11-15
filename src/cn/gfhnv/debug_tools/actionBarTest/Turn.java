@@ -43,7 +43,7 @@ public class Turn {
         System.out.println("startTime" + startTime);
         System.out.println("needTime" + needTime);
         System.out.println("actTime" + TestTurnManager.getPresentTime().toString());
-        Turn turn = new Turn(actingEntity, TestTurnManager.getPresentTime(), BigDecimal.valueOf(10000 / actingEntity.transToLivingTing().getSpeed()));
+        Turn turn = new Turn(actingEntity, TestTurnManager.getPresentTime(), BigDecimal.valueOf(10000 / actingEntity.transToLivingThing().getSpeed()));
         TestTurnManager.getTurns().add(turn);
         System.out.println("now time" + TestTurnManager.getPresentTime().toString());
         System.out.println("new turn");

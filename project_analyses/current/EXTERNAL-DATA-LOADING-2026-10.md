@@ -28,7 +28,7 @@
 | **技能数据能不能外置？** | **能**：倍率 / 目标数 / 冷却 / 消耗 / AI 权重。**不能**：`comeToEffect` 的行为逻辑、"每层 +1.5 倍率"这类由玩法推出来的动态值 | 前者是纯数值，后者是代码；把后者塞进 JSON 只会得到一份读不懂的规则表 |
 | **魔法数字的判据？** | **"会随平衡变 + 改了不影响机制 + 有名字和量纲"三条全中才外置**；结构常量（元素数 6、背包 63、`SKIP_WITHOUT_NEW_TURN`）与公式骨架（`110` / `200` / `10×等级`）**留在代码里** | 见第六节的判据表 |
 | **热重载？** | **不做**。改文件 → 重启游戏 | 要热重载就得处理"已经复制出去的副本 + 已经挂上的效果"（`ENTITY-ATTRIBUTE-SPLIT-2026-10.md` 第二节那张生命周期表），代价远大于收益；README / `MODDING-GUIDE.md:56` 本来就写着"没有热重载" |
-| **`/data` 键名会变吗？** | **不变**。外部数据**就用 `/data` 的数据名**（`fireResistance` / `hpGrow` / `attackGrow` …） | 一套名字两处用，改一次两边一起改；`notes_for_llm/70-DATA.md:21-22` 已定口径"数据名是对外 API" |
+| **`/data` 键名会变吗？** | **不变**。外部数据**就用 `/data` 的数据名**（`fireResistance` / `hpGrow` / `attackGrow` …） | 一套名字两处用，改一次两边一起改；`notes_for_llm/subsystems/70-DATA.md:21-22` 已定口径"数据名是对外 API" |
 | **13 参构造器动吗？** | **一个字都不动** | `MODDING-GUIDE.md:163-167` / `:451` 把它写成对外 API，模组 `DrunkenSwordsman.java:94` 正在用 |
 | **阶段划分** | **5 步**：①只读键名+自测 → ②实体数值 → ③技能数值 → ④BOSS/魔法数字 + 模组接口 → ⑤文档回写 | 每步自洽、可单独停、不留半成品（第七节） |
 | **最大风险** | **派生值重算**：`setHpGrowNumber()` 这类 setter **不重算** `hp`/`attack`/`defence`（`LivingThing.java:674-711` 只赋值），只有 `setLevel()`（`Entity.java:208-218`）会 | 配置里写 `成长` 而不重算 = "改了没反应"；必须把"先 `setLevel` 再逐项覆盖"写成实现约定 + 自测断言 |
@@ -268,7 +268,7 @@ config/data/<modid>.json 的 <modid>/ 段 + 模组自己 applyConfig 读到的�
 **键 = `World` 注册表里的完整 id**，与 `TagConfig` 完全一致（`ConfigLoader.java:138` 用 `entity.getId()` 精确比较，
 官方内容形如 `game_official_content:playerOne`，模组内容形如 `drunkenSword:drunkenSwordsman`）。
 
-**字段名 = `/data` 的数据名**（`notes_for_llm/70-DATA.md` §5.10 那一套）：
+**字段名 = `/data` 的数据名**（`notes_for_llm/subsystems/70-DATA.md` §5.10 那一套）：
 
 | 配置里的键 | 对应 `/data` 的键 | 代码位置 |
 |---|---|---|
@@ -914,7 +914,7 @@ powershell -ExecutionPolicy Bypass -File .\test-command-system.ps1   # 期望：
 并把 `N` 做成 `config/data/liXiaoYanPlus.json` 的 `ignitionBonus`（`ModDataAware` + `@ModConfig`）。
 写法与"现有扩展点速查表"见 `MODDING-GUIDE.md` 的 **§7.1**。
 
-⚠️ **验过的 / 没验过的**（`mods/` 不在自测编译范围内，见 `notes_for_llm/30-WORKFLOW.md` 的 §6.3）：
+⚠️ **验过的 / 没验过的**（`mods/` 不在自测编译范围内，见 `notes_for_llm/workflow/30-WORKFLOW.md` 的 §6.3）：
 链本身（默认逐位不变、+N 生效、`setIgnition` 跟着夹、副本也生效、折叠顺序、摘掉/清空回到出厂值）
 由 `TestCommandSystem#testIgnitionMaxModifierChain` 的 **15 条**断言覆盖，基线 **630 → 645**；
 模组本体只用 `javac` 单独编过（`exit 0`）并用一个跑完即删的探针验过同一条逻辑
@@ -932,10 +932,10 @@ powershell -ExecutionPolicy Bypass -File .\test-command-system.ps1   # 期望：
 |---|---|
 | `README.md` | 项目结构表加了 `config/gameConfig/{EntityData,SkillData,GameRules}.json` 与 `config/data/`；玩法节加了"数值怎么调" |
 | `MODDING-GUIDE.md` | 新一节"模组配置"（阶段 4 的产物） |
-| `notes_for_llm/70-DATA.md` §5.10 | "配置键 = 数据名"这条契约（键名**没有变动**，只是把"配置文件也用这套名字"写清楚） |
-| `notes_for_llm/90-STATE.md` | 新的自测基线数字（542 → **630**） |
-| `notes_for_llm/30-WORKFLOW.md` | 基线数字与"四份配置文件" |
-| `project_analyses/PROJECT-ANALYSIS-2026-09.md` | 在 §8.1 建议表里给这次改动补一行（做了 / 没做） |
+| `notes_for_llm/subsystems/70-DATA.md` §5.10 | "配置键 = 数据名"这条契约（键名**没有变动**，只是把"配置文件也用这套名字"写清楚） |
+| `notes_for_llm/state/90-STATE.md` | 新的自测基线数字（542 → **630**） |
+| `notes_for_llm/workflow/30-WORKFLOW.md` | 基线数字与"四份配置文件" |
+| `project_analyses/archive/PROJECT-ANALYSIS-2026-09.md` | 在 §8.1 建议表里给这次改动补一行（做了 / 没做） |
 | 本文 | 落地结果、行号漂移、踩到的坑（阶段 2/3/4 三节末尾） |
 
 ---
@@ -946,7 +946,7 @@ powershell -ExecutionPolicy Bypass -File .\test-command-system.ps1   # 期望：
 
 | # | 约束 | 依据 |
 |---|---|---|
-| 1 | **`/data` 键名契约不能破**：`criticalRate` / `alive` / `effects` / `hpGrow` / `attackGrow` / `defenceGrow` / 五行 `…ManaGrow` 一个都不能改名；122 个 `/data` 断言点硬编码着它们 | `notes_for_llm/70-DATA.md:21-39`、`ENTITY-ATTRIBUTE-SPLIT-2026-10.md:151-154`。**本文的方案正是为了绕开它**：配置键直接用数据名，不引入第二套名字 |
+| 1 | **`/data` 键名契约不能破**：`criticalRate` / `alive` / `effects` / `hpGrow` / `attackGrow` / `defenceGrow` / 五行 `…ManaGrow` 一个都不能改名；122 个 `/data` 断言点硬编码着它们 | `notes_for_llm/subsystems/70-DATA.md:21-39`、`ENTITY-ATTRIBUTE-SPLIT-2026-10.md:151-154`。**本文的方案正是为了绕开它**：配置键直接用数据名，不引入第二套名字 |
 | 2 | **13 参构造器签名与参数顺序不许动** | `MODDING-GUIDE.md:163-167` 与 `:451`、`mods/drunkenSword/.../DrunkenSwordsman.java:94` |
 | 3 | **`setXxx` 名字不许动**（`setHpGrowNumber` / `setAtkGrowNumber` / `setDfkGrowNumber` / `setSpeed` / `setLevel` …） | 同上（文档把它们写成 API），且 `/data` 的写回是 `"set"+Java字段名` 拼出来的（`70-DATA.md:41-44`） |
 | 4 | **副本语义不许变**：补丁打在**模板**上，"面板属性复制、临时属性清零"那张表（`copy()` ↔ `clearTemporaryAttributes()`）不许跟着改 | `ENTITY-ATTRIBUTE-SPLIT-2026-10.md` 阶段 0 的规则："不是面板属性的，一律清零；面板属性一律复制" |
@@ -987,7 +987,7 @@ powershell -ExecutionPolicy Bypass -File .\test-command-system.ps1   # 期望：
 | D7 | **"同类模板多条"会让按类匹配失效** | `World.registeredIdOf` 是"先短名精确匹配，匹配不到退回同类第一条"（`World.java:255-275`）；官方注册了**两个 `BrokenContainer`**（残破 / 完整，`OfficialGameContent.java:60-62`） | 配置**必须**用完整 id 做键（`brokenContainer` vs 另一个）。用类名当键会让两种容器共用一份配置 —— 这是 `PROJECT-ANALYSIS-2026-09.md` §6.3 修过一次的老坑 |
 | D8 | **"容器"这类实体是运行时 `new` 出来的** | `BrokenContainer.java:273-295` 按召唤者的最大生命/攻击算自己的值 | 阶段 1 的"只补注册表模板"**覆盖不到**它身上的**动态**值（那是设计，不是缺陷），但**模板上的成长/抗性**能覆盖到 —— 文档要写清这条边界，免得用户改了 `brokenContainer` 的血量发现"召唤出来的还是老样子" |
 | D9 | **`ModLoader` 的兜底很薄**（与本次直接相关的一条） | `:45` / `:71` / `:148` 只 `catch (Exception)`；`ModLoader.java:110-113` 的 `URLClassLoader` 被 try-with-resources 提前关；`:115` 的静态块抛 `Error` 会穿透 | 模组接口的调用点（`GameStartEventListener.java:17-23` 那个循环）**不能**再引入"一个模组抛异常 → 后面的模组全不加载"的新风险：`applyConfig` 必须包在 try/catch 里（`catch (Throwable)`），失败只跳过这个模组的配置 |
-| D10 | **`dataNames()` 与"实际能写回的键"两个口径** | `notes_for_llm/70-DATA.md:78-82`：`dataNames()` 是字段清单，有些键**永远 dump 不出来** | 阶段 0 的"键名契约自测"**不能**只比 `dataNames()`（阶段 1 实测过这类假绿，`ENTITY-ATTRIBUTE-SPLIT-2026-10.md` 阶段 1 坑 ①）：要比"**真的 dump 出来的键**"与"**配置里真的能生效的键**"两边 |
+| D10 | **`dataNames()` 与"实际能写回的键"两个口径** | `notes_for_llm/subsystems/70-DATA.md:78-82`：`dataNames()` 是字段清单，有些键**永远 dump 不出来** | 阶段 0 的"键名契约自测"**不能**只比 `dataNames()`（阶段 1 实测过这类假绿，`ENTITY-ATTRIBUTE-SPLIT-2026-10.md` 阶段 1 坑 ①）：要比"**真的 dump 出来的键**"与"**配置里真的能生效的键**"两边 |
 
 ---
 
@@ -1041,7 +1041,7 @@ powershell -ExecutionPolicy Bypass -File .\test-command-system.ps1
 #    → 期望 通过 754 条，失败 0 条（2026-10-03 第十二节落地之后 AI 实跑；
 #      第十一节之后是 737，阶段 2/3/4 之后是 630/677/702/707，阶段 0+1 之后是 531，
 #      更早的 483/0 是用户 2026-10-02 跑的；
-#      AI 侧等价命令与"别接管道"那条坑见 notes_for_llm/30-WORKFLOW.md 的 §0）
+#      AI 侧等价命令与"别接管道"那条坑见 notes_for_llm/workflow/30-WORKFLOW.md 的 §0）
 #    ⚠️ 沙箱里 `test-command-system.ps1` 跑不了（它把 javac 输出接进 Tee-Object = 被禁的管道捕获），
 #       直接调 javac/java 即可（命令见 30-WORKFLOW.md §0 的等价写法）
 
@@ -1177,7 +1177,7 @@ Get-ChildItem .\config -Recurse -File | ForEach-Object { $_.FullName }
 ---
 
 *本文由 AI（DeepSeek）生成，2026-10-03。所有"现状"结论均已在源码中逐一核对（附行号，清单见附录 B）；
-数字的统计口径与复现命令见附录 A。真要动手时请先回写 `notes_for_llm/70-DATA.md` 与 `90-STATE.md`，
+数字的统计口径与复现命令见附录 A。真要动手时请先回写 `notes_for_llm/subsystems/70-DATA.md` 与 `90-STATE.md`，
 再回来更新本文。以源码为准。*
 
 *2026-10-03 同日追加：阶段 0 与阶段 1 **已落地并实跑通过**（`通过 531 条，失败 0 条`），
@@ -1221,7 +1221,7 @@ Get-ChildItem .\config -Recurse -File | ForEach-Object { $_.FullName }
 
 | # | 一句话 | 结案 |
 |---|---|---|
-| **D1** | `META` 里 15 个键声明"能配置"、补丁器从来不读 | **已修**：5 个**面板属性**（`criticalRate` / `criticalDMG` / `enhance` / `penetration` / `defenseLoss`）真的接上了（表里各一行），`copy()` 会带、战斗结束不清；另外 11 个（`extraDamage` + 五元素 `*Penetration` / `*DamageEnhance`）**从 `DataKeys` 里摘掉**，写进配置会得到一句带理由的报错（见 90-STATE 的"顺手发现 3 个新缺陷"） |
+| **D1** | `META` 里 15 个键声明"能配置"、补丁器从来不读 | **已修**：5 个**面板属性**（`criticalRate` / `criticalDamage` / `enhance` / `penetration` / `defenseLoss`）真的接上了（表里各一行），`copy()` 会带、战斗结束不清；另外 11 个（`extraDamage` + 五元素 `*Penetration` / `*DamageEnhance`）**从 `DataKeys` 里摘掉**，写进配置会得到一句带理由的报错（见 90-STATE 的"顺手发现 3 个新缺陷"） |
 | **D2** | `Temporary` 分组是个死概念，写 `"temporary": {...}` 得到误导性报错 | **已修**：那块现在会得到「「temporary」不是一个配置块：实体补丁只认 [base, derived]……」并告诉你面板属性该写哪儿 |
 | **D3** | `recalculateDerivedStats` 把三围公式又写了一遍 | **已修**：`200` / `110` / `200` 改成读 `formula.hpBase` / `attackBase` / `defenceBase`；自测新增「改了 `formula.hpBase` 之后，只写 `hpGrow` 的实体也跟着变」 |
 | **D4** | `DEFAULT_TAGS_CONFIG` 与 `TagConfig.json` 是同一份内容的两个副本 | **判为非缺陷 + 加守卫**：Java 里那份的定位是"出厂默认值"，`TagConfig.json` 是**用户副本**（用户改它合法，两者不同是允许的）；所以自测**不**做逐字节比对（那会在用户合法改动后变成假失败），只钉住出厂默认值本身的形状 |
@@ -1486,7 +1486,7 @@ Get-ChildItem .\config -Recurse -File | ForEach-Object { $_.FullName }
 **验收（AI 实跑，自带 JDK / `out/llmcheck`）**：`check-sources.ps1` → `Java files: 225 / CHECK OK`；
 `javac` → `exit 0`；自测 → **`通过 788 条，失败 0 条`**（769 → 788，**只涨不跌**）。
 （**这行是那一轮的快照**：之后同日的「`/data` 嵌套引用只给 uuid + 攻击行带短标识」一轮把它推到
-**797/0、226 个文件**，见 `notes_for_llm/90-STATE.md` 的 §9.1。）
+**797/0、226 个文件**，见 `notes_for_llm/state/90-STATE.md` 的 §9.1。）
 新用例 `testSkillRegistry`（14 条）+ 改写旧"现状记录"断言（5 条）＝ +19。
 关键数值对照：`SkillData.json` 里现在有那 5 个键；
 把 `game_official_content:phainon#支柱-死星天裁` 的 `hitsPerScourge` 从 6 改成 1 →
@@ -1497,7 +1497,7 @@ Get-ChildItem .\config -Recurse -File | ForEach-Object { $_.FullName }
 `officialStuff/OfficialGameContent.java`、`customSkill/actorLiXiaoYanSkills/{CommonAttack,UltimateAttack}.java`、
 `customSkill/phainonSkills/normalSkills/UltimateAttack.java`、`customSkill/phainonSkills/awakenSkills/CalamitySoulscorchEdict.java`、
 `customEntity/players/Phainon.java`、`configLoadingSystem/{SkillDataPatcher,ConfigDefaultWriter,DataKeys}.java`、
-`debug_tools/TestCommandSystem.java`；对外契约写回 `notes_for_llm/70-DATA.md` **§5.10.3**。
+`debug_tools/TestCommandSystem.java`；对外契约写回 `notes_for_llm/subsystems/70-DATA.md` **§5.10.3**。
 
 #### 12.4.2 ✅ 第 2 轮修正：id 落在"每一份实例"上（2026-10-03，用户实测报"技能 id 不全"）
 

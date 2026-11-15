@@ -1,5 +1,6 @@
 package com.gfhnv.mods.drunkenSword;
 
+import cn.gfhnv.game.entity.PropertyEnhanceType;
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.effect.EffectTags;
 import cn.gfhnv.game.entity.LivingThing;
@@ -90,7 +91,7 @@ public class Hangover extends Effect {
     @Override
     public void comeIntoEffect(LivingThing thing) {
         if (!isOn) {
-            thing.setDefenceEnhancePercent(thing.getDefenceEnhancePercent() + DEFENCE_PERCENT);
+            thing.addPropertyEnhance(PropertyEnhanceType.DEFENCE, DEFENCE_PERCENT, 0, this);
             isOn = true;
         }
     }
@@ -102,7 +103,7 @@ public class Hangover extends Effect {
      */
     @Override
     public void whenLastTimeEnd(LivingThing thing) {
-        thing.setDefenceEnhancePercent(thing.getDefenceEnhancePercent() - DEFENCE_PERCENT);
+        thing.removePropertyEnhance(this);
         isOn = false;
     }
 }

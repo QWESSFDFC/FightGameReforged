@@ -1,18 +1,16 @@
 package cn.gfhnv.debug_tools;
 
-import cn.gfhnv.game.data.*;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.item.Item;
-import cn.gfhnv.game.system.command.*;
-import cn.gfhnv.game.system.fight.*;
+import cn.gfhnv.game.system.command.CommandManager;
 import cn.gfhnv.game.world.World;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static cn.gfhnv.debug_tools.TestKit.*;
+import static cn.gfhnv.debug_tools.TestKit.check;
+import static cn.gfhnv.debug_tools.TestKit.section;
 import static cn.gfhnv.debug_tools.TestSupport.*;
-import static cn.gfhnv.debug_tools.TestProbes.*;
 
 /**
  * 自测：**流程**。
@@ -22,6 +20,9 @@ import static cn.gfhnv.debug_tools.TestProbes.*;
  * 由 {@code TestCommandSystem#main} 按顺序调用 {@code SelectionTests#runAll()}。
  */
 public final class SelectionTests {
+
+    private SelectionTests() {
+    }
 
     /**
      * 选择实体 / 物品的输入规则（2026-10-03 用户："打全 next 太长" + "选择实体/物品时支持输入多个"）。
@@ -314,8 +315,5 @@ public final class SelectionTests {
     public static void runAll() throws Exception {
         testSelectionInputSyntax();
         testStartAFightSelection();
-    }
-
-    private SelectionTests() {
     }
 }

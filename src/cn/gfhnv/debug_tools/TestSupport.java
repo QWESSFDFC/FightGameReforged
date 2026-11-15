@@ -1,7 +1,9 @@
 package cn.gfhnv.debug_tools;
 
-import cn.gfhnv.game.data.*;
+import cn.gfhnv.game.annotation.SubscribeEvent;
+import cn.gfhnv.game.data.DataFlatten;
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.entity.PropertyEnhanceType;
 import cn.gfhnv.game.entityController.FixOrderController;
 import cn.gfhnv.game.event.DamageEvent;
 import cn.gfhnv.game.event.EventBus;
@@ -16,9 +18,10 @@ import cn.gfhnv.game.officialStuff.customEntity.players.ActorLiXiaoYan;
 import cn.gfhnv.game.officialStuff.customEntity.players.Phainon;
 import cn.gfhnv.game.officialStuff.customEntity.players.PlayerOne;
 import cn.gfhnv.game.skill.Skill;
-import cn.gfhnv.game.system.command.*;
-import cn.gfhnv.game.system.configLoadingSystem.DataKeys;
-import cn.gfhnv.game.system.fight.*;
+import cn.gfhnv.game.system.command.CommandManager;
+import cn.gfhnv.game.system.fight.Fight;
+import cn.gfhnv.game.system.fight.TurnEntry;
+import cn.gfhnv.game.system.fight.TurnManager;
 import cn.gfhnv.game.world.World;
 
 import java.math.BigDecimal;
@@ -74,24 +77,52 @@ public final class TestSupport {
      */
     static final java.util.Set<String> REFLECTION_ONLY_SCALAR_KEYS =
             new java.util.TreeSet<>(Arrays.asList(
-                    // ① 五元素穿透 / 五元素增伤（10 个）：临时属性，AttributeProfile#copyFrom 刻意不带
-                    "metalPenetration", "woodPenetration", "waterPenetration",
-                    "firePenetration", "dirtPenetration",
-                    "metalDamageEnhance", "woodDamageEnhance", "waterDamageEnhance",
-                    "fireDamageEnhance", "dirtDamageEnhance",
-                    // ② *Enhance* 运行时加成（13 个）：效果与技能"进来加、走时减"，战斗结束清零
-                    //    healEnhancePercent 是 2026-10-24 加的（治疗量加成，原先 12 个）
-                    "healEnhancePercent",
-                    "attackEnhancePercent", "attackEnhanceAmount",
-                    "defenceEnhancePercent", "defenceEnhanceAmount",
-                    "speedEnhancePercent", "speedEnhanceAmount",
-                    "hpEnhancePercent", "hpEnhanceAmount",
-                    "criticalDamageEnhancePercent", "criticalDamageEnhanceAmount",
-                    "criticalRateEnhancePercent", "criticalRateEnhanceAmount",
+                    // ② 2026-11-14 起 13 个 *Enhance* 标量已搬进 `propertyEnhances` 条目列表，
+                    //    不再是标量字段（所以不在这张"反射面多出来的标量键"清单里）
                     // ③ 死字段：全项目零写入点（活的那套是 Skill#extraDamage）
                     "extraDamage",
                     // ④ 派生面板倍率：由角色构造器算（清了会永久削弱该角色）
                     "individualMultipleArea"));
+
+    private TestSupport() {
+    }
+
+    /**
+     * <b>「只挨一次打 → 只出一刀」+「中止变身自己收口」</b>：跑<b>真实回合循环</b>的守卫
+     * （2026-10 用户实测的「白厄无敌」+「每挨一次打就放一次【最后一击】」）。
+     * <p>
+     * 场景与用户那条日志同形：白厄变身（{@code extraTurns = 3}）→ 敌方行动打出致死伤害 →
+     * 免死把血锁在 1 → <b>中止变身</b>（时间轴上那 8 条额外回合被摘掉）。
+     * <p>
+     * 钉住三件事：
+     * <ol>
+     *     <li><b>退出协议必须在"中止变身"这一刻走完</b>：它原来挂在时间轴第 8 条额外回合的收尾队列里，
+     *     而中止变身干的正是把那些条目摘掉 —— 于是"中止变身"取消了变身的退出协议，
+     *     白厄留在觉醒状态、{@code pendingLastAttack} 永不清、血永久锁 1（= 白厄无敌）；</li>
+     *     <li><b>一次挨打只出一刀</b>：那一刀排在"当前回合收尾队列"上，同一圈循环只执行一次
+     *     （挨打探针只有 2 点血：一刀 2600 必死。若同一圈排了两刀，各自的倍率会对半砍到 1300、
+     *     它反而活着 —— 于是"排了几刀"变成一个能观测的数字）；</li>
+     *     <li><b>变身退掉之后不再复发</b>：退出协议跑完 {@code isAwaken} 就是 false，
+     *     免死不再武装 —— 所以不存在"每挨一次打就再放一次【最后一击】"。</li>
+     * </ol>
+     * <p>
+     * 这条用例能进 {@code src} 靠的是两个<b>自测专用装配入口</b>：
+     * {@link cn.gfhnv.game.GameMain#setFightInProgressForSelfTest(boolean)}（回合循环的硬门）
+     * 与 {@link Phainon#forSelfTest(Phainon)}（换成不读标准输入的控制器）。
+     * <p>
+     * ⚠️ <b>它一个数值都没改</b>：{@code LastAttack} 的 {@code 0.125}、下限 {@code 7}、
+     * 12 火种、8 个额外回合、75% 减伤全部原样（探针自己的倍率与血量只服务这条用例）。
+     *
+     * @author AI（DeepSeek）生成
+     */
+    /**
+     * <b>效果结算前移</b>（2026-11-14 第 58 批，Step 6 第一步）：
+     * 回合头输出之后先 tick 效果，再跑「开场动作」与正式行动。
+     * <p>
+     * 判据用<b>顺序</b>而不是数值:探针效果在 {@code comeIntoEffect} 里记一个 {@code TICK},
+     * 开场动作里记一个 {@code FIRST};新顺序必须是 {@code [TICK, FIRST]}。
+     * 老实现（tick 在回合最后一步）会记成 {@code [FIRST, TICK]}，这条断言就会红。
+     */
 
     /**
      * 白厄免死自测（2026-10 用户实测：变身 + 灾厄-弑魂焚诏击败完整容器拿到额外回合之后，
@@ -145,7 +176,7 @@ public final class TestSupport {
             TurnEntry wardTurn = new TurnEntry(wardPhainon, BigDecimal.ZERO, BigDecimal.ZERO);
             FightTurnPastListener.setPresentTurn(wardTurn);
             int queuedBefore = wardTurn.getLastExecuteList().size();
-            wardPhainon.getDamage(wardHit);
+            wardPhainon.takeDamage(wardHit);
             check("免死：标志未置位时锁 1 血、置位标志、把最后一击排进当前回合",
                     wardPhainon.getHp() == 1
                             && wardPhainon.isPendingLastAttack()
@@ -156,7 +187,7 @@ public final class TestSupport {
 
             // ② 同一回合里第二次致死：不再排第二刀（这条是老行为，不能被兜底改掉）
             int queuedAfterFirst = wardTurn.getLastExecuteList().size();
-            wardPhainon.getDamage(wardHit);
+            wardPhainon.takeDamage(wardHit);
             check("免死：同一回合里重复致死只锁血、不再排第二刀（老行为保留）",
                     wardPhainon.getHp() == 1
                             && wardTurn.getLastExecuteList().size() == queuedAfterFirst);
@@ -190,33 +221,125 @@ public final class TestSupport {
     }
 
     /**
-     * <b>「只挨一次打 → 只出一刀」+「中止变身自己收口」</b>：跑<b>真实回合循环</b>的守卫
-     * （2026-10 用户实测的「白厄无敌」+「每挨一次打就放一次【最后一击】」）。
-     * <p>
-     * 场景与用户那条日志同形：白厄变身（{@code extraTurns = 3}）→ 敌方行动打出致死伤害 →
-     * 免死把血锁在 1 → <b>中止变身</b>（时间轴上那 8 条额外回合被摘掉）。
-     * <p>
-     * 钉住三件事：
-     * <ol>
-     *     <li><b>退出协议必须在"中止变身"这一刻走完</b>：它原来挂在时间轴第 8 条额外回合的收尾队列里，
-     *     而中止变身干的正是把那些条目摘掉 —— 于是"中止变身"取消了变身的退出协议，
-     *     白厄留在觉醒状态、{@code pendingLastAttack} 永不清、血永久锁 1（= 白厄无敌）；</li>
-     *     <li><b>一次挨打只出一刀</b>：那一刀排在"当前回合收尾队列"上，同一圈循环只执行一次
-     *     （挨打探针只有 2 点血：一刀 2600 必死。若同一圈排了两刀，各自的倍率会对半砍到 1300、
-     *     它反而活着 —— 于是"排了几刀"变成一个能观测的数字）；</li>
-     *     <li><b>变身退掉之后不再复发</b>：退出协议跑完 {@code isAwaken} 就是 false，
-     *     免死不再武装 —— 所以不存在"每挨一次打就再放一次【最后一击】"。</li>
-     * </ol>
-     * <p>
-     * 这条用例能进 {@code src} 靠的是两个<b>自测专用装配入口</b>：
-     * {@link cn.gfhnv.game.GameMain#setFightInProgressForSelfTest(boolean)}（回合循环的硬门）
-     * 与 {@link Phainon#forSelfTest(Phainon)}（换成不读标准输入的控制器）。
-     * <p>
-     * ⚠️ <b>它一个数值都没改</b>：{@code LastAttack} 的 {@code 0.125}、下限 {@code 7}、
-     * 12 火种、8 个额外回合、75% 减伤全部原样（探针自己的倍率与血量只服务这条用例）。
-     *
-     * @author AI（DeepSeek）生成
+     * <b>时间轴排不出回合时必须收掉战斗</b>（2026-11-15 第 70 批，A3）：
+     * 两边都还有人、但回合列表是空的时候，回合循环要发 {@code FightEndEvent} 并退出，
+     * 不能只 {@code break} —— 只 break 会留下 "fightInProgress 仍为 true + 本场监听器没注销"。
      */
+    static void testTimelineDeadEndEndsFight() {
+        System.out.println();
+        System.out.println("-------- 回合流程：时间轴排不出回合时收掉战斗（A3） --------");
+        boolean inFightBefore = cn.gfhnv.game.GameMain.isInFight();
+        List<TurnEntry> turnsBefore = new ArrayList<>(TurnManager.getTurns());
+        boolean[] ended = {false};
+        Object probe = new Object() {
+            @SubscribeEvent
+            public void onEnd(cn.gfhnv.game.event.FightEndEvent event) {
+                ended[0] = !event.isPlayerWin();
+            }
+        };
+        FightTurnPastListener driver = new FightTurnPastListener();
+        try {
+            LivingThing fighter = new PlayerOne(125);
+            fighter.setName("平局探针");
+            fighter.getController().getSkills().clear();
+            LivingThing enemy = new cn.gfhnv.game.officialStuff.customEntity.monsters.CommonInsect(125L);
+            enemy.getController().getSkills().clear();
+            cn.gfhnv.game.system.fight.Fight fight = new cn.gfhnv.game.system.fight.Fight(
+                    new ArrayList<>(List.of(enemy)), new ArrayList<>(), new ArrayList<>(List.of(fighter)));
+
+            TurnManager.setTurns(new ArrayList<>());     // ★ 空时间轴：两边都活着但排不出回合
+            TurnManager.setPresentTime(BigDecimal.ZERO);
+            TurnManager.setInitialized(false);
+
+            EventBus.register(probe);
+            EventBus.register(new cn.gfhnv.game.eventListener.FightEndEventListener(driver));
+            cn.gfhnv.game.GameMain.setFightInProgressForSelfTest(true);
+            EventBus.register(driver);
+            EventBus.post(new cn.gfhnv.game.event.FightPastOneTurnEvent(fight));
+
+            check("时间轴排不出回合：发了 FightEndEvent（未胜利结算）而不是只 break —— 实际 ended="
+                    + ended[0], ended[0]);
+            check("时间轴排不出回合：这一场结束后回合列表是空的", TurnManager.getTurns().isEmpty());
+        } catch (Exception e) {
+            fail("时间轴兜底测试抛出异常：" + e);
+        } finally {
+            EventBus.unregister(probe);
+            EventBus.unregister(driver);
+            cn.gfhnv.game.GameMain.setFightInProgressForSelfTest(inFightBefore);
+            TurnManager.setTurns(turnsBefore);
+            TurnManager.setPresentTime(null);
+            TurnManager.setInitialized(false);
+            FightTurnPastListener.setPresentTurn(null);
+        }
+    }
+
+    static void testEffectTicksBeforeAction() {
+        System.out.println();
+        System.out.println("-------- 回合流程：效果结算在回合头、动作之前（Step 6 第一步） --------");
+        boolean inFightBefore = cn.gfhnv.game.GameMain.isInFight();
+        List<TurnEntry> turnsBefore = new ArrayList<>(TurnManager.getTurns());
+        List<String> order = new ArrayList<>();
+        try {
+            World.getSkillList();
+            LivingThing actor = new PlayerOne(125);
+            actor.setName("顺序探针");
+            // 技能表清空：这一回合不去读标准输入
+            actor.getController().getSkills().clear();
+
+            cn.gfhnv.game.effect.Effect probe = new cn.gfhnv.game.effect.Effect("orderProbe") {
+                @Override
+                public void comeIntoEffect(LivingThing thing) {
+                    order.add("TICK");
+                }
+            };
+            probe.setLastTime(3);
+            actor.addEffectDirect(probe);
+
+            LivingThing enemy = new cn.gfhnv.game.officialStuff.customEntity.monsters.CommonInsect(125L);
+            enemy.setName("顺序探针靶子");
+            enemy.getController().getSkills().clear();
+
+            List<LivingThing> fighters = new ArrayList<>();
+            fighters.add(actor);
+            List<LivingThing> enemies = new ArrayList<>();
+            enemies.add(enemy);
+            cn.gfhnv.game.system.fight.Fight fight = new cn.gfhnv.game.system.fight.Fight(enemies,
+                    new ArrayList<>(), fighters);
+
+            TurnManager.setTurns(new ArrayList<>());
+            TurnManager.setPresentTime(BigDecimal.ZERO);
+            TurnManager.setInitialized(false);
+            TurnEntry turn = new TurnEntry(actor, BigDecimal.ZERO, BigDecimal.ZERO);
+            // 开场动作：在"动作之前"跑，用它当"动作之前"的标记
+            turn.getFirstExecuteList().add((f, user) -> order.add("FIRST"));
+            TurnManager.getTurns().add(turn);
+            TurnManager.getTurns().add(new TurnEntry(enemy, BigDecimal.ZERO, BigDecimal.ZERO));
+
+            EventBus.register(new ProbeStopAfterOneTurn());
+            // 效果 tick 由 EffectEventListener 执行；自测进程里它不一定已注册，这里显式挂一个
+            cn.gfhnv.game.eventListener.EffectEventListener ticker =
+                    new cn.gfhnv.game.eventListener.EffectEventListener();
+            EventBus.register(ticker);
+            cn.gfhnv.game.GameMain.setFightInProgressForSelfTest(true);
+            FightTurnPastListener driver = new FightTurnPastListener();
+            EventBus.register(driver);
+            EventBus.post(new cn.gfhnv.game.event.FightPastOneTurnEvent(fight));
+            EventBus.unregister(driver);
+            EventBus.unregister(ticker);
+
+            check("效果结算前移：tick 发生在开场动作之前（顺序 " + order + "）",
+                    order.size() >= 2 && "TICK".equals(order.get(0)) && "FIRST".equals(order.get(1)));
+        } catch (Exception e) {
+            fail("效果结算前移测试抛出异常：" + e);
+        } finally {
+            cn.gfhnv.game.GameMain.setFightInProgressForSelfTest(inFightBefore);
+            TurnManager.setTurns(turnsBefore);
+            TurnManager.setPresentTime(null);
+            TurnManager.setInitialized(false);
+            FightTurnPastListener.setPresentTurn(null);
+        }
+    }
+
     static void testAwakenInterruptExitProtocol() {
         System.out.println();
         System.out.println("-------- 白厄：中止变身自己收口 + 只挨一次打只反击一次（真实回合循环） --------");
@@ -239,8 +362,8 @@ public final class TestSupport {
             // 变身那一套数值加成必须一起补上：UltimateAttack 变身时 +0.8 攻击 / +2.7 生命，
             // 退出协议的 AwakeEndListener 结束时会各减回去。只摆 isAwaken 不摆这两项的话，
             // 退出时会把生命加成减成 -2.7 → getHpMax() 变成负数（实测 -6453），免死锁血也救不回来。
-            awakened.setAttackEnhancePercent(awakened.getAttackEnhancePercent() + 0.8);
-            awakened.setHpEnhancePercent(awakened.getHpEnhancePercent() + 2.7);
+            awakened.addPropertyEnhance(PropertyEnhanceType.ATTACK, 0.8, 0, Phainon.AWAKEN_ENHANCE_SOURCE);
+            awakened.addPropertyEnhance(PropertyEnhanceType.MAX_HP, 2.7, 0, Phainon.AWAKEN_ENHANCE_SOURCE);
 
             // 挨打探针只有 2 点血：只要它活过这一圈，就说明"最后一击"被排了不止一次
             victim = new ProbeFragileDummy();
@@ -254,7 +377,7 @@ public final class TestSupport {
 
             TurnManager.setTurns(new ArrayList<>());
             TurnManager.setPresentTime(BigDecimal.ZERO);
-            TurnManager.setIsInitialized(false);
+            TurnManager.setInitialized(false);
             // 时间轴：两人都排在 0，探针速度 500 先手（用例要打的是"白厄挨打"，不是"白厄打它"）。
             // ⚠️ 手摆列表时**必须把两边都排进去** —— 只排白厄的话探针永远轮不到，这一圈根本打不起来。
             TurnManager.getTurns().add(new TurnEntry(awakened, BigDecimal.ZERO, BigDecimal.ZERO));
@@ -283,7 +406,7 @@ public final class TestSupport {
             EventBus.unregister(probeListener);
             TurnManager.setTurns(turnsBefore);
             TurnManager.setPresentTime(null);
-            TurnManager.setIsInitialized(false);
+            TurnManager.setInitialized(false);
             FightTurnPastListener.setPresentTurn(null);
         }
         if (awakened == null || victim == null) {
@@ -351,8 +474,8 @@ public final class TestSupport {
                 phainon.setAwaken(true);
                 phainon.setExtraTurns(8);
                 phainon.setInterruptedRemainingExtraTurns(-1);
-                phainon.setAttackEnhancePercent(phainon.getAttackEnhancePercent() + 0.8);
-                phainon.setHpEnhancePercent(phainon.getHpEnhancePercent() + 2.7);
+                phainon.addPropertyEnhance(PropertyEnhanceType.ATTACK, 0.8, 0, Phainon.AWAKEN_ENHANCE_SOURCE);
+                phainon.addPropertyEnhance(PropertyEnhanceType.MAX_HP, 2.7, 0, Phainon.AWAKEN_ENHANCE_SOURCE);
             }
             first.setSoulscorch(3);
             second.setSoulscorch(5);
@@ -385,7 +508,9 @@ public final class TestSupport {
             //    上限不塌（塌了就会把血夹到 0，那正是第二遍执行时的样子 —— 实测 hp=0、baseHpMax=-6453）。
             //    「回血」读的是**减加成之前**的上限（退出协议先把加成减掉、再按旧上限回血），
             //    回完之后再被**新上限**夹一次 —— 期望值按这个顺序算，不然会误判。
-            solo.setHpEnhancePercent(5.4);
+            // 5.4 = 变身那份 2.7 + 额外 2.7（后者用不同来源，退出协议只摘变身那份）
+            solo.addPropertyEnhance(PropertyEnhanceType.MAX_HP, 2.7, 0, Phainon.AWAKEN_ENHANCE_SOURCE);
+            solo.addPropertyEnhance(PropertyEnhanceType.MAX_HP, 2.7, 0, "自测-额外生命加成");
             solo.setAwaken(true);
             solo.setExtraTurns(8);
             listenerOfSolo = new cn.gfhnv.game.officialStuff.customEvent.phainonEvents.AwakeEndListener(solo);
@@ -954,8 +1079,8 @@ public final class TestSupport {
         section("李晓焰：燃点上限修正链（模组扩展点）");
 
         ActorLiXiaoYan li = new ActorLiXiaoYan(125);
-        int baseNormal = ActorLiXiaoYan.Rule.ignitionMax();
-        int baseLow = ActorLiXiaoYan.Rule.lowHpIgnitionMax();
+        int baseNormal = ActorLiXiaoYan.Defaults.IGNITION_MAX;
+        int baseLow = ActorLiXiaoYan.Defaults.LOW_HP_IGNITION_MAX;
 
         // ① 出厂状态：链是空的，数值必须与"没有这个扩展点"时逐位相同
         check("燃点链：出厂时链是空的", ActorLiXiaoYan.getIgnitionMaxModifiers().isEmpty());
@@ -1359,7 +1484,7 @@ public final class TestSupport {
      * @param str     要检查的字符串
      */
     static void collectNonGbk(List<String> bad, java.nio.charset.CharsetEncoder encoder,
-                                      String what, String str) {
+                              String what, String str) {
         if (str == null) {
             return;
         }
@@ -1655,8 +1780,5 @@ public final class TestSupport {
     static String lastFighterId(Fight fight) {
         List<LivingThing> fighters = fight.getFighterList();
         return fighters.isEmpty() ? null : fighters.get(fighters.size() - 1).getId();
-    }
-
-    private TestSupport() {
     }
 }

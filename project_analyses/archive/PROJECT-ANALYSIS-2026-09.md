@@ -1,14 +1,14 @@
 # FightGameReforged 项目分析（2026-09-26 版）
 
-> **文档分类**：[D1] 分析 · 当前基准 ｜ **这是什么**：全项目复核（200 文件 / 29,398 行）与缺陷清单 ｜ **读者**：引擎开发者 ｜ **时效**：2026-09-26 快照；**当前基准**
+> **文档分类**：[D4] 分析 · 历史基准（已被 2026-11-15 版取代） ｜ **这是什么**：全项目复核（200 文件 / 29,398 行）与缺陷清单 ｜ **读者**：引擎开发者 ｜ **时效**：2026-09-26 快照；**已过时** —— 现役基准是 [`PROJECT-ANALYSIS-2026-11-15.md`](../current/PROJECT-ANALYSIS-2026-11-15.md)
 
-> ✅ **当前基准文档**（2026-09-26 · 复核范围：`src/` 下全部 **200 个 Java 文件 / 29,398 行**、`mods/` 3 个模组、`config/`、`build.gradle` 与根目录脚本）。
-> 它取代了这几份的整体分析定位：[`ANALYSIS-review4.md`](ANALYSIS-review4.md)（第 4 轮 · 118 文件 / ~8500 行）、
-> [`ANALYSIS-2026-08.md`](ANALYSIS-2026-08.md)、[`STATUS-2026-08-review2.md`](STATUS-2026-08-review2.md)、
-> [`STATUS-2026-08-review3.md`](STATUS-2026-08-review3.md)、[`ProjectStatus.txt`](ProjectStatus.txt)、[`ANALYSIS.md`](ANALYSIS.md)。
-> **不**取代：[`COMMAND-SYSTEM-2026-08.md`](COMMAND-SYSTEM-2026-08.md)（命令系统的设计细节）、
-> [`FLAME-REAVER-2026-09.md`](FLAME-REAVER-2026-09.md)（盗火行者的官方数据对照与逐条实现记录）、
-> [`NBT-AND-DATA-COMMAND-2026-09.md`](NBT-AND-DATA-COMMAND-2026-09.md)（NBT 与 `/data` 的**可行性分析**，
+> ⚠️ **历史基准文档**（2026-09-26；已被 2026-11-15 版取代） · 复核范围：`src/` 下全部 **200 个 Java 文件 / 29,398 行**、`mods/` 3 个模组、`config/`、`build.gradle` 与根目录脚本）。
+> 它取代了这几份的整体分析定位：[`ANALYSIS-review4.md`](../archive/ANALYSIS-review4.md)（第 4 轮 · 118 文件 / ~8500 行）、
+> [`ANALYSIS-2026-08.md`](../archive/ANALYSIS-2026-08.md)、[`STATUS-2026-08-review2.md`](../archive/STATUS-2026-08-review2.md)、
+> [`STATUS-2026-08-review3.md`](../archive/STATUS-2026-08-review3.md)、[`ProjectStatus.txt`](../archive/ProjectStatus.txt)、[`ANALYSIS.md`](../archive/ANALYSIS.md)。
+> **不**取代：[`COMMAND-SYSTEM-2026-08.md`](../current/COMMAND-SYSTEM-2026-08.md)（命令系统的设计细节）、
+> [`FLAME-REAVER-2026-09.md`](../current/FLAME-REAVER-2026-09.md)（盗火行者的官方数据对照与逐条实现记录）、
+> [`NBT-AND-DATA-COMMAND-2026-09.md`](../current/NBT-AND-DATA-COMMAND-2026-09.md)（NBT 与 `/data` 的**可行性分析**，
 > 尚未实现）——这几份仍是各自主题的权威文档。
 >
 > **可信度分级**（沿用 `TIPS_FOR_LLM.md` §0 的约定；**2026-09-26 起 AI 已能本地编译 + 跑自测**，见该节）：
@@ -258,7 +258,7 @@
 | 东西 | 现状（2026-09-26 核对） |
 |---|---|
 | `ThinkingControllerAI`（Utility AI） | 已实现，但**没有任何生物在使用**：生物构造器普遍用 `new UniversalController(...)`；`config/gameConfig/TagConfig.json` 的权重因此对玩法**没有影响** |
-| 暴击系统 | **实战中永远不会暴击**（已核实）：`DamageCalculate.java:55` 判 `Math.random() <= criticalRate`，而基础暴击率来自 `getCriticalRATE` 字段，唯一入口 `facSetCriticalRATE()` / `setGetCriticalRATE()` **没有任何实体调用过**（只有自测把它设成 `-1` 来关掉随机性）；连基础爆伤 `facSetCriticalDMG()` 也没人调 |
+| 暴击系统 | **实战中永远不会暴击**（已核实）：`DamageCalculate.java:55` 判 `Math.random() <= criticalRate`，而基础暴击率来自 `getCriticalRATE` 字段，唯一入口 `facSetCriticalRATE()` / `setGetCriticalRATE()` **没有任何实体调用过**（只有自测把它设成 `-1` 来关掉随机性）；连基础爆伤 `facSetCriticalDamage()` 也没人调 |
 | 物理系统 `system/physics/` | 数据结构齐全，但 `PhysicsStateUpdateEvent` **全项目没有任何 `post`**（只有 `PhysicsEventListener` 在等它）→ 永不触发（已核实） |
 | `ActEvent` | 只有类定义：无发布方、无监听器（已核实） |
 | `TurnManager.nextTurn(fight)` | 定义在 `TurnManager.java:56`，**没有任何调用方**（已核实）；推进由回合循环自己 `continue` |
@@ -273,7 +273,7 @@
 ## 三、命令系统（2026-09 的主线）
 
 规模：`game/system/command` 29 文件 4647 行 + 官方命令 9 文件 1480 行。设计细节见
-[`COMMAND-SYSTEM-2026-08.md`](COMMAND-SYSTEM-2026-08.md)，这里只记录**当前实际形态**与后续补的规矩。
+[`COMMAND-SYSTEM-2026-08.md`](../current/COMMAND-SYSTEM-2026-08.md)，这里只记录**当前实际形态**与后续补的规矩。
 
 ### 3.1 入口与写法（已核实）
 
@@ -289,7 +289,7 @@
 - **`/data`**（2026-09-26 新增）：`/data get entity <目标> [路径]` 与 `/data merge entity <目标> <NBT>`，
   背后是新的 `game.data` 包（NBT 标签 + SNBT 文本 + 路径 + 反射桥）。
   规矩与红线集中在 `TIPS_FOR_LLM.md` §5.10，可行性分析见
-  [`NBT-AND-DATA-COMMAND-2026-09.md`](NBT-AND-DATA-COMMAND-2026-09.md)。
+  [`NBT-AND-DATA-COMMAND-2026-09.md`](../current/NBT-AND-DATA-COMMAND-2026-09.md)。
   它给命令系统补了一块新能力：**读词器新增 `StringReader#readBalanced()`**
   （括号内的空格不断词），所以参数里终于能出现 `{hp: 20}` 这种带空格的写法。
 
@@ -466,7 +466,7 @@
 | 2 | §4.2 回合靠**递归**推进 → 长战斗爆栈 | ✅ **已修复** | `FightTurnPastListener.java:123-124` 的 `turnLoop: while (isDriving)`；`TurnManager.nextTurn()` 已无调用点 |
 | 3 | §4.3 `UltimateAttack` 依赖**静态** `presentTurn` | ⚠️ **部分修复** | 静态字段仍在（`FightTurnPastListener.java:26`）、两处仍无判空（`phainonSkills/normalSkills/UltimateAttack.java:63`、`Phainon.java:149`）；但"捕获了外层实例"的老 bug 已修（`Phainon.java:141-142` 用 `instanceof` 模式 + `isAnticipating()` 护栏） |
 | 4 | §4.4 `Skill` 两个语义冲突的 `canUse`/`use` 重载 | ⚠️ **部分修复** | 冷却已统一（`Skill.java:288` 与 `:328` 都是 `setNowCoolDown(getCoolDown())`）、`tags` 已复制（`:67-73`）；但 `UniversalController.java:115` 仍给三参 `canUse` 传 `null` |
-| 5 | §4.5 `getCriticalDMG()` 取错字段 | ✅ **已修复** | `LivingThing.java:1996`：`criticalDMG * (1 + criticalDMGEnhancePercent) + criticalDMGEnhanceAmount` |
+| 5 | §4.5 `getCriticalDamage()` 取错字段 | ✅ **已修复** | `LivingThing.java:1996`：`criticalDamage * (1 + criticalDamageEnhancePercent) + criticalDamageEnhanceAmount` |
 | 6 | §4.6 `Mana` 只有一个上限、元素是装饰 | ⚠️ **部分修复** | 元素已不是装饰（`Skill.java:189-200` 按 `elementSort` 选池扣费、`LivingThing.java:529-561` 主元素上限 +200）；但构造器仍把"消耗 0"与"上限 0"绑在一起（`Mana.java:13`，`setAmountMax` 全项目零调用）——该形态当前不可达 |
 | 7 | §4.7 `canUse()` 有副作用（扣蓝） | ❌ **仍在** | `RestorationHealthSkill.java:37` 在判定里扣蓝；`PlayerController.java:118` + `:184` 一次施法会走 2~3 次扣费路径 → **一次治疗实扣约 3 倍**。"蓝扣光必死循环"不成立（还能改选别的技能），但技能全不可用时 `while(true)` 没有出口 |
 | 8 | §4.8 `Skill.extraDamage` 只增不减 | ⚠️ **部分修复** | 整数除法与"加算/减算配对"已修（`CommonAttack.java:24-45`、`PyrohemicPumping.java:41-58`）；但**全项目仍无重置点**，`PyrohemicPumping.java:34` 的 `×1.5` 没有上限 —— 与 `Skill.java:46` 注释"伤害计算后重置为零"**自相矛盾** |

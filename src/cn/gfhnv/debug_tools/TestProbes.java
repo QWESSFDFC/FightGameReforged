@@ -1,26 +1,19 @@
 package cn.gfhnv.debug_tools;
 
 import cn.gfhnv.game.annotation.SubscribeEvent;
-import cn.gfhnv.game.data.*;
+import cn.gfhnv.game.damage.DamageType;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entityController.UniversalController;
 import cn.gfhnv.game.event.DamageEvent;
 import cn.gfhnv.game.event.Event;
 import cn.gfhnv.game.interfaces.IModifyDamage;
 import cn.gfhnv.game.mod.Mod;
-import cn.gfhnv.game.officialStuff.customEntity.players.Phainon;
-import cn.gfhnv.game.officialStuff.customEntity.players.PlayerOne;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
-import cn.gfhnv.game.system.command.*;
-import cn.gfhnv.game.system.fight.*;
-import cn.gfhnv.game.world.World;
+import cn.gfhnv.game.system.fight.Fight;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import static cn.gfhnv.debug_tools.TestKit.*;
-import static cn.gfhnv.debug_tools.TestSupport.*;
 
 /**
  * 自测用的**探针类型**（假实体、假模组、假效果、假技能、假监听器）。
@@ -29,6 +22,9 @@ import static cn.gfhnv.debug_tools.TestSupport.*;
  * runner 只负责"按顺序调用各个测试类"。
  */
 public final class TestProbes {
+
+    private TestProbes() {
+    }
 
     /**
      * 可以抛异常的操作。
@@ -419,7 +415,7 @@ public final class TestProbes {
         @Override
         public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
             for (LivingThing target : new ArrayList<>(enemies)) {
-                user.makeDamage(target, this);
+                user.makeDamage(target, this, DamageType.SpecialSkill);
             }
         }
     }
@@ -749,13 +745,14 @@ public final class TestProbes {
         }
     }
 
-
     /**
      * 数"被 tick 了几次"的探针效果（用于钉 {@code lastTime} 的口径）。
      */
     static class ProbeCountingEffect extends cn.gfhnv.game.effect.Effect {
 
-        /** {@code comeIntoEffect} 被调用了几次（含挂上那一刻的 initialEffect）。 */
+        /**
+         * {@code comeIntoEffect} 被调用了几次（含挂上那一刻的 initialEffect）。
+         */
         int applies = 0;
 
         ProbeCountingEffect(int lastTime) {
@@ -771,8 +768,5 @@ public final class TestProbes {
         public cn.gfhnv.game.effect.Effect copy() {
             return new ProbeCountingEffect(getLastTime());
         }
-    }
-
-    private TestProbes() {
     }
 }

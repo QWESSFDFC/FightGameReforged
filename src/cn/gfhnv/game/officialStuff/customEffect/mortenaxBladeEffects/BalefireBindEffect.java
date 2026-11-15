@@ -15,7 +15,7 @@ import cn.gfhnv.game.entity.LivingThing;
  *     （{@code addDamageReduction(this, -0.5)}）。2026-10-24 起承伤倍率允许 &gt; 1，
  *     所以负减伤 = 增伤（见 {@code LivingThing#getDamageTakenMultiplier()} 的注释）。</li>
  * </ul>
- * 两个都"进来加、到期减"，形状与 {@code CriticalDMGEnhanceEffect} 一致。
+ * 两个都"进来加、到期减"，形状与 {@code CriticalDamageEnhanceEffect} 一致。
  *
  * @author AI（DeepSeek）生成；设计稿作者：仓库作者
  */
@@ -72,7 +72,7 @@ public class BalefireBindEffect extends Effect {
     @Override
     public void comeIntoEffect(LivingThing thing) {
         if (!isOn) {
-            thing.setDefenseLoss(thing.getDefenseLoss() + DEFENCE_LOSS);
+            thing.setDefenceLoss(thing.getDefenceLoss() + DEFENCE_LOSS);
             // 负数 = 增伤：受到伤害 ×(1 + 0.5)
             thing.addDamageReduction(this, -DAMAGE_TAKEN_INCREASE);
         }
@@ -81,7 +81,7 @@ public class BalefireBindEffect extends Effect {
 
     @Override
     public void whenLastTimeEnd(LivingThing thing) {
-        thing.setDefenseLoss(thing.getDefenseLoss() - DEFENCE_LOSS);
+        thing.setDefenceLoss(thing.getDefenceLoss() - DEFENCE_LOSS);
         thing.removeDamageReduction(this);
         isOn = false;
     }

@@ -1,22 +1,20 @@
 package cn.gfhnv.debug_tools;
 
-import cn.gfhnv.game.data.*;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.mod.Mod;
-import cn.gfhnv.game.officialStuff.customEntity.monsters.CommonInsect;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.FlameReaver;
 import cn.gfhnv.game.officialStuff.customEntity.players.ActorLiXiaoYan;
-import cn.gfhnv.game.officialStuff.customEntity.summons.BrokenContainer;
-import cn.gfhnv.game.system.command.*;
-import cn.gfhnv.game.system.fight.*;
+import cn.gfhnv.game.system.command.CommandManager;
+import cn.gfhnv.game.system.fight.Fight;
+import cn.gfhnv.game.system.fight.TurnManager;
 import cn.gfhnv.game.world.World;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static cn.gfhnv.debug_tools.TestKit.*;
-import static cn.gfhnv.debug_tools.TestSupport.*;
-import static cn.gfhnv.debug_tools.TestProbes.*;
+import static cn.gfhnv.debug_tools.TestProbes.ProbeSummonEntity;
+import static cn.gfhnv.debug_tools.TestSupport.lastFighterId;
 
 /**
  * 自测：**命令**。
@@ -26,6 +24,9 @@ import static cn.gfhnv.debug_tools.TestProbes.*;
  * 由 {@code TestCommandSystem#main} 按顺序调用 {@code SummonTests#runAll()}。
  */
 public final class SummonTests {
+
+    private SummonTests() {
+    }
 
     /**
      * {@code /summon}：默认我方、可指定敌方、命名空间规则、入场初始化补齐。
@@ -140,8 +141,5 @@ public final class SummonTests {
      */
     public static void runAll() throws Exception {
         testSummonCommand();
-    }
-
-    private SummonTests() {
     }
 }

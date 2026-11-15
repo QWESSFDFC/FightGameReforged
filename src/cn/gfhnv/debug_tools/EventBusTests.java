@@ -1,14 +1,11 @@
 package cn.gfhnv.debug_tools;
 
-import cn.gfhnv.game.data.*;
 import cn.gfhnv.game.event.EventBus;
-import cn.gfhnv.game.system.command.*;
-import cn.gfhnv.game.system.fight.*;
 
 import java.util.List;
 
-import static cn.gfhnv.debug_tools.TestKit.*;
-import static cn.gfhnv.debug_tools.TestSupport.*;
+import static cn.gfhnv.debug_tools.TestKit.check;
+import static cn.gfhnv.debug_tools.TestKit.section;
 import static cn.gfhnv.debug_tools.TestProbes.*;
 
 /**
@@ -19,6 +16,9 @@ import static cn.gfhnv.debug_tools.TestProbes.*;
  * 由 {@code TestCommandSystem#main} 按顺序调用 {@code EventBusTests#runAll()}。
  */
 public final class EventBusTests {
+
+    private EventBusTests() {
+    }
 
     /**
      * <b>事件总线内部行为</b>（2026-10-24 重写内部实现，事件类与监听器一行没改）：
@@ -115,8 +115,5 @@ public final class EventBusTests {
      */
     public static void runAll() throws Exception {
         testEventBusInternals();
-    }
-
-    private EventBusTests() {
     }
 }

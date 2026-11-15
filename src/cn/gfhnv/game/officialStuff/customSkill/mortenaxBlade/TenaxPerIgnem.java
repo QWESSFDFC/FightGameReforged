@@ -1,5 +1,6 @@
 package cn.gfhnv.game.officialStuff.customSkill.mortenaxBlade;
 
+import cn.gfhnv.game.damage.DamageType;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.interfaces.IAiScoreBonus;
 import cn.gfhnv.game.officialStuff.customEntity.players.MortenaxBlade;
@@ -115,7 +116,7 @@ public class TenaxPerIgnem extends Skill implements IAiScoreBonus {
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         for (LivingThing enemy : enemies) {
-            user.makeDamage(enemy, this);
+            user.makeDamage(enemy, this, DamageType.UltimateAttack);
         }
         if (user instanceof MortenaxBlade blade) {
             // 付能量：清掉一个 energyMax（溢出留下）

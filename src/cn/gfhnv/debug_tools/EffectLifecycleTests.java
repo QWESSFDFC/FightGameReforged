@@ -1,7 +1,7 @@
 package cn.gfhnv.debug_tools;
 
-import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.entity.PropertyEnhanceType;
 import cn.gfhnv.game.event.EffectUpdateEvent;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.officialStuff.customEffect.universalEffects.AttackEnhance;
@@ -11,22 +11,25 @@ import cn.gfhnv.game.system.fight.TurnEntry;
 import cn.gfhnv.game.system.fight.TurnManager;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
 
-import static cn.gfhnv.debug_tools.TestKit.*;
-import static cn.gfhnv.debug_tools.TestProbes.*;
-import static cn.gfhnv.debug_tools.TestSupport.*;
+import static cn.gfhnv.debug_tools.TestKit.check;
+import static cn.gfhnv.debug_tools.TestKit.section;
+import static cn.gfhnv.debug_tools.TestProbes.ProbeCountingEffect;
+import static cn.gfhnv.debug_tools.TestSupport.entityTemplateOf;
+import static cn.gfhnv.debug_tools.TestSupport.hasEffect;
 
 /**
  * 自测：**效果生命周期**（`lastTime` 口径 / 到期收尾 / 战斗结束后的清理）。
  * <p>
  * 主题：`Effect` 的计时与收尾 —— 2026-10-25 统一口径为"`lastTime` = 还会 tick 几次"，
- * 以及"战斗结束后临时属性不能是负值"。坑的清单见 `notes_for_llm/80-EFFECTS.md`。
+ * 以及"战斗结束后临时属性不能是负值"。坑的清单见 `notes_for_llm/subsystems/80-EFFECTS.md`。
  * <p>
  * 由 {@code TestCommandSystem#main} 按顺序调用 {@code EffectLifecycleTests#runAll()}。
  */
 public final class EffectLifecycleTests {
+
+    private EffectLifecycleTests() {
+    }
 
     /**
      * <b>`lastTime = N` ⇒ 只再 tick N 次，第 N 次 tick 当场收尾移除</b>（2026-10-25 统一口径）。
@@ -57,7 +60,7 @@ public final class EffectLifecycleTests {
     }
 
     /**
-     * <b>`lastTime = 1` 的冰冻只跳一次</b>（2026-10-25 修 K15）。
+     * <b>`lastTime = 1` 的冰冻只跳一次</b>。
      * <p>
      * 做法：时间轴上排两个回合条目，挂上冰冻时"下一个"被标记跳过；tick 一次（= 被跳过那回合的末尾）
      * 之后，**再下一个**不能被标记 —— 标记了就是"冻两回合"。
@@ -88,24 +91,24 @@ public final class EffectLifecycleTests {
     }
 
     /**
-     * <b>战斗结束后临时属性不能是负值</b>（2026-10-25 修 K3）。
+     * <b>战斗结束后临时属性不能是负值</b>。
      * <p>
-     * 旧顺序是 `resetTemporary()` 先清零、再让效果 `whenLastTimeEnd` 减一遍 ⇒ 战后变负
-     * （`hpEnhancePercent: -0.2` 这种），带 `HpEnhanceEffect` 时还会把血夹到 0.8×上限。
+     * 为什么必须这个顺序：若 `resetTemporary()` 先清零、再让效果 `whenLastTimeEnd` 减一遍，
+     * 战后属性就会变负（例如 -0.2），带 `HpEnhanceEffect` 时还会把血夹到 0.8×上限。
      */
     private static void testWhenFightEndsLeavesNoNegativeEnhance() {
         section("战斗结束：效果收尾后再清零，*Enhance* 不能变负");
 
         LivingThing dummy = entityTemplateOf("game_official_content:commonInsect").copy();
         dummy.addEffect(new AttackEnhance(0.2, 3));
-        double before = dummy.getAttackEnhancePercent();
+        double before = dummy.getPropertyEnhancePercent(PropertyEnhanceType.ATTACK);
         dummy.whenFightEnds();
         check("挂过攻击增益（+" + Math.round(before * 100) + "%）再结束战斗：清零而不是负值 —— 实际 "
-                        + dummy.getAttackEnhancePercent() + "、" + dummy.getHpEnhancePercent()
-                        + "、" + dummy.getSpeedEnhancePercent(),
-                Math.abs(dummy.getAttackEnhancePercent()) < 1e-9
-                        && Math.abs(dummy.getHpEnhancePercent()) < 1e-9
-                        && Math.abs(dummy.getSpeedEnhancePercent()) < 1e-9);
+                        + dummy.getPropertyEnhancePercent(PropertyEnhanceType.ATTACK) + "、" + dummy.getPropertyEnhancePercent(PropertyEnhanceType.MAX_HP)
+                        + "、" + dummy.getPropertyEnhancePercent(PropertyEnhanceType.SPEED),
+                Math.abs(dummy.getPropertyEnhancePercent(PropertyEnhanceType.ATTACK)) < 1e-9
+                        && Math.abs(dummy.getPropertyEnhancePercent(PropertyEnhanceType.MAX_HP)) < 1e-9
+                        && Math.abs(dummy.getPropertyEnhancePercent(PropertyEnhanceType.SPEED)) < 1e-9);
         check("效果列表也清空了 —— 实际 " + dummy.getEntityEffectList().size() + " 条",
                 dummy.getEntityEffectList().isEmpty());
     }
@@ -126,8 +129,5 @@ public final class EffectLifecycleTests {
         } finally {
             EventBus.unregister(ticker);
         }
-    }
-
-    private EffectLifecycleTests() {
     }
 }

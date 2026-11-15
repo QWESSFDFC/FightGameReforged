@@ -4,15 +4,14 @@ import cn.gfhnv.game.data.*;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.FlameReaver;
 import cn.gfhnv.game.officialStuff.customEntity.players.ActorLiXiaoYan;
-import cn.gfhnv.game.system.command.*;
-import cn.gfhnv.game.system.fight.*;
+import cn.gfhnv.game.system.command.CommandManager;
+import cn.gfhnv.game.system.command.CommandResult;
+import cn.gfhnv.game.system.fight.Fight;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static cn.gfhnv.debug_tools.TestKit.*;
-import static cn.gfhnv.debug_tools.TestSupport.*;
-import static cn.gfhnv.debug_tools.TestProbes.*;
 
 /**
  * 自测：**命令**。
@@ -22,6 +21,9 @@ import static cn.gfhnv.debug_tools.TestProbes.*;
  * 由 {@code TestCommandSystem#main} 按顺序调用 {@code DataModifyTests#runAll()}。
  */
 public final class DataModifyTests {
+
+    private DataModifyTests() {
+    }
 
     /**
      * {@code /data modify}：改到路径深处（列表元素里的字段、映射、标量列表的增删）。
@@ -234,8 +236,5 @@ public final class DataModifyTests {
     public static void runAll() throws Exception {
         testDataModify();
         testDataFiltersAndStorage();
-    }
-
-    private DataModifyTests() {
     }
 }

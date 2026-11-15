@@ -19,6 +19,10 @@ public class PlayerOne extends Player {
 
     public PlayerOne(long l) {
         super("玩家一", "playerOne", 0.3, 0.0, 0.0, 0.0, 0.3, 120, l, "player", 36, 29, 5, ElementSort.DIRT);
+        // 玩家角色的基础暴击率 5% + 基础暴伤 50%（2026-11-15 第 71/73 批，用户定；
+        // 只给默认用 PlayerController 的玩家实体加，怪物 / 召唤物没有暴击机制）
+        this.setCriticalRate(0.05);
+        this.setCriticalDamage(0.5);
         this.setMass(60);
         this.setDescription("这是玩家一.");
         this.getInventory().addSlot(63);

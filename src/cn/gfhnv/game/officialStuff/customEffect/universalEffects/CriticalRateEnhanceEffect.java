@@ -3,6 +3,7 @@ package cn.gfhnv.game.officialStuff.customEffect.universalEffects;
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.effect.EffectTags;
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.entity.PropertyEnhanceType;
 
 public class CriticalRateEnhanceEffect extends Effect {
     private boolean isOn = false;
@@ -67,16 +68,14 @@ public class CriticalRateEnhanceEffect extends Effect {
     @Override
     public void comeIntoEffect(LivingThing thing) {
         if (!isOn) {
-            thing.setCriticalRateEnhanceAmount(thing.getCriticalRateEnhanceAmount() + amount);
-            thing.setCriticalRateEnhancePercent(thing.getCriticalRateEnhancePercent() + percent);
+            thing.addPropertyEnhance(PropertyEnhanceType.CRITICAL_RATE, percent, amount, this);
         }
         isOn = true;
     }
 
     @Override
     public void whenLastTimeEnd(LivingThing thing) {
-        thing.setCriticalRateEnhanceAmount(thing.getCriticalRateEnhanceAmount() - amount);
-        thing.setCriticalRateEnhancePercent(thing.getCriticalRateEnhancePercent() - percent);
+        thing.removePropertyEnhance(this);
         isOn = false;
     }
 

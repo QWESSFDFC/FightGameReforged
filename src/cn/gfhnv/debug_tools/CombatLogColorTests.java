@@ -1,18 +1,15 @@
 package cn.gfhnv.debug_tools;
 
-import cn.gfhnv.game.data.*;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.CommonInsect;
 import cn.gfhnv.game.officialStuff.customEntity.players.PlayerOne;
-import cn.gfhnv.game.system.command.*;
-import cn.gfhnv.game.system.fight.*;
+import cn.gfhnv.game.system.fight.Fight;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static cn.gfhnv.debug_tools.TestKit.*;
-import static cn.gfhnv.debug_tools.TestSupport.*;
-import static cn.gfhnv.debug_tools.TestProbes.*;
+import static cn.gfhnv.debug_tools.TestKit.check;
+import static cn.gfhnv.debug_tools.TestKit.section;
 
 /**
  * 自测：**显示**。
@@ -22,6 +19,9 @@ import static cn.gfhnv.debug_tools.TestProbes.*;
  * 由 {@code TestCommandSystem#main} 按顺序调用 {@code CombatLogColorTests#runAll()}。
  */
 public final class CombatLogColorTests {
+
+    private CombatLogColorTests() {
+    }
 
     /**
      * 战斗日志的颜色约定（{@code 60-COMBAT.md} §5.5.2）。
@@ -82,8 +82,5 @@ public final class CombatLogColorTests {
      */
     public static void runAll() throws Exception {
         testCombatLogColors();
-    }
-
-    private CombatLogColorTests() {
     }
 }

@@ -1,21 +1,19 @@
 package cn.gfhnv.debug_tools;
 
-import cn.gfhnv.game.data.*;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.event.DamageEvent;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.CommonInsect;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.FlameReaver;
 import cn.gfhnv.game.officialStuff.customEntity.players.PlayerOne;
 import cn.gfhnv.game.skill.Skill;
-import cn.gfhnv.game.system.command.*;
-import cn.gfhnv.game.system.fight.*;
+import cn.gfhnv.game.system.fight.Fight;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static cn.gfhnv.debug_tools.TestKit.*;
-import static cn.gfhnv.debug_tools.TestSupport.*;
-import static cn.gfhnv.debug_tools.TestProbes.*;
+import static cn.gfhnv.debug_tools.TestProbes.ProbeSkill;
+import static cn.gfhnv.debug_tools.TestSupport.describeNames;
 
 /**
  * 自测：**官方怪物**。
@@ -25,6 +23,9 @@ import static cn.gfhnv.debug_tools.TestProbes.*;
  * 由 {@code TestCommandSystem#main} 按顺序调用 {@code FlameReaverTests#runAll()}。
  */
 public final class FlameReaverTests {
+
+    private FlameReaverTests() {
+    }
 
     /**
      * 盗火行者的阵营判定自测。
@@ -422,7 +423,7 @@ public final class FlameReaverTests {
             reaver.setHp(1);
             DamageEvent lethal = new DamageEvent(attacker, reaver, probe);
             lethal.getDamage().setDamageAmount(9999L);
-            reaver.getDamage(lethal);
+            reaver.takeDamage(lethal);
             check("致命伤害被挡下：没死，而且进二阶段了",
                     reaver.isPhaseTwo() && reaver.isAlive());
             check("进二阶段时生命回满（不是锁 1 血）",
@@ -445,7 +446,7 @@ public final class FlameReaverTests {
                             && anticipatedTarget.getHp() == 1);
             check("预判之后保护还在（试算没把它消费掉）",
                     !anticipatedTarget.isPhaseTwo());
-            anticipatedTarget.getDamage(anticipated);
+            anticipatedTarget.takeDamage(anticipated);
             check("预判过之后真挨一下，才切阶段并回满",
                     anticipatedTarget.isPhaseTwo()
                             && anticipatedTarget.getHp() == anticipatedTarget.getHpMax());
@@ -454,7 +455,7 @@ public final class FlameReaverTests {
             reaver.setHp(1);
             DamageEvent secondLethal = new DamageEvent(attacker, reaver, probe);
             secondLethal.getDamage().setDamageAmount(9999L);
-            reaver.getDamage(secondLethal);
+            reaver.takeDamage(secondLethal);
             check("保护只有一次：二阶段里再被清空血条就真的倒下",
                     !reaver.isAlive() && reaver.getHp() == 0);
 
@@ -477,8 +478,5 @@ public final class FlameReaverTests {
     public static void runAll() throws Exception {
         testFlameReaverFactions();
         testFlameReaverPhaseTwo();
-    }
-
-    private FlameReaverTests() {
     }
 }

@@ -44,6 +44,7 @@ public class ModLoader {
                 }
             } catch (Exception e) {
                 System.err.println("加载模组失败 [" + modFile.getName() + "]: " + e.getMessage());
+                cn.gfhnv.game.system.logSystem.LogWriter.writeThrowable("加载模组失败 [" + modFile.getName() + "]", e);
 
                 e.printStackTrace();
             }
@@ -70,6 +71,7 @@ public class ModLoader {
             );
         } catch (Exception e) {
             System.err.println("模组 [" + modFolder.getName() + "] main.json 解析失败: " + e.getMessage());
+            cn.gfhnv.game.system.logSystem.LogWriter.writeThrowable("模组 [" + modFolder.getName() + "] main.json 解析失败", e);
 
             return;
         }
@@ -147,6 +149,7 @@ public class ModLoader {
             System.out.println("模组 [" + modInfo.getName() + "] 加载成功！");
         } catch (Exception e) {
             System.err.println("模组 [" + modFolder.getName() + "] 加载失败: " + e.getMessage());
+            cn.gfhnv.game.system.logSystem.LogWriter.writeThrowable("模组 [" + modFolder.getName() + "] 加载失败", e);
             e.printStackTrace();
         }
     }

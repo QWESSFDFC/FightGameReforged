@@ -5,7 +5,7 @@ package cn.gfhnv.game.data;
  * <p>
  * 标签树是"数据的表示"，<b>不是</b>游戏对象的真相 —— 本项目的真相在 Java 对象里
  * （{@code LivingThing} 之类），标签只是它的一个视图/补丁，见
- * {@link DataBridge} 与 {@code project_analyses/NBT-AND-DATA-COMMAND-2026-09.md}。
+ * {@link DataBridge} 与 {@code project_analyses/current/NBT-AND-DATA-COMMAND-2026-09.md}。
  * <p>
  * 文本形式（SNBT）由 {@link #toSnbt()} 给出，解析用 {@link Snbt#parse(String)}。
  * 数字后缀沿用 MC 的习惯：{@code 1b}（字节）、{@code 20L}（长整）、{@code 1.5d}（双精度）。

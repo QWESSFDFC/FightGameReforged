@@ -1,5 +1,6 @@
 package cn.gfhnv.game.officialStuff.customSkill.actorLiXiaoYanSkills;
 
+import cn.gfhnv.game.damage.DamageType;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.officialStuff.customEntity.players.ActorLiXiaoYan;
 import cn.gfhnv.game.skill.Skill;
@@ -91,8 +92,8 @@ public class PyrohemicPumping extends Skill {
         // 注意：清零之后就**不能**再靠"上一回合的残留"来放大低血收益了 ——
         // 所以低血的 ×1.5 是乘在"高燃点加成"上的；没到高燃点线时它是 0 × 1.5 = 0。
         long bonus = 0;
-        if (user instanceof ActorLiXiaoYan li && li.getIgnition() >= ActorLiXiaoYan.Rule.highIgnition()) {
-            bonus += (long) (user.getHpMax() * ActorLiXiaoYan.Rule.highIgnitionBonusRate());
+        if (user instanceof ActorLiXiaoYan li && li.getIgnition() >= li.getHighIgnition()) {
+            bonus += (long) (user.getHpMax() * li.getHighIgnitionBonusRate());
         }
         if (lowHp) {
             bonus = (long) (bonus * LOW_HP_MULTIPLIER);
@@ -100,7 +101,7 @@ public class PyrohemicPumping extends Skill {
         setExtraDamage(bonus);
 
         for (LivingThing livingThing : enemies) {
-            user.makeDamage(livingThing, this);
+            user.makeDamage(livingThing, this, DamageType.SpecialSkill);
         }
 
         // 额外伤害不允许跨回合残留（原实现漏了这一步，见类注释）

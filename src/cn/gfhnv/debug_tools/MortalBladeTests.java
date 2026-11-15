@@ -1,23 +1,21 @@
 package cn.gfhnv.debug_tools;
 
-import cn.gfhnv.game.data.*;
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.entity.PropertyEnhanceType;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.event.SelectTargetEvent;
-import cn.gfhnv.game.interfaces.IModifyDamage;
-import cn.gfhnv.game.officialStuff.customEffect.universalEffects.Taunt;
 import cn.gfhnv.game.officialStuff.customEntity.players.PlayerOne;
 import cn.gfhnv.game.skill.Skill;
-import cn.gfhnv.game.system.command.*;
-import cn.gfhnv.game.system.fight.*;
+import cn.gfhnv.game.system.fight.Fight;
+import cn.gfhnv.game.system.fight.TurnEntry;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static cn.gfhnv.debug_tools.TestKit.*;
+import static cn.gfhnv.debug_tools.TestKit.check;
+import static cn.gfhnv.debug_tools.TestKit.section;
 import static cn.gfhnv.debug_tools.TestSupport.*;
-import static cn.gfhnv.debug_tools.TestProbes.*;
 
 /**
  * 自测：**官方角色**。
@@ -27,6 +25,9 @@ import static cn.gfhnv.debug_tools.TestProbes.*;
  * 由 {@code TestCommandSystem#main} 按顺序调用 {@code MortalBladeTests#runAll()}。
  */
 public final class MortalBladeTests {
+
+    private MortalBladeTests() {
+    }
 
     /**
      * <b>千冶·刃的结界 / 【无量忿怒】</b>（P0 第 3 步，2026-10-24）：终结技「骸骨当炉，血肉即薪」开结界，
@@ -78,19 +79,19 @@ public final class MortalBladeTests {
         List<String> noBind = new ArrayList<>();
         double expectLoss = cn.gfhnv.game.officialStuff.customEffect.mortenaxBladeEffects.BalefireBindEffect.DEFENCE_LOSS;
         for (LivingThing enemy : List.of(enemyA, enemyB)) {
-            if (Math.abs(enemy.getDefenseLoss() - expectLoss) > 1e-9) {
-                noBind.add(enemy.getName() + "=" + enemy.getDefenseLoss());
+            if (Math.abs(enemy.getDefenceLoss() - expectLoss) > 1e-9) {
+                noBind.add(enemy.getName() + "=" + enemy.getDefenceLoss());
             }
         }
         check("施放：敌方全体【煞火缠身】→ 防御削减 30% —— 不符的 " + noBind, noBind.isEmpty());
 
         check("结界：状态位打开了，暴击率 +20% / 暴击伤害 +60% —— 实际 "
-                        + blade.isInfiniteFury() + "、" + blade.getCriticalRateEnhancePercent()
-                        + " / " + blade.getCriticalDMGEnhancePercent(),
+                        + blade.isInfiniteFury() + "、" + blade.getPropertyEnhancePercent(PropertyEnhanceType.CRITICAL_RATE)
+                        + " / " + blade.getPropertyEnhancePercent(PropertyEnhanceType.CRITICAL_DAMAGE),
                 blade.isInfiniteFury()
-                        && Math.abs(blade.getCriticalRateEnhancePercent()
+                        && Math.abs(blade.getPropertyEnhancePercent(PropertyEnhanceType.CRITICAL_RATE)
                         - cn.gfhnv.game.officialStuff.customEffect.mortenaxBladeEffects.InfiniteFuryEffect.CRITICAL_RATE_BONUS) < 1e-9
-                        && Math.abs(blade.getCriticalDMGEnhancePercent()
+                        && Math.abs(blade.getPropertyEnhancePercent(PropertyEnhanceType.CRITICAL_DAMAGE)
                         - cn.gfhnv.game.officialStuff.customEffect.mortenaxBladeEffects.InfiniteFuryEffect.CRITICAL_DAMAGE_BONUS) < 1e-9);
         check("结界：倒计时上了时间轴（速度 70，标签/名字带「无量忿怒」）—— 实际 "
                         + (blade.getFuryCountdown() == null ? "null" : blade.getFuryCountdown().getEntry()),
@@ -154,10 +155,10 @@ public final class MortalBladeTests {
                 newHp == 1 && !blade.isInfiniteFury()
                         && Math.abs(blade.getHp() - (hpBeforeWard + expectHeal)) <= 2);
         check("退出：暴击加成全部回落、倒计时摘掉、技能表换回普通（3 条）—— 实际 "
-                        + blade.getCriticalRateEnhancePercent() + " / " + blade.getCriticalDMGEnhancePercent()
+                        + blade.getPropertyEnhancePercent(PropertyEnhanceType.CRITICAL_RATE) + " / " + blade.getPropertyEnhancePercent(PropertyEnhanceType.CRITICAL_DAMAGE)
                         + "、" + (blade.getFuryCountdown() == null) + "、" + blade.getController().getSkills().size(),
-                Math.abs(blade.getCriticalRateEnhancePercent()) < 1e-9
-                        && Math.abs(blade.getCriticalDMGEnhancePercent()) < 1e-9
+                Math.abs(blade.getPropertyEnhancePercent(PropertyEnhanceType.CRITICAL_RATE)) < 1e-9
+                        && Math.abs(blade.getPropertyEnhancePercent(PropertyEnhanceType.CRITICAL_DAMAGE)) < 1e-9
                         && blade.getFuryCountdown() == null
                         && blade.getController().getSkills().size() == 2);
 
@@ -187,9 +188,14 @@ public final class MortalBladeTests {
         blade.setHp(blade.getHpMax());
 
         blade.endInfiniteFury();
-        check("退出：重复调用幂等（加成不会被减成负数）—— 实际 " + blade.getCriticalRateEnhancePercent(),
-                Math.abs(blade.getCriticalRateEnhancePercent()) < 1e-9);
+        check("退出：重复调用幂等（加成不会被减成负数）—— 实际 " + blade.getPropertyEnhancePercent(PropertyEnhanceType.CRITICAL_RATE),
+                Math.abs(blade.getPropertyEnhancePercent(PropertyEnhanceType.CRITICAL_RATE)) < 1e-9);
     }
+
+    /**
+     * <b>充能监听器</b>（P0 第 6 步，「因果尽偿」前半段）：<b>我方</b>打<b>敌方</b>时千冶·刃 +1 充能，
+     * 敌方打我们不给；战斗结束必须注销（不注销下一场还挂在总线上）。
+     */
 
     /**
      * <b>千冶·刃给 AI 用的时候</b>（P0 第 6 步，用户决定 #2"要 AI 可控"）：
@@ -226,10 +232,6 @@ public final class MortalBladeTests {
                         entityTemplateOf("game_official_content:commonInsect")) == 0d);
     }
 
-    /**
-     * <b>充能监听器</b>（P0 第 6 步，「因果尽偿」前半段）：<b>我方</b>打<b>敌方</b>时千冶·刃 +1 充能，
-     * 敌方打我们不给；战斗结束必须注销（不注销下一场还挂在总线上）。
-     */
     /**
      * <b>【因果尽偿】的"连续触发"</b>（2026-10-24 用户澄清）：充能<b>没有上限</b>，
      * 够一次阈值就扣一次、打一次，剩下的继续 —— 81 点、阈值 9 → 连打 9 次；
@@ -376,7 +378,7 @@ public final class MortalBladeTests {
         // 能量满时清负面（gainEnergy 里的钩子，之前没有"自然涨能"的途径所以没被真正触发过）
         blade.setInfiniteFury(false);
         blade.setEnergy(blade.getEnergyMax() - 10);
-        blade.getEntityEffectList().add(new cn.gfhnv.game.officialStuff.customEffect.universalEffects.Taunt(1));
+        blade.addEffectDirect(new cn.gfhnv.game.officialStuff.customEffect.universalEffects.Taunt(1));
         common.use(fight, blade, List.of(enemy));
         check("能量途径：普攻把能量顶到上限时顺手清掉自身负面（嘲讽被清）—— 能量 " + blade.getEnergy()
                         + "、剩余负面 " + blade.getEntityEffectList().stream()
@@ -426,7 +428,7 @@ public final class MortalBladeTests {
                 new ArrayList<>(List.of(blade, ally)));
 
         double baseEnhance = blade.getEnhance();
-        double baseHeal = blade.getHealEnhancePercent();
+        double baseHeal = blade.getPropertyEnhancePercent(PropertyEnhanceType.HEAL);
         double baseMultiplier = blade.getDamageTakenMultiplier();
         double basePenetration = blade.getPenetration();
         // 队友的 enhance 要在开结界**之前**记 —— 否则记到的是"已经加过 50%"的值
@@ -437,8 +439,8 @@ public final class MortalBladeTests {
         check("【千锻魂】：结界里受到的伤害减半（承伤倍率 " + baseMultiplier + " → "
                         + blade.getDamageTakenMultiplier() + "）",
                 Math.abs(blade.getDamageTakenMultiplier() - baseMultiplier * 0.5) < 1e-9);
-        check("【千锻魂】：受到的治疗量 +50%（" + baseHeal + " → " + blade.getHealEnhancePercent() + "）",
-                Math.abs(blade.getHealEnhancePercent() - (baseHeal + 0.5)) < 1e-9);
+        check("【千锻魂】：受到的治疗量 +50%（" + baseHeal + " → " + blade.getPropertyEnhancePercent(PropertyEnhanceType.HEAL) + "）",
+                Math.abs(blade.getPropertyEnhancePercent(PropertyEnhanceType.HEAL) - (baseHeal + 0.5)) < 1e-9);
         check("【万淬心】：自己额外增伤 +75%（" + baseEnhance + " → " + blade.getEnhance() + "）",
                 Math.abs(blade.getEnhance() - (baseEnhance + 0.75)) < 1e-9);
         boolean allyHasEffect = ally.getEntityEffectList().stream().anyMatch(effect ->
@@ -462,11 +464,11 @@ public final class MortalBladeTests {
         blade.endInfiniteFury();
         blade.setEnhance(0);
         check("退出结界：减伤 / 治疗加成 / 自己的增伤 / 穿透 / 队友的增伤 <b>全部撤回</b> —— 实际 "
-                        + blade.getDamageTakenMultiplier() + " / " + blade.getHealEnhancePercent()
+                        + blade.getDamageTakenMultiplier() + " / " + blade.getPropertyEnhancePercent(PropertyEnhanceType.HEAL)
                         + " / " + blade.getEnhance() + " / " + blade.getPenetration()
                         + " / 队友 " + ally.getEnhance(),
                 Math.abs(blade.getDamageTakenMultiplier() - baseMultiplier) < 1e-9
-                        && Math.abs(blade.getHealEnhancePercent() - baseHeal) < 1e-9
+                        && Math.abs(blade.getPropertyEnhancePercent(PropertyEnhanceType.HEAL) - baseHeal) < 1e-9
                         && Math.abs(blade.getEnhance()) < 1e-9
                         && Math.abs(blade.getPenetration() - basePenetration) < 1e-9
                         && Math.abs(ally.getEnhance() - allyEnhanceBefore) < 1e-9);
@@ -655,7 +657,7 @@ public final class MortalBladeTests {
      * <b>千冶·刃的两个单攻</b>（P0 第 2 步，2026-10-24）：「残锋，掠尽」50% 生命上限 / 「淬锋，断魄」100%，
      * 命中后都使目标嘲讽 1 回合。
      * <p>
-     * 设计稿见 `TODO.md`，施工单见 `project_analyses/MORTENAX-BLADE-2026-10.md`。
+     * 设计稿见 `TODO.md`，施工单见 `project_analyses/current/MORTENAX-BLADE-2026-10.md`。
      * 这里验四件事：① 技能表出厂就是两条（普攻 + 终结技，**强化普攻不在普通形态里**）；② 倍率走的是**生命上限**口径（`hpMagnification`，
      * 攻击/防御倍率全 0）；③ **行为对照**：同一只木桩上 100% 的伤害约等于 50% 的两倍
      * （证明倍率真的进了伤害计算，而不只是"读到了"）；④ 命中挂嘲讽、`origin` 指向千冶·刃。
@@ -739,7 +741,7 @@ public final class MortalBladeTests {
     /**
      * <b>千冶·刃的资源层</b>（P0 第 1 步，2026-10-24）：能量（160 上限 + 80 溢出）与充能（9 点）。
      * <p>
-     * 设计稿见 `TODO.md`，施工单见 `project_analyses/MORTENAX-BLADE-2026-10.md`。
+     * 设计稿见 `TODO.md`，施工单见 `project_analyses/current/MORTENAX-BLADE-2026-10.md`。
      * 这里只验"资源本身"：夹取 / 溢出保留 / 满能解负面 / 开战保底 75% / 战斗结束清零 / 速度 107 /
      * {@code classState} 能配。技能与结界还没写。
      */
@@ -767,7 +769,7 @@ public final class MortalBladeTests {
         check("能量：不到上限时不触发解负面（0 + 150 = 150 < 160）—— 实际 " + blade.getEnergy(),
                 blade.getEnergy() == 150);
 
-        blade.getEntityEffectList().add(new cn.gfhnv.game.officialStuff.customEffect.universalEffects.Taunt(1));
+        blade.addEffectDirect(new cn.gfhnv.game.officialStuff.customEffect.universalEffects.Taunt(1));
         blade.gainEnergy(10);
         check("能量：攒到上限时解除自身所有负面效果（150 + 10 → 160，嘲讽被清）—— 剩余负面数 "
                         + blade.getEntityEffectList().stream().filter(Effect::isNegative).count(),
@@ -873,8 +875,5 @@ public final class MortalBladeTests {
         testMortalBladeEnergyGain();
         testMortalBladeChargeLoop();
         testInfiniteFurySkillsTakeConfig();
-    }
-
-    private MortalBladeTests() {
     }
 }

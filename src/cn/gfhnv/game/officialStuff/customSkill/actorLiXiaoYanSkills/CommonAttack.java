@@ -45,8 +45,8 @@ public class CommonAttack extends cn.gfhnv.game.officialStuff.customSkill.univer
         // 加算与减算必须用「同一时刻」的燃点判断（这里用 wasHigh 快照），
         // 否则会出现「加过却按未加成扣除」或「没加也扣」的配平错误。
         boolean wasHigh = false;
-        if (user instanceof ActorLiXiaoYan li && li.getIgnition() >= ActorLiXiaoYan.Rule.highIgnition()) {
-            setExtraDamage((long) (this.getExtraDamage() + user.getHpMax() * ActorLiXiaoYan.Rule.highIgnitionBonusRate()));
+        if (user instanceof ActorLiXiaoYan li && li.getIgnition() >= li.getHighIgnition()) {
+            setExtraDamage((long) (this.getExtraDamage() + user.getHpMax() * ((ActorLiXiaoYan) user).getHighIgnitionBonusRate()));
             wasHigh = true;
         }
 
@@ -63,7 +63,7 @@ public class CommonAttack extends cn.gfhnv.game.officialStuff.customSkill.univer
 
         // 只扣回「确实加过」的那一次（wasHigh 为 true 才扣），保证加算减算严格配对
         if (wasHigh) {
-            setExtraDamage((long) (this.getExtraDamage() - user.getHpMax() * ActorLiXiaoYan.Rule.highIgnitionBonusRate()));
+            setExtraDamage((long) (this.getExtraDamage() - user.getHpMax() * ((ActorLiXiaoYan) user).getHighIgnitionBonusRate()));
         }
     }
 }

@@ -8,7 +8,7 @@
 > 保留本文档仅供追溯分析过程。
 
 > 本文档由 AI 通读源码后生成，仅作参考，请以源码为准。
-> 复核范围：`../src` 下全部 **118 个 Java 文件（8496 行）**、`git diff` 未提交改动、`../mods`、`../config`。
+> 复核范围：`../../src` 下全部 **118 个 Java 文件（8496 行）**、`git diff` 未提交改动、`../../mods`、`../../config`。
 > 上一轮报告为 `ANALYSIS-2026-08.md`（现已部分过时）。本文档以**当前工作区实际代码**为准。
 
 ---
@@ -35,7 +35,7 @@
  AM officialStuff/customCommands/KillCommand.java ← 新增
 ```
 
-> 注：上一轮我提到的 7 处修改（`Frozen` 声明式改造、`FightTurnPastListener` 循环化、`EffectEventListener` 的 `continue`、`UniversalController` 深拷贝技能、`Skill` 标签深拷贝、`getCriticalDMG` 修字段、`ActorLiXiaoYan`/`ANiceSword`）**已经进入 HEAD**（提交 `b6bce43 small update`），本轮已确认全部落地。
+> 注：上一轮我提到的 7 处修改（`Frozen` 声明式改造、`FightTurnPastListener` 循环化、`EffectEventListener` 的 `continue`、`UniversalController` 深拷贝技能、`Skill` 标签深拷贝、`getCriticalDamage` 修字段、`ActorLiXiaoYan`/`ANiceSword`）**已经进入 HEAD**（提交 `b6bce43 small update`），本轮已确认全部落地。
 
 ---
 
@@ -47,7 +47,7 @@
 | 回合推进靠递归，长战斗爆栈 | ✅ **已修**，改为 `turnLoop` 循环 + `isDriving` 重入闸 + `finally` 复位 + `turns` 空兜底 | `FightTurnPastListener.java:37/45/53/79-83/88-93/152-156` |
 | `Frozen` 时机错位导致 NPE + 挡不住行动 | ✅ **已修**，改为 `initialEffect` 里布置、`whenLastTimeEnd` 不清 `specialAction`、`getNextTurnOf` 判空 | `Frozen.java:61/86-95/107-111` |
 | `Skill(Skill)` 不复制 `tags` | ✅ **已修**，加 `EnumMap` 深拷贝 + `setTags` | `Skill.java:67-79` |
-| `getCriticalDMG()` 取错字段 | ✅ **已修**，改用 `criticalDMGEnhanceAmount` | `LivingThing.java` |
+| `getCriticalDamage()` 取错字段 | ✅ **已修**，改用 `criticalDamageEnhanceAmount` | `LivingThing.java` |
 | 复制构造器不复制 `modifyDamage`/`showSpecialMes` | ✅ **已修** | `LivingThing.java:119-120` |
 | 玩家侧技能对象共享（冷却串味） | ✅ **已修**，`UniversalController(List, owner)` 逐技能 `copy()` | `UniversalController.java:45-50` |
 | 李晓焰复制后丢锁血/免死 | ✅ **已修**（依赖上面两条） | — |
@@ -133,7 +133,7 @@ if (other.getController() instanceof PlayerController) {
 
 ### 🟡 6. 一批数值字段仍不在复制契约内（你确认过是有意的）
 
-复制构造器仍未复制：`attackEnhancePercent/Amount`、`defenceEnhance*`、`speedEnhance*`、`hpEnhance*`、`criticalDMGEnhancePercent/Amount`、`criticalRateEnhancePercent/Amount`、五元素 `*Penetration`、五元素 `*DamageEnhance`、`individualMultipleArea`、`extraDamage`。
+复制构造器仍未复制：`attackEnhancePercent/Amount`、`defenceEnhance*`、`speedEnhance*`、`hpEnhance*`、`criticalDamageEnhancePercent/Amount`、`criticalRateEnhancePercent/Amount`、五元素 `*Penetration`、五元素 `*DamageEnhance`、`individualMultipleArea`、`extraDamage`。
 
 **已知取舍**：你明确说这是想要的。仅提醒一句——`ActorLiXiaoYan` 复制构造器里那句手工 `setIndividualMultipleArea(...)` 就是在给这个取舍打补丁，将来新角色如果有构造期增益，每个都要记得补一句。
 

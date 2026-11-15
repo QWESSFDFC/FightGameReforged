@@ -153,7 +153,7 @@ scalars.put(DataKeys.SkillKeys.AIMS, Json.value(skill.getAims()));
 
 | # | 严重度 | 缺陷 | 证据（行号已用 `ReadAllLines` 核对） | 后果 |
 |---|---|---|---|---|
-| **D1** | ★★★ | **`DataKeys.META` 里 14 个键声明「能配置」，补丁器从来不读它们** | `META` 共 **41** 键 = `base` 22 + `derived` 4 + `temporary` **15**（`buildMeta` `:842-872`），但其中 `showSpecialMes`（`:478`）**没被 `buildMeta` 登记** → `META` 里实际是 **14 个 `temporary` 键**。而补丁器**真的会读**的只有：`patch()` 里的 12 处（`:188-206`：level / name / mass / type / description / speed / elementSort / hpGrow / attackGrow / defenceGrow）+ `applyElementValues` 里的 2 × 5（五抗性 `:387` + 五法力成长 `:390`）+ `applyDerived` 4（`:367-373`）+ `applyInventorySlots` 1（`:208`）= **26 个键**。**那 14 个（`criticalDMG` `:457`、`criticalRate` `:461`、`enhance` `:465`、`defenseLoss` `:469`、`extraDamage` `:473`、五元素 `*Penetration` / `*DamageEnhance` `:859-860`）一个都没被读** | 用户在 `EntityData.json` 里写 `{"base":{"criticalRate":0.5}}` → `reportUnknownKeys`（`:250-276`）用 `DataKeys.isConfigurable("criticalRate")`（`:694`）= `true` 判定「这是认识的键」→ **不报未知、不报跳过、不生效**。★★ **这是最阴的一类：控制台说「应用 0 项，跳过 0 项」，一切正常**。⚠ 这 14 个的**生命周期并不一样**，接上之前必须先分类（见下面的「D1 补充」） |
+| **D1** | ★★★ | **`DataKeys.META` 里 14 个键声明「能配置」，补丁器从来不读它们** | `META` 共 **41** 键 = `base` 22 + `derived` 4 + `temporary` **15**（`buildMeta` `:842-872`），但其中 `showSpecialMes`（`:478`）**没被 `buildMeta` 登记** → `META` 里实际是 **14 个 `temporary` 键**。而补丁器**真的会读**的只有：`patch()` 里的 12 处（`:188-206`：level / name / mass / type / description / speed / elementSort / hpGrow / attackGrow / defenceGrow）+ `applyElementValues` 里的 2 × 5（五抗性 `:387` + 五法力成长 `:390`）+ `applyDerived` 4（`:367-373`）+ `applyInventorySlots` 1（`:208`）= **26 个键**。**那 14 个（`criticalDamage` `:457`、`criticalRate` `:461`、`enhance` `:465`、`defenseLoss` `:469`、`extraDamage` `:473`、五元素 `*Penetration` / `*DamageEnhance` `:859-860`）一个都没被读** | 用户在 `EntityData.json` 里写 `{"base":{"criticalRate":0.5}}` → `reportUnknownKeys`（`:250-276`）用 `DataKeys.isConfigurable("criticalRate")`（`:694`）= `true` 判定「这是认识的键」→ **不报未知、不报跳过、不生效**。★★ **这是最阴的一类：控制台说「应用 0 项，跳过 0 项」，一切正常**。⚠ 这 14 个的**生命周期并不一样**，接上之前必须先分类（见下面的「D1 补充」） |
 | **D2** | ★★ | **`Temporary` 分组名是个死概念，写出来也不生效** | `DataKeys.GROUP_TEMPORARY = "temporary"`（`:119`）在 `buildGroups` 里被用了 2 次（`:830`、`:833`），但 `BARE_SECTIONS` 只有 `{base, derived}`（`:126-127`），`EntityDataPatcher.lookup()`（`:292-320`）只认 `base` / `derived`。真正的问题在**报错混乱**：`reportUnknownKeys`（`:250-276`）两处放行 `DataKeys.isConfigurable(...)`（`:262`、`:272`）→ 写 `"criticalRate"`（裸键或 `base` 里）都会被「认识」，于是既不报错也不生效（= D1）；写 `"temporary": {...}` 这个**块**则会因为不是 `BARE_SECTIONS` 成员而被报成「未知键（这个键不属于实体数据）」 | 文档与外宣（`DataKeys` 类 javadoc `:30`：「`Temporary`：一次性的战斗加成。**能配置**」）与实现**互相矛盾**。用户按文档写就是白写，而且**写错块名时得到的是一句误导性的报错** |
 | **D3** | ★★ | **`EntityDataPatcher.recalculateDerivedStats` 把三围公式又写了一遍，而且没走规则表** | `:231-233` 硬编码 `+ 200` / `110 +` / `+ 200`。而 `RuleDefaults.FORMULA_HP_BASE = 200L`（`:28`）、`FORMULA_DEFENCE_BASE = 200L`（`:32`）、`FORMULA_ATTACK_BASE = 110L`（`:36`）已经是「唯一真相」。同一文件 `:236` 调 `target.initialMana()`（走规则表 `mana.mainBase/otherBase`）—— **同一个方法里，三个常量走字面量、两个常量走规则表** | 用户改 `GameRules.json` 的 `formula.hpBase` 之后，**只写 `hpGrow` 的实体**会被这条重算覆盖成一个用旧公式算的值：改规则表在这个路径上失效。这是「同一件事两处写真值」造成的**行为不一致**，不只是可读性问题 |
 | **D4** | ★★ | **`DEFAULT_TAGS_CONFIG` 与 `TagConfig.json` 是同一份内容的两个副本** | `ConfigLoader.java:87-127` vs `config/gameConfig/TagConfig.json`（41 行，逐行比对一致） | 删掉 `TagConfig.json` 时 `setDefaultConfig()`（`:625-633`）会**用 Java 里那份覆盖**，用户对 `TagConfig.json` 的改动**静默丢失**（这正是 §1.4 那条） |
@@ -167,13 +167,13 @@ scalars.put(DataKeys.SkillKeys.AIMS, Json.value(skill.getAims()));
 
 | 类 | 键 | 住在哪 | `copy()` | 战斗结束 | 接上配置的语义 |
 |---|---|---|---|---|---|
-| **面板属性**（5 个） | `criticalRate`（`LivingThing.java:79` 字段 / `:1427` setter）、`criticalDMG`（`AttributeProfile.java:151` / `LivingThing.java:2170` setter）、`enhance`（`AttributeProfile.java:146`）、`penetration`（`:142`）、`defenseLoss` | `LivingThing` + `AttributeProfile` | **带**（`LivingThing.java:167` 复制 `criticalRate`；`:150` 注释说明组件里"面板属性那一半"由 `copyFrom` 带） | **不清**（`clearTemporaryAttributes()` `:2005-2023`，`:1998-2001` 明确写了"故意不在表里"） | ✅ **干净**：配在模板上 → 选人列表看得见 → 整局都生效 |
+| **面板属性**（5 个） | `criticalRate`（`LivingThing.java:79` 字段 / `:1427` setter）、`criticalDamage`（`AttributeProfile.java:151` / `LivingThing.java:2170` setter）、`enhance`（`AttributeProfile.java:146`）、`penetration`（`:142`）、`defenseLoss` | `LivingThing` + `AttributeProfile` | **带**（`LivingThing.java:167` 复制 `criticalRate`；`:150` 注释说明组件里"面板属性那一半"由 `copyFrom` 带） | **不清**（`clearTemporaryAttributes()` `:2005-2023`，`:1998-2001` 明确写了"故意不在表里"） | ✅ **干净**：配在模板上 → 选人列表看得见 → 整局都生效 |
 | **临时属性**（10 个） | 五元素 `*Penetration` + 五元素 `*DamageEnhance`（`AttributeProfile.java:64-105`） | `AttributeProfile` | **不带** | **清零**（`AttributeProfile.resetTemporary()` `:190-201` ← `LivingThing.clearTemporaryAttributes()` `:2020`） | ⚠ **配了只影响"开局那一刻"**：第一局结束就被清空。`AttributeProfile.java:15-16` 就是这么定义的 |
 | **死字段**（1 个） | `extraDamage` | `LivingThing` | 不带 | 清零（`:2022`） | ❌ **别接**：全项目**零写入点**（`LivingThing.java:1993-1995` 自己写着"死字段"；活的那套是 `Skill#extraDamage`，另一个字段） |
 
-> 这条分类**推翻了一句很流行的说法**：`criticalRate` / `criticalDMG` / `enhance` / `penetration`
+> 这条分类**推翻了一句很流行的说法**：`criticalRate` / `criticalDamage` / `enhance` / `penetration`
 > **不是**"临时属性"（`ENTITY-ATTRIBUTE-SPLIT-2026-10.md` 阶段 0 那份 24 个临时属性清单是
-> 2026-10-03 搬迁**之前**的状态；`penetration` / `enhance` / `criticalDMG` 已经并进
+> 2026-10-03 搬迁**之前**的状态；`penetration` / `enhance` / `criticalDamage` 已经并进
 > `AttributeProfile` 的"面板属性"那一半了）。**以源码为准**（`LivingThing.java:1998-2001`）。
 
 > **另外两条「不算缺陷但值得记」的**：
@@ -253,7 +253,7 @@ scalars.put(DataKeys.SkillKeys.AIMS, Json.value(skill.getAims()));
 > 也就是说：`DataKeys` 那一大堆定义**根本不用动**（键、META、GROUPS 都已经写好了）。
 > **D1 的 14 个键，每个都是这个形状 —— 只要 2 行就能救活。**
 
-### 2.3 情形 B：加**全新的**实体字段（例如 `criticalDMGLimit`）
+### 2.3 情形 B：加**全新的**实体字段（例如 `criticalDamageLimit`）
 
 | 序 | 文件 | 要改什么 | 处数 |
 |---|---|---|---|
@@ -530,13 +530,13 @@ GameMain.gameInitialize()
 
 | # | 契约 | 依据 | 本方案怎么处理 |
 |---|---|---|---|
-| 1 | **`/data` 数据名**（`criticalRate` / `alive` / `effects` / `hpGrow` / `attackGrow` / `defenceGrow` / 五行 `…ManaGrow` / `…Resistance` …） | `notes_for_llm/70-DATA.md:24-25`「数据名是对外 API……改名等于破坏 `/data` 脚本与将来的存档」；`ENTITY-ATTRIBUTE-SPLIT-2026-10.md:151-154` | **一个都不改**。`KeySpec.name` 抄的就是数据名，且由 `auditAgainst` 反射核对钉住 |
+| 1 | **`/data` 数据名**（`criticalRate` / `alive` / `effects` / `hpGrow` / `attackGrow` / `defenceGrow` / 五行 `…ManaGrow` / `…Resistance` …） | `notes_for_llm/subsystems/70-DATA.md:24-25`「数据名是对外 API……改名等于破坏 `/data` 脚本与将来的存档」；`ENTITY-ATTRIBUTE-SPLIT-2026-10.md:151-154` | **一个都不改**。`KeySpec.name` 抄的就是数据名，且由 `auditAgainst` 反射核对钉住 |
 | 2 | **`EntityData.json` / `SkillData.json` / `GameRules.json` 的键名与层级** | `README.md:80-86`、`MODDING-GUIDE.md:462`、`70-DATA.md:42-47`；**用户手上已有真文件** | **冻结**。`spec(Base.MANA_GROW, …)` 这类块名、`base`/`derived` 两种写法（子块优先）、裸键写法**全部保留** |
 | 3 | **13 参构造器签名与参数顺序** | `MODDING-GUIDE.md:163-167` / `:451`；`mods/drunkenSword/.../DrunkenSwordsman.java:94` | **不碰**。自测已有硬断言（`TestCommandSystem.java:2957-2996`） |
 | 4 | **`setXxx` 名字**（`setHpGrow` / `setAttackGrow` / `setDefenceGrow` / `setSpeed` / `setLevel` …） | 同上；且 `/data` 写回是 `"set"+字段名` 拼的（`70-DATA.md:49-55`） | **不改**。`KeySpec.write` 直接引用这些 setter |
 | 5 | **模组侧 `@ModConfig` / `ModDataAware` / `config/data/<modid>.json`** | `MODDING-GUIDE.md` §4.7（`:357-475`）；`ModConfig` `:53` / `ModDataAware` `:30` / `ModConfigDocument` `:254` | **签名不改**。`resolveModConfigId` 的「注解 > MOD_ID」口径不改。⚠ `common` 段那两条**假承诺**（D6）要么修实现、要么改文档 —— **见 Q3** |
 | 6 | **模组不能自带配置文件** | `MODDING-GUIDE.md:428` 规则 1 | 不碰 |
-| 7 | **655 条自测是唯一安全网** | `notes_for_llm/90-STATE.md:17`；⚠ **本轮我没能实跑**（沙箱拒绝 `java`/`powershell`，见 §8） | 任何一步都不许让基线下降；**新增**的守卫要计入基线 |
+| 7 | **655 条自测是唯一安全网** | `notes_for_llm/state/90-STATE.md:17`；⚠ **本轮我没能实跑**（沙箱拒绝 `java`/`powershell`，见 §8） | 任何一步都不许让基线下降；**新增**的守卫要计入基线 |
 | 8 | **不引入第三方库**（唯一依赖 `org.json`） | `10-RULES.md` §8；`PROJECT-ANALYSIS-2026-09.md` §7.3 | 表驱动只用 `java.util.function`（JDK 自带） |
 | 9 | **配置加载失败不许让游戏起不来** | `EXTERNAL-DATA-LOADING-2026-10.md` §8.1 第 8 条 | 通用补丁器**必须**继承「逐项容错 + 结尾汇总 + 绝不抛」 |
 | 10 | **补丁只打在模板上、每个模板只补一次** | 同上 §2.2；`Report.markBound` `:1003-1009` | 表驱动**不动**这一层（去重表留在编排层的 `Report` 里） |
@@ -647,7 +647,7 @@ powershell -ExecutionPolicy Bypass -File .\test-command-system.ps1   # 期望：
    **改成遍历表**（删掉约 160 行 = 29 + 10 + 26 + 27 + 29 + 四个 `switch` 37）；
 4. `DataKeys.META` / `GROUPS` **改成从表派生**（`buildMeta`/`buildGroups` 那 100 行删掉）；
 5. **那 14 个 `Temporary` 键此时顺手接上（各 1 行 `spec(...)`）** —— 阶段 0 的白名单清零。
-   ⚠ **接哪些、按什么语义接，以 Q1 的拍板为准**（`criticalRate` / `criticalDMG` / `enhance` /
+   ⚠ **接哪些、按什么语义接，以 Q1 的拍板为准**（`criticalRate` / `criticalDamage` / `enhance` /
    `penetration` / `defenseLoss` 是**面板属性**：`copy()` 带、战斗结束不清，配了就整局生效；
    五元素 `*Penetration` / `*DamageEnhance` 是**临时属性**：第一局结束就被
    `AttributeProfile.resetTemporary()` 清零；`extraDamage` 是**死字段**）。
@@ -698,7 +698,7 @@ Report 而**断言文案变了但条数不变**）→ 用户进游戏打一局 +
 
 **做什么**
 
-1. 回写 `notes_for_llm/70-DATA.md`（§5.10 的「配置键 = 数据名」那几行，说明现在只有一张表）、
+1. 回写 `notes_for_llm/subsystems/70-DATA.md`（§5.10 的「配置键 = 数据名」那几行，说明现在只有一张表）、
    `90-STATE.md`（新基线数字）、`EXTERNAL-DATA-LOADING-2026-10.md`（追加一节「阶段 5：解耦」）、
    `README.md`（那三份空文件的处理方式）；
 2. **订正 D6**：`MODDING-GUIDE.md:395-405` 与 `:464-472` 那两个 `common` 段示例里的
@@ -734,7 +734,7 @@ Report 而**断言文案变了但条数不变**）→ 用户进游戏打一局 +
 
 | # | 问题 | 选项 | **推荐** |
 |---|---|---|---|
-| **Q1** | **那 14 个「声明了能配置、其实从来不读」的键（`criticalRate` / `criticalDMG` / `enhance` / `penetration` / `defenseLoss` / `extraDamage` / 五元素 `*Penetration` + `*DamageEnhance`）怎么办？** | **(a) 全部接上**（语义差异见 §1.5 的「D1 补充」：前 5 个是**面板属性**、配了就整局生效；那 10 个五元素穿透/增伤是**临时属性**、第一局结束就被清零）；**(b) 全部摘掉**（从 `META` 里删，写进配置时报「未知键」+ 一句「这类值请用效果改」）；**(c) 只接面板那 5 个，其余 9 个摘掉** | **(c)**。理由：`criticalRate` / `criticalDMG` / `enhance` / `penetration` / `defenseLoss` **`copy()` 会带、战斗结束不清**（`LivingThing.java:167`、`:1998-2001`）→ 语义干净，用户改了选人列表就看得见；五元素 `*Penetration` / `*DamageEnhance` 是**临时属性**（`AttributeProfile.java:190-201`），配在 `EntityData.json` 里**打完一局就没了** —— 这是给用户挖坑；`extraDamage` 是**死字段**（`LivingThing.java:1993-1995`），接上只会多一个「改了没反应」 |
+| **Q1** | **那 14 个「声明了能配置、其实从来不读」的键（`criticalRate` / `criticalDamage` / `enhance` / `penetration` / `defenseLoss` / `extraDamage` / 五元素 `*Penetration` + `*DamageEnhance`）怎么办？** | **(a) 全部接上**（语义差异见 §1.5 的「D1 补充」：前 5 个是**面板属性**、配了就整局生效；那 10 个五元素穿透/增伤是**临时属性**、第一局结束就被清零）；**(b) 全部摘掉**（从 `META` 里删，写进配置时报「未知键」+ 一句「这类值请用效果改」）；**(c) 只接面板那 5 个，其余 9 个摘掉** | **(c)**。理由：`criticalRate` / `criticalDamage` / `enhance` / `penetration` / `defenseLoss` **`copy()` 会带、战斗结束不清**（`LivingThing.java:167`、`:1998-2001`）→ 语义干净，用户改了选人列表就看得见；五元素 `*Penetration` / `*DamageEnhance` 是**临时属性**（`AttributeProfile.java:190-201`），配在 `EntityData.json` 里**打完一局就没了** —— 这是给用户挖坑；`extraDamage` 是**死字段**（`LivingThing.java:1993-1995`），接上只会多一个「改了没反应」 |
 | **Q2** | **`DEFAULT_TAGS_CONFIG`（`ConfigLoader:87-127`）与 `config/gameConfig/TagConfig.json` 这份重复怎么办？** | **(a) 保留 Java 里那份**，`TagConfig.json` 只当用户文件（删了就用 Java 里的默认值重建 —— 现在的行为）；**(b) 把默认值只留一份在 `config/gameConfig/TagConfig.default.json`**，Java 侧读它；**(c) 把 TagConfig 整体纳入「补丁」语义**（文件里没写的 id 保持构造器的 tags，不重建文件） | **(a) + 加一条自测钉住两边一致**（现在 `ConfigLoader` 硬编码的那份与 JSON 文件逐字节相同，加个断言就不怕漂）。理由：**(b)** 要让 Java 读一个「出厂值文件」——那个文件被删就两头空；**(c)** 改动最大、而 `TagConfig` 目前对玩法**零影响**（`ThinkingControllerAI` 全项目只有 1 处引用，`EXTERNAL-DATA-LOADING-2026-10.md` §1.4 D1），不值得 |
 | **Q3** | **`mods/<modid>.json` 的 `common` 段只打实体补丁，但 `MODDING-GUIDE.md` 的示例教用户写 `common.skills` 与 `common.flameReaver`（D6 —— 照抄不生效）** | **(a) 补实现**：`common` 段多支持 `skills`（走 `SkillDataPatcher`）与「规则段」（走 `GameRulesPatcher`，但 `GameRules` 已 `freeze()` → **规则那条做不到**）；**(b) 只修文档**：删掉两个假字段，明说「`common` 只支持 `entities`」；**(c) 折中**：`common` 支持 `entities` + `skills`，规则类明确写「做不到（开局冻结），要改走 `config/gameConfig/GameRules.json`」 | **(c)**。理由：`skills` 那条**技术上完全能做**（`SkillDataPatcher.apply` 已经存在、`loadModData` 里加一行即可，且技能的补丁时机本来就在 `GameStartEvent` 之后）；规则那条**真的做不到**（`GameRules.freeze()` 在 `loadGameRules()` 的 `finally` 里，`:417-420`），**必须**在文档里说清而不是假装支持。**`MODDING-GUIDE.md:615` 那句话已经是对的，把 `:395-405` 与 `:464-472` 改成一致即可** |
 | **Q4** | **`DataKeys` 那三个「测试工具」（`auditAgainst` / `auditNotes` / `collectFields`，`:737-817`，81 行）与 `EntityDataPatcher.Snapshot`（92 行）、`SkillDataPatcher.SkillSnapshot`（47 行）这些「只给自测用」的代码放哪？** | **(a) 留在原地**（现成、自测已经依赖）；**(b) 搬进 `debug_tools`**（生产类变干净，但自测要多 import、且契约核对离契约表远了）；**(c) 只搬 `auditXxx`（反射审计）进 `debug_tools`，`Snapshot` 留下**（它是「补丁器会碰哪些字段」的知识，属于补丁器） | **(c)**。理由：`auditXxx` 让 `DataKeys` 背上 `LivingThing` + `DataBridge` 两个 import（`:3-4`），而「契约表」本该零依赖 —— 搬走之后 `DataKeys` 就能被任何地方安全引用；`Snapshot` 则**必须**跟着补丁器（它列的字段清单就是补丁器的字段清单，两处分开必然漂） |
@@ -748,7 +748,7 @@ Report 而**断言文案变了但条数不变**）→ 用户进游戏打一局 +
    **全部被沙箱拒绝**（`Program 'java.exe' failed to run: Access is denied`），
    所以「655/0」与「`CHECK OK` / `Java files: 215`」里，
    **`src` 文件数 215 是我自己数的**（`Get-ChildItem -Recurse -Filter *.java -File`，与脚本口径一致），
-   **655/0 是引用 `notes_for_llm/90-STATE.md:17`**，不是我这次复跑的。
+   **655/0 是引用 `notes_for_llm/state/90-STATE.md:17`**，不是我这次复跑的。
    阶段 0 的验收必须在**能跑 `java` 的会话**里做。
 3. **没有实测过 `KeySpec` 原型**：§3.2 的示意代码是**设计**，没编译过。**行数估算（§3.5）是估算**，
    误差估计 ±20%。
@@ -792,13 +792,13 @@ Report 而**断言文案变了但条数不变**）→ 用户进游戏打一局 +
 
 | 文档 | 关系 |
 |---|---|
-| `project_analyses/EXTERNAL-DATA-LOADING-2026-10.md` | **同一子系统的设计稿 + 阶段 0–4 落地记录**。本文**不重复**它的设计结论，只回答「结构该怎么切」；它的 §8.3（既有缺陷 D1–D10）本文**不重开**，本文的 D1–D7 是**读这 8 个文件时新发现的**，与那 10 条不重叠 |
-| `project_analyses/ENTITY-ATTRIBUTE-SPLIT-2026-10.md` | **体例模板**（TL;DR → 体检 → 方案 → 硬约束 → 阶段 → 不做的事 → 附录）。本文的阶段 0 沿用它的「不拆东西、先上锁」范式；它的「临时属性 vs 面板属性」分类表是本文 Q1 的判据来源 |
-| `notes_for_llm/10-RULES.md` §9.3 | 「不做的事」清单的来源；第 0 条的「读 → 做 → **写回**」是本文 §5 阶段 4 的由来 |
-| `notes_for_llm/70-DATA.md` §5.10 | `/data` 键名契约（`:24-25`）、「配置键 = 数据名」（`:42-47`）、「技能与规则是另一套键空间」（`:46-47`）—— 本文 §1.2 把「另一套键空间」当成切分的依据 |
+| `project_analyses/current/EXTERNAL-DATA-LOADING-2026-10.md` | **同一子系统的设计稿 + 阶段 0–4 落地记录**。本文**不重复**它的设计结论，只回答「结构该怎么切」；它的 §8.3（既有缺陷 D1–D10）本文**不重开**，本文的 D1–D7 是**读这 8 个文件时新发现的**，与那 10 条不重叠 |
+| `project_analyses/current/ENTITY-ATTRIBUTE-SPLIT-2026-10.md` | **体例模板**（TL;DR → 体检 → 方案 → 硬约束 → 阶段 → 不做的事 → 附录）。本文的阶段 0 沿用它的「不拆东西、先上锁」范式；它的「临时属性 vs 面板属性」分类表是本文 Q1 的判据来源 |
+| `notes_for_llm/rules/10-RULES.md` §9.3 | 「不做的事」清单的来源；第 0 条的「读 → 做 → **写回**」是本文 §5 阶段 4 的由来 |
+| `notes_for_llm/subsystems/70-DATA.md` §5.10 | `/data` 键名契约（`:24-25`）、「配置键 = 数据名」（`:42-47`）、「技能与规则是另一套键空间」（`:46-47`）—— 本文 §1.2 把「另一套键空间」当成切分的依据 |
 | `MODDING-GUIDE.md` §4.7 / §7.1 | 模组契约（`:357-475`）是本文 §4.2 第 5 条的来源；`:395-405` / `:464-472` 与 `:615` 的矛盾就是本文 D6 |
-| `notes_for_llm/90-STATE.md` | 自测基线 `655/0`（`:17`）的来源；阶段 4 要回写 |
-| `project_analyses/NBT-AND-DATA-COMMAND-2026-09.md` | **无关**（NBT / 存档早已评估完，别重开） |
+| `notes_for_llm/state/90-STATE.md` | 自测基线 `655/0`（`:17`）的来源；阶段 4 要回写 |
+| `project_analyses/current/NBT-AND-DATA-COMMAND-2026-09.md` | **无关**（NBT / 存档早已评估完，别重开） |
 
 ---
 
@@ -861,7 +861,7 @@ Select-String -Path .\src\cn\gfhnv\game\system\configLoadingSystem\EntityDataPat
 
 # ⑥b 那 14 个键的生命周期（★ D1 补充的证据：面板 vs 临时 vs 死字段）
 $lt = [System.IO.File]::ReadAllLines('.\src\cn\gfhnv\game\entity\LivingThing.java')
-$lt[1997..2000]      # "故意不在表里的：… penetration / enhance / criticalDMG —— 它们跟着副本走"
+$lt[1997..2000]      # "故意不在表里的：… penetration / enhance / criticalDamage —— 它们跟着副本走"
 $ap = [System.IO.File]::ReadAllLines('.\src\cn\gfhnv\game\entity\AttributeProfile.java')
 $ap[189..200]        # resetTemporary() 只清 5 穿透 + 5 元素增伤
 
@@ -905,18 +905,18 @@ powershell -ExecutionPolicy Bypass -File .\test-command-system.ps1   # 期望 �
 | `Mod.java` | `:175-180` `addEntity`（加 `MOD_ID:` 前缀）；`:231-249` `registerItself`（真正往 `World` 里塞） |
 | `TestCommandSystem.java`（4877 行） | `:2782-3210` `testConfigDefaultsAndPatch`（`:2787-2793` META/GROUPS 一致、`:2816-2819` 字段核对、`:2855-2874` 生成器⊆META、`:2896-2914` dump 契约、`:2957-2996` 13 参构造器、`:3013-3030` 全量默认值打回去、`:3036-3045` 只改一个键、`:3186-3191` 不覆盖已有文件）；`:3230-3563` `testSkillDataPatch`（`:3941-3944` 是 `testModConfig` 的 fixture —— **只测 `common.entities`**）；`:3583-3838` `testGameRules`（`:3615-3617` 认识 29 条键）；`:3839-4285` `testModConfig` |
 | `config/gameConfig/` | `EntityData.json` 4 行、`SkillData.json` 4 行、`EntityData.default.json` 5 行（**三份都空**，mtime `2026-10-03 13:30:34`）；`GameRules.json` 42 行全量（mtime `13:34:26`）；`TagConfig.json` 41 行、`PropertyConfig.json` 5 行 |
-| `LivingThing.java`（2353 行） | `:79` `criticalRate` 字段；`:167` 复制构造器带 `criticalRate`；`:150` 组件里"面板属性那一半"的注释；`:1418-1428` `getCriticalRate`/`setCriticalRate`；`:1998-2001` **「故意不在临时属性表里」的清单**（`penetration`/`enhance`/`criticalDMG`/抗性/法力成长）；`:2005-2023` `clearTemporaryAttributes()`；`:2032-2050` `whenFightEnds()`；`:2161-2171` `getCriticalDMG`/`setCriticalDMG` |
-| `AttributeProfile.java`（544 行） | `:12-16` 面板属性 vs 临时属性的两张表；`:142` `penetration`、`:146` `enhance`、`:151` `criticalDMG`（**面板**）；`:64-105` 五元素穿透 + 五元素增伤（**临时**）；`:163` `copyFrom`；`:190-201` `resetTemporary()` |
+| `LivingThing.java`（2353 行） | `:79` `criticalRate` 字段；`:167` 复制构造器带 `criticalRate`；`:150` 组件里"面板属性那一半"的注释；`:1418-1428` `getCriticalRate`/`setCriticalRate`；`:1998-2001` **「故意不在临时属性表里」的清单**（`penetration`/`enhance`/`criticalDamage`/抗性/法力成长）；`:2005-2023` `clearTemporaryAttributes()`；`:2032-2050` `whenFightEnds()`；`:2161-2171` `getCriticalDamage`/`setCriticalDamage` |
+| `AttributeProfile.java`（544 行） | `:12-16` 面板属性 vs 临时属性的两张表；`:142` `penetration`、`:146` `enhance`、`:151` `criticalDamage`（**面板**）；`:64-105` 五元素穿透 + 五元素增伤（**临时**）；`:163` `copyFrom`；`:190-201` `resetTemporary()` |
 | `MODDING-GUIDE.md` | `:357-475` §4.7 模组配置（`:395-405` **含 `common.skills`/`common.flameReaver` 的假示例**、`:424-433` 六条规则、`:460-475` 「官方数值也能改」**第二个假示例**）；`:607-628` §7.1（`:615` **正确的**「`common` 改不了 `GameRules`」） |
-| `notes_for_llm/70-DATA.md` | `:24-25` 数据名是对外 API；`:42-47` 配置键 = 数据名 + 「技能与规则是另一套键空间」；`:49-58` 改名的坑与 setter 名 |
+| `notes_for_llm/subsystems/70-DATA.md` | `:24-25` 数据名是对外 API；`:42-47` 配置键 = 数据名 + 「技能与规则是另一套键空间」；`:49-58` 改名的坑与 setter 名 |
 
 ---
 
 *本文由 AI（DeepSeek）生成，2026-10-03。所有「现状」结论均已在源码中逐条核对（附行号，清单见附录 B）；
 行号与计数一律用 `[System.IO.File]::ReadAllLines` 复核（见附录 A 的坑）。
 ⚠️ 本次会话里 `java` / `javac` / `powershell` 被沙箱拒绝，**自测与编译都没有实跑**（见第八节第 2 条），
-所以本文的「655/0」是引用 `notes_for_llm/90-STATE.md:17`，不是复跑结果；阶段 0 的验收请在能跑 `java` 的会话里做。
-本文**一行 `src/` / `mods/` / `config/` 代码都没改**。真要动手时请先回写 `notes_for_llm/70-DATA.md` 与 `90-STATE.md`。*
+所以本文的「655/0」是引用 `notes_for_llm/state/90-STATE.md:17`，不是复跑结果；阶段 0 的验收请在能跑 `java` 的会话里做。
+本文**一行 `src/` / `mods/` / `config/` 代码都没改**。真要动手时请先回写 `notes_for_llm/subsystems/70-DATA.md` 与 `90-STATE.md`。*
 
 
 ---
@@ -1019,7 +1019,7 @@ powershell -ExecutionPolicy Bypass -File .\test-command-system.ps1   # 期望 �
 | `ConfigLoader` 三个同构 `loadXxx` 收成一个泛型入口 | **没做** | §3.5 的估算里有这一条，但它是纯审美（三个方法各 30 行、结构同构），没有键名/契约收益 |
 | `EntityDataPatcher` / `SkillDataPatcher` 的 `targetsOf` 重复（24 行） | **没合并** | 同上：合并它要引入一个新类 `Targets`，而两个 `targetsOf` 的报错文案其实**不一样**（实体说"注册表里没有实体"，技能说"实体…上没有叫…的技能"），合并会丢信息 |
 | `mods/` 与 `config/` | **一个字没改** | 硬约束；本轮全程只读它们 |
-| `notes_for_llm/70-DATA.md` §5.10 / `README.md` | **没回写** | `70-DATA.md` 的"配置键 = 数据名"结论**没有变化**（键名一个没动），不需要改；`README.md` 里"删掉整个文件 = 下次启动会重新生成一份全量默认值"那句话现在**终于是真的了**（D5 修的就是它），但措辞仍成立，留待下次一并润色 |
+| `notes_for_llm/subsystems/70-DATA.md` §5.10 / `README.md` | **没回写** | `70-DATA.md` 的"配置键 = 数据名"结论**没有变化**（键名一个没动），不需要改；`README.md` 里"删掉整个文件 = 下次启动会重新生成一份全量默认值"那句话现在**终于是真的了**（D5 修的就是它），但措辞仍成立，留待下次一并润色 |
 
 ### 10.7 回滚 / 继续做的入口
 
@@ -1196,7 +1196,7 @@ powershell -ExecutionPolicy Bypass -File .\test-command-system.ps1   # 期望 �
          · 反射面 53 个键
          · 只在表里、反射拿不到的（2 个）：[inventorySlots, manaGrow]
          · 只在反射里、表里没有的（要逐个写 @NoConfig 关掉，24 个）：
-           [attackEnhanceAmount, attackEnhancePercent, criticalDMGEnhanceAmount, criticalDMGEnhancePercent,
+           [attackEnhanceAmount, attackEnhancePercent, criticalDamageEnhanceAmount, criticalDamageEnhancePercent,
             criticalRateEnhanceAmount, criticalRateEnhancePercent, defenceEnhanceAmount, defenceEnhancePercent,
             dirtDamageEnhance, dirtPenetration, extraDamage, fireDamageEnhance, firePenetration,
             hpEnhanceAmount, hpEnhancePercent, individualMultipleArea, metalDamageEnhance, metalPenetration,
@@ -1357,7 +1357,7 @@ Select-String -Path out\selftest.log -Pattern "反射驱动配置" -Context 0,45
 | 类 | 键（个） | 判断 | 依据（写进了代码注释，不是猜的） |
 |---|---|---|---|
 | ① 五元素穿透 / 增伤 | `metal/wood/water/fire/dirt` × `Penetration` / `DamageEnhance`（**10**） | **不能配**（`@NoConfig`） | **临时属性 + 配了不生效**：`AttributeProfile#copyFrom` **刻意不带**这 10 个（副本从干净状态开始）→ 模板上的值**进不了任何一局战斗**；每局结束还被 `resetTemporary()` 清零；全项目**零写入点**（`DamageCalculate` 只读，预留未接线） |
-| ② `*Enhance*` 运行时加成 | `attack/defence/speed/hp/criticalDMG/criticalRate` × `Percent` / `Amount`（**12**） | **不能配**（`@NoConfig`） | **效果与技能"进来加、走时减"**（6 个通用强化效果 + 白厄变身自己加减），战斗结束由 `clearTemporaryAttributes()` 兜底清零；且**复制构造器不带**这 12 个 → 配在模板上不生效 |
+| ② `*Enhance*` 运行时加成 | `attack/defence/speed/hp/criticalDamage/criticalRate` × `Percent` / `Amount`（**12**） | **不能配**（`@NoConfig`） | **效果与技能"进来加、走时减"**（6 个通用强化效果 + 白厄变身自己加减），战斗结束由 `clearTemporaryAttributes()` 兜底清零；且**复制构造器不带**这 12 个 → 配在模板上不生效 |
 | ③ 死字段 | `extraDamage`（**1**） | **不能配**（`@NoConfig`） | 参与伤害公式但**全项目零写入点**（永远 0）；活的那一套是 `Skill#extraDamage`，是**另一个字段** |
 | ④ 派生面板倍率 | `individualMultipleArea`（**1**） | **不能配**（`@NoConfig`）—— **这一条是"判断"，不是"配了没用"** | 它是**面板属性**（复制构造器会带、战斗不清零），由**角色构造器**按玩法算（`ActorLiXiaoYan` 按燃点）→ 放开它等于让配置**覆盖角色自己的算法**，还会让默认配置文件多出一个键。要改那个算法请改角色构造器 |
 
@@ -1403,7 +1403,7 @@ EntityDataPatcher.patch(target, patch, report, id)
 当**唯一真相**（自测那个常量现在直接引用它，不再两份），由 `patchExtra` 当闸门：
 
 - 闸门内 → 不写（照旧报"未知键"，行为与切换前**逐字相同**）；
-- 依据：`phaseTwo` **连 setter 都没有**，放行它就是 `notes_for_llm/70-DATA.md` §5.10 点名的
+- 依据：`phaseTwo` **连 setter 都没有**，放行它就是 `notes_for_llm/subsystems/70-DATA.md` §5.10 点名的
   **"裸写字段"**那个坑 —— 配置会**静默**改掉 boss 的进程状态。新断言 ⑦ 钉住这一点。
 
 ### 12.5 第 3 步（**没做**的那一半）：删掉 `EntityKeySpecs` / `SkillKeySpecs` 的标量规格
@@ -1453,7 +1453,7 @@ EntityDataPatcher.patch(target, patch, report, id)
 
 1. **段名回归惯例**：技能段现在就叫 `skills`（复用 `ConfigDefaultWriter.SKILLS`，
    与 `SkillData.json` 同名同构）；说明文字搬到根上的 **`_note`**（下划线开头 = 不是数据）。
-   契约见 `notes_for_llm/70-DATA.md` 的 **§5.10.5**；
+   契约见 `notes_for_llm/subsystems/70-DATA.md` 的 **§5.10.5**；
 2. **补齐结构**：它以前**漏了 `tags`**、而且是靠"整段不要"来表达 `consumedMana` ——
    读者分不清"这个技能不消耗法力"和"这一段我没展开"。现在技能段改用
    `appendSkillsFull(...)`（与 `SkillData.json` 同一套采集/写法），

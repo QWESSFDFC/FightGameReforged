@@ -1,19 +1,17 @@
 package cn.gfhnv.debug_tools;
 
-import cn.gfhnv.game.data.*;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.CommonInsect;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.FlameReaver;
 import cn.gfhnv.game.officialStuff.customEntity.players.ActorLiXiaoYan;
 import cn.gfhnv.game.officialStuff.customEntity.players.PlayerOne;
 import cn.gfhnv.game.officialStuff.customEntity.summons.BrokenContainer;
-import cn.gfhnv.game.system.command.*;
-import cn.gfhnv.game.system.fight.*;
+import cn.gfhnv.game.system.command.CommandManager;
 import cn.gfhnv.game.world.World;
 
-import static cn.gfhnv.debug_tools.TestKit.*;
-import static cn.gfhnv.debug_tools.TestSupport.*;
-import static cn.gfhnv.debug_tools.TestProbes.*;
+import static cn.gfhnv.debug_tools.TestKit.check;
+import static cn.gfhnv.debug_tools.TestKit.section;
+import static cn.gfhnv.debug_tools.TestSupport.testIgnitionMaxModifierChain;
 
 /**
  * 自测：**官方角色**。
@@ -23,6 +21,9 @@ import static cn.gfhnv.debug_tools.TestProbes.*;
  * 由 {@code TestCommandSystem#main} 按顺序调用 {@code CharacterTests#runAll()}。
  */
 public final class CharacterTests {
+
+    private CharacterTests() {
+    }
 
     /**
      * 李晓焰的【燃点】修复 + {@code World#fullIdOf} 的"同类多模板"问题（2026-09）。
@@ -38,19 +39,19 @@ public final class CharacterTests {
 
         // 免死会一次扣掉 MEMORIZE_COST 层：扣完必须夹在 0
         // （旧代码只夹上限，副本挨打时会把自己算成"模板值 − 10"，实测出现过 −7）
-        li.setIgnition(ActorLiXiaoYan.Rule.memorizeTrigger());
-        li.setIgnition(li.getIgnition() - ActorLiXiaoYan.Rule.memorizeCost());
+        li.setIgnition(li.getMemorizeTrigger());
+        li.setIgnition(li.getIgnition() - li.getMemorizeCost());
         check("燃点扣到 0 而不是负数", li.getIgnition() == 0);
         li.setIgnition(-5);
         check("燃点被显式设成负数时夹到 0", li.getIgnition() == 0);
 
         // 上限随血量变化：满血 10，半血以下 15（getIgnitionMax 与 setIgnition 必须用同一判据）
         li.setHp(li.getHpMax());
-        check("满血时燃点上限 = IGNITION_MAX", li.getIgnitionMax() == ActorLiXiaoYan.Rule.ignitionMax());
+        check("满血时燃点上限 = IGNITION_MAX", li.getIgnitionMax() == ActorLiXiaoYan.Defaults.IGNITION_MAX);
         li.setHp(li.getHpMax() / 4);
-        check("低血时燃点上限 = LOW_HP_IGNITION_MAX", li.getIgnitionMax() == ActorLiXiaoYan.Rule.lowHpIgnitionMax());
+        check("低血时燃点上限 = LOW_HP_IGNITION_MAX", li.getIgnitionMax() == ActorLiXiaoYan.Defaults.LOW_HP_IGNITION_MAX);
         li.setIgnition(100);
-        check("低血时燃点能一路设到上限", li.getIgnition() == ActorLiXiaoYan.Rule.lowHpIgnitionMax());
+        check("低血时燃点能一路设到上限", li.getIgnition() == ActorLiXiaoYan.Defaults.LOW_HP_IGNITION_MAX);
 
         testIgnitionMaxModifierChain();
 
@@ -96,8 +97,5 @@ public final class CharacterTests {
     public static void runAll() throws Exception {
         testActorLiXiaoYan();
         testFollowActor();
-    }
-
-    private CharacterTests() {
     }
 }

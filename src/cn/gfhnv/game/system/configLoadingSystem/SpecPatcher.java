@@ -12,7 +12,7 @@ import java.util.Set;
  * <b>它替掉的是一堆手写的</b> {@code applyXxx}（实体那边 27 处、技能那边 8 处）——
  * 那些手写调用与生成器里的 {@code put(...)} 是一对平行表，靠自测"事后对齐"，
  * 所以才会出现"声明了能配置、其实没人读"的键（见
- * {@code project_analyses/CONFIG-LOADING-DECOUPLING-2026-10.md} 的 D1）。
+ * {@code project_analyses/current/CONFIG-LOADING-DECOUPLING-2026-10.md} 的 D1）。
  * 现在"读得回来的"与"写得出去的"都只可能是 {@link KeySpec} 里那几行。
  * <p>
  * <b>三条纪律</b>（与实体/技能补丁器原来的行为逐字一致）：

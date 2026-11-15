@@ -59,7 +59,7 @@
 | 形态 | 内容 | 规模 |
 |---|---|---|
 | **纯标量** | `enhance`（全局增伤）、`defenseLoss`、`individualMultipleArea`、`description` | 少数几个 |
-| **「基础 + 百分比 + 固定值」三件套** | `attack` / `defence` / `speed` / `hpMax` / `criticalDMG` / `getCriticalRATE` | 6 组 |
+| **「基础 + 百分比 + 固定值」三件套** | `attack` / `defence` / `speed` / `hpMax` / `criticalDamage` / `getCriticalRATE` | 6 组 |
 | **五行五元组** | 5 抗性 + 5 单元素穿透 + 5 元素增伤 + 5 法力成长 | **20 个字段**，访问器约 60 个 |
 | **容器 / 引用** | `manas`、`entityEffectList`、`damageReductions`、`damageModifiers`、`controller` | 5 个 |
 
@@ -112,7 +112,7 @@ super("虫皇", "insectBoss", -0.1, 0.2, 0.8, 0.2, 0.3, 110, l, "insect", 4000, 
 |---|---|---|---|
 | **面板属性** | `hpMax` 基础值、`attack/defence/speed`、暴击、五抗、穿透、增伤、成长系数、`elementSort` | 配置出来，一局内几乎不变 | `copy()` 手工逐字段抄 |
 | **临时状态** | 当前 `hp`、`Alive`、效果表、`manas`、`damageReductions`、`damageModifiers`、`defenseLoss`、`anticipating`、战斗上下文 | 每局/每回合变，**有重置义务** | `whenFightEnds()` 手工清 5 项 |
-| **派生值** | `getAttack` / `getDefence` / `getSpeed` / `getHpMax` / `getCriticalDMG` / `getGetCriticalRATE` / `getDamageTakenMultiplier` | 现算，不存 | 6 个同构公式手写 |
+| **派生值** | `getAttack` / `getDefence` / `getSpeed` / `getHpMax` / `getCriticalDamage` / `getGetCriticalRATE` / `getDamageTakenMultiplier` | 现算，不存 | 6 个同构公式手写 |
 
 **证据链**：`copy()` 漏字段（§6.1 第 11 条）、`whenFightEnds()` 不清减伤（§6.4 N3）、
 效果列表浅拷贝（§6.2 第 11 条），以及 `ANALYSIS-2026-08.md:959-961` 那句
@@ -148,7 +148,7 @@ super("虫皇", "insectBoss", -0.1, 0.2, 0.8, 0.2, 0.3, 110, l, "insect", 4000, 
 
 技术可行性最高，**但收益最小、破坏最大**：
 
-- 键名是你 2026-09 刚定下的对外 API（`notes_for_llm/70-DATA.md:21-22` 明确写"改名等于破坏 `/data` 脚本与将来的存档"），
+- 键名是你 2026-09 刚定下的对外 API（`notes_for_llm/subsystems/70-DATA.md:21-22` 明确写"改名等于破坏 `/data` 脚本与将来的存档"），
   而且刚为"键名不合理"改过一轮（`getCriticalRATE` → `criticalRate`）；
 - 真要做，得给 `DataBridge` 加"扁平化 / 分组前缀"机制（现在它只会按字段名平铺），
   并改掉自测里 **122 个 `/data` 断言点**（≈全部断言调用点的 27%）；
@@ -258,7 +258,7 @@ extraDamage, individualMultipleArea,
 metalPenetration, woodPenetration, waterPenetration, firePenetration, dirtPenetration,
 metalDamageEnhance, woodDamageEnhance, waterDamageEnhance, fireDamageEnhance, dirtDamageEnhance,
 attackEnhancePercent, defenceEnhancePercent, speedEnhancePercent, hpEnhancePercent,
-criticalDMGEnhancePercent, criticalDMGEnhanceAmount,
+criticalDamageEnhancePercent, criticalDamageEnhanceAmount,
 criticalRateEnhancePercent, criticalRateEnhanceAmount,
 attackEnhanceAmount, defenceEnhanceAmount, speedEnhanceAmount, hpEnhanceAmount
 ```
@@ -292,7 +292,7 @@ attackEnhanceAmount, defenceEnhanceAmount, speedEnhanceAmount, hpEnhanceAmount
 
 | 类 | 字段 | 谁在写 | copy() | whenFightEnds() |
 |---|---|---|---|---|
-| **① 效果写的临时加成**（12） | `attack/defence/speed/hp/criticalDMG/criticalRate × EnhancePercent+EnhanceAmount` | 六个通用强化效果**成对加减**：`AttackEnhance:66-76`、`DefenseEnhanceEffect:82-91`、`SpeedEnhanceEffect:70-79`、`HpEnhanceEffect:70-80`、`CriticalDMGEnhanceEffect:71-80`、`CriticalRateEnhanceEffect:70-79`；模组 `Hangover:93-105`；白厄变身自己加减（`UltimateAttack:58-59` / `AwakeEndListener:19-20` / `Phainon:292,348`） | 不带 ✓ | **清零** ← 新 |
+| **① 效果写的临时加成**（12） | `attack/defence/speed/hp/criticalDamage/criticalRate × EnhancePercent+EnhanceAmount` | 六个通用强化效果**成对加减**：`AttackEnhance:66-76`、`DefenseEnhanceEffect:82-91`、`SpeedEnhanceEffect:70-79`、`HpEnhanceEffect:70-80`、`CriticalDamageEnhanceEffect:71-80`、`CriticalRateEnhanceEffect:70-79`；模组 `Hangover:93-105`；白厄变身自己加减（`UltimateAttack:58-59` / `AwakeEndListener:19-20` / `Phainon:292,348`） | 不带 ✓ | **清零** ← 新 |
 | **② 预留·未接线**（10） | 五元素 `*Penetration` + 五元素 `*DamageEnhance` | **全项目零写入点** —— 只被 `DamageCalculate:82-103` 读来加算，只有 `/data` 上帝模式能写 | 不带 ✓ | **清零** ← 新（对现状是 no-op，为将来接线铺路） |
 | **③ 死字段**（1） | `extraDamage` | **零写入点**（public 也没人赋值）。活的那套是 `Skill#extraDamage`，**另一个字段** —— `ANALYSIS-2026-08.md:686` 早已记着"永远是 0" | 不带 ✓ | **清零** ← 新 |
 | **④ 面板·派生**（1） | `individualMultipleArea` | **角色自己的构造器 / 派生算法**：`ActorLiXiaoYan:122`（按【燃点】算）、`:224`（燃点变化时同步） | **复制** ← 新 | **不清** |
@@ -379,22 +379,22 @@ attackEnhanceAmount, defenceEnhanceAmount, speedEnhanceAmount, hpEnhanceAmount
 
 | 文件 | 改动 |
 |---|---|
-| `src/cn/gfhnv/game/entity/AttributeProfile.java` | `ElementProfile` **改名**而来（`git mv` 语义：旧文件已删）。类 javadoc 分两组写清：**五行组**（5 抗性 / 5 穿透 / 5 元素增伤 / 5 法力成长）与 **全局组**（`penetration` 全属性穿透、`enhance` 全属性增伤、`criticalDMG` 暴击伤害） |
-| `LivingThing.java` | 删掉 `criticalDMG` / `penetration` / `enhance` 三个字段（分别从"和 5 个抗性挤在同一行"、"和 5 个元素增伤挤在同一行"、单独一行里摘出来）；`@DataFlatten private final AttributeProfile attributes`；**全部 public getter/setter 一个没删**（`getCriticalDMG()` 那 6 个公式的唯一改动是"基础值从组件里取"） |
+| `src/cn/gfhnv/game/entity/AttributeProfile.java` | `ElementProfile` **改名**而来（`git mv` 语义：旧文件已删）。类 javadoc 分两组写清：**五行组**（5 抗性 / 5 穿透 / 5 元素增伤 / 5 法力成长）与 **全局组**（`penetration` 全属性穿透、`enhance` 全属性增伤、`criticalDamage` 暴击伤害） |
+| `LivingThing.java` | 删掉 `criticalDamage` / `penetration` / `enhance` 三个字段（分别从"和 5 个抗性挤在同一行"、"和 5 个元素增伤挤在同一行"、单独一行里摘出来）；`@DataFlatten private final AttributeProfile attributes`；**全部 public getter/setter 一个没删**（`getCriticalDamage()` 那 6 个公式的唯一改动是"基础值从组件里取"） |
 | `DataBridge.java` / `DataFlatten.java` / `DataKeys.java` | 类型名与 javadoc 跟着改 |
 | `TestCommandSystem.java` | 契约测试的扫描范围断言里点名要求组件字段在扫描结果内（光断言"数量 ≥ 30"抓不住"组件没被下潜"这种假绿） |
 
 **生命周期归属**（严格照第二节那张表）：
 
-- `penetration` / `enhance` / `criticalDMG` 都是**面板属性** → 由 `AttributeProfile#copyFrom` 带过去，
+- `penetration` / `enhance` / `criticalDamage` 都是**面板属性** → 由 `AttributeProfile#copyFrom` 带过去，
   `resetTemporary()` **不**碰它们；
-- `criticalDMG` 此前就已经被复制（`copy()` 里那行 `this.criticalDMG = other.criticalDMG`），
+- `criticalDamage` 此前就已经被复制（`copy()` 里那行 `this.criticalDamage = other.criticalDamage`），
   `penetration` / `enhance` 同样 **`clearTemporaryAttributes()` 里原本就没有它们** ——
   所以这次搬家**没有改变任何一条生命周期行为**，只是把"谁复制"从实体挪进了组件；
 - 那 10 个五元素穿透/增伤仍然走 `AttributeProfile#resetTemporary()`，**语义一个字没变**。
 
 **`/data` 契约的验证方式**（铁律 ①：键名一个都不许变）：`/data get entity @s` 的实测输出里
-`penetration` / `enhance` / `criticalDMG` **仍然是顶层键**（不是 `attributes.penetration`），
+`penetration` / `enhance` / `criticalDamage` **仍然是顶层键**（不是 `attributes.penetration`），
 与阶段 1 的 20 个五行键同一条路径（`@DataFlatten`）保证；用例里也新加了一条断言钉住它。
 
 **回归证据（自带 JDK 实跑，2026-10-03）**：`CHECK OK`（206 个文件）/ `javac` exit 0 /
@@ -443,7 +443,7 @@ setter 生效时哨兵被整体覆盖，只裸写字段时哨兵还在。
 | 文件 | 改动 |
 |---|---|
 | `src/cn/gfhnv/game/entity/AttributeProfile.java` | 新增 12 个字段（8 个 `double` 百分比 + 4 个 `long` 固定值）+ 24 个 getter/setter；`ENHANCE_REASON` 常量从 `LivingThing` 搬过来（12 个字段共用一句 `@NoConfig` 理由）；`resetTemporary()` 多清这 12 个（现在一共 **22 个数值 + 2 个状态位**）；类 javadoc 的生命周期分组从"两类"改成"面板 / 临时（含这一族）/ 状态" |
-| `src/cn/gfhnv/game/entity/LivingThing.java` | 删掉 2 条字段声明（12 个名字）与 `ENHANCE_REASON`；24 个访问器改成转发；6 个派生公式（`getAttack` / `getDefence` / `getSpeed` / `getHpMax` / `getCriticalRate` / `getCriticalDMG`）改成从组件取；`clearTemporaryAttributes()` 从 12 行清零缩成 2 行（12 个数值交给 `attributes.resetTemporary()`） |
+| `src/cn/gfhnv/game/entity/LivingThing.java` | 删掉 2 条字段声明（12 个名字）与 `ENHANCE_REASON`；24 个访问器改成转发；6 个派生公式（`getAttack` / `getDefence` / `getSpeed` / `getHpMax` / `getCriticalRate` / `getCriticalDamage`）改成从组件取；`clearTemporaryAttributes()` 从 12 行清零缩成 2 行（12 个数值交给 `attributes.resetTemporary()`） |
 | `src/cn/gfhnv/game/data/DataFlatten.java` | 只改 javadoc 里的用法示例（构造器现在要传宿主） |
 | `src/cn/gfhnv/debug_tools/TestCommandSystem.java` | ①「每个 /data 能写的标量字段都得挂同名 setter」那条扫描改成走 `DataBridge#accessors`（会展开 `@DataFlatten` 组件）—— 否则搬走的 12 个会**从覆盖面里静默消失**；② 新增 2 条断言（扫描确实下潜进组件；改小生命增强后当前生命被夹回新上限） |
 
@@ -502,7 +502,7 @@ setter 生效时哨兵被整体覆盖，只裸写字段时哨兵还在。
 改成 `attributes.setHp(...)` 会在构造时发一个 `HpRestorationEvent`（刚造出来的注册表模板去通知所有监听器），
 所以新增 `initPanel(...)` 做裸赋值 —— **这是"搬字段"与"改行为"的分界线**，注释写在方法上。
 
-**两个同名 getter 是刻意的**：`AttributeProfile#getBaseHpMax()` 返回**基础值**（= `/data` 的 `baseHpMax` 键；这个键 2026-10-24 之前叫 `hpMax`，后来按键名规范化改掉了，对照表见 `notes_for_llm/70-DATA.md` 的 §5.10.0），
+**两个同名 getter 是刻意的**：`AttributeProfile#getBaseHpMax()` 返回**基础值**（= `/data` 的 `baseHpMax` 键；这个键 2026-10-24 之前叫 `hpMax`，后来按键名规范化改掉了，对照表见 `notes_for_llm/subsystems/70-DATA.md` 的 §5.10.0），
 `LivingThing#getHpMax()` 返回**最终值**（× `hpEnhancePercent` + `hpEnhanceAmount`）。
 `attack` / `defence` / `speed` / `criticalRate` 同理 —— 键名必须与 Java 字段名一致，而"合并"只有实体做得对。
 组件的类注释顶部写明了这条约定。
@@ -567,7 +567,7 @@ setter 生效时哨兵被整体覆盖，只裸写字段时哨兵还在。
 | 文件 | 改动 |
 |---|---|
 | `src/cn/gfhnv/game/entity/AttributeProfile.java` | ⓪ 面板组加 `defenseLoss`；新增 ⑨「派生面板倍率」段：`individualMultipleArea`（`@NoConfig` 跟着搬）+ `individualMultipleAreaModifiers`（`@NoData`，`final`）+ **嵌套 `record AreaMultiple`**；`copyFrom` 带过去 3 样（基础值照抄、来源乘数整表 `addAll`）；**多来源连乘的 `getIndividualMultipleArea()` 也搬进来了**，`add/remove/clear` 三个方法跟着搬 |
-| `src/cn/gfhnv/game/entity/LivingThing.java` | 删 3 个字段 + 嵌套 `AreaMultiple`；6 个方法全部改转发（含 `facSetDefenseLoss`）；复制构造器删 3 行；`describeReductionSource(...)` 从 `private static` 降成**包内可见**（组件挂乘数时要按**同一个口径**取来源名字 —— 两处各写一套就会一个显示 `id`、一个显示类名） |
+| `src/cn/gfhnv/game/entity/LivingThing.java` | 删 3 个字段 + 嵌套 `AreaMultiple`；6 个方法全部改转发（含 `facSetDefenceLoss`）；复制构造器删 3 行；`describeReductionSource(...)` 从 `private static` 降成**包内可见**（组件挂乘数时要按**同一个口径**取来源名字 —— 两处各写一套就会一个显示 `id`、一个显示类名） |
 | `src/cn/gfhnv/debug_tools/TestCommandSystem.java` | `panelAttributes` 加上 `defenseLoss`（"整场结束不清"现在覆盖 11 个）；新增「乘区⑧：来源乘数**跟着副本走**」（复制构造器原来那行 `addAll` 也是唯一保证） |
 
 **`/data` 契约没动**：`defenseLoss` / `individualMultipleArea` 仍是顶层键，且 `/data` 读的是
@@ -627,7 +627,7 @@ setter 生效时哨兵被整体覆盖，只裸写字段时哨兵还在。
 | `ANALYSIS-2026-08.md` `:959-961` | 建议加"模板 vs `copy()` 副本"的全字段比对测试 —— **至今未做**，本文把它提为阶段 0 |
 | `PROJECT-ANALYSIS-2026-09.md` §6.1 第 11 条 / §6.4 N3 / §6.2 第 11 条 | 本文"生命周期三类"划分的证据来源（漏复制 / 不清减伤 / 浅拷贝） |
 | `PROJECT-ANALYSIS-2026-09.md` §8.1 | **没有接第 14 条**，也没给否决理由；本文补上"该不该现在做"的判断 |
-| `notes_for_llm/70-DATA.md` §5.10 | 决定 A/B 成本里必须算上 `/data` 键名迁移的那句"数据名是对外 API" |
+| `notes_for_llm/subsystems/70-DATA.md` §5.10 | 决定 A/B 成本里必须算上 `/data` 键名迁移的那句"数据名是对外 API" |
 | `MODDING-GUIDE.md` `:163-167` / `:275-288` | 决定"构造器与 setter 名字不能动"，同时是 B 的最强理由 |
 | `NBT-AND-DATA-COMMAND-2026-09.md` | **无关**，本文不涉及 NBT / 存档（那边的可行性早已分析完，别重开） |
 
@@ -716,4 +716,4 @@ $tl = [System.IO.File]::ReadAllLines('.\src\cn\gfhnv\debug_tools\TestCommandSyst
 *2026-10-24 追加：`alive` / `anticipating` 搬进组件（第 1 步）与 12 个 `*Enhance*` 搬进组件
 （阶段 2 第 1 小步）都已落地，各自 `CHECK OK` + `javac` 0 + 自测全绿；剩余步骤见仓库根目录
 `TODO.md`（`.gitignore` 里，不提交）。**当前基线不写在这里** —— 那是"现状"，以
-`notes_for_llm/90-STATE.md` 的 §9.1 为准。*
+`notes_for_llm/state/90-STATE.md` 的 §9.1 为准。*

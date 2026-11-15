@@ -35,7 +35,7 @@
 > 所以本文**不拿它当论据**。下面一律把「表定义 + 代码生成」当成一个**模式**来设计；
 > 用户那句「代码里的结构体由表生成」我按字面理解成需求（见 §2.1 的 A 路），并逐条评估它在**本项目**的形状。
 >
-> **一句话结论**：**要做，就做 B 路的正确形状 —— 表里写的不是「名字」而是「Java 符号」，
+> **一句话结论（以下是**否决前**的设计判断，仅供追溯，已不执行）**：**要做，就做 B 路的正确形状 —— 表里写的不是「名字」而是「Java 符号」，
 > 于是每一列都由 `javac` 兜底；但必须承认：B 路在用户唯一在乎的那个指标
 > （「加一个字段要改几处」）上既不比现状好、也不比反射好**（现状 1 行 / 反射 0 处 / 本文 1 行 + 一个构建步骤）。
 > 它换来的是另外三样东西：**编译期兜底**、**表本身可读**、**同一个来源能长出文档与默认值**。
@@ -75,7 +75,7 @@
 | `src` 下 `.java` | **224** | `check-sources.ps1` 本轮实跑输出 `Java files: 224` |
 | `mods` 下 `.java` | **13** | `Get-ChildItem` 计数 |
 | `configLoadingSystem` 包 | **15 个文件** | 见下表 |
-| 自测基线 | **`通过 702 条，失败 0 条`** | ⚠️ **引用** `notes_for_llm/90-STATE.md:17`，**本轮我没能复跑**（`javac` 被拒，见附录 C） |
+| 自测基线 | **`通过 702 条，失败 0 条`** | ⚠️ **引用** `notes_for_llm/state/90-STATE.md:17`，**本轮我没能复跑**（`javac` 被拒，见附录 C） |
 | 静态自查 | **`CHECK OK` / 224 文件 / 0 问题** | ✅ **本轮实跑**（`& .\check-sources.ps1`） |
 | fat jar | **`FightGameReforged-1.2.1.jar` = 740,637 字节（0.71 MB）** | `build/libs/`，mtime `2026-10-03 14:39:49` |
 | fat jar 内部 | 405 条目 / 解压后 1,492,189 字节；`cn/*` 363 个 class = 1,336,452 字节；**`org/json/*` 31 个 class = 147,789 字节** | `System.IO.Compression.ZipFile` 逐条目统计 |
@@ -125,7 +125,7 @@ keys.add(spec(DataKeys.Base.HP_GROW, DataKeys.GROUP_BASE, KeySpec.Kind.DOUBLE,
 
 **展开后的实体键 31 个** = 10 个标量（`name`/`level`/`mass`/`type`/`description`/`speed`/`elementSort`/`hpGrow`/`attackGrow`/`defenceGrow`）
 + 5 个 `…Resistance`（循环生成）+ 1 个 `manaGrow` 块 + 5 个 `…ManaGrow`（循环生成）
-+ 1 个 `inventorySlots` + 5 个临时属性键（`criticalRate`/`criticalDMG`/`enhance`/`penetration`/`defenseLoss`）
++ 1 个 `inventorySlots` + 5 个临时属性键（`criticalRate`/`criticalDamage`/`enhance`/`penetration`/`defenseLoss`）
 + 4 个派生（`hpMax`/`attack`/`defence`/`hp`）。
 **这个 31 与 `CONFIG-LOADING-DECOUPLING-2026-10.md` §11.6 里那句「手写表 31 个键（含 `manaGrow` 块与 `inventorySlots`）」对得上** —— 两处独立数出来的。
 
@@ -914,11 +914,11 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force; & .\test-comm
 ### 阶段 5（半天）：文档回写 + 收工 checklist
 
 **做什么**（第 0 条闭环）：
-1. 回写 `notes_for_llm/70-DATA.md` §5.10（"配置键 = 数据名"这条结论**没变**，但补一句"键表现在由 `tables/` 生成"）；
-2. 回写 `notes_for_llm/90-STATE.md` §9.1（新基线数字、`src` 文件数、生成器在哪）；
+1. 回写 `notes_for_llm/subsystems/70-DATA.md` §5.10（"配置键 = 数据名"这条结论**没变**，但补一句"键表现在由 `tables/` 生成"）；
+2. 回写 `notes_for_llm/state/90-STATE.md` §9.1（新基线数字、`src` 文件数、生成器在哪）；
 3. 回写 `notes_for_llm/00-CATALOG.md` 的**收工 checklist**（加"改过 `tables/` 必须跑 `run-tablegen.ps1`"）+
    「按任务查表」加一行「改配置键 → 先读 `tables/*.xlsx`」；
-4. 回写 `notes_for_llm/10-RULES.md` §8（把"不引入第三方库"改成
+4. 回写 `notes_for_llm/rules/10-RULES.md` §8（把"不引入第三方库"改成
    **"运行期不许引；构建期工具可以，但要零依赖优先"**，否则下个 AI 会按旧规则把生成器删掉）；
 5. 回写 `README.md`：`config/` 那一节补一句"表的定义在 `tables/`，改了要跑生成器"（`README.md:75-99` 附近）；
 6. 本文件追加「§十 落地记录」（照 `CONFIG-LOADING-DECOUPLING-2026-10.md` §10 的体例：实测数字 + 踩坑 + 没做到的部分）。
@@ -938,7 +938,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force; & .\test-comm
 
 ---
 
-## 九、⑧ 不做的事（与 `notes_for_llm/10-RULES.md` §9.3 对齐）
+## 九、⑧ 不做的事（与 `notes_for_llm/rules/10-RULES.md` §9.3 对齐）
 
 | 不做 | 理由 |
 |---|---|
@@ -1057,9 +1057,9 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force; & .\test-comm
 | `config/gameConfig/`（5 个文件） | `EntityData.json` 4 行、`SkillData.json` 4 行、`EntityData.default.json` 5 行、`GameRules.json` 42 行、`TagConfig.json` 41 行 —— **五份 mtime 全是 `2026-10-03 14:44`**（用户重启过游戏，自愈逻辑跑了）。⚠️ `PropertyConfig.json` **已经不在这个目录里了**（`README.md:86` 还写着它在） |
 | `MODDING-GUIDE.md`（717 行） | `:357-493` §4.7 模组配置；`:407-410` `common` 只支持 `entities` + `skills`；`:412-426` `@ModConfig` 优先级；`:428-437` 六条规则；`:451-462` 时机；`:464-479` 共享区；`:481-492` **规则段改不了**（硬限制）；`:582-646` §7.1 特殊机制模组 |
 | `README.md`（614 行） | `:75` 「改完重启游戏生效」；`:78-86` 键长什么样；`:88-99` 四条规则 + 两条边界；`:294` 「唯一依赖 `org.json:json:20240303`」；`:322-329` 唯一的构建命令 `gradle shadowJar`；`:407-413` 模组用 `javax.tools.JavaCompiler` 动态编译 |
-| `notes_for_llm/70-DATA.md`（155 行） | `:24-25` **数据名是对外 API**；`:42-47` 配置键 = 数据名 + 技能/规则是另一套键空间；`:49-58` 改名时 setter 名必须跟着改（**写回退化成裸写字段**那个最阴的回归）；`:63-80` `@DataFlatten` 组件 |
-| `notes_for_llm/90-STATE.md` | `:17` **自测基线 `通过 702 条，失败 0 条`**；`:36-48` 解耦五步 677/0 与反射实验 702/0；`:57` `CHECK OK` / 224 文件 |
-| `notes_for_llm/10-RULES.md`（146 行） | `:65-88` 编码硬约束（`.java` 无 BOM）；`:110-130` §8 协作偏好（`:124` 「不要引入新的第三方库」**已被用户本轮解禁**）；`:134-146` §9.3 故意不做的事 |
+| `notes_for_llm/subsystems/70-DATA.md`（155 行） | `:24-25` **数据名是对外 API**；`:42-47` 配置键 = 数据名 + 技能/规则是另一套键空间；`:49-58` 改名时 setter 名必须跟着改（**写回退化成裸写字段**那个最阴的回归）；`:63-80` `@DataFlatten` 组件 |
+| `notes_for_llm/state/90-STATE.md` | `:17` **自测基线 `通过 702 条，失败 0 条`**；`:36-48` 解耦五步 677/0 与反射实验 702/0；`:57` `CHECK OK` / 224 文件 |
+| `notes_for_llm/rules/10-RULES.md`（146 行） | `:65-88` 编码硬约束（`.java` 无 BOM）；`:110-130` §8 协作偏好（`:124` 「不要引入新的第三方库」**已被用户本轮解禁**）；`:134-146` §9.3 故意不做的事 |
 | `CONFIG-LOADING-DECOUPLING-2026-10.md`（1259 行） | `§十`（`:922-1014`）落地记录与 §10.3 的改动点数字；`§十一`（`:1029-1259`）反射实验：`:1100`/`:1171` **122 条键名契约断言**的出处、`:1183-1199` 债 1（24 个键）、`:1208-1217` 债 2（反射拿不到的六样）、`:1235-1240` 「混血」建议 |
 | `ENTITY-ATTRIBUTE-SPLIT-2026-10.md`（538 行） | `:18` 59 字段全 `private` / 460 访问点 / 11 子类；`:87-95` 复制与重置的痛点；`:180` **122 个 `/data` 断言点**的原始口径；`:475` `Get-Content` 少算行数那条坑 |
 
@@ -1069,7 +1069,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force; & .\test-comm
 2. **★ 没有编译、没有跑自测**：本会话里 **`javac` 被沙箱拒绝**
    （`test-command-system.ps1:49` → `Program 'javac.exe' failed to run: Access is denied`），
    `java.exe` 反而能跑（`openjdk 25.0.4.1`）。
-   所以本文的「`通过 702 条，失败 0 条`」是**引用** `notes_for_llm/90-STATE.md:17`，
+   所以本文的「`通过 702 条，失败 0 条`」是**引用** `notes_for_llm/state/90-STATE.md:17`，
    **不是本轮复跑**。**`check-sources.ps1` 是本轮实跑的**（`Java files: 224` / `CHECK OK`）。
    阶段 1 的验收**必须在能跑 `javac` 的会话里做**（那次会话请先重跑一遍基线）。
 3. **★ 一个副作用要声明**：我跑 `test-command-system.ps1` 验证基线时，脚本在 `:31-32`

@@ -12,7 +12,7 @@ import cn.gfhnv.game.entity.LivingThing;
  * {@code Integer.MAX_VALUE} 表示"不靠回合数结束"。数字很难看，也不该让玩家看见。
  * 专用类只做"进来加 {@code enhance}、到期减回去"，不打印、不涉及回合数语义。
  * <p>
- * 形状照抄 {@code DamageEnhanceEffect} / {@code CriticalDMGEnhanceEffect}（{@code isOn} 防重复进出）。
+ * 形状照抄 {@code DamageEnhanceEffect} / {@code CriticalDamageEnhanceEffect}（{@code isOn} 防重复进出）。
  *
  * @author AI（DeepSeek）生成；设计稿作者：仓库作者
  */

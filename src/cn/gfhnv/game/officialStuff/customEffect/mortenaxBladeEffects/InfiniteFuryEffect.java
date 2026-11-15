@@ -3,11 +3,12 @@ package cn.gfhnv.game.officialStuff.customEffect.mortenaxBladeEffects;
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.effect.EffectTags;
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.entity.PropertyEnhanceType;
 
 /**
  * 千冶·刃 · 【无量忿怒】状态：暴击率 +20%、暴击伤害 +60%（设计稿）。
  * <p>
- * <b>形状照抄 {@link cn.gfhnv.game.officialStuff.customEffect.universalEffects.CriticalDMGEnhanceEffect}</b>：
+ * <b>形状照抄 {@link cn.gfhnv.game.officialStuff.customEffect.universalEffects.CriticalDamageEnhanceEffect}</b>：
  * 进来加、到期减，`isOn` 防重复进出。区别只是它同时改**两样**（暴击率 + 暴击伤害），
  * 而且它是"结界期间"的载体 —— 免死、换技能表这些逻辑挂在别处（终结技与 {@code MortenaxBlade}），
  * 效果本身只管这两个数值。
@@ -74,16 +75,15 @@ public class InfiniteFuryEffect extends Effect {
     @Override
     public void comeIntoEffect(LivingThing thing) {
         if (!isOn) {
-            thing.setCriticalRateEnhancePercent(thing.getCriticalRateEnhancePercent() + CRITICAL_RATE_BONUS);
-            thing.setCriticalDMGEnhancePercent(thing.getCriticalDMGEnhancePercent() + CRITICAL_DAMAGE_BONUS);
+            thing.addPropertyEnhance(PropertyEnhanceType.CRITICAL_RATE, CRITICAL_RATE_BONUS, 0, this);
+            thing.addPropertyEnhance(PropertyEnhanceType.CRITICAL_DAMAGE, CRITICAL_DAMAGE_BONUS, 0, this);
         }
         isOn = true;
     }
 
     @Override
     public void whenLastTimeEnd(LivingThing thing) {
-        thing.setCriticalRateEnhancePercent(thing.getCriticalRateEnhancePercent() - CRITICAL_RATE_BONUS);
-        thing.setCriticalDMGEnhancePercent(thing.getCriticalDMGEnhancePercent() - CRITICAL_DAMAGE_BONUS);
+        thing.removePropertyEnhance(this);
         isOn = false;
     }
 }

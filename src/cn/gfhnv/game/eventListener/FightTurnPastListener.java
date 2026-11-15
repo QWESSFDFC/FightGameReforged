@@ -10,23 +10,28 @@ import cn.gfhnv.game.event.FightPastOneTurnEvent;
 import cn.gfhnv.game.interfaces.ISpecialAction;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.command.CommandManager;
-import cn.gfhnv.game.system.fight.Fight;
-import cn.gfhnv.game.system.fight.ActionSignal;
-import cn.gfhnv.game.system.fight.TurnEntry;
-import cn.gfhnv.game.system.fight.TurnManager;
+import cn.gfhnv.game.system.fight.*;
 import cn.gfhnv.game.system.mana.Mana;
 import cn.gfhnv.game.utils.ConsoleColor;
 import cn.gfhnv.game.world.World;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 public class FightTurnPastListener {
     private static List<LivingThing> theDeath = new ArrayList<>();
     private static TurnEntry presentTurn;
+    /**
+     * 是否正在由本监听器驱动回合循环。
+     * <p>
+     * 回合推进由 {@code turnLoop} 循环负责：本监听器只发一次 {@link FightPastOneTurnEvent}，
+     * 之后每回合通过 {@code continue turnLoop} 回到循环开头，而不是再 post 一次事件。
+     * 因此<b>栈深度不随回合数增长</b>（O(回合数) → O(1)），长战斗不会 StackOverflowError。
+     * <p>
+     * 若外部（例如模组）另外 post 了 {@link FightPastOneTurnEvent}，在驱动期间会被忽略：
+     * 回合推进的责任在循环里，重入会打乱时间轴。
+     */
+    private boolean isDriving = false;
 
     /**
      * <b>把动作队列排空</b>：反复"取快照 → 清空 → 逐个执行"，直到队列真的空了。
@@ -50,7 +55,7 @@ public class FightTurnPastListener {
      * @return 实际执行了多少个动作
      */
     public static int runExecuteList(Fight fight, TurnEntry presentTurn, List<ISpecialAction> queue,
-                                    String label) {
+                                     String label) {
         int executed = 0;
         while (!queue.isEmpty()) {
             List<ISpecialAction> batch = new ArrayList<>(queue);
@@ -64,16 +69,37 @@ public class FightTurnPastListener {
     }
 
     /**
-     * 是否正在由本监听器驱动回合循环。
+     * <b>排空回合内行动队列</b>（2026-11-14 第 59 批，Step 6 第二步）。
      * <p>
-     * 回合推进由 {@code turnLoop} 循环负责：本监听器只发一次 {@link FightPastOneTurnEvent}，
-     * 之后每回合通过 {@code continue turnLoop} 回到循环开头，而不是再 post 一次事件。
-     * 因此<b>栈深度不随回合数增长</b>（O(回合数) → O(1)），长战斗不会 StackOverflowError。
+     * 规则就是作者定下的四条：<b>一个接一个</b>（取队首 → 执行 → 再取）、
+     * <b>执行中可以追加</b>（追加的条目会继续被取到）、<b>执行前可以移除</b>（调用方直接改
+     * {@link TurnEntry#getActQueue()} 即可）、<b>有优先级</b>（大的先执行，<b>同优先级按入队顺序</b>）。
      * <p>
-     * 若外部（例如模组）另外 post 了 {@link FightPastOneTurnEvent}，在驱动期间会被忽略：
-     * 回合推进的责任在循环里，重入会打乱时间轴。
+     * 排序用 {@code List.sort}（稳定排序），所以"同优先级稳不稳定"这件事由 Java 保证，不靠约定。
+     * <b>不设轮数上限</b>：会往队列里追加的都是我们自己的机制（追打、免死后的最后一击、转阶段播报），
+     * 真出现"自己无限追加自己"那是设计错误，应该暴露而不是被上限悄悄截断。
+     *
+     * @param fight 当前战斗
+     * @param turn  当前回合条目（队列在它身上）
+     * @return 实际执行了多少条
      */
-    private boolean isDriving = false;
+    public static int runActQueue(Fight fight, TurnEntry turn) {
+        int executed = 0;
+        List<ActEntry> queue = turn.getActQueue();
+        while (!queue.isEmpty()) {
+            // 稳定排序：同优先级保持入队顺序
+            queue.sort(java.util.Comparator.comparingInt(ActEntry::priority).reversed());
+            ActEntry entry = queue.remove(0);
+            if (entry.action() == null) {
+                continue;
+            }
+            entry.action().execute(fight, turn.getLivingThing());
+            // 每执行完一条行动条目发一次（第 74 批新增事件）：日志/AI 复盘/调试面板用
+            EventBus.post(new cn.gfhnv.game.event.TurnActionExecutedEvent(fight, turn, entry));
+            executed++;
+        }
+        return executed;
+    }
 
     public static TurnEntry getPresentTurn() {
         return presentTurn;
@@ -178,7 +204,13 @@ public class FightTurnPastListener {
                 // 拖到回合末尾的话，这一整个回合（例如 BOSS 的回合）会先跑完：奖励迟了一整个回合，
                 // 受益人还可能已经倒下 —— 那条额外回合随即被 removeTheDeath 摘掉，等于没发。
                 for (LivingThing dead : theDeath) {
+                    // 实体死亡、即将离场（第 74 批新增事件）：此时已移出阵营列表，whenLeaveFight 还没跑
+                    EventBus.post(new cn.gfhnv.game.event.EntityDeathEvent(
+                            fightPastOneTurnEvent.getFight(), dead));
                     dead.whenLeaveFight(fightPastOneTurnEvent.getFight());
+                    // 2026-11-15 第 76 批（作者要求）：死亡/退出的临时实体同步离开 World.things，
+                    // 别让 /list 与 @e 继续选中尸体、也别让它一直吊着整场 Fight。
+                    World.removeThing(dead);
                 }
                 theDeath.clear();
                 if (fightPastOneTurnEvent.getFight().getFighterList().isEmpty()) {
@@ -190,8 +222,16 @@ public class FightTurnPastListener {
                     break;
                 }
                 if (TurnManager.getTurns().isEmpty()) {
-                    // 兜底:两个阵营都还有人却排不出回合了,再走下去 getFirst() 会抛
-                    // NoSuchElementException。宁可少打一个回合也不要崩。
+                    // 兜底：两个阵营都还有人，却排不出回合了（时间轴空了），再走下去 getFirst() 会抛
+                    // NoSuchElementException。这里**必须把战斗收掉**，不能只是 break：
+                    //   - 只 break 的话 fightInProgress 仍是 true、本场监听器也不会注销，
+                    //     再开一局就会有两个回合监听器同时在场（玩家会看到"一回合跑两遍"）；
+                    //   - 这种局面只可能是"双方都排不出下一回合"，按平局处理 ——
+                    //     FightEndEvent 只有胜负两态，这里按**未胜利**结算（不给奖励），
+                    //     并把原因打印出来，方便排查是哪个机制把时间轴清空了。
+                    System.out.println(ConsoleColor.yellow("【战斗结束】双方都还有人，但时间轴排不出下一回合 —— "
+                            + "本场按平局结算（未胜利、不发奖励）。"));
+                    EventBus.post(new FightEndEvent(false, fightPastOneTurnEvent.getFight()));
                     break;
                 }
                 TurnManager.sort();
@@ -215,6 +255,10 @@ public class FightTurnPastListener {
                 presentTurn.getLivingThing().recoverManaEveryTurn();
                 System.out.println();
                 World.turnTimer++;
+                // 回合正式开始（第 74 批新增事件）：行动者已定、冷却已减、法力已回，回合头即将打印。
+                // 监听器在这里改状态会直接出现在下面的回合头与动作里。
+                EventBus.post(new cn.gfhnv.game.event.FightTurnStartEvent(
+                        fightPastOneTurnEvent.getFight(), presentTurn));
                 LivingThing actor = presentTurn.getLivingThing();
                 // 阵营判据统一走 Fight#isOurSide：回合头、攻击行、侵蚀行、命令系统的 @s 跟随
                 // 用的是同一个方法，别在这里再自己 contains 一遍（两套口径迟早会漂）。
@@ -236,34 +280,73 @@ public class FightTurnPastListener {
                         + " 水" + manaOf(actor.getWaterMana())
                         + " 火" + manaOf(actor.getFireMana())
                         + " 土" + manaOf(actor.getDirtMana()));
-                runExecuteList(fightPastOneTurnEvent.getFight(), presentTurn,
-                        presentTurn.getFirstExecuteList(), "开场");
-                if (!presentTurn.getLivingThing().isAlive()) presentTurn.setActionSignal(ActionSignal.SKIP);
-                if (presentTurn.getLivingThing().getShowSpecialMes() != null) {
-                    presentTurn.getLivingThing().getShowSpecialMes().show(presentTurn.getLivingThing());
-                }
-
-                if (presentTurn.getActionSignal().equals(ActionSignal.NORMAL)) {
-                    presentTurn.getLivingThing().getController().act(fightPastOneTurnEvent.getFight());
-                } else if (presentTurn.getActionSignal().equals(ActionSignal.SPECIAL_ACTION)) {
-                    // 判空:回合条目里的 SPECIAL_ACTION 是创建时的快照,而 specialAction 可能已被效果
-                    // (如 Frozen 到期)清掉,直接调用会 NPE 并让整局游戏崩掉
-                    ISpecialAction specialAction = presentTurn.getLivingThing().getController().getSpecialAction();
-                    if (specialAction != null) {
-                        specialAction.execute(fightPastOneTurnEvent.getFight(), presentTurn.getLivingThing());
-                    }
-                }
-                if (presentTurn.getActionSignal() != ActionSignal.WITHOUT_NEW_TURN && !presentTurn.getActionSignal().equals(ActionSignal.SKIP_WITHOUT_NEW_TURN)) {
-                    TurnEntry turn = new TurnEntry(presentTurn.getLivingThing(), BigDecimal.valueOf(10000).divide(BigDecimal.valueOf(presentTurn.getLivingThing().getSpeed()), 10, RoundingMode.HALF_UP), TurnManager.getPresentTime());
-                    TurnManager.getTurns().add(turn);
-                } else if (presentTurn.getActionSignal().equals(ActionSignal.WITHOUT_NEW_TURN)) {
-                    presentTurn.getLivingThing().getController().act(fightPastOneTurnEvent.getFight());
-                }
-                runExecuteList(fightPastOneTurnEvent.getFight(), presentTurn,
-                        presentTurn.getLastExecuteList(), "收尾");
-
+                // ★ 2026-11-14 第 58 批（Step 6 第一步）：效果结算从"回合最后一步"挪到
+                // "回合头输出之后"（作者 2026-11-08 定的顺序）。语义差异只有一条：
+                // 本回合的动作**看得到本回合的 tick 结果**（DoT 先扣血、加成型效果先生效），
+                // 而不再是"动作跑完才结算、结算结果下一回合才用得上"。
+                // 注意:这里在 firstExecute（开场动作）之前,但 firstExecute 通常只是播报/换控制器,
+                // 真正会"挨 DoT 打死"的判定仍在下面 isAlive() 那一行。
                 EventBus.post(new EffectUpdateEvent(presentTurn.getLivingThing(), presentTurn));
+                // ★ 2026-11-14 第 59 批（Step 6 第二步）：开场 / 正式行动 / 重排 / 收尾 **合成一条队列**。
+                // 默认优先级把三段顺序原样保住：FIRST(1000) > CHECK(900) > NORMAL(0) > RESCHEDULE(-500) > LAST(-1000)。
+                // firstExecute / lastExecute 里原本就有的条目已经在队列里（它们走的是"带优先级视图"）。
+                TurnEntry turnRef = presentTurn;
+                Fight fightRef = fightPastOneTurnEvent.getFight();
+                turnRef.addAct((f, u) -> {
+                    if (!turnRef.getLivingThing().isAlive()) {
+                        turnRef.setActionSignal(ActionSignal.SKIP);
+                    }
+                    if (turnRef.getLivingThing().getShowSpecialMes() != null) {
+                        turnRef.getLivingThing().getShowSpecialMes().show(turnRef.getLivingThing());
+                    }
+                }, ActEntry.PRIORITY_CHECK);
+                turnRef.addAct((f, u) -> {
+                    if (turnRef.getActionSignal().equals(ActionSignal.NORMAL)) {
+                        turnRef.getLivingThing().getController().act(f);
+                    } else if (turnRef.getActionSignal().equals(ActionSignal.SPECIAL_ACTION)) {
+                        // 判空:回合条目里的 SPECIAL_ACTION 是创建时的快照,而 specialAction 可能已被效果
+                        // (如 Frozen 到期)清掉,直接调用会 NPE 并让整局游戏崩掉
+                        ISpecialAction specialAction = turnRef.getLivingThing().getController().getSpecialAction();
+                        if (specialAction != null) {
+                            specialAction.execute(f, turnRef.getLivingThing());
+                        }
+                    }
+                }, ActEntry.PRIORITY_NORMAL);
+                turnRef.addAct((f, u) -> {
+                    if (turnRef.getActionSignal() != ActionSignal.WITHOUT_NEW_TURN
+                            && !turnRef.getActionSignal().equals(ActionSignal.SKIP_WITHOUT_NEW_TURN)) {
+                        TurnEntry next = new TurnEntry(turnRef.getLivingThing(),
+                                TurnManager.needTimeOf(turnRef.getLivingThing()),
+                                TurnManager.getPresentTime());
+                        TurnManager.getTurns().add(next);
+                    } else if (turnRef.getActionSignal().equals(ActionSignal.WITHOUT_NEW_TURN)) {
+                        turnRef.getLivingThing().getController().act(f);
+                    }
+                }, ActEntry.PRIORITY_RESCHEDULE);
+                runActQueue(fightRef, turnRef);
+                // 回合结束（第 74 批新增事件）：这条回合的行动队列已全部执行完
+                EventBus.post(new cn.gfhnv.game.event.FightTurnEndEvent(fightRef, turnRef));
+
                 // 本回合处理完毕，回到 turnLoop 开头取下一个回合（不再递归 post 事件）
+            }
+        } catch (Throwable error) {
+            // 2026-11-15 第 78 批（分析 P0-1）：回合循环里的任何异常都不能只留给 EventBus 吞掉 ——
+            // 那样 fightInProgress / 时间轴 / 监听器都会停在半路（玩家侧就是"卡住"）。
+            // 这里统一强制收场：复位状态 → 清时间轴 → 发 FightEndEvent（监听器照常注销、实体照常复位）。
+            if (error instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            System.out.println(ConsoleColor.red("【战斗异常】回合循环抛了 "
+                    + error.getClass().getSimpleName()
+                    + (error.getMessage() == null ? "" : "：" + error.getMessage())
+                    + " —— 已强制收场，避免整场卡死。"));
+            // 全栈打到控制台：只写类名+message 时，无 message 的 UOE 根本没法定位（第 79 批的教训）
+            error.printStackTrace();
+            cn.gfhnv.game.system.logSystem.LogWriter.writeThrowable("[战斗异常] 强制收场", error);
+            if (!cn.gfhnv.game.GameMain.endFight(fightPastOneTurnEvent.getFight(), false)) {
+                // 已经不在战斗状态（例如异常发生在 endFight 之后）：仍然要发事件，让监听器/实体收尾
+                EventBus.post(new cn.gfhnv.game.event.FightEndEvent(
+                        false, fightPastOneTurnEvent.getFight()));
             }
         } finally {
             // 必须复位：否则一次异常就会让这个监听器实例此后永远拒绝驱动回合

@@ -1,5 +1,6 @@
 package cn.gfhnv.game.officialStuff.customSkill.actorLiXiaoYanSkills;
 
+import cn.gfhnv.game.damage.DamageType;
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.event.EventBus;
@@ -55,13 +56,13 @@ public class UltimateAttack extends Skill {
         boolean wasHigh = false;
         if (user instanceof ActorLiXiaoYan li) {
             li.setMemorizedRate((double) user.getHp() / user.getHpMax());
-            if (li.getIgnition() >= ActorLiXiaoYan.Rule.highIgnition()) {
-                setExtraDamage((long) (getExtraDamage() + user.getHpMax() * ActorLiXiaoYan.Rule.highIgnitionBonusRate()));
+            if (li.getIgnition() >= li.getHighIgnition()) {
+                setExtraDamage((long) (getExtraDamage() + user.getHpMax() * ((ActorLiXiaoYan) user).getHighIgnitionBonusRate()));
                 wasHigh = true;
             }
         }
         for (LivingThing livingThing : enemies) {
-            user.makeDamage(livingThing, this);
+            user.makeDamage(livingThing, this, DamageType.UltimateAttack);
         }
 
         applyMemorizedHp(user);
@@ -75,7 +76,7 @@ public class UltimateAttack extends Skill {
         // 旧代码用一个无条件置真的 enhanced 标记来判"该不该扣"，燃点恰好 7 层时
         // 会出现「没加也扣」——这一击净减 0.5 × 生命上限 的额外伤害，而且会一直留在技能实例上。
         if (wasHigh) {
-            setExtraDamage((long) (getExtraDamage() - user.getHpMax() * ActorLiXiaoYan.Rule.highIgnitionBonusRate()));
+            setExtraDamage((long) (getExtraDamage() - user.getHpMax() * ((ActorLiXiaoYan) user).getHighIgnitionBonusRate()));
         }
     }
 

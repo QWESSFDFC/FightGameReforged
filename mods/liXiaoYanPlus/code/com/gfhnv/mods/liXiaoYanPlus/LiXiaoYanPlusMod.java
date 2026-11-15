@@ -108,10 +108,10 @@ public class LiXiaoYanPlusMod extends Mod implements ModDataAware {
 
         System.out.println("[" + getModInformation().getName() + "] 加载完成："
                 + "李晓焰的【燃点】上限 +" + ignitionBonus
-                + "（满血 " + ActorLiXiaoYan.Rule.ignitionMax() + " → "
-                + (ActorLiXiaoYan.Rule.ignitionMax() + ignitionBonus) + "，低血 "
-                + ActorLiXiaoYan.Rule.lowHpIgnitionMax() + " → "
-                + (ActorLiXiaoYan.Rule.lowHpIgnitionMax() + ignitionBonus) + "）");
+                + "（满血 " + ActorLiXiaoYan.Defaults.IGNITION_MAX + " → "
+                + (ActorLiXiaoYan.Defaults.IGNITION_MAX + ignitionBonus) + "，低血 "
+                + ActorLiXiaoYan.Defaults.LOW_HP_IGNITION_MAX + " → "
+                + (ActorLiXiaoYan.Defaults.LOW_HP_IGNITION_MAX + ignitionBonus) + "）");
         System.out.println("[" + getModInformation().getName() + "] 想改加成：改 config/data/"
                 + MOD_ID + ".json 里的 ignitionBonus 再重启游戏"
                 + "（这个文件首次运行会自动生成；删掉它会按默认值 " + DEFAULT_IGNITION_BONUS + " 再生成）。");

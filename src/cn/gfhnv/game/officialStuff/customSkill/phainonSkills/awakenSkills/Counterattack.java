@@ -1,5 +1,6 @@
 package cn.gfhnv.game.officialStuff.customSkill.phainonSkills.awakenSkills;
 
+import cn.gfhnv.game.damage.DamageType;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.officialStuff.customEntity.players.Phainon;
 import cn.gfhnv.game.skill.Skill;
@@ -141,7 +142,7 @@ public class Counterattack extends Skill implements SkillCoefficientTunable {
         // 顺带抽自己的副本：旧写法 {@code Collections.shuffle(enemies)} 是就地打乱<b>调用方</b>的列表。
         List<LivingThing> aliveEnemies = aliveOf(enemies);
         for (LivingThing livingThing : aliveEnemies) {
-            user.makeDamage(livingThing, this);
+            user.makeDamage(livingThing, this, DamageType.AdditionAttack);
         }
         this.setAtkMagnification(randomMag);
         for (int i = 0; i < extraHits; i++) {
@@ -153,7 +154,7 @@ public class Counterattack extends Skill implements SkillCoefficientTunable {
                 break;
             }
             Collections.shuffle(aliveEnemies);
-            user.makeDamage(aliveEnemies.getFirst(), this);
+            user.makeDamage(aliveEnemies.getFirst(), this, DamageType.AdditionAttack);
         }
 
         this.setAtkMagnification(1);

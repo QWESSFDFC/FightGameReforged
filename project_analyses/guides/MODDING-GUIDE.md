@@ -8,11 +8,11 @@
 > - 适用版本：**Java 25 + 当前源码**（`src/cn/gfhnv`，215 个 java 文件）；
 > - 本文与源码不一致时，**以源码为准**；
 > - 配套阅读：
->   [`README.md`](../README.md)（怎么玩、各个系统在哪）、
->   [`COMMAND-SYSTEM-2026-08.md`](COMMAND-SYSTEM-2026-08.md)（命令系统）、
->   [`ANALYSIS-2026-08.md`](ANALYSIS-2026-08.md) **§8 模组系统评价**
+>   [`README.md`](../../README.md)（怎么玩、各个系统在哪）、
+>   [`COMMAND-SYSTEM-2026-08.md`](../current/COMMAND-SYSTEM-2026-08.md)（命令系统）、
+>   [`ANALYSIS-2026-08.md`](../archive/ANALYSIS-2026-08.md) **§8 模组系统评价**
 >   （深度体检：4 个"会让游戏起不来"的缺陷、安全边界、"能做什么/不能做什么"）、
->   [`ANALYSIS-review4.md`](ANALYSIS-review4.md)（最新一轮整体复核）。
+>   [`PROJECT-ANALYSIS-2026-11-15.md`](../current/PROJECT-ANALYSIS-2026-11-15.md)（当前基准的整体复核）。
 >
 > 官方示例：`mods/exampleModByGFHNV/`、`mods/abstractLaunchingWords/`（只打印一行，最小骨架）。
 > 完整实战示例：**`mods/drunkenSword/`**（新角色 + 2 效果 + 2 物品 + 3 个技能，见第 7 节）。
@@ -219,11 +219,19 @@ public class RaiseCup extends Skill {
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         for (LivingThing target : enemies) {
-            user.makeDamage(target, this);     // 伤害 + 攻击行（含技能名）都由它打印
+            // 第三个参数是**伤害类型**（DamageType），决定"这一击算普攻/战技/大招/追加攻击"；
+            // 伤害加成以后按它匹配，写错不会报错、只会让加成算错，所以要照着技能身份填。
+            user.makeDamage(target, this, DamageType.CommonAttack);
+            // 伤害 + 攻击行（含技能名）都由它打印
         }
     }
 }
 ```
+
+> **伤害类型要显式传**（2026-11-14 起）：`DamageType` 有
+> `DOT / CommonAttack / SpecialSkill / UltimateAttack / AdditionAttack / SystemDamage`，
+> 一次伤害可以传多个。**不传也能编译**（兼容重载按 `SpecialSkill` 算），但那是给老代码留的口子，
+> 新技能请写清楚。`import cn.gfhnv.game.damage.DamageType;`
 
 > **攻击行不要自己打**：`makeDamage` 会打印整行
 > `A（我方）攻击了B（敌方）  -伤害  → HP 当前/上限  【技能名】`（伤害标红、HP 标灰、
@@ -340,7 +348,7 @@ CommandManager.register(new MyCommand());
 
 命令树的完整写法（节点类型、参数类型、选择器、补全、返回值语义）见
 `officialStuff/customCommands/` 下的 9 个官方命令与
-[`COMMAND-SYSTEM-2026-08.md`](COMMAND-SYSTEM-2026-08.md)。
+[`COMMAND-SYSTEM-2026-08.md`](../current/COMMAND-SYSTEM-2026-08.md)。
 
 ### 4.6 监听器（可选，但很有用）
 
@@ -724,13 +732,21 @@ public class LiXiaoYanPlusMod extends Mod implements ModDataAware {
 // 实体
 LivingThing(String name, String id, double 火抗, double 水抗, double 金抗, double 木抗, double 土抗,
             long speed, long level, String type, double hpGrow, double atkGrow, double dfkGrow, ElementSort element)
+// 推荐改用具名构造器（2026-11-14 起），上面那个 14 参构造器仍然可用：
+// LivingThing.builder("名字", "id").level(125).element(ElementSort.DIRT).speed(120)
+//     .hpGrow(36).attackGrow(29).defenceGrow(5)
+//     .metalResistance(0).woodResistance(0).waterResistance(0.2).fireResistance(0.3).dirtResistance(0.3)
+//     .controller(new ThinkingControllerAI()).build()
+// 必填：element / speed（缺了直接抛 IllegalStateException）；type 默认 "entity"
 setMass(double) / setDescription(String) / getInventory().addSlot(long) / setController(Controller)
 // 技能
 Skill(String name, String description, double hpMag, double atkMag, double defMag, int aims)
 setCoolDown(int) / setConsumedMana(Mana) / getTags().put(TagType.ATTACK, new Tag(int))
 boolean canUse(Fight, LivingThing, List<LivingThing>)   // 第三参可能为 null
 void comeToEffect(Fight, LivingThing, List<LivingThing>)
-user.makeDamage(target, skill) / user.setHp(user.getHp() + n) / user.getHpMax() / user.getName() / user.isAlive()
+user.makeDamage(target, skill, DamageType.SpecialSkill) / user.setHp(user.getHp() + n) / user.getHpMax() / user.getName() / user.isAlive()
+// 伤害类型（DamageType）：DOT / CommonAttack / SpecialSkill / UltimateAttack / AdditionAttack / SystemDamage
+// 不传类型也能编译（按 SpecialSkill 算），新代码请显式传
 // 效果
 Effect(String id) / setLevel(int) / setLastTime(int) / getEffectTagsList().add(EffectTags.X)
 Effect copy() / void comeIntoEffect(LivingThing) / void whenLastTimeEnd(LivingThing)
@@ -761,14 +777,14 @@ thing.addModifyDamage(...) / thing.addDamageReduction(...) / 效果实现 IDefen
 
 | 想了解 | 看哪里 |
 |---|---|
-| 怎么玩、命令怎么用、项目结构 | [`README.md`](../README.md) |
-| 命令系统的实现（含返回值、选择器、补全） | [`COMMAND-SYSTEM-2026-08.md`](COMMAND-SYSTEM-2026-08.md) |
-| 模组系统的深度体检（崩溃级缺陷、安全边界、类加载细节） | [`ANALYSIS-2026-08.md`](ANALYSIS-2026-08.md) §8 |
-| 整体架构与最新复核 | [`ANALYSIS-review4.md`](ANALYSIS-review4.md) |
+| 怎么玩、命令怎么用、项目结构 | [`README.md`](../../README.md) |
+| 命令系统的实现（含返回值、选择器、补全） | [`COMMAND-SYSTEM-2026-08.md`](../current/COMMAND-SYSTEM-2026-08.md) |
+| 模组系统的深度体检（崩溃级缺陷、安全边界、类加载细节） | [`ANALYSIS-2026-08.md`](../archive/ANALYSIS-2026-08.md) §8（历史深度体检；现役结论见 [`PROJECT-ANALYSIS-2026-11-15.md`](../current/PROJECT-ANALYSIS-2026-11-15.md) §四） |
+| 整体架构与当前基准复核 | [`PROJECT-ANALYSIS-2026-11-15.md`](../current/PROJECT-ANALYSIS-2026-11-15.md) |
 | 给 AI 的工作约定、框架坑、当前进度 | `TIPS_FOR_LLM.md`（**在 `.gitignore` 里，不随仓库发布**） |
 | 官方内容怎么写（角色/技能/效果/物品的完整实现） | `src/cn/gfhnv/game/officialStuff/` |
 | 官方命令怎么写 | `src/cn/gfhnv/game/officialStuff/customCommands/` |
-| **游戏自己的数值怎么调**（实体 / 技能 / 魔法数字） | [`README.md`](../README.md) 的「数值怎么调」一节；设计文档 [`EXTERNAL-DATA-LOADING-2026-10.md`](EXTERNAL-DATA-LOADING-2026-10.md) |
+| **游戏自己的数值怎么调**（实体 / 技能 / 魔法数字） | [`README.md`](../../README.md) 的「数值怎么调」一节；设计文档 [`EXTERNAL-DATA-LOADING-2026-10.md`](../current/EXTERNAL-DATA-LOADING-2026-10.md) |
 
 ---
 

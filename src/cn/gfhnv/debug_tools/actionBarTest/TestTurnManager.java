@@ -19,10 +19,10 @@ public class TestTurnManager {
                 return -1;
             }
             if (o1.getNeedTime().add(o1.getStartTime()).compareTo(o2.getStartTime().add(o2.getNeedTime())) == 0) {
-                if (o1.getActingEntity().transToLivingTing().getSpeed() > o2.getActingEntity().transToLivingTing().getSpeed()) {
+                if (o1.getActingEntity().transToLivingThing().getSpeed() > o2.getActingEntity().transToLivingThing().getSpeed()) {
                     return 1;
                 }
-                if (o1.getActingEntity().transToLivingTing().getSpeed() < o2.getActingEntity().transToLivingTing().getSpeed()) {
+                if (o1.getActingEntity().transToLivingThing().getSpeed() < o2.getActingEntity().transToLivingThing().getSpeed()) {
                     return -1;
                 }
                 return 0;
@@ -46,7 +46,7 @@ public class TestTurnManager {
             return;
         }
         for (LivingThing livingThing : canActEnitity) {
-            turns.add(new Turn(livingThing, TestTurnManager.getPresentTime(), BigDecimal.valueOf(10000 / livingThing.transToLivingTing().getSpeed())));
+            turns.add(new Turn(livingThing, TestTurnManager.getPresentTime(), BigDecimal.valueOf(10000 / livingThing.transToLivingThing().getSpeed())));
         }
         if (turns.isEmpty()) {
             return;

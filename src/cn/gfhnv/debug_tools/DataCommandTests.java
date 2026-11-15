@@ -2,18 +2,18 @@ package cn.gfhnv.debug_tools;
 
 import cn.gfhnv.game.data.*;
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.entity.PropertyEnhanceType;
 import cn.gfhnv.game.event.EventBus;
-import cn.gfhnv.game.inventory.Slot;
 import cn.gfhnv.game.officialStuff.customEntity.players.ActorLiXiaoYan;
-import cn.gfhnv.game.system.command.*;
-import cn.gfhnv.game.system.fight.*;
+import cn.gfhnv.game.system.command.CommandManager;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static cn.gfhnv.debug_tools.TestKit.*;
-import static cn.gfhnv.debug_tools.TestSupport.*;
-import static cn.gfhnv.debug_tools.TestProbes.*;
+import static cn.gfhnv.debug_tools.TestProbes.ProbeHpEventListener;
+import static cn.gfhnv.debug_tools.TestSupport.hasMatchingSetter;
+import static cn.gfhnv.debug_tools.TestSupport.isScalarType;
 
 /**
  * 自测：**命令**。
@@ -23,6 +23,9 @@ import static cn.gfhnv.debug_tools.TestProbes.*;
  * 由 {@code TestCommandSystem#main} 按顺序调用 {@code DataCommandTests#runAll()}。
  */
 public final class DataCommandTests {
+
+    private DataCommandTests() {
+    }
 
     /**
      * NBT 数据层与 {@code /data} 命令（2026-09 新增）。
@@ -123,18 +126,27 @@ public final class DataCommandTests {
         }
         check("前提：这条扫描真的下潜进了 @DataFlatten 组件（字段搬进组件后不会从覆盖面里静默消失）"
                         + "—— 扫到 " + scannedWritable.size() + " 个能写的标量",
-                scannedWritable.contains("attackEnhancePercent")
-                        && scannedWritable.contains("metalResistance"));
+                scannedWritable.contains("enhance")
+                        && !scannedWritable.contains("attackEnhancePercent")
+                        && !scannedWritable.contains("metalResistance"));
         check("写回契约：每个 /data 能写的标量字段都挂着一个同名 setter（字段改名时 setter 必须跟着改）"
                 + "—— 缺 setter 的：" + missingSetters, missingSetters.isEmpty());
-        // 这一条盯着"搬家把副作用搬丢了"：{@code setHpEnhancePercent} 原来在实体上，
-        // 除了赋值还会 {@code renewHp()} 把当前生命夹回新上限。它搬进属性组件之后，
-        // {@code /data merge} 的写回落点是**组件**，副作用必须跟着搬过去 ——
-        // 否则改小生命增强就会留下 hp > 上限的怪状态（实测踩到过：4664 血 / 466 上限）。
+        // 这一条盯着"搬家把副作用搬丢了"：生命上限变小时，当前生命必须被夹回新上限。
+        // 2026-11-14 起 `hpEnhancePercent` 这个 /data 键已经不存在（改成 propertyEnhances 条目），
+        // 副作用挪到了 `LivingThing#addPropertyEnhance(MAX_HP, …)` 里。
         ActorLiXiaoYan hpProbe = new ActorLiXiaoYan(125);
         long hpCapBefore = hpProbe.getHpMax();
-        DataBridge.merge(hpProbe, Snbt.parseCompound("{hpEnhancePercent:-0.9}"));
-        check("写回契约：把生命增强改小之后当前生命被夹回新上限（副作用跟着字段搬走了）—— "
+        boolean legacyKeyRejected = false;
+        try {
+            DataBridge.merge(hpProbe, Snbt.parseCompound("{hpEnhancePercent:-0.9}"));
+        } catch (IllegalArgumentException expected) {
+            legacyKeyRejected = true;      // 键已经不在了：/data 直接拒绝，而不是静默写进别的地方
+        }
+        check("写回契约：`hpEnhancePercent` 已从 /data 消失（旧键被拒绝、上限没被改）—— "
+                        + hpCapBefore + " → " + hpProbe.getHpMax(),
+                legacyKeyRejected && hpProbe.getHpMax() == hpCapBefore);
+        hpProbe.addPropertyEnhance(PropertyEnhanceType.MAX_HP, -0.9, 0, "自测-生命上限");
+        check("写回契约：把生命上限改小之后当前生命被夹回新上限（副作用还在）—— "
                         + hpCapBefore + " → hp " + hpProbe.getHp() + " / 上限 " + hpProbe.getHpMax(),
                 hpProbe.getHpMax() < hpCapBefore && hpProbe.getHp() == hpProbe.getHpMax());
         // 这条盯着一个踩过的坑：字段搬进 @DataFlatten 组件之后，组件类型必须进
@@ -143,12 +155,20 @@ public final class DataCommandTests {
         // 而不只是"数据名清单里有它"（清单是按字段算的，加不加白名单都一样）。
         // 同时确认组件本身不是一个键（键名是**无前缀**的组件字段名）。
         check("组件里的字段照常进数据视图（@DataFlatten 没有因为白名单漏了组件类型而静默消失）",
-                data.get("metalResistance") != null && data.get("attributes") == null
+                data.get("resistances") != null && data.get("attributes") == null
                         && data.get("elements") == null);
         // 从实体搬进组件的三个「全局组」面板属性，也必须是**顶层**键（不是 attributes.xxx）
-        check("搬进组件的全局组面板属性仍是顶层键（penetration / enhance / baseCriticalDamage 不带前缀）",
-                data.get("penetration") != null && data.get("enhance") != null
-                        && data.get("baseCriticalDamage") != null);
+        check("搬进组件的全局组面板属性仍是顶层键（enhance / baseCriticalDamage 不带前缀）",
+                data.get("enhance") != null && data.get("baseCriticalDamage") != null);
+        // 穿透 2026-11-14 容器化：/data 里是一条 penetrations 列表（基础条目 source=BASE）。
+        // 空列表按 /data 的既有口径会被省略，所以这条用一只"设过穿透"的探针单独断言。
+        ActorLiXiaoYan penProbe = new ActorLiXiaoYan(125);
+        penProbe.setPenetration(0.25);
+        check("穿透容器化：/data 里是 penetrations 列表（不再是标量 penetration）—— 实际 "
+                        + DataBridge.toCompound(penProbe).get("penetrations"),
+                DataBridge.toCompound(penProbe).get("penetrations") != null
+                        && DataBridge.toCompound(penProbe).get("penetration") == null
+                        && Math.abs(penProbe.getPenetration() - 0.25) < 1e-9);
         check("试算标志 anticipating 被 @NoData 排除（它只在试算期间为 true，dump 出来是噪音）",
                 !DataBridge.dataNames(probe.getClass()).contains("anticipating"));
         check("uuid 可见（只读，因为它是 final）", data.get("uuid") != null);
@@ -268,8 +288,5 @@ public final class DataCommandTests {
     public static void runAll() throws Exception {
         testDataCommand();
         testNestedEntityReference();
-    }
-
-    private DataCommandTests() {
     }
 }

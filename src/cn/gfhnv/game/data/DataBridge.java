@@ -3,7 +3,9 @@ package cn.gfhnv.game.data;
 import cn.gfhnv.game.Thing;
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.AttributeProfile;
+import cn.gfhnv.game.entity.ElementValue;
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.entity.PropertyEnhance;
 import cn.gfhnv.game.inventory.Inventory;
 import cn.gfhnv.game.inventory.Slot;
 import cn.gfhnv.game.skill.Skill;
@@ -275,7 +277,9 @@ public final class DataBridge {
                 || value instanceof Mana
                 || value instanceof Skill
                 || value instanceof LivingThing.DamageReduction
-                || value instanceof AttributeProfile;
+                || value instanceof AttributeProfile
+                || value instanceof PropertyEnhance
+                || value instanceof ElementValue;
     }
 
     /**

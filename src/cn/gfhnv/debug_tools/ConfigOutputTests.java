@@ -1,18 +1,15 @@
 package cn.gfhnv.debug_tools;
 
-import cn.gfhnv.game.data.*;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.mod.Mod;
 import cn.gfhnv.game.skill.Skill;
-import cn.gfhnv.game.system.command.*;
-import cn.gfhnv.game.system.fight.*;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 
 import static cn.gfhnv.debug_tools.TestKit.*;
-import static cn.gfhnv.debug_tools.TestSupport.*;
 import static cn.gfhnv.debug_tools.TestProbes.*;
+import static cn.gfhnv.debug_tools.TestSupport.*;
 
 /**
  * 自测：**配置**。
@@ -22,6 +19,9 @@ import static cn.gfhnv.debug_tools.TestProbes.*;
  * 由 {@code TestCommandSystem#main} 按顺序调用 {@code ConfigOutputTests#runAll()}。
  */
 public final class ConfigOutputTests {
+
+    private ConfigOutputTests() {
+    }
 
     /**
      * <b>启动期输出的静默策略</b>（2026-10-03，用户原话"把项目运行时不必要的提示删了"）。
@@ -424,8 +424,5 @@ public final class ConfigOutputTests {
     public static void runAll() throws Exception {
         testConfigOutputSilence();
         testModConfig();
-    }
-
-    private ConfigOutputTests() {
     }
 }

@@ -1,20 +1,16 @@
 package cn.gfhnv.debug_tools;
 
-import cn.gfhnv.game.data.*;
 import cn.gfhnv.game.entity.LivingThing;
-import cn.gfhnv.game.officialStuff.customEntity.monsters.FlameReaver;
 import cn.gfhnv.game.skill.Skill;
-import cn.gfhnv.game.system.command.*;
-import cn.gfhnv.game.system.fight.*;
 import cn.gfhnv.game.world.World;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static cn.gfhnv.debug_tools.TestKit.*;
-import static cn.gfhnv.debug_tools.TestSupport.*;
-import static cn.gfhnv.debug_tools.TestProbes.*;
+import static cn.gfhnv.debug_tools.TestKit.check;
+import static cn.gfhnv.debug_tools.TestKit.section;
+import static cn.gfhnv.debug_tools.TestSupport.collectNonGbk;
 
 /**
  * 自测：**显示**。
@@ -40,6 +36,9 @@ public final class DisplayTests {
      * ⚠️ 只读导出变了，<b>写回没变</b>：{@code merge} / {@code modify} 走的是活对象，
      * 键名与语义一个都没动（这条由上面 {@code testDataCommand} 与 {@code testDataModify} 兜着）。
      */
+    private DisplayTests() {
+    }
+
     /**
      * <b>显示安全</b>：玩家可见的字符串必须能用 <b>GBK</b> 编出来。
      * <p>
@@ -73,8 +72,5 @@ public final class DisplayTests {
      */
     public static void runAll() throws Exception {
         testDisplayStringsAreConsoleSafe();
-    }
-
-    private DisplayTests() {
     }
 }

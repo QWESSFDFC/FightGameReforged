@@ -1,5 +1,6 @@
 package com.gfhnv.mods.drunkenSword;
 
+import cn.gfhnv.game.damage.DamageType;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.fight.Fight;
@@ -73,7 +74,7 @@ public class RaiseCup extends Skill {
                 if (target == null || !target.isAlive()) {
                     continue;
                 }
-                user.makeDamage(target, this);
+                user.makeDamage(target, this, DamageType.CommonAttack);
             }
         }
         int stacks = Drunkenness.add(user, STACK_GAIN);

@@ -8,7 +8,8 @@ import cn.gfhnv.game.system.mana.Mana;
 
 import java.util.List;
 
-import static cn.gfhnv.debug_tools.TestKit.*;
+import static cn.gfhnv.debug_tools.TestKit.check;
+import static cn.gfhnv.debug_tools.TestKit.section;
 
 /**
  * 自测：**五行法力池**（{@link LivingThing#initialMana()}）。
@@ -34,6 +35,9 @@ public final class ManaTests {
      * 探测等级：取 11 让 {@code 等级 - 1 = 10}，成长系数差 1 就能在数值上差 10，不会和基数混淆。
      */
     private static final long PROBE_LEVEL = 11L;
+
+    private ManaTests() {
+    }
 
     /**
      * 法力表必须是 5 条、顺序金木水火土，每条上限 = 该元素成长 * (等级-1) + 基数；
@@ -147,8 +151,5 @@ public final class ManaTests {
         testInitialManaRebuild();
         testInitialManaAtLevelOne();
         testUniversalGetsNoMana();
-    }
-
-    private ManaTests() {
     }
 }

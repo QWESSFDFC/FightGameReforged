@@ -1,6 +1,6 @@
 package cn.gfhnv.debug_tools;
 
-import cn.gfhnv.game.data.*;
+import cn.gfhnv.game.data.DataBridge;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.mod.Mod;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.CommonInsect;
@@ -9,9 +9,7 @@ import cn.gfhnv.game.officialStuff.customEntity.players.Phainon;
 import cn.gfhnv.game.officialStuff.customEntity.players.PlayerOne;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
-import cn.gfhnv.game.system.command.*;
 import cn.gfhnv.game.system.configLoadingSystem.DataKeys;
-import cn.gfhnv.game.system.fight.*;
 import cn.gfhnv.game.world.World;
 
 import java.util.ArrayList;
@@ -19,9 +17,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-import static cn.gfhnv.debug_tools.TestKit.*;
+import static cn.gfhnv.debug_tools.TestKit.check;
+import static cn.gfhnv.debug_tools.TestKit.section;
 import static cn.gfhnv.debug_tools.TestSupport.*;
-import static cn.gfhnv.debug_tools.TestProbes.*;
 
 /**
  * 自测：**配置**。
@@ -31,6 +29,9 @@ import static cn.gfhnv.debug_tools.TestProbes.*;
  * 由 {@code TestCommandSystem#main} 按顺序调用 {@code ConfigTests#runAll()}。
  */
 public final class ConfigTests {
+
+    private ConfigTests() {
+    }
 
     /**
      * 配置键契约 + 默认值生成器 + 实体数据补丁（外部数据加载的阶段 0 与阶段 1）。
@@ -138,7 +139,10 @@ public final class ConfigTests {
                 if (!DataKeys.META.containsKey(key)) {
                     notConfigurable.add(id + "/" + key);
                 }
-                if (!"inventorySlots".equals(key) && !declared.containsKey(key)) {
+                // penetration / 五个抗性 2026-11-14 容器化：配置键还在（lambda 读写列表），但没有同名字段
+                boolean tableOnly = "inventorySlots".equals(key) || "penetration".equals(key)
+                        || key.endsWith("Resistance");
+                if (!tableOnly && !declared.containsKey(key)) {
                     missingFromDump.add(id + "/" + key);
                 }
             }
@@ -215,7 +219,8 @@ public final class ConfigTests {
             // 2026-10-24：千冶·刃也有了 classState（能量 / 充能），加进允许清单
             if ("game_official_content:phainon".equals(id)
                     || "game_official_content:actorLiXiaoYan".equals(id)
-                    || "game_official_content:mortenax_blade".equals(id)) {
+                    || "game_official_content:mortenax_blade".equals(id)
+                    || "game_official_content:flameReaver".equals(id)) {
                 continue;
             }
             wrongTemplates.add(id);
@@ -610,28 +615,28 @@ public final class ConfigTests {
              *      它们是"面板属性"：配在模板上整局生效，不是打完一局就没的临时属性。 */
             LivingThing panel = entityTemplateOf("game_official_content:playerOne");
             double oldRate = panel.getCriticalRate();
-            double oldDmg = panel.getCriticalDMG();
+            double oldDmg = panel.getCriticalDamage();
             double oldEnhance = panel.getEnhance();
             double oldPenetration = panel.getPenetration();
-            double oldLoss = panel.getDefenseLoss();
+            double oldLoss = panel.getDefenceLoss();
             cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.applyJson(
                     "{\"entities\":{\"game_official_content:playerOne\":{\"base\":"
                             + "{\"baseCriticalRate\":0.5,\"baseCriticalDamage\":1.5,\"enhance\":0.25,"
                             + "\"penetration\":0.3,\"defenceLoss\":0.1}}}}", "自测-面板键");
             check("面板键：baseCriticalRate / baseCriticalDamage / enhance / penetration / defenceLoss 真的写进去了"
                             + "（以前它们在 META 里声明能配，写进去一点反应都没有）",
-                    panel.getCriticalRate() == 0.5 && panel.getCriticalDMG() == 1.5
+                    panel.getCriticalRate() == 0.5 && panel.getCriticalDamage() == 1.5
                             && panel.getEnhance() == 0.25 && panel.getPenetration() == 0.3
-                            && panel.getDefenseLoss() == 0.1);
+                            && panel.getDefenceLoss() == 0.1);
             LivingThing panelCopy = panel.copy();
             check("面板键：copy() 会把它们带过去（面板属性，不是打完一局就清零的临时属性）",
                     panelCopy.getCriticalRate() == 0.5 && panelCopy.getEnhance() == 0.25
                             && panelCopy.getPenetration() == 0.3);
             panel.setCriticalRate(oldRate);
-            panel.setCriticalDMG(oldDmg);
+            panel.setCriticalDamage(oldDmg);
             panel.setEnhance(oldEnhance);
             panel.setPenetration(oldPenetration);
-            panel.setDefenseLoss(oldLoss);
+            panel.setDefenceLoss(oldLoss);
             snapshots.get("game_official_content:playerOne").restore();
 
             /* ⑤-6c 五行法力成长：五个扁平键以前只出现在默认文件里、补丁器从来不看它们
@@ -734,7 +739,7 @@ public final class ConfigTests {
                             + healedEntity.getJSONObject("entities").keySet().size() + " 个实体、规则有 "
                             + healedRules.keySet() + " 段",
                     healedEntity.getJSONObject("entities").keySet().size() >= 9
-                            && healedRules.has("flameReaver") && healedRules.has("actorLiXiaoYan"));
+                            && healedRules.has("mana") && healedRules.has("formula"));
             check("落盘自愈（D5）：用户已经写的值一个字都不许覆盖（speed 321 / hpBase 999 原样）—— 实际 "
                             + healedEntity.getJSONObject("entities")
                             .getJSONObject("game_official_content:playerOne")
@@ -994,7 +999,7 @@ public final class ConfigTests {
      * 「反射驱动配置」可行性实验（2026-10-03）。
      * <p>
      * <b>它证明三件事</b>（对应
-     * {@code project_analyses/CONFIG-LOADING-DECOUPLING-2026-10.md} 的「反射驱动可行性实验」一节）：
+     * {@code project_analyses/current/CONFIG-LOADING-DECOUPLING-2026-10.md} 的「反射驱动可行性实验」一节）：
      * <ol>
      *     <li><b>反射能驱动配置</b>：键清单来自 {@code DataBridge} 的字段反射（
      *     {@code ReflectionConfigBridge.candidates}），默认值来自 {@code DataBridge.toTag}
@@ -1013,7 +1018,9 @@ public final class ConfigTests {
     private static void testReflectionDrivenConfig() {
         section("反射驱动配置（实验：配置面寄生在 /data 的反射上）");
 
-        /* ---------- ① 三个真实字段：criticalRate / speed / metalResistance ---------- */
+        /* ---------- ① 三个真实字段：criticalRate / speed / enhance ---------- */
+        // 2026-11-14 第 50 批：metalResistance 已容器化（/data 里变成 resistances 列表），
+        // 这里换一个仍在 @DataFlatten 组件里、且有 setter 的面板标量来证明反射写入。
         LivingThing target = entityTemplateOf("game_official_content:playerOne");
         if (target == null) {
             return;
@@ -1021,17 +1028,17 @@ public final class ConfigTests {
         String beforeState = cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.stateOf(target);
         double beforeCritical = target.getCriticalRate();
         long beforeSpeed = target.getSpeed();
-        double beforeMetal = target.getMetalResistance();
+        double beforeEnhance = target.getEnhance();
         System.out.println("  [信息] 打补丁前：" + beforeState);
         try {
             // 用**另一个值**，这样"变了"这件事有信息量（写成原值什么都不变，断言会假绿）
             double newCritical = beforeCritical + 0.125;
             long newSpeed = beforeSpeed + 7;
-            double newMetal = beforeMetal + 0.5;
+            double newEnhance = beforeEnhance + 0.5;
             org.json.JSONObject patch = new org.json.JSONObject()
                     .put("baseCriticalRate", newCritical)
                     .put("baseSpeed", newSpeed)
-                    .put("metalResistance", newMetal);
+                    .put("enhance", newEnhance);
             System.out.println("  [信息] 补丁（键名 = /data 数据名）：" + patch);
             cn.gfhnv.game.system.configLoadingSystem.ReflectionConfigBridge.Applied applied =
                     cn.gfhnv.game.system.configLoadingSystem.ReflectionConfigBridge.patch(target, patch);
@@ -1043,9 +1050,9 @@ public final class ConfigTests {
                     Math.abs(target.getCriticalRate() - (beforeCritical + 0.125)) < 1e-9);
             check("① 反射驱动：speed 真的变了（+7）—— " + beforeSpeed + " → " + target.getSpeed(),
                     target.getSpeed() == beforeSpeed + 7);
-            check("① 反射驱动：metalResistance 真的变了（+0.5，字段住在 @DataFlatten 组件里）—— "
-                            + beforeMetal + " → " + target.getMetalResistance(),
-                    Math.abs(target.getMetalResistance() - (beforeMetal + 0.5)) < 1e-9);
+            check("① 反射驱动：enhance 真的变了（+0.5，字段住在 @DataFlatten 组件里）—— "
+                            + beforeEnhance + " → " + target.getEnhance(),
+                    Math.abs(target.getEnhance() - (beforeEnhance + 0.5)) < 1e-9);
 
             /* ---------- ①-b 默认值 = 构造当时的字段值 ---------- */
             // 探针对象刚 new 出来、谁都没碰过：dump 出来多少，就是成员初始化器/构造器当时写的多少。
@@ -1061,7 +1068,7 @@ public final class ConfigTests {
         } finally {
             target.setCriticalRate(beforeCritical);
             target.setSpeed(beforeSpeed);
-            target.setMetalResistance(beforeMetal);
+            target.setEnhance(beforeEnhance);
         }
         check("① 还原：模板逐字段回到打补丁之前（自测不污染注册表）—— "
                         + (beforeState.equals(
@@ -1266,10 +1273,19 @@ public final class ConfigTests {
         System.out.println("           " + onlyReflection);
         Map<String, String> blockedNow = cn.gfhnv.game.system.configLoadingSystem
                 .ReflectionConfigBridge.blocked(target);
+        // 表专属（在 /data 里没有同名字段）的三个键：manaGrow 块、inventorySlots、以及
+        // 2026-11-14 容器化后的 penetration（配置键照旧，但字段变成了 penetrations 列表）。
+        java.util.Set<String> tableOnlyKeys = new java.util.TreeSet<>(
+                java.util.Arrays.asList("manaGrow", "inventorySlots", "penetration",
+                        "metalResistance", "woodResistance", "waterResistance",
+                        "fireResistance", "dirtResistance"));
         check("⑤ 混血不变式（第 2 步之后）：反射面（candidates 口径）== 手写表的<b>标量</b>键"
-                        + "（31 键 − manaGrow 块 − inventorySlots）—— " + reflectionKeys.size()
-                        + " vs " + (tableKeys.size() - 2) + "，「只在反射里」的 " + onlyReflection.size() + " 个",
-                onlyReflection.isEmpty() && reflectionKeys.size() == tableKeys.size() - 2);
+                        + "（31 键 − 表专属的 " + tableOnlyKeys.size() + " 个：" + tableOnlyKeys + "）—— "
+                        + reflectionKeys.size() + " vs " + (tableKeys.size() - tableOnlyKeys.size())
+                        + "，「只在反射里」的 " + onlyReflection.size() + " 个",
+                onlyReflection.isEmpty()
+                        && onlyTable.equals(tableOnlyKeys)
+                        && reflectionKeys.size() == tableKeys.size() - tableOnlyKeys.size());
         List<String> nonScalarBlocked = new ArrayList<>();
         for (Map.Entry<String, String> entry : blockedNow.entrySet()) {
             if (entry.getValue().startsWith("非标量")) {
@@ -1664,8 +1680,5 @@ public final class ConfigTests {
         testClassStateConfigKeys();
         testModContentIsNotInGameConfig();
         testReflectionDrivenConfig();
-    }
-
-    private ConfigTests() {
     }
 }

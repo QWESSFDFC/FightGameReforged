@@ -1,5 +1,6 @@
 package cn.gfhnv.game.officialStuff.customSkill.mortenaxBlade;
 
+import cn.gfhnv.game.damage.DamageType;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.officialStuff.customEffect.universalEffects.Taunt;
 import cn.gfhnv.game.skill.Skill;
@@ -15,7 +16,7 @@ import java.util.List;
  * 千冶·刃 · 普攻「残锋，掠尽」：单体，伤害 = 自身<b>生命上限的 50%</b>，命中后使目标嘲讽 1 回合。
  * <p>
  * 设计稿见 `TODO.md`（「残锋，掠尽」[单攻]）；机制映射与施工单见
- * `project_analyses/MORTENAX-BLADE-2026-10.md`。
+ * `project_analyses/current/MORTENAX-BLADE-2026-10.md`。
  * <p>
  * <b>为什么是 hpMagnification 而不是 atkMagnification</b>：设计里"造成等同于千冶·刃 50% 生命上限的伤害"
  * 正好对应 {@link Skill#getHpMagnification()}（`DamageCalculate:93` 读它），改配置就能调，不用改代码。
@@ -74,7 +75,7 @@ public class MortalBladeCommonAttack extends Skill {
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         for (LivingThing enemy : enemies) {
-            user.makeDamage(enemy, this);
+            user.makeDamage(enemy, this, DamageType.CommonAttack);
             // 嘲讽：让被打的目标优先打千冶·刃（判据在 TargetStrategies.tauntLevelFrom）
             enemy.addEffect(new Taunt(TAUNT_LAST_TIME).setOrigin(user.getUUID()));
         }

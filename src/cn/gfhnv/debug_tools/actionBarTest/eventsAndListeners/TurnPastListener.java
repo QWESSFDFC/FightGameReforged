@@ -17,7 +17,7 @@ public class TurnPastListener {
         TestTurnManager.sort();
         Turn a = TestTurnManager.getTurns().getFirst();
         if (TestTurnManager.getPresentTime().compareTo(BigDecimal.valueOf(100)) != -1) {
-            TestTurnManager.advanceByPercent(BigDecimal.valueOf(0.2), TestTurnManager.getNextTurnOf(a.getActingEntity().transToLivingTing()));
+            TestTurnManager.advanceByPercent(BigDecimal.valueOf(0.2), TestTurnManager.getNextTurnOf(a.getActingEntity().transToLivingThing()));
 
         }
 

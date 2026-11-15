@@ -7,7 +7,7 @@
 > 请以 **[`ANALYSIS-review4.md`](ANALYSIS-review4.md)（第 4 轮，最新）** 与当前源码为准；
 > 保留本文档仅供追溯分析过程。
 
-> **声明**：本文档由 AI（DeepSeek）基于对仓库源码的阅读自动生成，未经作者人工核对，仅供参考。生成时通读了 `../src/cn/gfhnv` 下全部 110 个 Java 源文件的关键部分，并参考了仓库自带的 `ProjectStatus.txt` 与 `../README.md`。
+> **声明**：本文档由 AI（DeepSeek）基于对仓库源码的阅读自动生成，未经作者人工核对，仅供参考。生成时通读了 `../../src/cn/gfhnv` 下全部 110 个 Java 源文件的关键部分，并参考了仓库自带的 `ProjectStatus.txt` 与 `../../README.md`。
 >
 > 生成日期：2026 年8.14（以实际生成时间为准）。
 
@@ -18,13 +18,13 @@
 | 维度 | 内容 |
 |------|------|
 | 类型 | 命令行回合制文字战斗游戏（纯 Java，未使用游戏引擎） |
-| 版本 / 构建 | v1.2.1（`../build.gradle`）；Gradle + Shadow 插件打包 fat jar |
+| 版本 / 构建 | v1.2.1（`../../build.gradle`）；Gradle + Shadow 插件打包 fat jar |
 | 语言 | Java 25（`sourceCompatibility/targetCompatibility = VERSION_25`） |
 | 依赖 | 仅 `org.json:json:20240303` |
 | 入口 | `cn.gfhnv.game.GameStarter` → `GameMain` |
-| 代码规模 | 110 个 Java 文件（`../src/cn/gfhnv/game` 主体 + `../src/cn/gfhnv/debug_tools` 测试代码） |
+| 代码规模 | 110 个 Java 文件（`../../src/cn/gfhnv/game` 主体 + `../../src/cn/gfhnv/debug_tools` 测试代码） |
 | 许可证 | MIT（作者：高中生 gfhnv，仓库暂不接受 Pull Request） |
-| 目录 | 另有 `../mods`（2 个示例模组）、`../config`、`../logs`、`../screenshots` 等 |
+| 目录 | 另有 `../../mods`（2 个示例模组）、`../../config`、`../../logs`、`../../screenshots` 等 |
 
 **核心设计点**：事件驱动架构（自定义 EventBus + `@SubscribeEvent` 注解）、基于 BigDecimal 的行动时间轴回合制、金木水火土五行元素与五行法力双资源、Utility AI（Tag 权重决策）、运行时动态编译并加载外部模组。
 
@@ -287,7 +287,7 @@ flowchart LR
     A[DamageEvent 构造] --> B[DamageCalculate.calculate]
     B --> C[post CalculateDamageGetStatusEvent<br/>允许外部改状态]
     C --> D{随机数 ≤ 暴击率?}
-    D -->|是| E[暴击倍率 += criticalDMG]
+    D -->|是| E[暴击倍率 += criticalDamage]
     D -->|否| F[倍率=1]
     E --> G[按攻击者元素取 目标抗性+元素增伤+穿透]
     F --> G
@@ -339,7 +339,7 @@ flowchart TD
     I --> J[bestSkill.use]
 ```
 
-Tag 类型（`TagType`）：`ATTACK / HEAL / RESTORATION_MANA / DEFENCE / DAMAGE_ENHANCE / CONTROL_ENEMIES`。技能持有 `Map<TagType, Tag>` 标明自己的行为标签；实体 Tag 权重可通过 `../config/gameConfig/TagConfig.json` 配置（首次运行自动写入默认配置，按实体/物品 id 注入）。
+Tag 类型（`TagType`）：`ATTACK / HEAL / RESTORATION_MANA / DEFENCE / DAMAGE_ENHANCE / CONTROL_ENEMIES`。技能持有 `Map<TagType, Tag>` 标明自己的行为标签；实体 Tag 权重可通过 `../../config/gameConfig/TagConfig.json` 配置（首次运行自动写入默认配置，按实体/物品 id 注入）。
 
 ---
 
@@ -347,7 +347,7 @@ Tag 类型（`TagType`）：`ATTACK / HEAL / RESTORATION_MANA / DEFENCE / DAMAGE
 
 - 目录约定：`mods/<模组名>/main.json` + `code/`（.java 源码），编译产物自动生成到 `bin/`（每次加载前删除重建）。
 - `main.json` 必需字段：`name / author / description / mainClass / version`。
-- 加载流程：扫描 `../mods` → 解析 `main.json` → 用 `JavaCompiler` 把 `code/` 下全部 .java 编译到 `bin/` → 用 `URLClassLoader` 加载主类（构造器需接收 `ModInformation`）→ 反射预加载其余类防止被 GC → `World.addMod()` 注册。随后由 `GameStartEvent` 触发 `invokeWhenLoaded()`（填充内容）与 `registerItself()`（注册进 `World` 注册表）。
+- 加载流程：扫描 `../../mods` → 解析 `main.json` → 用 `JavaCompiler` 把 `code/` 下全部 .java 编译到 `bin/` → 用 `URLClassLoader` 加载主类（构造器需接收 `ModInformation`）→ 反射预加载其余类防止被 GC → `World.addMod()` 注册。随后由 `GameStartEvent` 触发 `invokeWhenLoaded()`（填充内容）与 `registerItself()`（注册进 `World` 注册表）。
 - `Mod` 抽象基类：持有实体/物品/效果 List；通过 `addXxx` 添加的内容自动加 `MOD_ID:` 前缀避免 id 冲突；建议在 `invokeWhenLoaded()` 中填内容（官方内容 `OfficialGameContent` 在构造器中直接注册，文档明确标注"不要学这个"）。
 - 示例模组：`exampleModByGFHNV`、`abstractLaunchingWords`。
 
@@ -398,8 +398,8 @@ sequenceDiagram
 其他子系统：
 
 - **物理系统**（`system/physics`）：`Vector` + `Force/Velocity/Acceleration/Position` 子类；`PhysicsEventListener` 监听 `PhysicsStateUpdateEvent`，按牛顿力学 `a=F/m`、`v+=a`、`pos+=v` 推进所有参战实体并清零力。当前战斗中未见实际使用点，属于预留能力。
-- **日志系统**（`system/logSystem`）：`LogWriter` 追加写 `../logs/latest.log`，超 10MB 归档为带时间戳的 `*.log`。
-- **配置系统**（`system/configLoadingSystem`）：`ConfigLoader` 读取 `../config/gameConfig/TagConfig.json`，为实体与物品注入 AI Tag 权重；文件缺失时写入默认配置。
+- **日志系统**（`system/logSystem`）：`LogWriter` 追加写 `../../logs/latest.log`，超 10MB 归档为带时间戳的 `*.log`。
+- **配置系统**（`system/configLoadingSystem`）：`ConfigLoader` 读取 `../../config/gameConfig/TagConfig.json`，为实体与物品注入 AI Tag 权重；文件缺失时写入默认配置。
 - **World**：`thingList`（运行时实例，开战后加入）与 `itemList / entityList / effectList / modList`（模板注册表）分离；`getLivingEntityList()` 过滤注册表中的 `LivingThing`。
 
 ---

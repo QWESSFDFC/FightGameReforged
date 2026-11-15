@@ -247,6 +247,15 @@ public final class DataKeys {
      */
     public static final Map<String, KeyMeta> META = EntityKeySpecs.meta();
     /**
+     * 容器化之后"配置键还在、但没有同名字段"的抗性键（2026-11-14 第 50 批）。
+     * <p>
+     * 它们仍然走 {@link EntityKeySpecs} 里那 5 行 lambda（读 {@code getResistance}、写 {@code setResistance}），
+     * 只是仓库里不再有 {@code metalResistance} 这样的字段；所以键名契约的审计要把它们放行。
+     */
+    private static final Set<String> TABLE_ONLY_RESISTANCE_KEYS = Collections.unmodifiableSet(
+            new LinkedHashSet<>(Arrays.asList(
+                    "metalResistance", "woodResistance", "waterResistance", "fireResistance", "dirtResistance")));
+    /**
      * 那些"用户很可能想配、但这一版刻意不支持"的键 → 一句写清"为什么 + 该走哪条路"。
      * <p>
      * 这份表的存在意义是<b>不许静默</b>：写进配置文件时直接报「未知键」，同时把理由打出来。
@@ -378,7 +387,11 @@ public final class DataKeys {
             String key = entry.getKey();
             Field field = declaredBy.get(key);
             if (field == null) {
-                if (entry.getValue().inData()) {
+                // 2026-11-14 第 49 / 50 批：穿透与抗性容器化（penetrations / resistances 列表）——
+                // 配置键（与读写 lambda）照旧，但不再有同名字段，所以不算「找不到字段」。
+                boolean containerized = key.equals(Temporary.PENETRATION)
+                        || TABLE_ONLY_RESISTANCE_KEYS.contains(key);
+                if (entry.getValue().inData() && !containerized) {
                     notes.add("[配置键没有对应字段] " + key);
                 }
                 continue;
@@ -427,19 +440,11 @@ public final class DataKeys {
                 ReadOnly.MANAS, ReadOnly.CONTROLLER, ReadOnly.DAMAGE_MODIFIERS,
                 ReadOnly.DAMAGE_REDUCTIONS, ReadOnly.EFFECTS, ReadOnly.PARTICIPATE_FIGHT,
                 ReadOnly.PRESENT_TURN, ReadOnly.EXTRA_DAMAGE,
-                ReadOnly.ATTACK_ENHANCE_PERCENT, ReadOnly.DEFENCE_ENHANCE_PERCENT,
-                ReadOnly.SPEED_ENHANCE_PERCENT, ReadOnly.HP_ENHANCE_PERCENT,
-                ReadOnly.ATTACK_ENHANCE_AMOUNT, ReadOnly.DEFENCE_ENHANCE_AMOUNT,
-                ReadOnly.SPEED_ENHANCE_AMOUNT, ReadOnly.HP_ENHANCE_AMOUNT,
-                ReadOnly.CRITICAL_DAMAGE_ENHANCE_PERCENT, ReadOnly.CRITICAL_DAMAGE_ENHANCE_AMOUNT,
-                ReadOnly.CRITICAL_RATE_ENHANCE_PERCENT, ReadOnly.CRITICAL_RATE_ENHANCE_AMOUNT,
-                ReadOnly.HEAL_ENHANCE_PERCENT,
+                ReadOnly.PROPERTY_ENHANCES, ReadOnly.PENETRATIONS, ReadOnly.RESISTANCES,
+                ReadOnly.DAMAGE_ENHANCES,
                 ReadOnly.INDIVIDUAL_MULTIPLE_AREA,
                 Temporary.SHOW_SPECIAL_MES));
-        for (String element : ELEMENTS) {
-            readOnly.add(element + "Penetration");
-            readOnly.add(element + "DamageEnhance");
-        }
+
         return Collections.unmodifiableSet(readOnly);
     }
 
@@ -454,7 +459,16 @@ public final class DataKeys {
                 "coreflame", "coreflameMax", "soulscorch", "scourge", "scourgeMax",
                 "extraAbilityTier",
                 // 千冶·刃（MortenaxBlade，2026-10-24）：能量 / 上限 / 溢出上限、充能 / 上限、命座等级
-                "energy", "energyMax", "energyOverflowMax", "charge", "chargeMax", "eidolon")));
+                "energy", "energyMax", "energyOverflowMax", "charge", "chargeMax", "eidolon",
+                // 盗火行者（FlameReaver，2026-11-14 第 53 批）：从 GameRules 搬进来的机制旋钮
+                "summonHpCostRate", "disasterPowerAttackBonus", "damageReductionLayersDefault",
+                "damageReductionPerLayer", "containerLimit", "completeContainerChance",
+                "phaseTwoDamageReduction", "containerHpRatio", "containerAttackRatio",
+                "completeContainerHpRatio",
+                // 李晓焰（ActorLiXiaoYan，2026-11-14 第 54 批）：从 GameRules 搬进来的机制旋钮
+                "ignitionMax", "lowHpIgnitionMax", "lowHpThreshold", "highIgnition",
+                "highIgnitionBonusRate", "areaPerIgnition", "memorizeTrigger", "memorizeCost",
+                "memorizeHealRate", "resetIgnition")));
     }
 
     /**
@@ -463,7 +477,7 @@ public final class DataKeys {
     private static Set<String> buildClassRuntime() {
         return Collections.unmodifiableSet(new LinkedHashSet<>(Arrays.asList(
                 // 李晓焰（ActorLiXiaoYan）：上限与"上次燃点"由规则表与流程维护（ignitionMax 没有 setter）
-                "ignitionMax", "lastIgnition", "memorizedRate",
+                "lastIgnition", "memorizedRate",
                 // 千冶·刃（MortenaxBlade，2026-10-24）：结界状态由终结技与倒计时维护；
                 // chargeListenerRegistered 只是"我的监听器注册过没有"的记账，不是数据
                 "infiniteFury", "chargeListenerRegistered", "payoffBusy",
@@ -471,7 +485,9 @@ public final class DataKeys {
                 "awaken", "appliedExtraAbilityTier", "absorbDamage", "pendingLastAttack",
                 "extraTurns", "skills",
                 // 盗火行者（FlameReaver）：阶段与献祭窗口，由它的 AI 与技能维护
-                "disasterPower", "sacrificeWindow", "damageReductionLayers", "phaseTwo", "charging",
+                "disasterPower", "sacrificeWindow", "phaseTwo", "charging",
+                // 当前层数（打掉就少）；出厂层数才是配置键 damageReductionLayersDefault
+                "damageReductionLayers",
                 // 容器（BrokenContainer）：种类与吸收/死亡通知，由它的流程维护
                 "owner", "kind", "absorbed", "deathNotified", "painCost")));
     }
@@ -495,15 +511,19 @@ public final class DataKeys {
     private static Map<String, String> buildHints() {
         Map<String, String> hints = new LinkedHashMap<>();
         for (String element : ELEMENTS) {
+            // 2026-11-14 第 49 批：五元素穿透已容器化（并进 penetrations 列表），旧标量键已删 ——
+            // 但用户仍可能照旧写法去配，所以要保留一条"为什么不行、该走哪条路"的提示。
+            hints.put(element + "Penetration",
+                    "临时属性，配了不生效：旧标量键已删（2026-11-14 容器化成 penetrations 列表），"
+                            + "而且临时穿透本来就不进配置文件。要加穿透请用 /data 看 penetrations，"
+                            + "或效果/技能里的 LivingThing#addPenetration(...)。");
             // ⚠️ 这段文案 2026-10-03 订正过：老文案说"配在这里只影响开局那一刻"，**是错的** ——
             //    副本（复制构造器）刻意不带这 10 个（AttributeProfile#copyFrom），
             //    所以配在注册表模板上对任何一局战斗都不生效。@NoConfig 的理由必须是真的。
-            hints.put(element + "Penetration",
-                    "临时属性，而且配了不生效：副本刻意不带它（AttributeProfile#copyFrom）、"
-                            + "每局结束 resetTemporary 清零，全项目也没有写入点。要加穿透请用效果/技能。");
             hints.put(element + "DamageEnhance",
-                    "临时属性，而且配了不生效：副本刻意不带它（AttributeProfile#copyFrom）、"
-                            + "每局结束 resetTemporary 清零，全项目也没有写入点。要加增伤请用效果/技能。");
+                    "临时属性，配了不生效：旧标量键已删（2026-11-14 第 56 批容器化成 damageEnhances 列表），"
+                            + "临时增伤本来也不进配置文件。要加增伤请用效果/技能里的 "
+                            + "LivingThing#addDamageEnhance(...)。");
         }
         hints.put(ReadOnly.EXTRA_DAMAGE, "死字段：全项目零写入点，配了不会有任何反应。");
         hints.put(Temporary.SHOW_SPECIAL_MES, "接口对象：配置里没有能表达它的写法。");
@@ -527,9 +547,6 @@ public final class DataKeys {
      */
     private static String runtimeHint(String key) {
         return switch (key) {
-            case "ignitionMax" -> "上限本身是规则：基准值来自 GameRules 的 actorLiXiaoYan.ignitionMax"
-                    + "（低血上限另有一条），而且这个字段没有 setter。要改上限请改 GameRules.json，"
-                    + "或者用 IModifyIgnitionMax 修正链。";
             case "lastIgnition" -> "运行时状态：上一次结算时的【燃点】层数（只用来算这一回合的差值），"
                     + "配它等于伪造一份历史。要改当前层数用 ignition。";
             case "memorizedRate" -> "运行时状态：由技能打进去的记忆倍率（不是出厂值）。";
@@ -665,6 +682,10 @@ public final class DataKeys {
              * 伤害：上面那个式子的 base。
              */
             public static final String LEVEL_DEFENCE_BASE = "formula.levelDefenceBase";
+            /**
+             * 时间轴：{@code 需要时间 = 本值 / 速度}（速度下限 1）。出厂 10000。
+             */
+            public static final String TURN_TIME_BASE = "formula.turnTimeBase";
         }
 
         /**
@@ -679,123 +700,6 @@ public final class DataKeys {
              * 其余元素上限 = {@code 成长 × (等级-1) + otherBase}。
              */
             public static final String OTHER_BASE = "mana.otherBase";
-        }
-
-        /**
-         * 盗火行者与它召唤的容器的机制旋钮。
-         */
-        public static final class FlameReaver {
-            /**
-             * 每次召唤消耗自身最大生命的比例。
-             */
-            public static final String SUMMON_HP_COST_RATE = "flameReaver.summonHpCostRate";
-            /**
-             * 每层【灾难之力】提供的加伤比例。
-             */
-            public static final String DISASTER_POWER_ATTACK_BONUS = "flameReaver.disasterPowerAttackBonus";
-            /**
-             * 【永别的决绝】初始减伤层数。
-             */
-            public static final String DAMAGE_REDUCTION_LAYERS = "flameReaver.damageReductionLayers";
-            /**
-             * 【永别的决绝】每层减伤比例。
-             */
-            public static final String DAMAGE_REDUCTION_PER_LAYER = "flameReaver.damageReductionPerLayer";
-            /**
-             * 场上容器数量上限（{@code 0} = 不限）。
-             */
-            public static final String CONTAINER_LIMIT = "flameReaver.containerLimit";
-            /**
-             * 每次召唤出现【完整容器】的概率。
-             */
-            public static final String COMPLETE_CONTAINER_CHANCE = "flameReaver.completeContainerChance";
-            /**
-             * 二阶段的【高额免伤】。
-             */
-            public static final String PHASE_TWO_DAMAGE_REDUCTION = "flameReaver.phaseTwoDamageReduction";
-            /**
-             * 盗火行者的基础生命上限。
-             * <p>
-             * <b>只在构造时读一次</b>：它不是"公式的一部分"，而是"这个模板出厂时的血量"——
-             * 想改一只已经造出来的 BOSS 的血，用 {@code EntityData.json} 的 {@code derived.baseHpMax}。
-             */
-            public static final String BASE_HP_MAX = "flameReaver.baseHpMax";
-            /**
-             * 容器生命占盗火行者最大生命的比例。
-             */
-            public static final String CONTAINER_HP_RATIO = "flameReaver.containerHpRatio";
-            /**
-             * 容器攻击占盗火行者攻击的比例。
-             */
-            public static final String CONTAINER_ATTACK_RATIO = "flameReaver.containerAttackRatio";
-            /**
-             * 【完整容器】生命占盗火行者最大生命的比例。
-             */
-            public static final String COMPLETE_CONTAINER_HP_RATIO = "flameReaver.completeContainerHpRatio";
-        }
-
-        /**
-         * 虫皇的机制旋钮。
-         */
-        public static final class InsectBoss {
-            /**
-             * 基础生命上限（只在构造时读一次，语义同 {@link FlameReaver#BASE_HP_MAX}）。
-             * <p>
-             * 常量名刻意叫 {@code BASE_HP} 而不是 {@code BASE_HP_MAX}：后者在
-             * {@link FlameReaver} 与 {@link Derived} 里各有一个（不同嵌套类不算撞名，但读代码时
-             * 容易看混），所以这里取短一点的名字。
-             */
-            public static final String BASE_HP = "insectBoss.baseHpMax";
-        }
-
-        /**
-         * 李晓焰（{@link cn.gfhnv.game.officialStuff.customEntity.players.ActorLiXiaoYan}）的机制旋钮。
-         * <p>
-         * 这些值原本是那个类顶部的 {@code public static final} 常量，别处也引用它们
-         * （三个技能都读 {@code ActorLiXiaoYan.HIGH_IGNITION} 这类"共用判据"），
-         * 所以常量本身<b>保留原名</b>，只是值改成"启动时从规则表读一次，读不到用原字面量"。
-         */
-        public static final class ActorLiXiaoYan {
-            /**
-             * 【燃点】的常规上限。
-             */
-            public static final String IGNITION_MAX = "actorLiXiaoYan.ignitionMax";
-            /**
-             * 生命值偏低时的【燃点】上限。
-             */
-            public static final String LOW_HP_IGNITION_MAX = "actorLiXiaoYan.lowHpIgnitionMax";
-            /**
-             * 判定"生命值偏低"的比例。
-             */
-            public static final String LOW_HP_THRESHOLD = "actorLiXiaoYan.lowHpThreshold";
-            /**
-             * 开始吃"高燃点加成"的层数。
-             */
-            public static final String HIGH_IGNITION = "actorLiXiaoYan.highIgnition";
-            /**
-             * 高燃点时每个技能额外追加的伤害（按最大生命的比例）。
-             */
-            public static final String HIGH_IGNITION_BONUS_RATE = "actorLiXiaoYan.highIgnitionBonusRate";
-            /**
-             * 每层【燃点】提供的单体倍率加成。
-             */
-            public static final String AREA_PER_IGNITION = "actorLiXiaoYan.areaPerIgnition";
-            /**
-             * 触发免死的层数。
-             */
-            public static final String MEMORIZE_TRIGGER = "actorLiXiaoYan.memorizeTrigger";
-            /**
-             * 触发免死时消耗的层数。
-             */
-            public static final String MEMORIZE_COST = "actorLiXiaoYan.memorizeCost";
-            /**
-             * 触发免死时回复的最大生命比例。
-             */
-            public static final String MEMORIZE_HEAL_RATE = "actorLiXiaoYan.memorizeHealRate";
-            /**
-             * 战斗结束时回到的层数。
-             */
-            public static final String RESET_IGNITION = "actorLiXiaoYan.resetIgnition";
         }
     }
 
@@ -1002,57 +906,25 @@ public final class DataKeys {
          */
         public static final String EXTRA_DAMAGE = "extraDamage";
         /**
-         * 攻击增强（百分比）。
+         * 属性加成条目列表（每条是 {@code {type, percent, amount, source}}）。
+         * 只读：写它要构造合法条目，请用 {@code LivingThing#addPropertyEnhance(...)}。
          */
-        public static final String ATTACK_ENHANCE_PERCENT = "attackEnhancePercent";
+        public static final String PROPERTY_ENHANCES = "propertyEnhances";
         /**
-         * 防御增强（百分比）。
+         * 穿透条目列表（{@code [{elementSort, amount}]}；{@code elementSort == null} = 全属性）。
+         * 只读：写它要构造合法条目，请用 {@code LivingThing#addPenetration(...)}。
          */
-        public static final String DEFENCE_ENHANCE_PERCENT = "defenceEnhancePercent";
+        public static final String PENETRATIONS = "penetrations";
         /**
-         * 速度增强（百分比）。
+         * 抗性条目列表（{@code [{elementSort, amount}]}）。
+         * 只读：写它要构造合法条目，请用 {@code LivingThing#addResistance(...)}。
          */
-        public static final String SPEED_ENHANCE_PERCENT = "speedEnhancePercent";
+        public static final String RESISTANCES = "resistances";
         /**
-         * 生命增强（百分比）。
+         * 增伤条目列表（{@code [{elementSort, amount}]}）。
+         * 只读：写它要构造合法条目，请用 {@code LivingThing#addDamageEnhance(...)}。
          */
-        public static final String HP_ENHANCE_PERCENT = "hpEnhancePercent";
-        /**
-         * 攻击增强（固定值）。
-         */
-        public static final String ATTACK_ENHANCE_AMOUNT = "attackEnhanceAmount";
-        /**
-         * 防御增强（固定值）。
-         */
-        public static final String DEFENCE_ENHANCE_AMOUNT = "defenceEnhanceAmount";
-        /**
-         * 速度增强（固定值）。
-         */
-        public static final String SPEED_ENHANCE_AMOUNT = "speedEnhanceAmount";
-        /**
-         * 生命增强（固定值）。
-         */
-        public static final String HP_ENHANCE_AMOUNT = "hpEnhanceAmount";
-        /**
-         * 暴击伤害增强（百分比）。
-         */
-        public static final String CRITICAL_DAMAGE_ENHANCE_PERCENT = "criticalDamageEnhancePercent";
-        /**
-         * 暴击伤害增强（固定值）。
-         */
-        public static final String CRITICAL_DAMAGE_ENHANCE_AMOUNT = "criticalDamageEnhanceAmount";
-        /**
-         * 暴击率增强（百分比）。
-         */
-        public static final String CRITICAL_RATE_ENHANCE_PERCENT = "criticalRateEnhancePercent";
-        /**
-         * 暴击率增强（固定值）。
-         */
-        public static final String CRITICAL_RATE_ENHANCE_AMOUNT = "criticalRateEnhanceAmount";
-        /**
-         * 受到的治疗量加成（2026-10-24 加的第 13 个运行时加成；只由效果/技能加减，不开放配置）。
-         */
-        public static final String HEAL_ENHANCE_PERCENT = "healEnhancePercent";
+        public static final String DAMAGE_ENHANCES = "damageEnhances";
         /**
          * 单次攻击的独立倍率区（由角色自己的构造器按玩法算出来）。
          */

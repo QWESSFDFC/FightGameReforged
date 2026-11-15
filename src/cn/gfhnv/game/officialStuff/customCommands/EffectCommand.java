@@ -27,7 +27,7 @@ import java.util.List;
  * /effect @s add damageEnhanceEffect 2 5         等级 2、持续 5 回合
  * /effect @s add AttackEnhance(0.2,3)            3 回合内攻击 +20%（2 参数 = 只给百分比）
  * /effect @s add AttackEnhance(0,2,3)            3 回合内攻击 +2 点（3 参数 = 百分比,固定值,回合）
- * /effect @s add CriticalDMGEnhanceEffect(1,5)   5 回合内暴击伤害 +100%（1.0 = 100%）
+ * /effect @s add CriticalDamageEnhanceEffect(1,5)   5 回合内暴击伤害 +100%（1.0 = 100%）
  * </pre>
  * <p>
  * <b>候选来源</b>：效果注册表 {@link World#getEffectList()}
@@ -130,7 +130,7 @@ public class EffectCommand extends Command {
                 for (Effect effect : existing) {
                     effect.whenLastTimeEnd(target);
                 }
-                target.getEntityEffectList().clear();
+                target.clearEffects();
                 count += existing.size();
             }
             source.sendMessage("已清空 " + targets.size() + " 个目标身上的全部效果，共移除 " + count + " 个。");
@@ -229,7 +229,7 @@ public class EffectCommand extends Command {
      * 支持两种写法：
      * <pre>
      * frozen                              按名字（用默认构造规则）
-     * CriticalDMGEnhanceEffect(1,5)       显式指定构造函数参数
+     * CriticalDamageEnhanceEffect(1,5)       显式指定构造函数参数
      * frozen(3)
      * AttackEnhance(0.2,3)
      * </pre>

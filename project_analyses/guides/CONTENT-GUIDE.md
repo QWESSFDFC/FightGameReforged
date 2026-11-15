@@ -9,7 +9,7 @@
 >
 > **它不重复已有的两份文档**：
 > - `MODDING-GUIDE.md` 是给**模组作者**的（模组目录、`main.json`、`Mod` API、四类内容模板）；
-> - `project_analyses/EXTERNAL-DATA-LOADING-2026-10.md` 与 `CONFIG-LOADING-DECOUPLING-2026-10.md`
+> - `project_analyses/current/EXTERNAL-DATA-LOADING-2026-10.md` 与 `CONFIG-LOADING-DECOUPLING-2026-10.md`
 >   是**设计与施工记录**（为什么这么做、踩了什么坑、每一步的验收数字）。
 >
 > 本文是**操作手册**：从"我要加 X"出发，给到"改哪几个文件 → 跑什么命令 → 看到什么才算成功"。
@@ -24,11 +24,11 @@
 >
 > ⚠️ **2026-10-03 起启动播报变了**：正常启动**只剩一行汇总**（下面 §1.0 / §1.4 / §2.6 / §3.3 里
 > 那些"看到 `[配置] xxx.json：应用 N 项…`"的说法，现在统一指**那一行汇总里的对应数字**）；
-> 想看逐条明细要开 `-Ddsh.config.verbose=true`（详见 `notes_for_llm/70-DATA.md` 的 **§5.10.4**）。
+> 想看逐条明细要开 `-Ddsh.config.verbose=true`（详见 `notes_for_llm/subsystems/70-DATA.md` 的 **§5.10.4**）。
 >
 > ⚠️ **2026-10-03 晚起参考副本 `EntityData.default.json` 的格式变了**（与"能不能配"无关，但读它时要知道）：
 > 根上多了说明键 **`_note`**、技能段段名回正成 `skills`、并补齐了 `tags` 与 `consumedMana` 两个块
-> —— 契约见 `notes_for_llm/70-DATA.md` 的 **§5.10.5**。
+> —— 契约见 `notes_for_llm/subsystems/70-DATA.md` 的 **§5.10.5**。
 > **你手上那份（14798 字节）不会自动变**（它已经有内容 → 导出物一个字节都不动），
 > 旧的中文伪键要等你自己删掉整个文件、让下次启动重写才会消失。
 
@@ -101,7 +101,7 @@ CommandManager.initialize()
 
 | # | 键 / 写法 | 打了几折 | 证据 |
 |---|---|---|---|
-| 1 | **`atkMagnification`（6 个技能）** | **只在第一次出手生效**：这些技能出手结束会把倍率**复位成构造器里那个字面量**（`FoundationStardeathVerdict.java:130/138/144/153` 都是 `setAtkMagnification(0.45)`），副本是复用的，第二次出手读的是复位值 | `project_analyses/EXTERNAL-DATA-LOADING-2026-10.md` §12.5 第 1 条；本轮**没改** |
+| 1 | **`atkMagnification`（6 个技能）** | **只在第一次出手生效**：这些技能出手结束会把倍率**复位成构造器里那个字面量**（`FoundationStardeathVerdict.java:130/138/144/153` 都是 `setAtkMagnification(0.45)`），副本是复用的，第二次出手读的是复位值 | `project_analyses/current/EXTERNAL-DATA-LOADING-2026-10.md` §12.5 第 1 条；本轮**没改** |
 | 2 | **`ignition`（李晓焰）** | **只是"这一局的初始值"**：`whenFightEnds()` 会 `setIgnition(resetIgnition)` 回到规则表值（你那份 `GameRules.json` 里是 **999**，而 `setIgnition` 会夹到上限，所以实际是满层） | `ActorLiXiaoYan.java:286-288` + `:303-305`（夹 `0…effectiveIgnitionMax()`） |
 | 3 | **`coreflame`（白厄）** | **是"基准值"，开局 `+1`**：`Phainon#whenFightStart` 每局 `+1`（`Phainon.java:330`）；写 15 开局实际 16 | `Phainon.java:324-330` |
 | 4 | **`extraAbilityTier`（白厄）** | **同上，开局 `+1`**，而且它**参与计算**（`×0.5%/段` 加伤），不是最终值 | `Phainon.java:329` + `:349` |
@@ -114,7 +114,7 @@ CommandManager.initialize()
 | 11 | **`derived.hp` 不必写** | 战斗开始本来就会把血补满（`setHp(getHpMax())`）；改 `baseHpMax` 就够了 | `90-STATE.md` §9.1 设计事实 ② |
 | 12 | **白厄那 4 个 `classState` 键每局结束会被"直接赋 0"** | `Phainon#whenFightEnds()` 里是 `coreflame = 0; scourge = 0; soulscorch = 0; extraAbilityTier = 0;`（**直接写字段，不走 setter**，`Phainon.java:293-297`）。**这其实是好事**：配置值只在**模板**上，副本打完一局回到 0、**下一局重新从模板 `copy()` 拿你的配置值** —— 所以配置**不会一局一局累加** | `Phainon.java:288-298`（模板不受影响：`whenFightEnds` 只对**参战副本**调） |
 | 13 | **`name` 是"变身时会被改写"的键** | 白厄开大招会把**显示名**改成「卡厄斯兰那」（`UltimateAttack.java:80`），打完一局**没有恢复**（`Phainon#whenFightEnds` 里只重置数值，不动名字）。所以配置里写 `name` 要当心：它影响 `@e[name=…]` 选择器与 `/data` 输出 | `UltimateAttack.java:80` + `Phainon.java:288-321` |
-| 14 | **同一个数有两处能改时会"谁后谁赢"**（典型：盗火行者 / 虫皇的血） | `GameRules.json` 的 `flameReaver.baseHpMax`（`insectBoss.baseHpMax` 同理）是**构造时**读一次的出厂值（`FlameReaver.java:282-283`、`InsectBoss.java:35-36`）；而 `EntityData.json` 的 `derived.baseHpMax` **在构造之后**打补丁 → **`EntityData` 赢**。⚠️ **2026-10-03 第 2 轮起只在"两处的值真的对不上"时才打一行 `[配置提醒]`**（提醒里**同时给出两个数**，一眼看得出哪一处没跟上）：因为两份文件都是**全量 dump**，出厂时它们本来就写着同一个数 —— 不按值判、按"写没写"判会**每次启动必然误报**。两处都改、但改成同一个数时也不吵；**改一处、另一处停在旧值**才会响（它是**提醒**不是错误，键照样生效，且**永远打**、不受 verbose 开关影响） | `FlameReaver.java:282-283` + `EntityDataPatcher` 的 `noticeDualEntryHpMax` / `constructionHpRuleKeyOf`；契约见 `notes_for_llm/70-DATA.md` §5.10.2 |
+| 14 | **同一个数有两处能改时会"谁后谁赢"**（典型：盗火行者 / 虫皇的血） | `GameRules.json` 的 `flameReaver.baseHpMax`（`insectBoss.baseHpMax` 同理）是**构造时**读一次的出厂值（`FlameReaver.java:282-283`、`InsectBoss.java:35-36`）；而 `EntityData.json` 的 `derived.baseHpMax` **在构造之后**打补丁 → **`EntityData` 赢**。⚠️ **2026-10-03 第 2 轮起只在"两处的值真的对不上"时才打一行 `[配置提醒]`**（提醒里**同时给出两个数**，一眼看得出哪一处没跟上）：因为两份文件都是**全量 dump**，出厂时它们本来就写着同一个数 —— 不按值判、按"写没写"判会**每次启动必然误报**。两处都改、但改成同一个数时也不吵；**改一处、另一处停在旧值**才会响（它是**提醒**不是错误，键照样生效，且**永远打**、不受 verbose 开关影响） | `FlameReaver.java:282-283` + `EntityDataPatcher` 的 `noticeDualEntryHpMax` / `constructionHpRuleKeyOf`；契约见 `notes_for_llm/subsystems/70-DATA.md` §5.10.2 |
 
 ### 1.3 配不到 ❌
 
@@ -629,8 +629,8 @@ public class MyMod extends Mod implements ModDataAware {
 | `30-WORKFLOW.md` §0 / §0.1 / §6 | 命令怎么跑（`Set-ExecutionPolicy -Scope Process Bypass` + `& .\check-sources.ps1`；**不要接管道**）、基线怎么读 → 本文所有"跑什么命令" |
 | `90-STATE.md` §9.1 | **用户实跑的原文数字**（`应用 300 项…影响 10 个模板` / `应用 225 项…影响 28 个技能` / `HP 7/7`，那时还是逐份播报）→ 本文 §1.0 的"能用了"证据；"改 `baseHpMax` 就够了"、"容器跟着缩"三条设计事实 → §1.2 |
 | `70-DATA.md` **§5.10.4**（2026-10-03 新增） | **配置加载的输出策略 + `dsh.config.verbose` 开关**（哪几行留、哪几行收敛成一行汇总）→ 本文 §1.0 / §1.4 / §2.6 / §3.3 / §6 里所有"看什么算成功" |
-| `project_analyses/EXTERNAL-DATA-LOADING-2026-10.md` | §11.3 四个"打折扣"的键 → §1.2；§12.4 觉醒技能配不到 → §1.3 第 1 条；§12.5 `atkMagnification` 复位 → §1.2 第 1 条；阶段 2「`copy()` 必须带数值」→ §3.1 |
-| `project_analyses/CONFIG-LOADING-DECOUPLING-2026-10.md` | §12.2/§12.3 那 24 个键的分类（10 临时 + 12 `*Enhance*` + `extraDamage` + `individualMultipleArea`）→ §1.3 第 3~6 条；§12.5 三条阻碍 → §3.1 的"表还没删" |
+| `project_analyses/current/EXTERNAL-DATA-LOADING-2026-10.md` | §11.3 四个"打折扣"的键 → §1.2；§12.4 觉醒技能配不到 → §1.3 第 1 条；§12.5 `atkMagnification` 复位 → §1.2 第 1 条；阶段 2「`copy()` 必须带数值」→ §3.1 |
+| `project_analyses/current/CONFIG-LOADING-DECOUPLING-2026-10.md` | §12.2/§12.3 那 24 个键的分类（10 临时 + 12 `*Enhance*` + `extraDamage` + `individualMultipleArea`）→ §1.3 第 3~6 条；§12.5 三条阻碍 → §3.1 的"表还没删" |
 
 **2026-10-03 第 2 轮（收敛启动播报 + 修血量提醒误报 + 扫探针）又读了哪几份、哪条结论影响了改动**：
 
@@ -650,11 +650,11 @@ public class MyMod extends Mod implements ModDataAware {
 | 想知道 | 读 |
 |---|---|
 | **往游戏里加内容 / 配置能改到什么** | **本文** |
-| **选实体/物品时怎么打字**（缩写 `ne`/`nex`、一行多个 `1/2/3/y`、`n` 的两义） | `notes_for_llm/50-COMMANDS.md` 的 **§5.10** |
+| **选实体/物品时怎么打字**（缩写 `ne`/`nex`、一行多个 `1/2/3/y`、`n` 的两义） | `notes_for_llm/subsystems/50-COMMANDS.md` 的 **§5.10** |
 | 写模组（目录、`main.json`、`Mod` API、四类内容模板、14 条踩坑） | `MODDING-GUIDE.md` |
 | 玩家视角：数值怎么调、命令怎么用、目录结构 | `README.md`（「🎛️ 数值怎么调」一节） |
-| 这套配置系统**为什么**长这样、每一步的验收数字、踩过的坑 | `project_analyses/EXTERNAL-DATA-LOADING-2026-10.md`、`CONFIG-LOADING-DECOUPLING-2026-10.md` |
-| `/data` 与数据名契约 | `notes_for_llm/70-DATA.md` §5.10 |
+| 这套配置系统**为什么**长这样、每一步的验收数字、踩过的坑 | `project_analyses/current/EXTERNAL-DATA-LOADING-2026-10.md`、`CONFIG-LOADING-DECOUPLING-2026-10.md` |
+| `/data` 与数据名契约 | `notes_for_llm/subsystems/70-DATA.md` §5.10 |
 
 ---
 

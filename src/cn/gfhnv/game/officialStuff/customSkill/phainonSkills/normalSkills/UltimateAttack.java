@@ -1,6 +1,7 @@
 package cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills;
 
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.entity.PropertyEnhanceType;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.eventListener.FightTurnPastListener;
 import cn.gfhnv.game.interfaces.IAiScoreBonus;
@@ -20,7 +21,6 @@ import cn.gfhnv.game.system.thinkingSystem.TagType;
 import cn.gfhnv.game.world.World;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -195,8 +195,8 @@ public class UltimateAttack extends Skill implements SkillCoefficientTunable, IA
 
     @Override
     public void comeToEffect(Fight fight, LivingThing user) {
-        user.setAttackEnhancePercent(user.getAttackEnhancePercent() + 0.8);
-        user.setHpEnhancePercent(user.getHpEnhancePercent() + 2.7);
+        user.addPropertyEnhance(PropertyEnhanceType.ATTACK, 0.8, 0, Phainon.AWAKEN_ENHANCE_SOURCE);
+        user.addPropertyEnhance(PropertyEnhanceType.MAX_HP, 2.7, 0, Phainon.AWAKEN_ENHANCE_SOURCE);
         user.renewHp();
         user.setHp(user.getHpMax());
         user.setName("卡厄斯兰那");
@@ -217,7 +217,7 @@ public class UltimateAttack extends Skill implements SkillCoefficientTunable, IA
             EventBus.register(awakeEndListener);
             user.getController().setActionSignal(ActionSignal.WITHOUT_NEW_TURN);
         }
-        BigDecimal needTime = BigDecimal.valueOf(10000).divide(BigDecimal.valueOf(user.getSpeed()), 10, RoundingMode.HALF_UP);
+        BigDecimal needTime = cn.gfhnv.game.system.fight.TurnManager.needTimeOf(user);
         if (user instanceof Phainon phainon) {
             phainon.setExtraTurns(awakenExtraTurns);
             phainon.addScourge(4);

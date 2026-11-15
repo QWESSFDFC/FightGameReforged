@@ -1,17 +1,13 @@
 package cn.gfhnv.debug_tools;
 
-import cn.gfhnv.game.data.*;
+import cn.gfhnv.game.data.DataBridge;
 import cn.gfhnv.game.entity.LivingThing;
-import cn.gfhnv.game.entityController.UniversalController;
 import cn.gfhnv.game.event.DamageEvent;
 import cn.gfhnv.game.mod.Mod;
-import cn.gfhnv.game.officialStuff.customEntity.monsters.FlameReaver;
 import cn.gfhnv.game.officialStuff.customEntity.players.Phainon;
 import cn.gfhnv.game.officialStuff.customEntity.players.PlayerOne;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
-import cn.gfhnv.game.system.command.*;
-import cn.gfhnv.game.system.fight.*;
 import cn.gfhnv.game.world.World;
 
 import java.util.ArrayList;
@@ -19,9 +15,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-import static cn.gfhnv.debug_tools.TestKit.*;
+import static cn.gfhnv.debug_tools.TestKit.check;
+import static cn.gfhnv.debug_tools.TestKit.section;
 import static cn.gfhnv.debug_tools.TestSupport.*;
-import static cn.gfhnv.debug_tools.TestProbes.*;
 
 /**
  * 自测：**技能/配置**。
@@ -31,6 +27,9 @@ import static cn.gfhnv.debug_tools.TestProbes.*;
  * 由 {@code TestCommandSystem#main} 按顺序调用 {@code SkillDataTests#runAll()}。
  */
 public final class SkillDataTests {
+
+    private SkillDataTests() {
+    }
 
     /**
      * 技能数值补丁（{@code config/gameConfig/SkillData.json}）。
@@ -579,7 +578,7 @@ public final class SkillDataTests {
      * 目前<b>不在注册表里</b>（{@code UltimateAttack} 里是 {@code new} 出来的），
      * 所以 {@code SkillData.json} 里还没有它们 —— 本用例用"直接给一个实例打补丁"
      * 证明机制是通的，缺口本身见
-     * {@code project_analyses/EXTERNAL-DATA-LOADING-2026-10.md} 第十二节。
+     * {@code project_analyses/current/EXTERNAL-DATA-LOADING-2026-10.md} 第十二节。
      */
     private static void testSkillCoefficients() throws Exception {
         section("技能具名系数（倍率可变的那一类）");
@@ -1229,8 +1228,5 @@ public final class SkillDataTests {
         testSkillRegistry();
         testSkillIdCoverage();
         testSkillKeysCoverEveryFormSkill();
-    }
-
-    private SkillDataTests() {
     }
 }

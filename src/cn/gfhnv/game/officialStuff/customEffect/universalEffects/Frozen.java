@@ -75,9 +75,9 @@ public class Frozen extends Effect {
      * 这样即使信号中途被别的效果或事件改写（例如 {@code whenLastTimeEnd} 把 controller
      * 复位成 NORMAL），轮到它时依然会被跳过。
      * <p>
-     * ⚠️ <b>只有"还有下一次要跳"时才重新布置</b>（2026-10-25 修）：`lastTime` 的口径已经是
-     * "还会 tick 几次"，而这次 tick 之后就要减 1 —— 减完还剩 ≥1 次才需要布置下一次跳过；
-     * 否则 `Frozen(1)` 会"挂上时布置一次 + 这次 tick 再布置一次" = **冻两个回合**（`80-EFFECTS.md` K15）。
+     * ⚠️ <b>只有"还有下一次要跳"时才重新布置</b>：`lastTime` 的口径已经是"还会 tick 几次"，
+     * 而这次 tick 之后就要减 1 —— 减完还剩 ≥1 次才需要布置下一次跳过；
+     * 否则 `Frozen(1)` 会同时有"挂上时布置的"与"这次 tick 布置的"两个跳过标记 = **冻两个回合**。
      *
      * @param thing 持有冰冻的生物
      */

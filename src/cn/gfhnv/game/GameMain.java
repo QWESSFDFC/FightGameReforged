@@ -111,6 +111,8 @@ public class GameMain {
         // 配置播报的收尾：把上面每一份配置的记账汇总成**一行总量**（默认静默，见 ConfigOutput）。
         // 逐条明细在 verbose 模式下已经打过了，这一行就是"配置到底生没生效"的唯一判据。
         ConfigOutput.printPatchSummary();
+        // 初始化彻底完成：给模组 / 扩展留一个"现在可以注册东西了"的时机（第 74 批新增事件）
+        EventBus.post(new cn.gfhnv.game.event.GameInitializedEvent());
     }
 
     /**
@@ -124,7 +126,7 @@ public class GameMain {
             ConfigLoader.loadGameRules();
         } catch (Exception e) {
             ConfigOutput.problem("[配置错误] 游戏规则加载失败：" + e.getMessage());
-            LogWriter.writeLog("[配置错误] 游戏规则加载失败：" + e.getMessage());
+            LogWriter.writeThrowable("[配置错误] 游戏规则加载失败", e);
         }
     }
 
@@ -135,7 +137,7 @@ public class GameMain {
         try {
             ConfigLoader.loadConfig();
         } catch (Exception e) {
-            LogWriter.writeLog(e.getMessage());
+            LogWriter.writeThrowable("[配置错误] 初始化规则默认值失败", e);
         }
     }
 
@@ -150,7 +152,7 @@ public class GameMain {
             ConfigLoader.loadEntityData();
         } catch (Exception e) {
             ConfigOutput.problem("[配置错误] 实体数值配置加载失败：" + e.getMessage());
-            LogWriter.writeLog("[配置错误] 实体数值配置加载失败：" + e.getMessage());
+            LogWriter.writeThrowable("[配置错误] 实体数值配置加载失败", e);
         }
     }
 
@@ -164,7 +166,7 @@ public class GameMain {
             ConfigLoader.loadSkillData();
         } catch (Exception e) {
             ConfigOutput.problem("[配置错误] 技能数值配置加载失败：" + e.getMessage());
-            LogWriter.writeLog("[配置错误] 技能数值配置加载失败：" + e.getMessage());
+            LogWriter.writeThrowable("[配置错误] 技能数值配置加载失败", e);
         }
     }
 
@@ -245,7 +247,7 @@ public class GameMain {
         fightInProgress = false;
         LogWriter.writeLog("战斗被命令强制结束，按玩家" + (playerWin ? "胜利" : "失败") + "处理");
         TurnManager.getTurns().clear();
-        TurnManager.setIsInitialized(false);
+        TurnManager.setInitialized(false);
         EventBus.post(new FightEndEvent(playerWin, fight));
         return true;
     }

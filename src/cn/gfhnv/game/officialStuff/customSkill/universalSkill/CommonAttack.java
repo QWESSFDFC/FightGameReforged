@@ -1,5 +1,6 @@
 package cn.gfhnv.game.officialStuff.customSkill.universalSkill;
 
+import cn.gfhnv.game.damage.DamageType;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.officialStuff.customEffect.universalEffects.DamageEnhanceEffect;
 import cn.gfhnv.game.skill.Skill;
@@ -30,7 +31,7 @@ public class CommonAttack extends Skill {
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         user.addEffect(new DamageEnhanceEffect(1, 1).setOrigin("commonAttack"));
         for (LivingThing livingThing : enemies) {
-            user.makeDamage(livingThing, this);
+            user.makeDamage(livingThing, this, DamageType.CommonAttack);
         }
     }
 }

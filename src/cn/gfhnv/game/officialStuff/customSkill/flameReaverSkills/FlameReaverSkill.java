@@ -1,5 +1,6 @@
 package cn.gfhnv.game.officialStuff.customSkill.flameReaverSkills;
 
+import cn.gfhnv.game.damage.DamageType;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.officialStuff.customEntity.summons.BrokenContainer;
 import cn.gfhnv.game.skill.Skill;
@@ -147,7 +148,7 @@ public abstract class FlameReaverSkill extends Skill {
             if (target == null || !target.isAlive()) {
                 continue;
             }
-            user.makeDamage(target, this);
+            user.makeDamage(target, this, DamageType.SpecialSkill);
         }
     }
 

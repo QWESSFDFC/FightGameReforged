@@ -1,5 +1,6 @@
 package cn.gfhnv.game.officialStuff.customSkill.mortenaxBlade;
 
+import cn.gfhnv.game.damage.DamageType;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.officialStuff.customEffect.universalEffects.Taunt;
 import cn.gfhnv.game.officialStuff.customEntity.players.MortenaxBlade;
@@ -17,7 +18,7 @@ import java.util.List;
  * 单体，伤害 = 自身<b>生命上限的 100%</b>，命中后使目标嘲讽 1 回合。
  * <p>
  * 设计稿见 `TODO.md`（「淬锋，断魄」[单攻] + 【无量忿怒】"<b>普攻获得强化</b>"）；
- * 机制映射见 `project_analyses/MORTENAX-BLADE-2026-10.md`。英文版也把它列在强化普攻那一栏
+ * 机制映射见 `project_analyses/current/MORTENAX-BLADE-2026-10.md`。英文版也把它列在强化普攻那一栏
  * （{@code A Tempered Blade Severs Souls}）。
  * <p>
  * <b>它不在普通形态的技能表里</b>：普通形态是「残锋，掠尽」+「骸骨当炉」，
@@ -83,7 +84,7 @@ public class MortalBladeSkill extends Skill {
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         for (LivingThing enemy : enemies) {
-            user.makeDamage(enemy, this);
+            user.makeDamage(enemy, this, DamageType.CommonAttack);
             enemy.addEffect(new Taunt(TAUNT_LAST_TIME).setOrigin(user.getUUID()));
         }
         if (user instanceof MortenaxBlade blade) {

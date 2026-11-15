@@ -12,8 +12,6 @@ import cn.gfhnv.game.officialStuff.customSkill.actorLiXiaoYanSkills.PyrohemicPum
 import cn.gfhnv.game.officialStuff.customSkill.actorLiXiaoYanSkills.UltimateAttack;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.ElementSort;
-import cn.gfhnv.game.system.configLoadingSystem.DataKeys;
-import cn.gfhnv.game.system.configLoadingSystem.GameRules;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -51,9 +49,19 @@ public class ActorLiXiaoYan extends LivingThing {
      * 链为空等价于没有这个扩展点。
      */
     private static final List<IModifyIgnitionMax> IGNITION_MAX_MODIFIERS = new ArrayList<>();
-    private int ignition = Rule.resetIgnition();
-    private int ignitionMax = Rule.ignitionMax();
-    private int lastIgnition = Rule.resetIgnition();
+    private int ignition = Defaults.RESET_IGNITION;
+    private int ignitionMax = Defaults.IGNITION_MAX;
+    private int lastIgnition = Defaults.RESET_IGNITION;
+    /* ---------------- 机制旋钮（2026-11-14 第 54 批：从 GameRules 搬进实例字段） ---------------- */
+    private int lowHpIgnitionMax = Defaults.LOW_HP_IGNITION_MAX;
+    private double lowHpThreshold = Defaults.LOW_HP_THRESHOLD;
+    private int highIgnition = Defaults.HIGH_IGNITION;
+    private double highIgnitionBonusRate = Defaults.HIGH_IGNITION_BONUS_RATE;
+    private double areaPerIgnition = Defaults.AREA_PER_IGNITION;
+    private int memorizeTrigger = Defaults.MEMORIZE_TRIGGER;
+    private int memorizeCost = Defaults.MEMORIZE_COST;
+    private double memorizeHealRate = Defaults.MEMORIZE_HEAL_RATE;
+    private int resetIgnition = Defaults.RESET_IGNITION;
     private double memorizedRate = -1;
 
     public ActorLiXiaoYan(ActorLiXiaoYan other) {
@@ -62,6 +70,15 @@ public class ActorLiXiaoYan extends LivingThing {
         this.ignitionMax = other.ignitionMax;
         this.lastIgnition = other.lastIgnition;
         this.memorizedRate = other.memorizedRate;
+        this.lowHpIgnitionMax = other.lowHpIgnitionMax;
+        this.lowHpThreshold = other.lowHpThreshold;
+        this.highIgnition = other.highIgnition;
+        this.highIgnitionBonusRate = other.highIgnitionBonusRate;
+        this.areaPerIgnition = other.areaPerIgnition;
+        this.memorizeTrigger = other.memorizeTrigger;
+        this.memorizeCost = other.memorizeCost;
+        this.memorizeHealRate = other.memorizeHealRate;
+        this.resetIgnition = other.resetIgnition;
         this.setIndividualMultipleArea(other.getIndividualMultipleArea());
 
     }
@@ -69,6 +86,10 @@ public class ActorLiXiaoYan extends LivingThing {
     public ActorLiXiaoYan(long l) {
         // 防御成长 3 → 5（2026-09 加强）：原来 125 级只有 572 防，是三名角色里最低的
         super("李晓焰", "actorLiXiaoYan", 0.4, 0.0, 0.0, 0.0, 0.0, 120, l, "player", 58, 22, 5, ElementSort.FIRE);
+        // 玩家角色的基础暴击率 5% + 基础暴伤 50%（2026-11-15 第 71/73 批，用户定；
+        // 只给默认用 PlayerController 的玩家实体加，怪物 / 召唤物没有暴击机制）
+        this.setCriticalRate(0.05);
+        this.setCriticalDamage(0.5);
         this.setMass(60);
         this.setDescription("这是李晓焰.");
         this.getInventory().addSlot(63);
@@ -77,7 +98,7 @@ public class ActorLiXiaoYan extends LivingThing {
         skills.add(new PyrohemicPumping());
         skills.add(new UltimateAttack());
         this.setController(new PlayerController(skills, this));
-        this.setIndividualMultipleArea(1.0 + Rule.areaPerIgnition() * ignition);
+        this.setIndividualMultipleArea(1.0 + this.areaPerIgnition * ignition);
         this.lastIgnition = ignition;
         this.setModifyDamage(new IModifyDamage() {
             @Override
@@ -99,9 +120,9 @@ public class ActorLiXiaoYan extends LivingThing {
                 // 伤害修正器是**按引用**被复制到每个副本上的（LivingThing 的复制构造器走
                 // damageModifiers.addAll），闭包捕获的永远是**模板实例**。旧写法在副本挨打时
                 // 会去改模板的层数，并把副本自己的燃点算成"模板值 − 10"，实测出现过 −7。
-                if (victim.getIgnition() >= Rule.memorizeTrigger() && correctedHp <= 0) {
-                    correctedHp = (long) (victim.getHpMax() * Rule.memorizeHealRate());
-                    victim.setIgnition(victim.getIgnition() - Rule.memorizeCost());
+                if (victim.getIgnition() >= victim.getMemorizeTrigger() && correctedHp <= 0) {
+                    correctedHp = (long) (victim.getHpMax() * victim.getMemorizeHealRate());
+                    victim.setIgnition(victim.getIgnition() - victim.getMemorizeCost());
                 }
                 return correctedHp;
             }
@@ -164,7 +185,7 @@ public class ActorLiXiaoYan extends LivingThing {
     @Override
     public void whenFightEnds() {
         super.whenFightEnds();
-        this.setIgnition(Rule.resetIgnition());
+        this.setIgnition(this.resetIgnition);
     }
 
     public int getIgnition() {
@@ -193,7 +214,7 @@ public class ActorLiXiaoYan extends LivingThing {
      * 之后还要依次经过 {@link #getIgnitionMaxModifiers() 修正链}
      */
     public int effectiveIgnitionMax() {
-        int base = getHp() < getHpMax() * Rule.lowHpThreshold() ? Rule.lowHpIgnitionMax() : ignitionMax;
+        int base = getHp() < getHpMax() * this.lowHpThreshold ? this.lowHpIgnitionMax : ignitionMax;
         int current = base;
         for (IModifyIgnitionMax modifier : IGNITION_MAX_MODIFIERS) {
             current = modifier.modifyIgnitionMax(current, this);
@@ -206,6 +227,13 @@ public class ActorLiXiaoYan extends LivingThing {
      */
     public int getIgnitionMax() {
         return effectiveIgnitionMax();
+    }
+
+    /**
+     * @param ignitionMax 出厂【燃点】常规上限
+     */
+    public void setIgnitionMax(int ignitionMax) {
+        this.ignitionMax = ignitionMax;
     }
 
     public double getMemorizedRate() {
@@ -229,9 +257,147 @@ public class ActorLiXiaoYan extends LivingThing {
     public void updateSelf() {
         if (lastIgnition != ignition) {
             setIndividualMultipleArea(getIndividualMultipleArea()
-                    + Rule.areaPerIgnition() * ignition - Rule.areaPerIgnition() * lastIgnition);
+                    + this.areaPerIgnition * ignition - this.areaPerIgnition * lastIgnition);
             lastIgnition = ignition;
         }
+    }
+
+
+    /* ------------------------------------------------------------------
+     * 机制旋钮的读写（classState 键=字段名；改完立即生效）
+     * ------------------------------------------------------------------ */
+
+    /**
+     * @return 出厂【燃点】常规上限（{@link #effectiveIgnitionMax()} 的基准之一）
+     */
+    public int getIgnitionMaxRule() {
+        return ignitionMax;
+    }
+
+    /**
+     * @return 生命值偏低时的【燃点】上限
+     */
+    public int getLowHpIgnitionMax() {
+        return lowHpIgnitionMax;
+    }
+
+    /**
+     * @param lowHpIgnitionMax 生命值偏低时的【燃点】上限
+     */
+    public void setLowHpIgnitionMax(int lowHpIgnitionMax) {
+        this.lowHpIgnitionMax = lowHpIgnitionMax;
+    }
+
+    /**
+     * @return 判定「生命值偏低」的比例
+     */
+    public double getLowHpThreshold() {
+        return lowHpThreshold;
+    }
+
+    /**
+     * @param lowHpThreshold 判定「生命值偏低」的比例
+     */
+    public void setLowHpThreshold(double lowHpThreshold) {
+        this.lowHpThreshold = lowHpThreshold;
+    }
+
+    /**
+     * @return 开始吃「高燃点加成」的层数
+     */
+    public int getHighIgnition() {
+        return highIgnition;
+    }
+
+    /**
+     * @param highIgnition 开始吃「高燃点加成」的层数
+     */
+    public void setHighIgnition(int highIgnition) {
+        this.highIgnition = highIgnition;
+    }
+
+    /**
+     * @return 高燃点时每个技能额外追加的伤害（按最大生命的比例）
+     */
+    public double getHighIgnitionBonusRate() {
+        return highIgnitionBonusRate;
+    }
+
+    /**
+     * @param highIgnitionBonusRate 高燃点时每个技能额外追加的伤害比例
+     */
+    public void setHighIgnitionBonusRate(double highIgnitionBonusRate) {
+        this.highIgnitionBonusRate = highIgnitionBonusRate;
+    }
+
+    /**
+     * @return 每层【燃点】提供的单体倍率加成
+     */
+    public double getAreaPerIgnition() {
+        return areaPerIgnition;
+    }
+
+    /**
+     * @param areaPerIgnition 每层【燃点】提供的单体倍率加成
+     */
+    public void setAreaPerIgnition(double areaPerIgnition) {
+        this.areaPerIgnition = areaPerIgnition;
+    }
+
+    /**
+     * @return 触发免死的层数
+     */
+    public int getMemorizeTrigger() {
+        return memorizeTrigger;
+    }
+
+    /**
+     * @param memorizeTrigger 触发免死的层数
+     */
+    public void setMemorizeTrigger(int memorizeTrigger) {
+        this.memorizeTrigger = memorizeTrigger;
+    }
+
+    /**
+     * @return 触发免死时消耗的层数
+     */
+    public int getMemorizeCost() {
+        return memorizeCost;
+    }
+
+    /**
+     * @param memorizeCost 触发免死时消耗的层数
+     */
+    public void setMemorizeCost(int memorizeCost) {
+        this.memorizeCost = memorizeCost;
+    }
+
+    /**
+     * @return 触发免死时回复的最大生命比例
+     */
+    public double getMemorizeHealRate() {
+        return memorizeHealRate;
+    }
+
+    /**
+     * @param memorizeHealRate 触发免死时回复的最大生命比例
+     */
+    public void setMemorizeHealRate(double memorizeHealRate) {
+        this.memorizeHealRate = memorizeHealRate;
+    }
+
+    /**
+     * @return 战斗结束时回到的层数
+     */
+    public int getResetIgnitionRule() {
+        return resetIgnition;
+    }
+
+    /**
+     * @param resetIgnition 战斗结束时回到的层数
+     */
+    public void setResetIgnition(int resetIgnition) {
+        this.resetIgnition = resetIgnition;
     }
 
     /**
@@ -249,148 +415,57 @@ public class ActorLiXiaoYan extends LivingThing {
          * 【燃点】的常规上限。
          */
         public static final int IGNITION_MAX =
-                cn.gfhnv.game.system.configLoadingSystem.RuleDefaults.LI_XIAO_YAN_IGNITION_MAX;
+                10;
         /**
          * 生命值偏低时的【燃点】上限。
          */
         public static final int LOW_HP_IGNITION_MAX =
-                cn.gfhnv.game.system.configLoadingSystem.RuleDefaults.LI_XIAO_YAN_LOW_HP_IGNITION_MAX;
+                15;
         /**
          * 判定"生命值偏低"的比例。
          */
         public static final double LOW_HP_THRESHOLD =
-                cn.gfhnv.game.system.configLoadingSystem.RuleDefaults.LI_XIAO_YAN_LOW_HP_THRESHOLD;
+                0.5;
         /**
          * 开始吃"高燃点加成"的层数。
          */
         public static final int HIGH_IGNITION =
-                cn.gfhnv.game.system.configLoadingSystem.RuleDefaults.LI_XIAO_YAN_HIGH_IGNITION;
+                8;
         /**
          * 高燃点时每个技能额外追加的伤害（按最大生命的比例）。
          */
         public static final double HIGH_IGNITION_BONUS_RATE =
-                cn.gfhnv.game.system.configLoadingSystem.RuleDefaults.LI_XIAO_YAN_HIGH_IGNITION_BONUS_RATE;
+                0.6;
         /**
          * 每层【燃点】提供的单体倍率加成。
          */
         public static final double AREA_PER_IGNITION =
-                cn.gfhnv.game.system.configLoadingSystem.RuleDefaults.LI_XIAO_YAN_AREA_PER_IGNITION;
+                0.04;
         /**
          * 触发免死的层数。
          */
         public static final int MEMORIZE_TRIGGER =
-                cn.gfhnv.game.system.configLoadingSystem.RuleDefaults.LI_XIAO_YAN_MEMORIZE_TRIGGER;
+                10;
         /**
          * 触发免死时消耗的层数。
          */
         public static final int MEMORIZE_COST =
-                cn.gfhnv.game.system.configLoadingSystem.RuleDefaults.LI_XIAO_YAN_MEMORIZE_COST;
+                10;
         /**
          * 触发免死时回复的最大生命比例。
          */
         public static final double MEMORIZE_HEAL_RATE =
-                cn.gfhnv.game.system.configLoadingSystem.RuleDefaults.LI_XIAO_YAN_MEMORIZE_HEAL_RATE;
+                0.3;
         /**
          * 战斗结束时回到的层数。
          */
         public static final int RESET_IGNITION =
-                cn.gfhnv.game.system.configLoadingSystem.RuleDefaults.LI_XIAO_YAN_RESET_IGNITION;
+                3;
 
         /**
          * 工具类，不允许实例化。
          */
         private Defaults() {
-        }
-    }
-
-    /**
-     * <b>生效值</b>：每次都现读 {@code GameRules}（读不到就是 {@link Defaults} 里的出厂值）。
-     * <p>
-     * <b>为什么不写成 {@code public static final} 常量</b>：静态常量在"类第一次被加载"时取值，
-     * 而类的加载时机不受配置文件控制（自测里甚至必然早于配置加载），
-     * 那样会让用户改的 {@code actorLiXiaoYan.*} <b>静默失效</b>。
-     * 这些方法都在回合级 / 开局级的路径上，不在伤害计算那种热路径里。
-     * <p>
-     * 配置键见 {@link DataKeys.Rule.ActorLiXiaoYan}。
-     *
-     * @author AI（DeepSeek）生成
-     */
-    public static final class Rule {
-
-        /**
-         * 工具类，不允许实例化。
-         */
-        private Rule() {
-        }
-
-        /**
-         * @return 生效的【燃点】常规上限
-         */
-        public static int ignitionMax() {
-            return GameRules.getInt(DataKeys.Rule.ActorLiXiaoYan.IGNITION_MAX);
-        }
-
-        /**
-         * @return 生效的"低血时【燃点】上限"
-         */
-        public static int lowHpIgnitionMax() {
-            return GameRules.getInt(DataKeys.Rule.ActorLiXiaoYan.LOW_HP_IGNITION_MAX);
-        }
-
-        /**
-         * @return 生效的"低血"判定比例
-         */
-        public static double lowHpThreshold() {
-            return GameRules.getDouble(DataKeys.Rule.ActorLiXiaoYan.LOW_HP_THRESHOLD);
-        }
-
-        /**
-         * @return 生效的"开始吃高燃点加成"的层数
-         */
-        public static int highIgnition() {
-            return GameRules.getInt(DataKeys.Rule.ActorLiXiaoYan.HIGH_IGNITION);
-        }
-
-        /**
-         * @return 生效的高燃点额外伤害比例
-         */
-        public static double highIgnitionBonusRate() {
-            return GameRules.getDouble(DataKeys.Rule.ActorLiXiaoYan.HIGH_IGNITION_BONUS_RATE);
-        }
-
-        /**
-         * @return 生效的"每层【燃点】提供的单体倍率加成"
-         */
-        public static double areaPerIgnition() {
-            return GameRules.getDouble(DataKeys.Rule.ActorLiXiaoYan.AREA_PER_IGNITION);
-        }
-
-        /**
-         * @return 生效的免死触发层数
-         */
-        public static int memorizeTrigger() {
-            return GameRules.getInt(DataKeys.Rule.ActorLiXiaoYan.MEMORIZE_TRIGGER);
-        }
-
-        /**
-         * @return 生效的免死消耗层数
-         */
-        public static int memorizeCost() {
-            return GameRules.getInt(DataKeys.Rule.ActorLiXiaoYan.MEMORIZE_COST);
-        }
-
-        /**
-         * @return 生效的免死回复比例
-         */
-        public static double memorizeHealRate() {
-            return GameRules.getDouble(DataKeys.Rule.ActorLiXiaoYan.MEMORIZE_HEAL_RATE);
-        }
-
-        /**
-         * @return 生效的"战斗结束时回到几层"
-         */
-        public static int resetIgnition() {
-            return GameRules.getInt(DataKeys.Rule.ActorLiXiaoYan.RESET_IGNITION);
         }
     }
 

@@ -1,7 +1,11 @@
 package cn.gfhnv.debug_tools;
 
+import cn.gfhnv.game.damage.Damage;
 import cn.gfhnv.game.damage.DamageCalculate;
-import cn.gfhnv.game.data.*;
+import cn.gfhnv.game.damage.DamageType;
+import cn.gfhnv.game.data.DataBridge;
+import cn.gfhnv.game.data.NbtCompound;
+import cn.gfhnv.game.data.NbtList;
 import cn.gfhnv.game.entity.DamageReductionSource;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.event.DamageEvent;
@@ -9,14 +13,13 @@ import cn.gfhnv.game.interfaces.IModifyDamage;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.CommonInsect;
 import cn.gfhnv.game.officialStuff.customEntity.players.PlayerOne;
 import cn.gfhnv.game.skill.Skill;
-import cn.gfhnv.game.system.command.*;
-import cn.gfhnv.game.system.fight.*;
+import cn.gfhnv.game.system.ElementSort;
 
 import java.util.ArrayList;
 
 import static cn.gfhnv.debug_tools.TestKit.*;
-import static cn.gfhnv.debug_tools.TestSupport.*;
 import static cn.gfhnv.debug_tools.TestProbes.*;
+import static cn.gfhnv.debug_tools.TestSupport.*;
 
 /**
  * 自测：**战斗数值**。
@@ -26,6 +29,9 @@ import static cn.gfhnv.debug_tools.TestProbes.*;
  * 由 {@code TestCommandSystem#main} 按顺序调用 {@code DamageTests#runAll()}。
  */
 public final class DamageTests {
+
+    private DamageTests() {
+    }
 
     /**
      * 测试减伤：{@code LivingThing} 的多个减伤来源按<b>乘算</b>叠加
@@ -184,7 +190,7 @@ public final class DamageTests {
             lethal.getDamage().setDamageAmount(9999L);
             ProbeDeathWard ward = new ProbeDeathWard();
             tank.addModifyDamage(ward);
-            tank.getDamage(lethal);
+            tank.takeDamage(lethal);
             check("免死把致死伤害拦下、血量锁在 1（这次是真实挨打，免死被消费）",
                     tank.getHp() == 1 && tank.isAlive() && ward.wasConsumed());
 
@@ -202,12 +208,12 @@ public final class DamageTests {
                     predicted == 0);
             check("试算不改状态：免死没被花掉、试算结束后 isAnticipating() 复位",
                     guarded.wasConsumed() == false && !living.isAnticipating());
-            living.getDamage(predictedEvent);
+            living.takeDamage(predictedEvent);
             check("试算之后再真挨打，免死照常触发（只读预测没有偷走次数）",
                     living.getHp() == 1 && guarded.wasConsumed());
             tank.removeModifyDamage(ward);
             tank.setHp(1);
-            tank.getDamage(lethal);
+            tank.takeDamage(lethal);
             check("移除修正器后 1 血吃 9999 伤害会死（说明前面是修正器救的）",
                     tank.getHp() == 0 && !tank.isAlive());
 
@@ -217,7 +223,7 @@ public final class DamageTests {
             ProbeHpFloor floor = new ProbeHpFloor(0.5);
             guardian.addModifyDamage(floor);
             guardian.setHp(1);
-            guardian.getDamage(lethal);
+            guardian.takeDamage(lethal);
             check("血量下限：1 血吃致死伤害后被抬到 50% 生命上限",
                     guardian.getHp() == (long) (guardianMaxHp * 0.5));
             check("满血时不触发下限（修正器只抬高、不压低）",
@@ -229,6 +235,8 @@ public final class DamageTests {
             testSoulscorchDeathWardDoesNotDeadlock();
 
             // ---- 白厄：中止变身自己收口 + 只挨一次打只反击一次（跑真实回合循环） ----
+            testTimelineDeadEndEndsFight();
+            testEffectTicksBeforeAction();
             testAwakenInterruptExitProtocol();
 
             // ---- 白厄：同场两只白厄的 AwakenEndEvent 不会互相吃掉监听器 ----
@@ -248,12 +256,130 @@ public final class DamageTests {
     }
 
     /**
+     * 伤害的<b>三段数值</b>、<b>伤害类型</b>与<b>真实伤害</b>（{@code Damage} 重做，2026-11-14）。
+     * <p>
+     * ① 原始值 = 倍率乘属性、不取整；② 公式结果；③ 实际掉血（被生命上限/免死影响）。
+     * 另外两条是新能力：一次伤害可以带多个类型；元素是 {@code UNIVERSAL} 时按真实伤害算
+     * （免抗性、免单元素增伤、免全局增伤，但<b>防御与减伤照算</b>）。
+     */
+    private static void testDamageStages() {
+        section("伤害三段数值 + 伤害类型 + 真实伤害（Damage 重做）");
+        try {
+            LivingThing attacker = new CommonInsect(100L).copy();
+            // 负暴击率 = 永不暴击：随机暴击会让"数值比例"的断言飘
+            attacker.setCriticalRate(-1);
+            attacker.setIndividualMultipleArea(1.0);
+            LivingThing target = new CommonInsect(100L).copy();
+            Skill probe = new ProbeSkill("测伤害三段", new ArrayList<>(), 1, 2.0);
+
+            /* ---------- ① 原始值：倍率乘属性之后、没有任何系数 ---------- */
+            Damage hit = new Damage(attacker, target, probe);
+            double expectedRaw = attacker.getHpMax() * probe.getHpMagnification()
+                    + attacker.getAttack() * probe.getAtkMagnification()
+                    + attacker.getDefence() * probe.getDefMagnification()
+                    + probe.getExtraDamage() + attacker.getExtraDamage();
+            check("① 原始值 = 生命×hp倍率 + 攻击×atk倍率 + 防御×def倍率 + 两个额外伤害 —— 实际 "
+                            + hit.getRawDamageAmount() + "，期望 " + expectedRaw,
+                    Math.abs(hit.getRawDamageAmount() - expectedRaw) < 1e-6);
+            check("① 公式结果不超过原始值（暴击关掉，防御/抗性/减伤都只往下压）—— 实际 "
+                            + hit.getCalculateDamageResult(),
+                    hit.getCalculateDamageResult() <= (long) hit.getRawDamageAmount());
+
+            /* ---------- ③ 结算前 appliedDamage 是 0；结算后 = 实际掉血 ---------- */
+            check("③ 结算前 appliedDamage 是 0", hit.getAppliedDamage() == 0);
+            LivingThing prey = new CommonInsect(100L).copy();
+            long preyMaxHp = prey.getHpMax();
+            prey.setHp(preyMaxHp);
+            DamageEvent lethal = new DamageEvent(attacker, prey, probe);
+            lethal.getDamage().setDamageAmount(9999L);
+            prey.takeDamage(lethal);
+            check("③ appliedDamage = 实际掉血（9999 打在 " + preyMaxHp + " 血上只掉这么多）—— 实际 "
+                            + lethal.getDamage().getAppliedDamage(),
+                    lethal.getDamage().getAppliedDamage() == preyMaxHp && prey.getHp() == 0);
+            check("② 公式结果仍是 9999（攻击行读的是它，不是实际掉血）",
+                    lethal.getDamage().getCalculateDamageResult() == 9999L);
+
+            /* ---------- ④ 伤害类型：可以多个，全都记住；不传按战技 ---------- */
+            DamageEvent typed = new DamageEvent(attacker, target, probe,
+                    DamageType.CommonAttack, DamageType.AdditionAttack);
+            check("④ 一次伤害可以带多个类型（两个都在）",
+                    typed.getDamage().hasDamageType(DamageType.CommonAttack)
+                            && typed.getDamage().hasDamageType(DamageType.AdditionAttack)
+                            && typed.getDamage().getDamageTypes().size() == 2);
+            check("④ 不传类型时按战技算（兼容 makeDamage(target, skill) 老写法）",
+                    new DamageEvent(attacker, target, probe).getDamage().getDamageTypes()
+                            .equals(java.util.EnumSet.of(DamageType.SpecialSkill)));
+            check("④ 伤害来源名 = 技能名", "测伤害三段".equals(typed.getDamage().getDamageSourceName()));
+
+            /* ---------- ⑤ 真实伤害：免抗性与全局增伤，但防御与减伤照算 ---------- */
+            attacker.setEnhance(0.2);          // 全局增伤 +20%
+            target.setMetalResistance(0.5);    // 施法者元素是金 → 目标的金属抗性 50%
+            long normal = new Damage(attacker, target, probe).getCalculateDamageResult();
+            long trueDamage = new Damage(attacker, target, probe, ElementSort.UNIVERSAL)
+                    .getCalculateDamageResult();
+            // 普通 = 原始 × 1.2 × 0.5 = 0.6 × 原始；真实 = 原始 × 1 × 1
+            check("⑤ 真实伤害不吃抗性与全局增伤（普通 " + normal + " 应约为真实 " + trueDamage + " 的 0.6 倍）",
+                    Math.abs(normal - trueDamage * 0.6) <= Math.max(2, trueDamage / 100));
+            target.addDamageReduction(new Object(), 0.5);
+            long trueReduced = new Damage(attacker, target, probe, ElementSort.UNIVERSAL)
+                    .getCalculateDamageResult();
+            check("⑤ 真实伤害照样吃减伤（50% 减伤后约为一半）—— " + trueDamage + " → " + trueReduced,
+                    Math.abs(trueReduced - trueDamage * 0.5) <= Math.max(2, trueDamage / 100));
+        } catch (Exception e) {
+            fail("伤害三段测试抛出异常：" + e);
+        }
+    }
+
+    /**
+     * <b>暴击</b>（2026-11-15 第 73 批）：玩家基础暴伤 50% ⇒ 暴击 = 1.5 倍；
+     * 攻击行带 {@code （暴击）} 标记；{@code Damage#isCritical()} 能读到。
+     * <p>自测默认关闭暴击掷骰（见 {@code DamageCalculate#setCriticalEnabledForSelfTest}），
+     * 这条用例临时打开、并用"暴击率 100%"让它必然触发。
+     */
+    private static void testCriticalHit() {
+        section("暴击：基础暴伤 50% + 攻击行标记");
+        boolean enabledBefore = cn.gfhnv.game.damage.DamageCalculate.isCriticalEnabled();
+        try {
+            cn.gfhnv.game.damage.DamageCalculate.setCriticalEnabledForSelfTest(true);
+
+            LivingThing target = new cn.gfhnv.game.officialStuff.customEntity.monsters.CommonInsect(125L);
+            Skill probe = new ProbeSkill("暴击探针", new ArrayList<>(), 1, 1.0);
+
+            LivingThing normal = new PlayerOne(125);
+            normal.setCriticalRate(0);
+            long normalDamage = new cn.gfhnv.game.damage.Damage(normal, target, probe).getCalculateDamageResult();
+
+            LivingThing crit = new PlayerOne(125);
+            crit.setCriticalRate(1.0);      // 必然暴击
+            crit.setCriticalDamage(0.5);    // 暴伤 50%
+            cn.gfhnv.game.damage.Damage critDamage = new cn.gfhnv.game.damage.Damage(crit, target, probe);
+
+            check("① 基础暴伤 50% ⇒ 暴击伤害 = 不暴击的 1.5 倍 —— 实际 " + normalDamage + " / "
+                            + critDamage.getCalculateDamageResult(),
+                    Math.abs(critDamage.getCalculateDamageResult() - normalDamage * 1.5) <= 2);
+            check("② Damage#isCritical() 能读到暴击标记 —— 实际 " + critDamage.isCritical(),
+                    critDamage.isCritical());
+            check("③ 不暴击时标记是 false", !new cn.gfhnv.game.damage.Damage(normal, target, probe).isCritical());
+
+            check("④ 攻击行带「（暴击）」标记",
+                    cn.gfhnv.game.entity.EntityDisplay.attackLine(crit, target, probe,
+                            critDamage.getCalculateDamageResult(), true).contains("（暴击）")
+                            && !cn.gfhnv.game.entity.EntityDisplay.attackLine(normal, target, probe,
+                            normalDamage, false).contains("（暴击）"));
+        } catch (Exception e) {
+            fail("暴击测试抛出异常：" + e);
+        } finally {
+            cn.gfhnv.game.damage.DamageCalculate.setCriticalEnabledForSelfTest(enabledBefore);
+        }
+    }
+
+    /**
      * 跑本主题的全部用例（顺序 = 下面列的顺序）。
      */
     public static void runAll() throws Exception {
-        testDamageReduction();
-    }
 
-    private DamageTests() {
+        testCriticalHit();
+        testDamageReduction();
+        testDamageStages();
     }
 }

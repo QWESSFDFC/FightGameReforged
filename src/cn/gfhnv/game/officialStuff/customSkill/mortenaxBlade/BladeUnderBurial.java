@@ -1,5 +1,6 @@
 package cn.gfhnv.game.officialStuff.customSkill.mortenaxBlade;
 
+import cn.gfhnv.game.damage.DamageType;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.interfaces.IAiScoreBonus;
 import cn.gfhnv.game.officialStuff.customEntity.players.MortenaxBlade;
@@ -151,7 +152,7 @@ public class BladeUnderBurial extends Skill implements IAiScoreBonus {
         // ② 全体 72%
         List<LivingThing> targets = new ArrayList<>(enemies);
         for (LivingThing enemy : targets) {
-            user.makeDamage(enemy, this);
+            user.makeDamage(enemy, this, DamageType.SpecialSkill);
         }
         // ③ 额外 4 段，每段随机打一个（倍率临时改成 24% 的副本 —— 不能改自己，模板是全局共享的）
         if (targets.isEmpty()) {
@@ -161,7 +162,7 @@ public class BladeUnderBurial extends Skill implements IAiScoreBonus {
         extraHit.setHpMagnification(EXTRA_HIT_MAGNIFICATION);
         for (int i = 0; i < EXTRA_HITS; i++) {
             LivingThing victim = targets.get(RANDOM.nextInt(targets.size()));
-            user.makeDamage(victim, extraHit);
+            user.makeDamage(victim, extraHit, DamageType.SpecialSkill);
         }
     }
 }

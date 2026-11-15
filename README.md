@@ -11,7 +11,7 @@
 使用方法:直接运行.jar文件.可以自己编译或者下载Release中编译好的.但是Release中版本可能落后一点.
 我使用了AI(DeepSeek)写了部分(2026.10.3,现在可以说是大部分由ai写,有些老代码是我写的,当然大概率被ai修改过)代码.本项目的Javadoc都是ai写的，而且我没有核对，可能有问题.
 其中命令系统（`system/command/` 与 `officialStuff/customCommands/` 和模组）的代码、Javadoc 与说明文档
-全部由 AI 编写，详见下面的命令系统一节与 `project_analyses/COMMAND-SYSTEM-2026-08.md`。
+全部由 AI 编写，详见下面的命令系统一节与 `project_analyses/current/COMMAND-SYSTEM-2026-08.md`。
 ai代码具体标注
 行动系统我写了第一版(可以正常运行),ai修复了bug,更新了架构(我写的是事件递归).
 盗火行者是ai写的代码.
@@ -92,12 +92,12 @@ AI代码里面好像都标注了(作者DeepSeek)
 
 | 文件 | 管什么 | 键长什么样 |
 |---|---|---|
-| `EntityData.json` | **实体数值**：血量 / 攻击 / 防御 / 速度 / 抗性 / 成长系数 / 五行法力成长 / 背包格数 | `{"entities": {"game_official_content:playerOne": {"base": {"baseSpeed": 200}}}}` |
+| `EntityData.json` | **实体数值**：血量 / 攻击 / 防御 / 速度 / 抗性 / 成长系数 / 五行法力成长 / 背包格数；以及角色 / 怪物自己的机制旋钮（`classState`：盗火行者的容器上限、李晓焰的燃点规则……）。**2026-11 起所有实体数值都在这里** | `{"entities": {"game_official_content:playerOne": {"base": {"baseSpeed": 200}}}}` |
 | `SkillData.json` | **技能数值**：三个倍率 / 目标数 / 冷却 / 消耗 / 阵营 / AI 权重 | `{"skills": {"game_official_content:playerOne#枪射击": {"atkMagnification": 10.0}}}` |
-| `GameRules.json` | **魔法数字与 BOSS 旋钮**：面板公式基座 / 初始法力基座 / 盗火行者（减伤层数、容器上限、完整容器概率……）/ 虫皇血量 / 李晓焰的燃点规则 | `{"flameReaver": {"completeContainerChance": 0.5}}` |
+| `GameRules.json` | **全局公式标定**：面板公式基座（`formula`）与初始法力基座（`mana`）两类，**共 7 个键**。2026-11 起这里**不再有某只 BOSS 的旋钮**（那些搬进了 `EntityData.json` 的 `classState` / `derived`） | `{"formula": {"hpBase": 200}}` |
 | `EntityData.default.json` | 上面几份的**出厂值参考副本**（游戏**不读**它，改它没有任何效果）—— 改乱了想对照"原来是多少"就看它。文件头那个 `_note` 键就是这段说明（2026-10 加，**读一眼就知道该改哪份**） | — |
-| `config/data/<模组id>.json` | **模组配置**（没有这个文件时模组用代码里的默认值） | 见 `project_analyses/MODDING-GUIDE.md` 的 §4.7 |
-| `TagConfig.json` | AI 行为的 Tag 权重。⚠️ **目前对玩法零影响**（没有任何生物在用那套权重，见 `TIPS_FOR_LLM.md` §5.10） | — |
+| `config/data/<模组id>.json` | **模组配置**（没有这个文件时模组用代码里的默认值） | 见 `project_analyses/guides/MODDING-GUIDE.md` 的 §4.7 |
+| `TagConfig.json` | AI 行为的 Tag 权重。⚠️ **目前对玩法零影响**（没有任何生物在用那套权重，见 `notes_for_llm/subsystems/70-DATA.md` §5.10） | — |
 | ~~`PropertyConfig.json`~~ | ⚠️ **已经不存在了**（2026-10 删掉：它本来就"已废弃、全项目零读取"）。今天 `config/gameConfig/` 里只有上面那几份，实体数值请写 `EntityData.json` | — |
 
 ### 五条规则（很重要）
@@ -116,11 +116,10 @@ AI代码里面好像都标注了(作者DeepSeek)
 4. **想改的数值找不到键** → 直接看那份默认文件（它就是"当前全量默认值"），键名与 `/data get entity @s`
    **是同一套名字**（`hpGrow` / `attackGrow` / `baseSpeed` / `fireResistance`……），
    所以你可以先用 `/data get entity @s` 看到当前生效值，再把它抄进配置文件。
-5. **一个数有两个入口时，控制台会明确告诉你谁赢了**：`[配置提醒]` 那一行说的是
-   "两个文件都写了同一个血量，被构造之后打的那个补丁盖掉了"。**它不是错误**（键照样生效），
-   是提醒你别再改那个没生效的地方。今天只有盗火行者与虫皇的血量有这样的两个入口
-   （`GameRules.json` 的 `flameReaver.baseHpMax` / `insectBoss.baseHpMax`
-   ↔ `EntityData.json` 的 `derived.baseHpMax`，**后者赢**）。
+5. **一个数只有一个入口**（2026-11-14 起）：想改某只模板的血量，只改 `EntityData.json` 的
+   `derived.baseHpMax`。原来 `GameRules.json` 里的 `flameReaver.baseHpMax` /
+   `insectBoss.baseHpMax` 已经**删除**，那套"两个入口对不上就提醒"的机制也一并删掉了
+   （同一个值不再有两个入口，就没有"谁赢"的问题）。
 
 ### 两条边界（不是 bug）
 
@@ -128,7 +127,7 @@ AI代码里面好像都标注了(作者DeepSeek)
   而**战斗中现场 `new` 出来的东西**（例如盗火行者召唤的残骸容器，它的血/攻是按召唤者现算的）
   只受它自己那条规则影响，不受 `EntityData.json` 里 `brokenContainer` 模板的影响。
 - **改了 `GameRules.json` 的 `formula` / `mana` 两块等于重新标定**：
-  那几项是伤害与面板公式的骨架，`project_analyses/PROJECT-ANALYSIS-2026-09.md` §4.2
+  那几项是伤害与面板公式的骨架，`project_analyses/archive/PROJECT-ANALYSIS-2026-09.md` §4.2（2026-09 历史基准的标定记录）
   那套"每 1.0 倍率 ≈ 880 伤害"的换算常数是在现在的出厂值下测出来的，改完就全部作废。
 
 ---
@@ -197,7 +196,7 @@ AI代码里面好像都标注了(作者DeepSeek)
 | `hpPotion` 生命药水 | 生命上限 +20% |
 | `speedPotion` 迅捷药水 | 速度 +20% |
 | `criticalRatePotion` 暴击药水 | 暴击率 +20% |
-| `criticalDMGPotion` 暴击伤害药水 | 暴击伤害 +50% |
+| `criticalDamagePotion` 暴击伤害药水 | 暴击伤害 +50% |
 | `piercingPotion` 穿甲药水 | 无视目标 50% 防御 |
 | `healingPotion` 治疗药水 | 立刻回复 210 点生命 |
 
@@ -253,15 +252,16 @@ AI代码里面好像都标注了(作者DeepSeek)
 - **只认"数据"不认"行为"**：controller、监听器、物理对象、事件回调这些**不会**出现在数据里，
   否则 `@s` 会 dump 出几千行内部实现（技能表也因此改不到，它挂在 controller 上）；
 - **写回能走 setter 就走 setter**：`{hp:99999999}` 会被生命上限钳住，回显里能看到真实结果；
-- `final` 字段（如 `uuid`）只读；**对象列表不能增删**（效果请用 `/effect`），
+- `final` 字段（如 `uuid`）只读；**对象列表不能增删**（效果请用 `/effect`；属性加成 / 穿透 / 抗性 / 增伤这四条列表请用 `LivingThing#addPropertyEnhance` / `addPenetration` / `addResistance` / `addDamageEnhance`，`/data` 里它们只读），
   标量列表（数字/字符串/枚举）可以用 `append`/`prepend`/`insert`；
+- **临时属性**（`@Temporary`）：`/data` 能看能写、**不进配置文件** —— 那四个列表键就是这一类；
 - **过滤只支持单键**、**切片只能读**、`/data remove` **没做**（想删东西用专门的命令）；
 - `storage` 是**内存**的：退出游戏就清空（存档这块明确不做）。
 
-细节与红线见 `TIPS_FOR_LLM.md` §5.10，可行性分析见 `project_analyses/NBT-AND-DATA-COMMAND-2026-09.md`。
+细节与红线见 `notes_for_llm/subsystems/70-DATA.md` §5.10，可行性分析见 `project_analyses/current/NBT-AND-DATA-COMMAND-2026-09.md`。
 
 效果名可以写注册表里的 **id** 或**类名**（大小写不敏感）：`frozen`、`frozenEffect`、
-`damageEnhanceEffect`、`CriticalDMGEnhanceEffect(1,5)`、`taunt`（嘲讽：让对手优先打你，
+`damageEnhanceEffect`、`CriticalDamageEnhanceEffect(1,5)`、`taunt`（嘲讽：让对手优先打你，
 配合怪物 AI 的 `TargetStrategies.tauntAware(...)` 生效）。
 和 `/give` 同一套命名空间规则：**官方效果写短名即可，模组效果必须写完整 id**
 （例如 `drunkenSword:xxx`），写短名会被拒绝并提示该写什么。
@@ -274,7 +274,7 @@ AI代码里面好像都标注了(作者DeepSeek)
 /effect @s add AttackEnhance(0.2,3)     2 个参数 = 只给百分比 → 3 回合内攻击 +20%
 /effect @s add AttackEnhance(0,2,3)     3 个参数 = 百分比,固定值,回合 → 3 回合内攻击 +2 点
 /effect @s add AttackEnhance(0.5,3,3)   3 回合内攻击 +50% 且 +3 点
-/effect @s add CriticalDMGEnhanceEffect(1,5)   暴击伤害 +100%（1.0 = 100%）
+/effect @s add CriticalDamageEnhanceEffect(1,5)   暴击伤害 +100%（1.0 = 100%）
 ```
 
 同一组数字如果能同时匹配两个构造函数，命令会**直接报错并列出候选**，不会替你猜；
@@ -303,7 +303,7 @@ AI代码里面好像都标注了(作者DeepSeek)
 中文名与 id 匹配本身是**实现好且有自测覆盖**的（`@e[name=普通虫子]` 在自测里能选中虫子），
 只是 cmd 送不进来；换 Windows Terminal / IDEA 运行通常可用。
 
-想给自己的模组加命令，看 `project_analyses/COMMAND-SYSTEM-2026-08.md`：
+想给自己的模组加命令，看 `project_analyses/current/COMMAND-SYSTEM-2026-08.md`：
 那里有完整说明、两种注册写法（直接建树 / `@Subcommand` 注解）与踩坑清单。
 一行接入现有代码也只要：`if (CommandManager.process(input)) { continue; }`
 
@@ -380,7 +380,7 @@ build-output\FightGameReforged\FightGameReforged.exe
 
 ## 🧱 写一个自己的模组（怎么用模组系统）
 
-> 📘 **完整写法见 [`project_analyses/MODDING-GUIDE.md`](project_analyses/MODDING-GUIDE.md)**（目录约定、`Mod` API、
+> 📘 **完整写法见 [`project_analyses/guides/MODDING-GUIDE.md`](project_analyses/guides/MODDING-GUIDE.md)**（目录约定、`Mod` API、
 > 实体/技能/效果/物品各自的模板、14 条踩坑清单、可照抄的完整示例）。
 > 下面只是最小骨架。
 
@@ -455,10 +455,10 @@ public class mainClass extends Mod {
 
 `mods/drunkenSword/`（「醉剑仙」）是一个可直接照抄的完整例子：新角色「酒剑仙」+
 【醉意】层数资源 + 2 个效果 + 2 件物品，全部内容都在 `invokeWhenLoaded()` 里注册。
-文件清单、数值与玩法见 [`project_analyses/MODDING-GUIDE.md`](project_analyses/MODDING-GUIDE.md) §7。
+文件清单、数值与玩法见 [`project_analyses/guides/MODDING-GUIDE.md`](project_analyses/guides/MODDING-GUIDE.md) §7。
 
 想**改官方角色的数值/机制**（而不是新增内容），看 `mods/liXiaoYanPlus/`（「李晓焰加强」）与
-[`project_analyses/MODDING-GUIDE.md`](project_analyses/MODDING-GUIDE.md) **§7.1** 的"现有扩展点速查表"。
+[`project_analyses/guides/MODDING-GUIDE.md`](project_analyses/guides/MODDING-GUIDE.md) **§7.1** 的"现有扩展点速查表"。
 
 > ⚠️ 模组的源码是在**同一个 JVM、同一权限**下编译并立刻执行的，没有沙箱
 > （可以读写文件、联网、`System.exit`）。**安装模组 = 授予该模组与游戏同等的权限，请只加载你信得过的源码。**
@@ -481,7 +481,9 @@ FightGameReforged/
 │   │   ├── annotation/           # 自定义注解（@SubscribeEvent，默认优先级 3）
 │   │   ├── damage/               # 伤害计算与元素抗性/穿透（DamageCalculate 一站式公式）
 │   │   ├── effect/               # 战斗效果基类（Buff / Debuff）
-│   │   ├── entity/               # Entity / LivingThing（1843 行的核心大杂烩）/ Player
+│   │   ├── entity/               # Entity / LivingThing + 组件（AttributeProfile / EffectContainer）
+│   │   │                         # + 条目类（PropertyEnhance / ElementValue）+ Builder（LivingThingBuilder）
+│   │   │                         # + 显示层（EntityDisplay：名字拼装与攻击行打印）
 │   │   ├── entityController/     # 控制器：PlayerController（玩家）/ UniversalController（随机）/ FixOrderController
 │   │   ├── event/                # 事件总线与事件定义（EventBus + 各 XxxEvent）
 │   │   ├── eventListener/        # 监听器：开局 / 开战 / 回合推进 / 结束 / 效果 / 物理
@@ -494,7 +496,7 @@ FightGameReforged/
 │   │   ├── system/               # 各类子系统（详见下方）
 │   │   │   ├── command/          # 命令系统（AI 编写：参数类型 / 选择器 / 命令树 / 调度器 / 补全）
 │   │   │   ├── configLoadingSystem/  # 读 config/gameConfig/*.json 与 config/data/*.json：实体数值 / 技能数值 / 游戏规则 / 模组配置
-│   │   │   ├── fight/            # Fight / TurnManager（时间轴）/ TurnEntry / ActionSignal
+│   │   │   ├── fight/            # Fight / TurnManager（时间轴）/ TurnEntry / ActEntry（优先级行动队列）/ ActionSignal
 │   │   │   ├── logSystem/        # LogWriter（日志滚动归档）
 │   │   │   ├── mana/             # 五行 Mana 资源
 │   │   │   ├── physics/          # 手写的简单牛顿力学（Vector + Force/Velocity/Acceleration/Position）
@@ -505,15 +507,20 @@ FightGameReforged/
 │   │   ├── utils/                # JSONHelper（org.json 薄封装）、ConsoleColor（ANSI 着色，不引第三方库）
 │   │   └── world/                # World：全局注册表（实体/物品/效果/模组/运行时对象）
 │   └── debug_tools/              # 自测（TestCommandSystem 只是 runner；TestKit 断言底座 /
-│                                 # TestSupport 工具 / TestProbes 探针 / 20 个按主题的 *Tests）+ 试算工具
+│                                 # TestSupport 工具 / TestProbes 探针 / 22 个按主题的 *Tests）+ 试算工具
 ├── mods/                # 外部模组目录（2 个示例骨架 + 「醉剑仙」完整示例 + 「李晓焰加强」特殊机制示例；各模组的 bin/ 是编译产物）
-├── config/gameConfig/   # EntityData.json（实体数值）/ SkillData.json（技能数值）/ GameRules.json（魔法数字与 BOSS 旋钮）
+├── config/gameConfig/   # EntityData.json（实体数值 + classState 旋钮）/ SkillData.json（技能数值）
+│                        # + GameRules.json（只剩 formula / mana 两类全局公式标定）
 │                        # + EntityData.default.json（出厂值参考副本，游戏不读；文件头有 _note 说明）
-│                        # + TagConfig.json（AI Tag 权重，目前对玩法零影响）/ PropertyConfig.json（已废弃，见下方「数值怎么调」）
+│                        # + TagConfig.json（AI Tag 权重，目前对玩法零影响）
 ├── config/data/         # 模组配置：<模组id>.json（**游戏只读不写**；没有这个文件时模组用代码里的默认值）
-├── project_analyses/    # 进仓库的文档（**除了根目录的 README.md**）：
-│                        # 指南（MODDING-GUIDE / CONTENT-GUIDE）、角色文档（MORTENAX-BLADE）、
-│                        # 分析记录（当前基准 PROJECT-ANALYSIS-2026-09.md + 历史轮次）
+├── project_analyses/    # 进仓库的文档（**除了根目录的 README.md**），按用途 + 时效分三个子文件夹：
+│   ├── guides/          # 长期说明书：MODDING-GUIDE / CONTENT-GUIDE
+│   ├── current/         # 结论还在生效的专题分析（当前基准 / 设计稿 / 审计 / 施工方案）
+│   └── archive/         # 历史快照（过时，只作考古）
+├── notes_for_llm/       # （**不进仓库**）给 AI 的工作笔记：rules / pitfalls / workflow / subsystems / state
+├── memory/              # （**不进仓库**）AI 的工作临时记忆：做到哪 / 已定事项 / 待拍板
+├── TIPS_FOR_LLM.md      # （**不进仓库**）AI 快速上手：先读什么、常见陷阱
 ├── screenshots/         # 运行截图
 ├── out/                 # javac/gradle 的临时输出（自测脚本用它）
 ├── test-command-system.ps1      # 命令系统自测脚本（编译整个 src + 跑全部自测断言）
@@ -534,33 +541,34 @@ FightGameReforged/
 | 角色/怪物/技能/物品 | `officialStuff/` 下对应的 `customXxx/` 子包 |
 | 事件有哪些、谁在监听 | `event/`、`eventListener/` |
 | 加载外部模组 | `mod/ModLoader.java`、`mod/Mod.java` |
-| 想写一个自己的模组 | `project_analyses/MODDING-GUIDE.md`（完整指南）、`mods/drunkenSword/`（可照抄的示例） |
-| 想改官方角色的数值 / 上限（特殊机制模组） | `project_analyses/MODDING-GUIDE.md` 的 §7.1、`mods/liXiaoYanPlus/` |
-| 想看千冶·刃怎么玩 / 怎么调 / 它有哪些"没做" | [`project_analyses/MORTENAX-BLADE.md`](project_analyses/MORTENAX-BLADE.md) |
-| 命令怎么写 | `system/command/`、`officialStuff/customCommands/`、`project_analyses/COMMAND-SYSTEM-2026-08.md` |
-| NBT / 数据读写（`/data`） | `data/`（`NbtTag`/`Snbt`/`DataPath`/`DataBridge`）、`officialStuff/customCommands/DataCommand.java`、`TIPS_FOR_LLM.md` §5.10 |
+| 想写一个自己的模组 | `project_analyses/guides/MODDING-GUIDE.md`（完整指南）、`mods/drunkenSword/`（可照抄的示例） |
+| 想改官方角色的数值 / 上限（特殊机制模组） | `project_analyses/guides/MODDING-GUIDE.md` 的 §7.1、`mods/liXiaoYanPlus/` |
+| 想看千冶·刃怎么玩 / 怎么调 / 它有哪些"没做" | [`project_analyses/guides/MORTENAX-BLADE.md`](project_analyses/guides/MORTENAX-BLADE.md) |
+| 命令怎么写 | `system/command/`、`officialStuff/customCommands/`、`project_analyses/current/COMMAND-SYSTEM-2026-08.md` |
+| NBT / 数据读写（`/data`） | `data/`（`NbtTag`/`Snbt`/`DataPath`/`DataBridge`）、`officialStuff/customCommands/DataCommand.java`、`notes_for_llm/subsystems/70-DATA.md` §5.10 |
 | AI 怎么做决策 | `system/thinkingSystem/`、`config/gameConfig/TagConfig.json` |
 | **数值怎么调（实体 / 技能 / 魔法数字）** | **`config/gameConfig/` 下的三份 JSON**，见下方「🎛️ 数值怎么调」 |
-| **模组怎么读配置** | `project_analyses/MODDING-GUIDE.md` 的 §4.7、`mod/config/`、`config/data/` |
-| 想给项目做体检 | `project_analyses/PROJECT-ANALYSIS-2026-09.md`（**当前基准**，含旧缺陷的逐条复核）；其余几份是历史轮次，注意看文档开头的时效说明 |
-| 想做 NBT / `/data` 命令 / 存档 | `project_analyses/NBT-AND-DATA-COMMAND-2026-09.md`（可行性分析，**尚未实现**） |
+| **模组怎么读配置** | `project_analyses/guides/MODDING-GUIDE.md` 的 §4.7、`mod/config/`、`config/data/` |
+| 想给项目做体检 | `project_analyses/current/PROJECT-ANALYSIS-2026-11-15.md`（**当前基准**：P0/P1/P2/P3 问题清单 + 证据）；`archive/` 里那几份是历史轮次，注意看文档开头的时效说明 |
+| 想做 NBT / `/data` 命令 / 存档 | `project_analyses/current/NBT-AND-DATA-COMMAND-2026-09.md`（可行性分析；`/data` 已实现，存档明确不做） |
 
-### 📚 文档地图（本文在仓库根；其余进仓库的文档都在 `project_analyses/` 一个文件夹里；分 5 类）
+### 📚 文档地图（本文在仓库根；进仓库的专题文档按「用途 + 时效」分在 `project_analyses/` 的三个子文件夹）
 
 每份文档第二行都有一句 `> **文档分类**：…` —— 打开任何一份就知道它属于哪类、给谁看、**几号的快照**。
 
-| 类 | 文档 | 读者 | 时效 |
+| 类 | 位置与文档 | 读者 | 时效 |
 |---|---|---|---|
 | **[A] 入口** | [`README.md`](README.md)（本文：怎么跑、怎么调数值、去哪找） | 所有人 | 随代码更新 |
-| **[B] 操作指南** | [`project_analyses/MODDING-GUIDE.md`](project_analyses/MODDING-GUIDE.md) —— 写模组（目录约定 / `Mod` API / 模板 / 踩坑 / 完整示例）<br>[`project_analyses/CONTENT-GUIDE.md`](project_analyses/CONTENT-GUIDE.md) —— 加内容（实体 / 技能 / 规则）+ **配置能改到什么** | 模组作者 / 内容作者 | 随代码更新 |
-| **[C] 内容文档** | [`project_analyses/MORTENAX-BLADE.md`](project_analyses/MORTENAX-BLADE.md) —— 千冶·刃（玩法 / 机制 / 调参 / 验证 / 已知差异） | 玩家 / 内容作者 | 随角色更新 |
-| **[D1] 当前基准分析** | [`project_analyses/PROJECT-ANALYSIS-2026-09.md`](project_analyses/PROJECT-ANALYSIS-2026-09.md) —— 全项目复核 + 缺陷清单 | 引擎开发者 | 2026-09-26 快照 |
-| **[D2] 已落地的分析** | [`project_analyses/MORTENAX-BLADE-2026-10.md`](project_analyses/MORTENAX-BLADE-2026-10.md)、[`project_analyses/FLAME-REAVER-2026-09.md`](project_analyses/FLAME-REAVER-2026-09.md)（设计稿 → 实现记录） | 引擎开发者 / 内容作者 | 各自日期快照 |
-| **[D3] 方案评估（看结论，别照抄实现）** | `ENTITY-ATTRIBUTE-SPLIT-2026-10`（已落地）、`EXTERNAL-DATA-LOADING-2026-10`（已落地）、`CONFIG-LOADING-DECOUPLING-2026-10`（已落地）、`NBT-AND-DATA-COMMAND-2026-09`（后已实现）、`COMMAND-SYSTEM-2026-08`（命令说明）、**`TABLE-DEFINITION-CODEGEN-2026-10`（用户否决，别照它做）** | 引擎开发者 | 各自日期快照 |
-| **[D4] 历史快照（过时，别当现状）** | `project_analyses/ANALYSIS.md`、`project_analyses/ANALYSIS-2026-08.md`、`project_analyses/ANALYSIS-review4.md`、`project_analyses/STATUS-2026-08-review2.md`、`project_analyses/STATUS-2026-08-review3.md` | — | 只作考古 |
+| **[B] 操作指南（长期）** | `project_analyses/guides/`：[`MODDING-GUIDE.md`](project_analyses/guides/MODDING-GUIDE.md) —— 写模组（目录约定 / `Mod` API / 模板 / 踩坑 / 完整示例）<br>[`CONTENT-GUIDE.md`](project_analyses/guides/CONTENT-GUIDE.md) —— 加内容（实体 / 技能 / 规则）+ **配置能改到什么** | 模组作者 / 内容作者 | 随代码更新 |
+| **[C] 内容文档** | `project_analyses/guides/`：[`MORTENAX-BLADE.md`](project_analyses/guides/MORTENAX-BLADE.md) —— 千冶·刃（玩法 / 机制 / 调参 / 验证 / 已知差异） | 玩家 / 内容作者 | 随角色更新 |
+| **[D1] 当前基准分析** | `project_analyses/current/`：[`PROJECT-ANALYSIS-2026-11-15.md`](project_analyses/current/PROJECT-ANALYSIS-2026-11-15.md) —— 全项目复核 + P0/P1/P2/P3 问题清单 | 引擎开发者 | 2026-11-15 08:10 快照 |
+| **[D2] 已落地 / 正在生效的专题分析** | `project_analyses/current/`：[`MORTENAX-BLADE-2026-10.md`](project_analyses/current/MORTENAX-BLADE-2026-10.md)、[`FLAME-REAVER-2026-09.md`](project_analyses/current/FLAME-REAVER-2026-09.md)（设计稿 → 实现记录）<br>[`ENTITY-ATTRIBUTE-SPLIT-2026-10.md`](project_analyses/current/ENTITY-ATTRIBUTE-SPLIT-2026-10.md)（属性搬进组件）、[`EXTERNAL-DATA-LOADING-2026-10.md`](project_analyses/current/EXTERNAL-DATA-LOADING-2026-10.md)（外部内容加载）、[`CONFIG-LOADING-DECOUPLING-2026-10.md`](project_analyses/current/CONFIG-LOADING-DECOUPLING-2026-10.md)（配置加载解耦）、[`NBT-AND-DATA-COMMAND-2026-09.md`](project_analyses/current/NBT-AND-DATA-COMMAND-2026-09.md)（`/data` 已实现）、[`COMMAND-SYSTEM-2026-08.md`](project_analyses/current/COMMAND-SYSTEM-2026-08.md)（命令系统）、[`LIVINGTHING-RESPONSIBILITY-AUDIT-2026-10.md`](project_analyses/current/LIVINGTHING-RESPONSIBILITY-AUDIT-2026-10.md)（`LivingThing` 评审核查）、[`FIGHT-PROPERTY-DAMAGE-REDESIGN-2026-11.md`](project_analyses/current/FIGHT-PROPERTY-DAMAGE-REDESIGN-2026-11.md)（属性 / 伤害 / 回合流程重做，2026-11 已落地）、[`TABLE-DEFINITION-CODEGEN-2026-10.md`](project_analyses/current/TABLE-DEFINITION-CODEGEN-2026-10.md)（**用户否决，别照它做**） | 引擎开发者 / 内容作者 | 各自日期快照 |
+| **[D4] 历史快照（过时，别当现状）** | `project_analyses/archive/`：`ANALYSIS.md`、`ANALYSIS-2026-08.md`、`ANALYSIS-review4.md`、`STATUS-2026-08-review2.md`、`STATUS-2026-08-review3.md`、`ProjectStatus.txt`、`PROJECT-ANALYSIS-2026-09.md` | — | 只作考古 |
 
-**不进仓库的**（在 `.gitignore` 里，属于作者 / AI 的私域，这里只是说明它们存在 —— 它们仍在仓库根：
-`TODO.md`（作者草稿）、`TIPS_FOR_LLM.md`、`notes_for_llm/`（给 AI 的工作笔记：现状 / 工作流 / 踩坑清单……））。
+**不进仓库的**（在 `.gitignore` 里，属于作者 / AI 的私域，这里只是说明它们存在 —— 它们仍在仓库根）：
+`TODO.md`（作者草稿）、`TIPS_FOR_LLM.md`（AI 快速上手）、`notes_for_llm/`（给 AI 的工作笔记：
+`rules` / `pitfalls` / `workflow` / `subsystems` / `state`；入口是 `notes_for_llm/00-CATALOG.md`）、
+`memory/`（AI 的工作临时记忆：做到哪 / 已定事项 / 待拍板；**随时可删**）。
 **它们的时效不代表仓库文档的时效** —— 仓库文档一律以自己那行横幅的日期为准。
 
 **写监听器前请先知道 EventBus 的三个特点**（踩坑预警）：
@@ -578,9 +586,17 @@ FightGameReforged/
 剔除死者 → 判定胜负（任一方空则发 FightEndEvent 并退出）
   → 按「开始时间 + 需要时间」排序，取出最近要行动的那个
   → 推进当前时间 → 全员 updateSelf() / 技能冷却 -1 / 回蓝
-  → 打印状态 → 执行首动作 → 控制器 act() → 安置新回合 → 执行末动作
-  → 发布 EffectUpdateEvent → 回到循环开头
+  → 打印回合头 → 发布 EffectUpdateEvent（★ 效果结算在回合头，2026-11 起）
+  → 按 ActEntry 优先级队列逐条执行：
+       开场动作(1000) → 回合头检查(900) → 控制器 act()(0)
+       → 安置新回合 / 额外行动(-500) → 收尾动作(-1000)
+  → 回到循环开头
 ```
+
+行动队列的规则（作者 2026-11-08 定）：**一个接一个执行**、**执行中可以往队列里追加**（只影响还没执行的）、
+**执行前可以把它移出队列**、**带优先级**（同优先级按入队顺序）。`ActEntry` 是那条队列的条目；
+默认优先级就是上面那五档，所以现有机制的顺序与改造前完全一致，需要插队的技能用
+`TurnEntry#addAct(action, priority)` 自己排。
 
 栈深度**不随回合数增长**（是循环而非递归），所以长战斗不会爆栈。
 
@@ -630,15 +646,14 @@ FightGameReforged/
 | `FixOrderController` | **现在已接上线**：盗火行者与残破容器按预设顺序出招（开了 `setSkipUnusable(true)`，用不了的招顺延）；复制构造器也能识别它（`LivingThing` 的控制器重建表），不会再降级成随机控制器 |
 | `system/useItemSystem/` | 空包；实际的物品使用逻辑写在 `PlayerController.useItem()` 里，`UniversalController.useItem()` 是空方法 |
 | 物理系统（`system/physics/`） | 数据结构齐全，但 `PhysicsStateUpdateEvent` 全项目从未被 post，`PhysicsEventListener` 因此从不触发 |
-| `ActEvent` | 既没有发布方，也没有监听器 |
-| `TurnManager.nextTurn()` | 只 post 一个 `FightPastOneTurnEvent`，没有任何调用方（推进由回合循环自己 `continue`） |
-| 暴击系统 | 没有任何实体设置基础暴击率 → `Math.random() <= 0`，**实际永远不会暴击** |
+| 暴击系统 | ~~永远不会暴击~~ ✅ **2026-11-15 起玩家角色基础暴击率 5% + 基础暴伤 50%**（怪物 / 召唤物仍是 0）；暴击时攻击行会带「（暴击）」标记；百分比加成按 `base × (1 + percent)` 叠 |
 
 ### 顺手发现的小毛病（不影响玩，但改的时候别踩）
 
-- `Skill.use()` 两个重载设冷却的方式不一致：三参版是 `coolDown + 1`，两参版是 `coolDown`，同一个技能走哪条路结果会差 1 回合。
+- ~~`Skill.use()` 两个重载设冷却的方式不一致~~ ✅ **已统一（2026-11-15 第 72 批）**：两版都是 `nowCoolDown = coolDown + 1`；**`coolDown == 0` 的技能保持无冷却**（普攻、白厄变身后的整套技能）—— `CombatCoreTests#testCooldownSemantics` 三条断言盯着。
 - ~~`debug_tools/TestAnticipateDamage` 的入口写成了 `static void main()`（缺 `public` 和 `String[] args`），**不能用 `java` 直接跑**~~ ✅ **2026-10-03 已按"删掉没有使用到的东西"整文件删除**（它零引用 + 入口本来也启动不了）；其它几个调试类没有这个问题。
-- 如果出现"双方都还有人、但时间轴排不出回合"的情况，回合循环会兜底 `break`——**不发 `FightEndEvent`**，此时 `fightInProgress` 仍为 `true`、本场监听器也没注销，再开一局理论上会有两个回合监听器同时在场。（代码注释自称"宁可少打一个回合也不要崩"。）
+- ~~双方都还有人、但时间轴排不出回合时会兜底 `break` 且不发 `FightEndEvent`~~ ✅ **已修（2026-11-15 第 70 批）**：
+  这种局面按平局结算（发 `FightEndEvent(false, fight)` + 打印原因），监听器与 `fightInProgress` 都会正常收掉。
 
 ---
 

@@ -3,6 +3,7 @@ package cn.gfhnv.game.officialStuff.customEffect.universalEffects;
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.effect.EffectTags;
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.entity.PropertyEnhanceType;
 
 public class DefenseEnhanceEffect extends Effect {
     private double percent = 0;
@@ -79,16 +80,14 @@ public class DefenseEnhanceEffect extends Effect {
     @Override
     public void comeIntoEffect(LivingThing thing) {
         if (!isOn) {
-            thing.setDefenceEnhanceAmount(thing.getDefenceEnhanceAmount() + amount);
-            thing.setDefenceEnhancePercent(thing.getDefenceEnhancePercent() + percent);
+            thing.addPropertyEnhance(PropertyEnhanceType.DEFENCE, percent, amount, this);
         }
         isOn = true;
     }
 
     @Override
     public void whenLastTimeEnd(LivingThing thing) {
-        thing.setDefenceEnhanceAmount(thing.getDefenceEnhanceAmount() - amount);
-        thing.setDefenceEnhancePercent(thing.getDefenceEnhancePercent() - percent);
+        thing.removePropertyEnhance(this);
         isOn = false;
     }
 

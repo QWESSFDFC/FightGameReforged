@@ -218,6 +218,20 @@ public final class CommandManager {
      * @return 执行结果
      */
     public static CommandResult executeResult(String input, Fight fight) {
+        CommandResult result = executeResultInternal(input, fight);
+        // 命令执行完毕（第 74 批新增事件）：成功/失败都发；不能取消
+        cn.gfhnv.game.event.EventBus.post(new cn.gfhnv.game.event.CommandExecutedEvent(input, result));
+        return result;
+    }
+
+    /**
+     * 真正执行命令的实现（不发事件，避免 {@link #executeResult} 里再包一层）。
+     *
+     * @param input 输入
+     * @param fight 当前战斗（可为 {@code null}）
+     * @return 执行结果
+     */
+    private static CommandResult executeResultInternal(String input, Fight fight) {
         if (!enabled) {
             return CommandResult.failure(CommandSyntaxException.create("命令功能已被关闭（CommandManager.setEnabled(false)）"));
         }
@@ -250,7 +264,7 @@ public final class CommandManager {
         } catch (RuntimeException e) {
             CommandSyntaxException wrapped = CommandSyntaxException.create(
                     "命令执行时发生内部错误：" + e.getClass().getSimpleName() + ": " + e.getMessage());
-            LogWriter.writeLog("命令异常：" + command + " → " + wrapped.getMessage());
+            LogWriter.writeThrowable("命令异常：" + command, e);
             return CommandResult.failure(wrapped);
         }
     }

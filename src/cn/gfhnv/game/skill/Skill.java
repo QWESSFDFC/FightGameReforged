@@ -1,5 +1,6 @@
 package cn.gfhnv.game.skill;
 
+import cn.gfhnv.game.damage.DamageSource;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.event.DamageEvent;
 import cn.gfhnv.game.system.ElementSort;
@@ -32,7 +33,7 @@ import java.util.Map;
  *
  * @author gfhnv
  */
-public class Skill {
+public class Skill implements DamageSource {
     private String name;
     private String description;
     /**
@@ -306,6 +307,13 @@ public class Skill {
      */
     public boolean use(Fight fight, LivingThing user, List<LivingThing> enemies) {
         if (this.canUse(fight, user, enemies)) {
+            // 技能即将生效（第 74 批新增事件，可取消）：取消 = 不扣蓝、不进冷却、不产生效果
+            cn.gfhnv.game.event.SkillUseEvent useEvent =
+                    new cn.gfhnv.game.event.SkillUseEvent(fight, user, this);
+            cn.gfhnv.game.event.EventBus.post(useEvent);
+            if (useEvent.isCanceled()) {
+                return false;
+            }
             this.comeToEffect(fight, user, enemies);
             for (Mana mana : user.getManas()) {
                 if (this.getConsumedMana() == null) {
@@ -326,7 +334,7 @@ public class Skill {
                     break;
                 }
             }
-            this.setNowCoolDown(this.getCoolDown());
+            this.applyCooldownAfterUse();
             return true;
         }
         return false;
@@ -345,6 +353,13 @@ public class Skill {
      */
     public boolean use(Fight fight, LivingThing user) {
         if (this.canUse(fight, user)) {
+            // 技能即将生效（第 74 批新增事件，可取消）：取消 = 不扣蓝、不进冷却、不产生效果
+            cn.gfhnv.game.event.SkillUseEvent useEvent =
+                    new cn.gfhnv.game.event.SkillUseEvent(fight, user, this);
+            cn.gfhnv.game.event.EventBus.post(useEvent);
+            if (useEvent.isCanceled()) {
+                return false;
+            }
             this.comeToEffect(fight, user);
 
             for (Mana mana : user.getManas()) {
@@ -366,10 +381,40 @@ public class Skill {
                     break;
                 }
             }
-            this.setNowCoolDown(this.getCoolDown());
+            this.applyCooldownAfterUse();
             return true;
         }
         return false;
+    }
+
+
+    /**
+     * 这个技能默认使用哪些伤害类型（AI 试算与事件打标签用）。
+     * <p>
+     * <b>约定</b>（2026-11-14）：真实结算时由技能在 {@code makeDamage(..., DamageType...)} 处
+     * <b>显式传</b>；这里只给"没重写的方法"与 {@link #getAnticipatedDamage} 一个默认值，
+     * 免得试算出来的伤害被一律打成 {@code SpecialSkill}。子类知道自己是什么就覆盖它。
+     *
+     * @return 伤害类型集合
+     */
+    public java.util.Set<cn.gfhnv.game.damage.DamageType> getDamageTypes() {
+        return java.util.Set.of(cn.gfhnv.game.damage.DamageType.SpecialSkill);
+    }
+
+    /**
+     * 释放成功后打冷却：<b>有冷却的 +1，没冷却的保持 0</b>（2026-11-15 第 72 批）。
+     * <p>
+     * <b>为什么 {@code coolDown == 0} 要单独判</b>：0 表示"这个技能没有冷却"——
+     * 普攻、白厄变身后的整套技能（{@code AwakenCommonAttack} 等都是显式 {@code setCoolDown(0)}）
+     * 都属于这一类。直接无脑 {@code +1} 会把它们变成"隔一回合才能再放"，
+     * 那不是"冷却 +1"，是"把无冷却技能改成有冷却"。
+     * <p>
+     * 冷却语义（两版 {@code use()} 一致）：释放完 {@code nowCoolDown = coolDown + 1}，
+     * 之后行动者每轮行动前减 1；减到 0 才能再放。
+     */
+    private void applyCooldownAfterUse() {
+        int cooldown = this.getCoolDown();
+        this.setNowCoolDown(cooldown > 0 ? cooldown + 1 : 0);
     }
 
     /**
@@ -389,10 +434,16 @@ public class Skill {
      */
     public long getAnticipatedDamage(LivingThing attackedEntity, LivingThing attacker) {
         return attackedEntity.anticipating(() -> {
-            DamageEvent da = new DamageEvent(attacker, attackedEntity, this);
-            long newHp = attackedEntity.getHp() - da.getDamage().getDamageAmount();
+            DamageEvent da = new DamageEvent(attacker, attackedEntity, this,
+                    getDamageTypes().toArray(new cn.gfhnv.game.damage.DamageType[0]));
+            long hpBefore = attackedEntity.getHp();
+            long newHp = hpBefore - da.getDamage().getCalculateDamageResult();
             newHp = attackedEntity.modifyIncomingDamage(newHp, da);
-            return attackedEntity.getHp() - newHp;
+            long predicted = hpBefore - newHp;
+            // 把"预测的实际伤害"也写进 Damage：AI 读的就是这个数，
+            // 与真正挨打时 LivingThing#getDamage 写的字段是同一个。
+            da.getDamage().setAppliedDamage(predicted);
+            return predicted;
         });
     }
 
@@ -435,6 +486,15 @@ public class Skill {
      */
     public void setName(String name) {
         this.name = name;
+    }
+
+    /**
+     * @return 伤害来源名（= 技能名）。实现自 {@link DamageSource}，
+     * 给"这次伤害是谁打的"一个可读名字；{@code null} 表示这个技能没起名
+     */
+    @Override
+    public String sourceName() {
+        return name;
     }
 
     /**

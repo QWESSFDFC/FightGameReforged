@@ -1,17 +1,13 @@
 package cn.gfhnv.debug_tools;
 
-import cn.gfhnv.game.data.*;
-import cn.gfhnv.game.officialStuff.customEntity.monsters.CommonInsect;
 import cn.gfhnv.game.officialStuff.customEntity.players.PlayerOne;
-import cn.gfhnv.game.system.command.*;
-import cn.gfhnv.game.system.fight.*;
+import cn.gfhnv.game.system.command.CommandManager;
+import cn.gfhnv.game.system.fight.Fight;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static cn.gfhnv.debug_tools.TestKit.*;
-import static cn.gfhnv.debug_tools.TestSupport.*;
-import static cn.gfhnv.debug_tools.TestProbes.*;
 
 /**
  * 自测：**命令**。
@@ -21,6 +17,9 @@ import static cn.gfhnv.debug_tools.TestProbes.*;
  * 由 {@code TestCommandSystem#main} 按顺序调用 {@code CommandQuoteTests#runAll()}。
  */
 public final class CommandQuoteTests {
+
+    private CommandQuoteTests() {
+    }
 
     /**
      * <b>命令里的非英文字符必须加引号</b>（2026-10-24 用户要求）。
@@ -69,8 +68,5 @@ public final class CommandQuoteTests {
      */
     public static void runAll() throws Exception {
         testCommandRequiresQuotesForNonAscii();
-    }
-
-    private CommandQuoteTests() {
     }
 }

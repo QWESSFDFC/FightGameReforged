@@ -1,11 +1,11 @@
 package cn.gfhnv.debug_tools;
 
-import cn.gfhnv.game.data.*;
-import cn.gfhnv.game.system.command.*;
-import cn.gfhnv.game.system.fight.*;
+import cn.gfhnv.game.system.command.CommandManager;
+import cn.gfhnv.game.system.command.CommandResult;
+import cn.gfhnv.game.system.command.CommandSource;
+import cn.gfhnv.game.system.fight.Fight;
 
-import static cn.gfhnv.debug_tools.TestSupport.*;
-import static cn.gfhnv.debug_tools.TestProbes.*;
+import static cn.gfhnv.debug_tools.TestProbes.ThrowingAction;
 
 /**
  * 自测的**断言底座**：通过/失败计数、{@code check}/{@code section}、命令跑批工具、UTF-8 输出。
@@ -29,6 +29,9 @@ public final class TestKit {
      * 断言成功的条数。
      */
     static int passes = 0;
+
+    private TestKit() {
+    }
 
     /**
      * 把标准输出切成 UTF-8。
@@ -165,8 +168,5 @@ public final class TestKit {
             System.exit(1);
         }
         System.exit(0);
-    }
-
-    private TestKit() {
     }
 }

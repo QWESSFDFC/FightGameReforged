@@ -5,46 +5,37 @@ import cn.gfhnv.game.event.CalculateDamageEndEvent;
 import cn.gfhnv.game.event.CalculateDamageGetStatusEvent;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.skill.Skill;
+import cn.gfhnv.game.system.ElementSort;
 
 /**
- * 伤害计算工具类。提供静态方法计算一次攻击造成的最终伤害值。
+ * 伤害计算工具类。把一次伤害从"倍率"算到"实际数字"分两段做。
  * <p>
- * 计算流程：
- * <ol>
- *     <li>发布 {@link CalculateDamageGetStatusEvent}（允许外部在计算前修改攻击者/目标状态）；</li>
- *     <li>判定是否暴击（依据攻击者暴击率 {@code getCriticalRate()}，暴击时伤害乘上爆伤 {@code getCriticalDMG()}）；</li>
- *     <li>根据攻击者元素属性（金木水火土）取对应的目标抗性、元素增伤与元素穿透；</li>
- *     <li>计算目标有效防御（考虑目标自身的防御削减 {@code getDefenseLoss()}，
- *     以及攻击者身上由 {@link cn.gfhnv.game.interfaces.IDefenceIgnore} 效果汇总出来的无视防御）；</li>
- *     <li>发布 {@link CalculateDamageEndEvent}（允许外部在计算完成后修正结果）；</li>
- *     <li>套用最终伤害公式并返回取整后的伤害值。</li>
- * </ol>
- * <p>
- * 最终伤害公式：
+ * <b>第 1 段：原始值</b>（{@link Damage#getRawDamageAmount()}）
  * <pre>
- * (hp * hp倍率 + atk倍率 * 攻击 + 防御倍率 * 防御 + 技能额外伤害 + 使用者额外伤害)
- *   × (1 + 元素增伤)
- *   × (1 − 有效抗性)                  // 有效抗性 = 抗性 − 穿透（穿透是"抵消除抗性"，不是额外增伤）
- *   × 承伤倍率                        // Π(1 − 每个减伤)，乘算叠加，见 LivingThing#getDamageTakenMultiplier
- *   × (等级 * 10 + 200) / (等级 * 10 + 200 + 目标有效防御)
- *   × 单体伤害倍率                    // 面板基础值 × Π(各来源乘数)，见 LivingThing#getIndividualMultipleArea
+ * raw = 生命上限 × hp倍率 + 攻击 × atk倍率 + 防御 × 防御倍率 + 技能额外伤害 + 使用者额外伤害
+ * </pre>
+ * 它<b>不带</b>任何系数，也不取整 —— 倍率乘生命上限经常是小数，提前取整会让最终伤害漂移。
+ * <p>
+ * <b>第 2 段：公式结果</b>（{@link Damage#getCalculateDamageResult()}）
+ * <pre>
+ * raw
+ *   × (1 + 增伤)                      // 真实伤害不乘
+ *   × (1 − 有效抗性)                   // 真实伤害不乘；有效抗性 = 抗性 − 穿透（先抵后乘）
+ *   × 承伤倍率                         // Π(1 − 每个减伤)，乘算叠加，见 LivingThing#getDamageTakenMultiplier
+ *   × (等级 × 10 + 200) / (等级 × 10 + 200 + 目标有效防御)
+ *   × 单体伤害倍率                     // 面板基础值 × Π(各来源乘数)，见 LivingThing#getIndividualMultipleArea
  *   × 暴击倍率
  * </pre>
  * 结果不会小于 0：负伤害会被 {@code LivingThing#getDamage} 当成治疗。
  * <p>
- * 减伤是<b>乘算</b>的：50% 与 25% 两个来源 → 只受 {@code 0.5 × 0.75 = 37.5%} 伤害，
- * 而不是相加的 25%。
+ * <b>真实伤害</b>（{@link ElementSort#UNIVERSAL}）：免属性抗性、免单元素增伤、免<b>全局增伤</b>，
+ * 但<b>防御与减伤照算</b>（作者 2026-11-08 拍板）。
  * <p>
- * <b>抗性/穿透是"先抵后乘"</b>（2026-10-04 用户要求改的）：有效抗性 = {@code 抗性 − 穿透}，
- * 伤害再乘 {@code (1 − 有效抗性)}。所以：
- * <ul>
- *     <li>抗性 50% + 穿透 50% → 有效抗性 0 → 伤害 <b>不打折也不加</b>（穿透正好抵消抗性）；</li>
- *     <li><b>抗性 0 时穿透完全无效</b> —— 这是刻意的语义，不是漏了；</li>
- *     <li>穿透最多把抗性抵到 0；<b>抗性本来就 ≤0（弱点）时穿透不放大它</b> —— 没有抗性可抵消。</li>
- * </ul>
- * 旧行为是 {@code (1 − 抗性) × (1 + 穿透)}（穿透当额外增伤），已经改掉。
+ * <b>两个事件</b>都在这里发：{@link CalculateDamageGetStatusEvent}（读任何数值<b>之前</b>）、
+ * {@link CalculateDamageEndEvent}（系数全部读完、开始相乘<b>之前</b>）。
+ * 后者的时机是刻意的：监听到它时改攻击者/目标的属性<b>不会</b>影响这一击。
  *
- * @author gfhnv
+ * @author gfhnv；AI（DeepSeek）改造成两段式
  */
 public class DamageCalculate {
 
@@ -66,71 +57,116 @@ public class DamageCalculate {
      */
     private static final double LEVEL_DEFENCE_BASE = cn.gfhnv.game.system.configLoadingSystem.GameRules
             .getDouble(cn.gfhnv.game.system.configLoadingSystem.DataKeys.Rule.Formula.LEVEL_DEFENCE_BASE);
+    /**
+     * 自测开关：关掉之后 {@code resolve} 永远不掷暴击。
+     * <p>
+     * <b>为什么需要它</b>：玩家角色有 5% 基础暴击率之后，任何"比较两次伤害"的自测断言都会
+     * 随着掷骰变成**间歇性失败**（一次暴击 1.5 倍，比例立刻变）。生产环境恒为 {@code true}；
+     * 只有 {@code TestCommandSystem} 在启动时把它关掉，而专门验证暴击的用例再临时打开。
+     */
+    private static boolean criticalEnabled = true;
+
+    private DamageCalculate() {
+    }
 
     /**
-     * 计算一次攻击造成的最终伤害值（不实际结算，仅返回数值）。
+     * 只给自测用：开关暴击掷骰。
      *
-     * @param attacker     攻击者（技能使用者）
-     * @param targetEntity 被攻击目标
-     * @param skill        使用的技能（提供倍率与额外伤害）
-     * @return 计算得到的最终伤害值
+     * @param enabled 是否允许暴击
+     */
+    public static void setCriticalEnabledForSelfTest(boolean enabled) {
+        criticalEnabled = enabled;
+    }
+
+    /**
+     * @return 当前是否允许暴击（生产恒 true）
+     */
+    public static boolean isCriticalEnabled() {
+        return criticalEnabled;
+    }
+
+    /**
+     * 只要数字的便捷入口：按"施法者元素 + 默认伤害类型"算一条伤害并返回公式结果。
+     * <p>
+     * 它等价于 {@code new Damage(attacker, target, skill).getCalculateDamageResult()}，
+     * 走的是同一条路（自测与不关心类型/元素的调用方用）。
+     *
+     * @param attacker     攻击者
+     * @param targetEntity 受害实体
+     * @param skill        技能
+     * @return 公式算出来的伤害值
      */
     public static long calculate(LivingThing attacker, LivingThing targetEntity, Skill skill) {
+        return new Damage(attacker, targetEntity, skill).getCalculateDamageResult();
+    }
+
+    /**
+     * 算一条伤害：先出原始值，再套整条公式。两段都在这里做完，中间不能被别处插一脚
+     * （{@code Skill#extraDamage} 是技能自己临时改的，必须在同一次调用里读掉）。
+     *
+     * @param damage 伤害载体（提供来源、目标、元素）
+     * @param skill  造成伤害的技能（提供倍率与额外伤害）；{@code null} 时倍率全按 0 算
+     * @return 两段数值
+     */
+    static Result resolve(Damage damage, Skill skill) {
+        LivingThing attacker = damage.getSourceEntity();
+        LivingThing targetEntity = damage.getTargetEntity();
         EventBus.post(new CalculateDamageGetStatusEvent(attacker, targetEntity));
+        // ⚠️ 这一段（到 EventBus.post(End) 之前）负责把**所有**参与计算的数值读完 ——
+        // 与改造前逐行一致。监听 CalculateDamageEndEvent 的人改属性不该影响这一击。
+        double rawDamageAmount = rawAmount(attacker, skill);
         double criticalRate = attacker.getCriticalRate();
-        double criticalDamageEnhance = 1;
-        if (Math.random() <= criticalRate) criticalDamageEnhance += attacker.getCriticalDMG();
+        double criticalMultiplier = 1;
+        if (criticalEnabled && Math.random() <= criticalRate) {
+            criticalMultiplier += attacker.getCriticalDamage();
+            // 只给显示用：数字已经进了 criticalMultiplier，这里记一下"这一击暴击了"
+            damage.setCritical(true);
+        }
         double resistance = 0;
-        double penetration = 0;
-        penetration = attacker.getPenetration();
+        double penetration = attacker.getPenetration();
         // 减伤是乘算叠加的（50% + 25% → 只受 37.5%），且已夹在 [0,1]，见 LivingThing#getDamageTakenMultiplier
         double damageTakenMultiplier = targetEntity.getDamageTakenMultiplier();
         double enhance = attacker.getEnhance();
-        double attack = attacker.getAttack();
-        double hp = attacker.getHpMax();
-        double attackerDefence = attacker.getDefence();
         double individualMultipleArea = attacker.getIndividualMultipleArea();
-        double hpMagnification = skill.getHpMagnification();
-        double atkMagnification = skill.getAtkMagnification();
-        double dfkMagnification = skill.getDefMagnification();
         long level = attacker.getLevel();
-        long extraDamage = skill.getExtraDamage();
-        long attackerExtraDamage = attacker.getExtraDamage();
-        cn.gfhnv.game.system.ElementSort elementSort = attacker.getElementSort();
-        double defenseLoss = targetEntity.getDefenseLoss();
+        double defenseLoss = targetEntity.getDefenceLoss();
         // 无视防御由「效果实现 IDefenceIgnore」提供，这里只读汇总值（不认识具体效果类）
         defenseLoss += attacker.getIgnoreDefencePercent();
         double lossAmount = attacker.getIgnoreDefenceAmount();
         double targetDefence = targetEntity.getDefence() * (1 - defenseLoss) - lossAmount;
-        if (targetDefence <= 0) targetDefence = 0;
-        switch (elementSort) {
-            case DIRT -> {
-                resistance = targetEntity.getDirtResistance();
-                enhance += attacker.getDirtDamageEnhance();
-                penetration += attacker.getDirtPenetration();
-            }
-            case FIRE -> {
-                resistance = targetEntity.getFireResistance();
-                enhance += attacker.getFireDamageEnhance();
-                penetration += attacker.getFirePenetration();
-            }
-            case WOOD -> {
-                resistance = targetEntity.getWoodResistance();
-                enhance += attacker.getWoodDamageEnhance();
-                penetration += attacker.getWoodPenetration();
-            }
-            case METAL -> {
-                resistance = targetEntity.getMetalResistance();
-                enhance += attacker.getMetalDamageEnhance();
-                penetration += attacker.getMetalPenetration();
-            }
-            case WATER -> {
-                resistance = targetEntity.getWaterResistance();
-                enhance += attacker.getWaterDamageEnhance();
-                penetration += attacker.getWaterPenetration();
-            }
-            default -> {
-                resistance = 0;
+        if (targetDefence <= 0) {
+            targetDefence = 0;
+        }
+        if (!damage.isTrueDamage()) {
+            switch (damage.getElementSort()) {
+                case DIRT -> {
+                    resistance = targetEntity.getDirtResistance();
+                    enhance += attacker.getElementDamageEnhance(ElementSort.DIRT);
+                    penetration += attacker.getElementPenetration(ElementSort.DIRT);
+                }
+                case FIRE -> {
+                    resistance = targetEntity.getFireResistance();
+                    enhance += attacker.getElementDamageEnhance(ElementSort.FIRE);
+                    penetration += attacker.getElementPenetration(ElementSort.FIRE);
+                }
+                case WOOD -> {
+                    resistance = targetEntity.getWoodResistance();
+                    enhance += attacker.getElementDamageEnhance(ElementSort.WOOD);
+                    penetration += attacker.getElementPenetration(ElementSort.WOOD);
+                }
+                case METAL -> {
+                    resistance = targetEntity.getMetalResistance();
+                    enhance += attacker.getElementDamageEnhance(ElementSort.METAL);
+                    penetration += attacker.getElementPenetration(ElementSort.METAL);
+                }
+                case WATER -> {
+                    resistance = targetEntity.getWaterResistance();
+                    enhance += attacker.getElementDamageEnhance(ElementSort.WATER);
+                    penetration += attacker.getElementPenetration(ElementSort.WATER);
+                }
+                default -> {
+                    resistance = 0;
+                }
             }
         }
         EventBus.post(new CalculateDamageEndEvent(attacker, targetEntity));
@@ -144,18 +180,47 @@ public class DamageCalculate {
         double effectiveResistance = resistance > 0
                 ? Math.max(0, resistance - Math.max(0, penetration))
                 : resistance;
-        double resistanceMultiplier = Math.max(0, 1 - effectiveResistance);
-        double base = hp * hpMagnification + atkMagnification * attack + attackerDefence * dfkMagnification
-                + extraDamage + attackerExtraDamage;
-        double damage = base
-                * (1 + enhance)
+        // 真实伤害：免抗性、免元素增伤、免全局增伤（防御与减伤照乘，作者 2026-11-08 拍板）
+        boolean trueDamage = damage.isTrueDamage();
+        double resistanceMultiplier = trueDamage ? 1 : Math.max(0, 1 - effectiveResistance);
+        double enhanceMultiplier = trueDamage ? 1 : 1 + enhance;
+        double finalDamage = rawDamageAmount
+                * enhanceMultiplier
                 * resistanceMultiplier
                 * damageTakenMultiplier
                 * ((level * LEVEL_DEFENCE_FACTOR + LEVEL_DEFENCE_BASE)
                 / (level * LEVEL_DEFENCE_FACTOR + LEVEL_DEFENCE_BASE + targetDefence))
                 * individualMultipleArea
-                * criticalDamageEnhance;
+                * criticalMultiplier;
         // 伤害永不为负：负数会被 LivingThing#getDamage 当成治疗
-        return Math.max(0, (long) damage);
+        return new Result(rawDamageAmount, Math.max(0, (long) finalDamage));
+    }
+
+    /**
+     * 原始值：倍率乘上属性之后、未算防御与减伤。
+     *
+     * @param attacker 攻击者
+     * @param skill    技能（可为 {@code null}，那倍率全按 0）
+     * @return 原始值（可能是小数）
+     */
+    private static double rawAmount(LivingThing attacker, Skill skill) {
+        double hpMagnification = skill == null ? 0 : skill.getHpMagnification();
+        double atkMagnification = skill == null ? 0 : skill.getAtkMagnification();
+        double dfkMagnification = skill == null ? 0 : skill.getDefMagnification();
+        long skillExtraDamage = skill == null ? 0 : skill.getExtraDamage();
+        return attacker.getHpMax() * hpMagnification
+                + atkMagnification * attacker.getAttack()
+                + attacker.getDefence() * dfkMagnification
+                + skillExtraDamage
+                + attacker.getExtraDamage();
+    }
+
+    /**
+     * 一次伤害的两段数值。原始值保留小数（见类注释：提前取整会让最终伤害漂移）。
+     *
+     * @param rawDamageAmount       原始值
+     * @param calculateDamageResult 套完公式的结果（≥ 0，已取整）
+     */
+    public record Result(double rawDamageAmount, long calculateDamageResult) {
     }
 }

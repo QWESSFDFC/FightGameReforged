@@ -3,6 +3,7 @@ package cn.gfhnv.game.officialStuff.customEffect.universalEffects;
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.effect.EffectTags;
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.entity.PropertyEnhanceType;
 
 public class HpEnhanceEffect extends Effect {
     private boolean isOn = false;
@@ -67,17 +68,16 @@ public class HpEnhanceEffect extends Effect {
     public void comeIntoEffect(LivingThing thing) {
         thing.renewHp();
         if (!isOn) {
-            thing.setHpEnhanceAmount(thing.getHpEnhanceAmount() + amount);
-            thing.setHpEnhancePercent(thing.getHpEnhancePercent() + percent);
+            thing.addPropertyEnhance(PropertyEnhanceType.MAX_HP, percent, amount, this);
         }
         isOn = true;
+        thing.renewHp();
     }
 
     @Override
     public void whenLastTimeEnd(LivingThing thing) {
         thing.renewHp();
-        thing.setHpEnhanceAmount(thing.getHpEnhanceAmount() - amount);
-        thing.setHpEnhancePercent(thing.getHpEnhancePercent() - percent);
+        thing.removePropertyEnhance(this);
         isOn = false;
     }
 

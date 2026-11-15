@@ -6,7 +6,7 @@
 > 代码：`src/cn/gfhnv/game/officialStuff/customEntity/players/MortenaxBlade.java`、
 > `customSkill/mortenaxBlade/`、`customEffect/mortenaxBladeEffects/`、
 > `customEvent/mortenaxBladeEvents/`。
-> 设计稿与施工记录：`TODO.md`、`project_analyses/MORTENAX-BLADE-2026-10.md`。
+> 设计稿与施工记录：`TODO.md`、`project_analyses/current/MORTENAX-BLADE-2026-10.md`。
 >
 > 本文写给两类人：**想玩它的人**（§1~§6）和**想改它的人**（§7~§10）。
 
@@ -198,7 +198,7 @@
 # 静态自查
 .\check-sources.ps1                       # 期望：CHECK OK（文件数见 30-WORKFLOW.md）
 # 全量编译 + 自测
-.\test-command-system.ps1                 # 期望：失败 0 条（基线见 notes_for_llm/30-WORKFLOW.md）
+.\test-command-system.ps1                 # 期望：失败 0 条（基线见 notes_for_llm/workflow/30-WORKFLOW.md）
 ```
 
 千冶·刃的守卫（`TestCommandSystem` 里搜 `MortalBlade`）：
@@ -255,4 +255,4 @@
 | `officialStuff/customEvent/mortenaxBladeEvents/MortalBladeChargeListener.java` | 【因果尽偿】我方攻击 → +1 充能 |
 | `…/MortalBladeFuryHitListener.java` | 【千锻魂】受击 → 缠身 + +1 充能 |
 | `entity/CountdownEntity.java` | 通用倒计时实体（结界到点解除） |
-| `project_analyses/MORTENAX-BLADE-2026-10.md` | 施工单与决策记录 |
+| `project_analyses/current/MORTENAX-BLADE-2026-10.md` | 施工单与决策记录 |

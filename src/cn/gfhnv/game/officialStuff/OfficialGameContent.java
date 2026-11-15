@@ -49,7 +49,7 @@ public class OfficialGameContent extends Mod {
         this.addItem(new HpPotion());
         this.addItem(new SpeedPotion());
         this.addItem(new CriticalRatePotion());
-        this.addItem(new CriticalDMGPotion());
+        this.addItem(new CriticalDamagePotion());
         this.addItem(new HealingPotion());
         this.addItem(new PiercingPotion());
 
@@ -98,7 +98,7 @@ public class OfficialGameContent extends Mod {
         this.addEffect(new HpEnhanceEffect(0.2, 3));
         this.addEffect(new SpeedEnhanceEffect(0.2, 3));
         this.addEffect(new CriticalRateEnhanceEffect(0.2, 3));
-        this.addEffect(new CriticalDMGEnhanceEffect(0.5, 3));
+        this.addEffect(new CriticalDamageEnhanceEffect(0.5, 3));
         this.addEffect(new IgnoreDefenceEffect(1, 3));
         this.addEffect(new HealthRestoreEffect());
         this.addEffect(new Frozen());

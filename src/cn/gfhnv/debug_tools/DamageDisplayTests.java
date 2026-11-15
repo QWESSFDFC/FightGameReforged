@@ -1,19 +1,18 @@
 package cn.gfhnv.debug_tools;
 
-import cn.gfhnv.game.data.*;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.officialStuff.customEntity.players.PlayerOne;
 import cn.gfhnv.game.skill.Skill;
-import cn.gfhnv.game.system.command.*;
-import cn.gfhnv.game.system.fight.*;
+import cn.gfhnv.game.system.fight.ActEntry;
+import cn.gfhnv.game.system.fight.Fight;
+import cn.gfhnv.game.system.fight.TurnEntry;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static cn.gfhnv.debug_tools.TestKit.*;
-import static cn.gfhnv.debug_tools.TestSupport.*;
-import static cn.gfhnv.debug_tools.TestProbes.*;
+import static cn.gfhnv.debug_tools.TestSupport.entityTemplateOf;
 
 /**
  * 自测：**战斗**。
@@ -24,13 +23,25 @@ import static cn.gfhnv.debug_tools.TestProbes.*;
  */
 public final class DamageDisplayTests {
 
+    private DamageDisplayTests() {
+    }
+
     /**
-     * <b>回合动作队列要"排空"，不是"遍历一遍"</b>（2026-10-24 修回归）。
+     * <b>攻击行显示"应该造成的伤害"，不是"实际掉血"</b>（2026-10-24 用户拍板）。
      * <p>
-     * 踩过的坑：回合循环用 {@code Iterator} 遍历 {@code lastExecuteList}，
-     * 而"转阶段播报"在动作执行中往同一个列表里 {@code add} → 下一次 {@code next()} 抛
+     * 例：一刀 90000 打在只剩 400 血的敌人身上 —— 旧日志显示 {@code -400}（HP 变化量），
+     * 看不出这一刀的威力；现在显示 {@code -90000}。
+     * <p>
+     * 这条也顺带钉住"被拦下时数字会大于 HP 差"这个刻意的行为（免死/高额免伤都会这样）。
+     */
+
+    /**
+     * <b>回合动作队列要"排空"，不是"遍历一遍"</b>。
+     * <p>
+     * 为什么必须这样：回合循环若用 {@code Iterator} 直接遍历行动队列，
+     * 而"转阶段播报"在动作执行中往同一个列表里 {@code add}，下一次 {@code next()} 会抛
      * {@code ConcurrentModificationException} → 这一回合剩下的动作全没跑、提示也丢了，
-     * 还被 EventBus 的异常隔离吞掉。现在换成"快照 + 清空 + 再来一轮"。
+     * 还会被 EventBus 的异常隔离吞掉。正确做法是"快照 + 清空 + 再来一轮"。
      * <p>
      * 验三件事：① 执行中追加的动作**在同一个回合内**跑完；② 顺序不乱（先 A 后 B）；
      * ③ 有动作自己追加自己时**停下来报警**，不会把游戏卡死。
@@ -67,7 +78,7 @@ public final class DamageDisplayTests {
 
         // 效果 tick 遍历中给同一个对象新挂效果：不能抛 CME
         LivingThing ticked = entityTemplateOf("game_official_content:commonInsect").copy();
-        ticked.getEntityEffectList().add(new cn.gfhnv.game.officialStuff.customEffect.universalEffects.Taunt(2, 1));
+        ticked.addEffectDirect(new cn.gfhnv.game.officialStuff.customEffect.universalEffects.Taunt(2, 1));
         turn.getLastExecuteList().clear();
         cn.gfhnv.game.event.EffectUpdateEvent updateEvent =
                 new cn.gfhnv.game.event.EffectUpdateEvent(ticked, turn);
@@ -79,7 +90,7 @@ public final class DamageDisplayTests {
             threw = true;
         }
         check("效果 tick：遍历中不会因为列表被改而抛异常（tick 前后效果数 " + beforeCount + " → "
-                        + ticked.getEntityEffectList().size() + "）", !threw);
+                + ticked.getEntityEffectList().size() + "）", !threw);
 
         // ③：动作自己追加自己 → 到达上限后强制停止并报警（不能无限循环）
         // ③（2026-10-24 用户拍板去掉了 64 轮上限）：只验"排空"这件事，
@@ -88,13 +99,47 @@ public final class DamageDisplayTests {
     }
 
     /**
-     * <b>攻击行显示"应该造成的伤害"，不是"实际掉血"</b>（2026-10-24 用户拍板）。
-     * <p>
-     * 例：一刀 90000 打在只剩 400 血的敌人身上 —— 旧日志显示 {@code -400}（HP 变化量），
-     * 看不出这一刀的威力；现在显示 {@code -90000}。
-     * <p>
-     * 这条也顺带钉住"被拦下时数字会大于 HP 差"这个刻意的行为（免死/高额免伤都会这样）。
+     * 回合内行动队列（{@link ActEntry}）：优先级 / 同优先级稳定 / 执行中追加 / 执行前移除 / 老两段视图。
+     * <p>2026-11-14 第 59 批把"开场 / 正式行动 / 收尾"合成一条队列之后，这些性质必须钉死。
      */
+    private static void testActQueuePriority() {
+        section("回合行动队列（ActEntry 优先级）");
+        try {
+            LivingThing actor = new PlayerOne(125);
+            TurnEntry turn = new TurnEntry(actor, java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO);
+            List<String> order = new ArrayList<>();
+
+            turn.getActQueue().add(new ActEntry((f, u) -> {
+                order.add("LOW-1");
+                // 执行中追加：优先级 20，比剩下的都高，应该紧接着执行
+                turn.getActQueue().add(new ActEntry((f2, u2) -> order.add("APPENDED"), 20, "appended"));
+            }, 0, "low-1"));
+            turn.getActQueue().add(new ActEntry((f, u) -> order.add("HIGH"), 10, "high"));
+            turn.getActQueue().add(new ActEntry((f, u) -> {
+                order.add("LOW-2");
+                // 同优先级追加：应排在已有同优先级之后（稳定）
+                turn.getActQueue().add(new ActEntry((f2, u2) -> order.add("APPENDED-SAME"), 0, "same"));
+            }, 0, "low-2"));
+            ActEntry removed = new ActEntry((f, u) -> order.add("REMOVED"), 5, "removed");
+            turn.getActQueue().add(removed);
+            // 执行前移除：直接把它从队列里摘掉
+            turn.getActQueue().remove(removed);
+            // 老视图：收尾动作仍然落在 LAST 档（最后执行）
+            turn.getLastExecuteList().add((f, u) -> order.add("LAST"));
+
+            cn.gfhnv.game.eventListener.FightTurnPastListener.runActQueue(null, turn);
+
+            check("队列①：优先级大的先跑、同优先级按入队顺序、执行中追加的条目也在同一轮跑完 —— 实际 " + order,
+                    order.equals(List.of("HIGH", "LOW-1", "APPENDED", "LOW-2", "APPENDED-SAME", "LAST")));
+            check("队列②：执行前从队列移除的条目不会被执行", !order.contains("REMOVED"));
+            check("队列③：老的两段视图仍然有效（getLastExecuteList 落在收尾档）",
+                    order.indexOf("LAST") == order.size() - 1);
+            check("队列④：跑完之后队列是空的", turn.getActQueue().isEmpty());
+        } catch (Exception e) {
+            fail("回合行动队列测试抛出异常：" + e);
+        }
+    }
+
     private static void testAttackLineShowsIntendedDamage() {
         section("攻击行：显示应该造成的伤害（溢出伤害照原值显示）");
 
@@ -192,15 +237,15 @@ public final class DamageDisplayTests {
         cn.gfhnv.game.officialStuff.customEffect.mortenaxBladeEffects.BalefireBindEffect bind =
                 new cn.gfhnv.game.officialStuff.customEffect.mortenaxBladeEffects.BalefireBindEffect(2);
         bind.comeIntoEffect(bindTarget);
-        check("煞火缠身：防御 -0.3 与 受伤 ×1.5 同时生效 —— 实际 defenceLoss=" + bindTarget.getDefenseLoss()
+        check("煞火缠身：防御 -0.3 与 受伤 ×1.5 同时生效 —— 实际 defenceLoss=" + bindTarget.getDefenceLoss()
                         + "、倍率 " + bindTarget.getDamageTakenMultiplier(),
-                Math.abs(bindTarget.getDefenseLoss() - 0.3d) < 1e-9
+                Math.abs(bindTarget.getDefenceLoss() - 0.3d) < 1e-9
                         && Math.abs(bindTarget.getDamageTakenMultiplier() - 1.5d) < 1e-9);
         bind.whenLastTimeEnd(bindTarget);
         check("煞火缠身：到期两个都撤回（倍率回 1、防御削减回 0）—— 实际 "
-                        + bindTarget.getDamageTakenMultiplier() + " / " + bindTarget.getDefenseLoss(),
+                        + bindTarget.getDamageTakenMultiplier() + " / " + bindTarget.getDefenceLoss(),
                 Math.abs(bindTarget.getDamageTakenMultiplier() - 1d) < 1e-9
-                        && Math.abs(bindTarget.getDefenseLoss()) < 1e-9);
+                        && Math.abs(bindTarget.getDefenceLoss()) < 1e-9);
     }
 
     /**
@@ -208,10 +253,8 @@ public final class DamageDisplayTests {
      */
     public static void runAll() throws Exception {
         testDamageTakenIncrease();
+        testActQueuePriority();
         testAttackLineShowsIntendedDamage();
         testTurnActionQueueDrains();
-    }
-
-    private DamageDisplayTests() {
     }
 }

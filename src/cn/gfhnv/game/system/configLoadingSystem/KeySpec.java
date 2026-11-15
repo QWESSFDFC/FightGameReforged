@@ -27,7 +27,7 @@ import java.util.function.Function;
  *     生成器<b>不</b>写这个键（契约：{@code null} = 这个键没有默认值）。</li>
  * </ul>
  * <b>键名一个字都不能改</b>：它同时是 {@code /data} 的数据名与配置文件里的键名，
- * 改名等于让用户的配置静默失效（{@code notes_for_llm/70-DATA.md:24-25}）。
+ * 改名等于让用户的配置静默失效（{@code notes_for_llm/subsystems/70-DATA.md:24-25}）。
  *
  * @param name  键名（{@code /data} 数据名，对外契约）
  * @param group 分组（{@link DataKeys#GROUP_BASE} / {@link DataKeys#GROUP_DERIVED} /
