@@ -1,5 +1,7 @@
 package cn.gfhnv.game.officialStuff.customEntity.players;
 
+import cn.gfhnv.game.data.NoConfig;
+import cn.gfhnv.game.data.NoData;
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entity.Player;
@@ -98,6 +100,31 @@ public class MortenaxBlade extends cn.gfhnv.game.entity.HSRActor implements cn.g
      * 不挡一下就会自己触发自己（递归）。
      */
     private boolean payoffBusy;
+    /**
+     * 本次结界实际加到自己身上的【万淬心】增伤（退出时按这个数减回去；
+     * 中途升/降星魂也不会把账算错）。
+     */
+    @NoData
+    @NoConfig("运行期记账（本次结界给自己加了多少增伤），不是模板属性")
+    private double appliedSelfEnhance;
+    /**
+     * 星魂 6「神若当殒」：本回合是否已经用过“受伤/扣血 +1 充能”。
+     * <p>
+     * 每到一个目标回合的回合头（{@code EffectUpdateEvent}）复位；
+     * 同一回合内第一次受伤或扣血给 1 点，之后不再给。
+     */
+    @NoData
+    @NoConfig("运行期状态（星魂 6 的每回合一次充能），不是模板属性")
+    private boolean eidolonSixChargeUsed;
+    /**
+     * 免死收口（退出结界 / 两行播报 / 回血）已经排进当前回合、还没执行。
+     * <p>
+     * 第一段致死只锁 1 血、不退出结界；后续段在收口动作执行前仍会打到 0，所以这个标记
+     * 让伤害修正器一直把致死伤害压回 1，避免多段攻击在回血前把他打死。
+     */
+    @NoData
+    @NoConfig("运行期状态（免死收口动作是否已排队），不是模板属性")
+    private boolean deathWardPending;
 
     /**
      * 构造一个出厂状态的千冶·刃。
@@ -273,6 +300,29 @@ public class MortenaxBlade extends cn.gfhnv.game.entity.HSRActor implements cn.g
     }
 
     /**
+     * 星魂 6「神若当殒，自誓弑寿瘟」：结界期间<b>本回合第一次</b>受伤或消耗生命值时 +1 充能。
+     * <p>
+     * 与【千锻魂】的“每次受击 +1”是两条独立来源：这里额外 +1，且同一回合最多一次；
+     * {@link MortalBladeFuryHitListener} 在每个目标回合的回合头调用
+     * {@link #resetEidolonSixChargeForTurn()} 复位。
+     */
+    public void gainEidolonSixCharge() {
+        if (getEidolon() < 6 || !infiniteFury || eidolonSixChargeUsed) {
+            return;
+        }
+        eidolonSixChargeUsed = true;
+        gainCharge(1);
+        requestPayoff(null);
+    }
+
+    /**
+     * 星魂 6：新回合开始，允许本次回合再次触发一次“受伤/扣血 +1 充能”。
+     */
+    public void resetEidolonSixChargeForTurn() {
+        eidolonSixChargeUsed = false;
+    }
+
+    /**
      * 开战：能量按「百炼骨」保底到 75%（能量本身在 {@code whenFightEnds} 里清过零）。
      *
      * @param fight 当前战斗
@@ -281,6 +331,8 @@ public class MortenaxBlade extends cn.gfhnv.game.entity.HSRActor implements cn.g
     public void whenFightStart(Fight fight) {
         super.whenFightStart(fight);
         this.ensureEnergyFloor();
+        this.eidolonSixChargeUsed = false;
+        this.deathWardPending = false;
         if (!chargeListenerRegistered) {
             cn.gfhnv.game.event.EventBus.register(this.chargeListener);
             this.chargeListenerRegistered = true;
@@ -306,6 +358,9 @@ public class MortenaxBlade extends cn.gfhnv.game.entity.HSRActor implements cn.g
         this.chargeListenerRegistered = false;
         this.energy = 0;
         this.charge = 0;
+        this.eidolonSixChargeUsed = false;
+        this.deathWardPending = false;
+        this.appliedSelfEnhance = 0;
     }
 
     /**
@@ -395,8 +450,8 @@ public class MortenaxBlade extends cn.gfhnv.game.entity.HSRActor implements cn.g
     /**
      * 消耗生命值（技能里的"扣血"都走这里）：<b>生命不足时降到 1</b>，不会把自己扣死。
      * <p>
-     * ⚠️ <b>它只做扣血</b>：「神若当殒，自誓弑寿瘟」那条"消耗生命值 → 获得 1 点充能"是
-     * <b>星魂 6</b>（用户 2026-10-24 明确"不用做"），所以这里<b>不给充能</b>，别再加回去。
+     * 星魂 6「神若当殒」：结界期间本回合第一次消耗生命值 → 额外 +1 充能
+     * （与【千锻魂】的受击 +1 是两条独立来源）。
      *
      * @param amount 想扣多少
      */
@@ -404,6 +459,7 @@ public class MortenaxBlade extends cn.gfhnv.game.entity.HSRActor implements cn.g
         long cost = Math.min(Math.max(0L, amount), Math.max(0L, getHp() - 1));
         if (cost > 0) {
             setHp(getHp() - cost);
+            gainEidolonSixCharge();
         }
     }
 
@@ -488,9 +544,12 @@ public class MortenaxBlade extends cn.gfhnv.game.entity.HSRActor implements cn.g
         // 【千锻魂】：减伤 50% + 受到的治疗量 +50%（走现成的两条链）
         this.addDamageReduction(KENDUAN_REDUCTION_SOURCE, 0.5);
         this.addPropertyEnhance(PropertyEnhanceType.HEAL, 0.5, 0, HEAL_ENHANCE_SOURCE);
-        // 【万淬心】：自己额外增伤 +75%，队友 +50%（队友靠 DamageEnhanceEffect）
-        this.setEnhance(this.getEnhance() + 0.75);
+        // 【万淬心】：自己额外增伤 +75%（E4 再 +50%），队友 +50%（E4 再 +50%，队友靠专用效果）
+        this.appliedSelfEnhance = 0.75 + (getEidolon() >= 4 ? 0.5 : 0);
+        this.setEnhance(this.getEnhance() + this.appliedSelfEnhance);
         applyAllyEnhance(fight);
+        this.eidolonSixChargeUsed = false;
+        this.deathWardPending = false;
         // E1「我殁之前，我仍未成形」：结界期间 +20% 穿透（设计原文是敌方全抗 -20%）
         if (eidolon >= 1) {
             this.addPenetration(null, 0.2, PENETRATION_ENHANCE_SOURCE);
@@ -530,8 +589,10 @@ public class MortenaxBlade extends cn.gfhnv.game.entity.HSRActor implements cn.g
         // 撤回【千锻魂】/【万淬心】/E1 那几条（加了什么就在这儿减什么，两边必须成对）
         this.removeDamageReduction(KENDUAN_REDUCTION_SOURCE);
         this.removePropertyEnhance(HEAL_ENHANCE_SOURCE);
-        this.setEnhance(this.getEnhance() - 0.75);
+        this.setEnhance(this.getEnhance() - this.appliedSelfEnhance);
+        this.appliedSelfEnhance = 0;
         clearAllyEnhance();
+        this.eidolonSixChargeUsed = false;
         // 2026-11-15 第 78 批（分析 P1-7）：javadoc 一直写着"结界解除时也要调一次"，
         // 但这里之前没调 —— 结界结束时能量停在结算值（可能 0），下一个终结技直接放不出来。
         this.ensureEnergyFloor();
@@ -565,8 +626,10 @@ public class MortenaxBlade extends cn.gfhnv.game.entity.HSRActor implements cn.g
                 continue;
             }
             // 专用效果：只加 enhance、不播报回合数（用 DamageEnhanceEffect 会打印"2147483647 回合"，很难看）
+            double enhance = ALLY_ENHANCE + (getEidolon() >= 4 ? 0.5 : 0);
             cn.gfhnv.game.effect.Effect effect =
-                    new cn.gfhnv.game.officialStuff.customEffect.mortenaxBladeEffects.MortalBladeAllyEnhanceEffect()
+                    new cn.gfhnv.game.officialStuff.customEffect.mortenaxBladeEffects.MortalBladeAllyEnhanceEffect(
+                            enhance)
                             .setOrigin(this.getUUID());
             ally.addEffect(effect);
             allyEnhanceEffects.put(ally, effect);
@@ -618,19 +681,28 @@ public class MortenaxBlade extends cn.gfhnv.game.entity.HSRActor implements cn.g
                 cn.gfhnv.game.officialStuff.customSkill.mortenaxBlade.MortalBladeSkill.class));
         skills.add(cn.gfhnv.game.world.World.prototypeCopyOf(
                 cn.gfhnv.game.officialStuff.customSkill.mortenaxBlade.BladeUnderBurial.class));
-        skills.add(cn.gfhnv.game.world.World.prototypeCopyOf(
-                cn.gfhnv.game.officialStuff.customSkill.mortenaxBlade.TenaxPerIgnem.class));
+        Skill tenax = cn.gfhnv.game.world.World.prototypeCopyOf(
+                cn.gfhnv.game.officialStuff.customSkill.mortenaxBlade.TenaxPerIgnem.class);
+        // 星魂 6「神若当殒」：千冶铸一的伤害倍率提高到原倍率的 150%（配置改过倍率也照样乘 1.5）
+        if (getEidolon() >= 6) {
+            tenax.setHpMagnification(tenax.getHpMagnification() * 1.5);
+            tenax.setDescription("对敌方全体造成等同于千冶·刃"
+                    + Math.round(tenax.getHpMagnification() * 100) + "%生命上限的火属性伤害。");
+        }
+        skills.add(tenax);
         return skills;
     }
 
     /**
-     * <b>免死</b>：结界期间受到致命攻击时不会倒下 —— 解除结界、回 50% 生命上限的生命值、血量留在 1。
+     * <b>免死</b>：结界期间受到致命攻击时不会倒下。
      * <p>
      * 形状与白厄的 {@code soulscorchDeathWard} 一致：挂一个 {@link cn.gfhnv.game.interfaces.IModifyDamage}，
      * 在伤害结算的最后一步改"这一下之后还剩多少血"。
      * <p>
-     * ⚠️ 顺序：<b>先</b>解除结界（暴击加成回落、倒计时摘掉、技能表换回普通）<b>再</b>回血 ——
-     * 设计里"解除结界并回复 50% 生命上限"，回血走 {@link LivingThing#heal(long)}（会吃到治疗量加成）。
+     * 第一段致死只把血量钳到 1、置 {@link #deathWardPending}，<b>不在这里退出结界</b>：
+     * 退出、播报和回血全部排进当前回合的 {@code PRIORITY_LAST}。这样多段攻击的后续段
+     * 仍会被这个修正器钳回 1，而"结界解除 / 不会倒下 / 回复至"会出现在攻击行之后，
+     * 不会抢在命中日志和队友获得火种之前。
      *
      * @return 免死处理器
      */
@@ -638,11 +710,17 @@ public class MortenaxBlade extends cn.gfhnv.game.entity.HSRActor implements cn.g
         return new cn.gfhnv.game.interfaces.IModifyDamage() {
             @Override
             public long damageModify(long newHp, cn.gfhnv.game.event.DamageEvent damageEvent) {
-                if (damageEvent.getAttackedEntity() == MortenaxBlade.this && infiniteFury && newHp <= 0) {
-                    endInfiniteFury();
-                    System.out.println(getName() + "「我殁之前，我仍未成形」—— 不会倒下");
-                    scheduleDeathWardHeal();
-                    return 1;
+                if (damageEvent.getAttackedEntity() == MortenaxBlade.this && newHp <= 0) {
+                    // 收口动作已经排队：多段攻击的后续段只锁 1 血，等回合末再退出/回血。
+                    if (deathWardPending) {
+                        return 1;
+                    }
+                    if (infiniteFury) {
+                        // 有当前回合：退出 + 播报 + 回血都排进 LAST，本段与后续段都停在 1；
+                        // 没有当前回合（自测 / 战斗已结束）：当场收口并返回回血后的血量。
+                        boolean immediate = scheduleDeathWardResolution();
+                        return immediate ? getHp() : 1;
+                    }
                 }
                 return newHp;
             }
@@ -650,7 +728,7 @@ public class MortenaxBlade extends cn.gfhnv.game.entity.HSRActor implements cn.g
     }
 
     /**
-     * 把免死的「回复 50% 生命上限」<b>排进当前回合的收尾队列</b>。
+     * 把免死的「退出结界 + 不会倒下播报 + 回复 50% 生命上限」<b>排进当前回合的收尾队列</b>。
      * <p>
      * <b>为什么不能在这里直接 {@code heal(...)}</b>（2026-10-24 用户实测踩到）：
      * 这个方法是伤害结算**中间**的一步，它返回的 {@code newHp} 之后会被
@@ -659,24 +737,38 @@ public class MortenaxBlade extends cn.gfhnv.game.entity.HSRActor implements cn.g
      * 白厄的 {@code soulscorchDeathWard} 也是同一个道理：它把后续动作排进
      * {@code getPresentTurn().getLastExecuteList()}，等这一击彻底结算完再执行。
      * <p>
-     * 自测里没有"当前回合"（直接调 {@code modifyIncomingDamage}），那种场合退化成当场回血 ——
+     * 退出结界也一并延后：回合末之前 {@code infiniteFury} 保持为 {@code true}，
+     * 后续段仍吃【无量忿怒】的减伤，也仍会触发【千锻魂】/E6 充能；`deathWardPending`
+     * 负责阻止后续致死段把血打到 0。
+     * <p>
+     * 自测里没有"当前回合"（直接调 {@code modifyIncomingDamage}），那种场合退化成当场收口 ——
      * 反正没有 setHp 来覆盖它。
      */
-    private void scheduleDeathWardHeal() {
+    private boolean scheduleDeathWardResolution() {
         cn.gfhnv.game.system.fight.TurnEntry presentTurn =
                 cn.gfhnv.game.eventListener.FightTurnPastListener.getPresentTurn();
         if (presentTurn == null) {
+            this.deathWardPending = false;
+            endInfiniteFury();
+            System.out.println(getName() + "「我殁之前，我仍未成形」—— 不会倒下");
             heal((long) (getHpMax() * 0.5));
-            return;
+            return true;
         }
-        // 2026-11-21 第 81 批：这条动作的执行者是**千冶·刃本人**，不是当前回合的行动者 ——
-        // 他完全可能在别人的回合里被打死（例如完整容器的共祭攻击），以前用回合行动者判断
-        // `instanceof MortenaxBlade`，于是回血被静默跳过、血量停在 1。
+        // 这条动作的执行者是**千冶·刃本人**，不是当前回合的行动者 ——
+        // 他完全可能在别人的回合里被打死（例如完整容器的共祭攻击）。
+        this.deathWardPending = true;
         presentTurn.addAct(this, (fight, user) -> {
+            this.deathWardPending = false;
+            // 正常路径到这里仍在结界里；若已被战斗结束/倒计时提前收口，就不要重复播报。
+            if (this.infiniteFury) {
+                this.endInfiniteFury();
+                System.out.println(this.getName() + "「我殁之前，我仍未成形」—— 不会倒下");
+            }
             long before = this.getHp();
             this.heal((long) (this.getHpMax() * 0.5));
             System.out.println(this.getName() + "「我殁之前，我仍未成形」—— 回复至 "
                     + before + " → " + this.getHp());
         }, cn.gfhnv.game.system.fight.ActEntry.PRIORITY_LAST);
+        return false;
     }
 }

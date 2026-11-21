@@ -370,9 +370,10 @@ final class CombatMechanicsTests {
                     present.getActQueue().size() == 1);
             if (present.getActQueue().size() == 1) {
                 var act = present.getActQueue().getFirst();
-                check("② 条目优先级 800、行动者是白厄（不额外结算效果）—— 实际 "
+                check("② 条目优先级 PRIORITY_EIDOLON_EXTRA（800）、行动者是白厄（不额外结算效果）—— 实际 "
                                 + act.priority() + " / " + (act.actor() == phainon),
-                        act.priority() == 800 && act.actor() == phainon);
+                        act.priority() == cn.gfhnv.game.system.fight.ActEntry.PRIORITY_EIDOLON_EXTRA
+                                && act.actor() == phainon);
             }
         } catch (Exception e) {
             fail("白厄 E2 追加行动测试抛出异常：" + e);

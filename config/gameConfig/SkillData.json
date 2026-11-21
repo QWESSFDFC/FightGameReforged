@@ -4,7 +4,7 @@
       "hpMagnification": 0,
       "aims": 0,
       "defMagnification": 0,
-      "forEnemies": true,
+      "forEnemies": false,
       "consumedMana": {
         "amount": 100,
         "element": "UNIVERSAL"

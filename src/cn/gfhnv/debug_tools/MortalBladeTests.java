@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static cn.gfhnv.debug_tools.TestKit.check;
+import static cn.gfhnv.debug_tools.TestKit.fail;
 import static cn.gfhnv.debug_tools.TestKit.section;
 import static cn.gfhnv.debug_tools.TestSupport.*;
 
@@ -150,9 +151,9 @@ public final class MortalBladeTests {
         long expectHeal = (long) (blade.getHpMax() * 0.5);
         long newHp = blade.modifyIncomingDamage(0, new cn.gfhnv.game.event.DamageEvent(
                 enemyA, blade, blade.getController().getSkills().get(0)));
-        check("免死：致命一击不倒下（血量被压到 1）、退出结界、回 50% 生命上限 —— 实际 "
+        check("免死：没有当前回合时当场回血并返回回血后的血量、退出结界 —— 实际 "
                         + newHp + "、" + blade.isInfiniteFury() + "、" + blade.getHp() + "/" + blade.getHpMax(),
-                newHp == 1 && !blade.isInfiniteFury()
+                newHp == blade.getHp() && newHp > 1 && !blade.isInfiniteFury()
                         && Math.abs(blade.getHp() - (hpBeforeWard + expectHeal)) <= 2);
         check("退出：暴击加成全部回落、倒计时摘掉、技能表换回普通（3 条）—— 实际 "
                         + blade.getPropertyEnhancePercent(PropertyEnhanceType.CRITICAL_RATE) + " / " + blade.getPropertyEnhancePercent(PropertyEnhanceType.CRITICAL_DAMAGE)
@@ -861,6 +862,209 @@ public final class MortalBladeTests {
     }
 
     /**
+     * 千冶·刃星魂 4/6（2026-11-21）：E4【万淬心】额外 +50%、E6 受伤/扣血每回合一次充能、
+     * 千冶铸一倍率 ×1.5。
+     */
+    private static void testMortalBladeEidolonFourAndSix() {
+        section("千冶·刃 E4/E6：万淬心额外 50% / 每回合充能 / 千冶铸一 ×1.5");
+        try {
+            /* ---------- E4 ---------- */
+            cn.gfhnv.game.officialStuff.customEntity.players.MortenaxBlade e4 =
+                    new cn.gfhnv.game.officialStuff.customEntity.players.MortenaxBlade(125);
+            e4.setEidolon(4);
+            PlayerOne ally = new PlayerOne(125);
+            Fight fight = new Fight(new ArrayList<>(), new ArrayList<>(),
+                    new ArrayList<>(List.of(e4, ally)));
+            double selfBefore = e4.getEnhance();
+            double allyBefore = ally.getEnhance();
+            e4.beginInfiniteFury(fight);
+            check("E4：千冶·刃自己 +75% + 额外 50% = +125% —— " + selfBefore + " → " + e4.getEnhance(),
+                    Math.abs(e4.getEnhance() - (selfBefore + 1.25)) < 1e-9);
+            check("E4：队友【万淬心】从 +50% 变 +100% —— " + allyBefore + " → " + ally.getEnhance(),
+                    Math.abs(ally.getEnhance() - (allyBefore + 1.0)) < 1e-9);
+            e4.endInfiniteFury();
+            check("E4：退出结界后两边都撤回（自己 " + e4.getEnhance() + "、队友 " + ally.getEnhance() + "）",
+                    Math.abs(e4.getEnhance() - selfBefore) < 1e-9
+                            && Math.abs(ally.getEnhance() - allyBefore) < 1e-9);
+
+            /* ---------- E6：千冶铸一 ×1.5 ---------- */
+            cn.gfhnv.game.officialStuff.customEntity.players.MortenaxBlade e6 =
+                    new cn.gfhnv.game.officialStuff.customEntity.players.MortenaxBlade(125);
+            e6.setEidolon(6);
+            Fight e6Fight = new Fight(new ArrayList<>(), new ArrayList<>(),
+                    new ArrayList<>(List.of(e6)));
+            e6.beginInfiniteFury(e6Fight);
+            Skill tenax = null;
+            for (Skill skill : e6.getController().getSkills()) {
+                if (skill instanceof cn.gfhnv.game.officialStuff.customSkill.mortenaxBlade.TenaxPerIgnem) {
+                    tenax = skill;
+                }
+            }
+            check("E6：【千冶铸一，万劫烬灭】倍率 = 原 350% × 1.5 = 525% —— 实际 "
+                            + (tenax == null ? "找不到技能" : tenax.getHpMagnification()),
+                    tenax != null && Math.abs(tenax.getHpMagnification() - 5.25) < 1e-9);
+
+            /* ---------- E6：受伤/扣血 +1，每回合一次 ---------- */
+            LivingThing enemy = entityTemplateOf("game_official_content:commonInsect").copy();
+            enemy.setHpMax(9_000_000L);
+            enemy.setHp(enemy.getHpMax());
+            Skill probe = e6.getController().getSkills().get(0);
+            e6.setCharge(0);
+            EventBus.post(new cn.gfhnv.game.event.DamageEvent(enemy, e6, probe));
+            check("E6：本回合第一次受伤 → 【千锻魂】+1 与 E6 +1，共 2 —— 实际 " + e6.getCharge(),
+                    e6.getCharge() == 2);
+            EventBus.post(new cn.gfhnv.game.event.DamageEvent(enemy, e6, probe));
+            check("E6：同一回合第二次受伤只加【千锻魂】的 1 点，E6 不再加 —— 实际 " + e6.getCharge(),
+                    e6.getCharge() == 3);
+            EventBus.post(new cn.gfhnv.game.event.EffectUpdateEvent(ally,
+                    new TurnEntry(ally, java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO)));
+            EventBus.post(new cn.gfhnv.game.event.DamageEvent(enemy, e6, probe));
+            check("E6：换回合后 E6 再次触发（+2）—— 实际 " + e6.getCharge(),
+                    e6.getCharge() == 5);
+
+            e6.setCharge(0);
+            e6.setHp(e6.getHpMax());
+            // 换一个回合：先复位 E6 的“本回合已经触发过”标记
+            EventBus.post(new cn.gfhnv.game.event.EffectUpdateEvent(ally,
+                    new TurnEntry(ally, java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO)));
+            e6.consumeHp(10);
+            check("E6：本回合第一次消耗生命值 +1 充能 —— 实际 " + e6.getCharge(),
+                    e6.getCharge() == 1);
+            e6.consumeHp(10);
+            check("E6：同一回合第二次扣血不再给 —— 实际 " + e6.getCharge(),
+                    e6.getCharge() == 1);
+            EventBus.post(new cn.gfhnv.game.event.EffectUpdateEvent(ally,
+                    new TurnEntry(ally, java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO)));
+            e6.consumeHp(10);
+            check("E6：换回合后扣血再次给 —— 实际 " + e6.getCharge(), e6.getCharge() == 2);
+            e6.endInfiniteFury();
+        } catch (Exception e) {
+            fail("千冶·刃 E4/E6 测试抛出异常：" + e);
+        }
+    }
+
+    /**
+     * `/kill` 走系统伤害事件：千冶·刃开大时第一次只退出大招，不直接死亡；
+     * 退出时队友【万淬心】必须清掉。
+     */
+    private static void testKillCommandRespectsDeathWard() {
+        section("/kill：系统伤害事件可以触发结界免死");
+        cn.gfhnv.game.officialStuff.customEntity.players.MortenaxBlade blade =
+                new cn.gfhnv.game.officialStuff.customEntity.players.MortenaxBlade(125);
+        try {
+            PlayerOne ally = new PlayerOne(125);
+            LivingThing enemy = entityTemplateOf("game_official_content:commonInsect").copy();
+            Fight fight = new Fight(new ArrayList<>(List.of(enemy)), new ArrayList<>(),
+                    new ArrayList<>(List.of(blade, ally)));
+            blade.setHp(blade.getHpMax());
+            blade.beginInfiniteFury(fight);
+            cn.gfhnv.game.eventListener.FightTurnPastListener.setPresentTurn(null);
+            LivingThing previous = cn.gfhnv.game.system.command.CommandManager.getPlayer();
+            cn.gfhnv.game.system.command.CommandManager.setPlayer(blade);
+            try {
+                cn.gfhnv.game.system.command.CommandManager.executeResult("kill @s", fight);
+            } finally {
+                cn.gfhnv.game.system.command.CommandManager.setPlayer(previous);
+            }
+            check("/kill 后千冶·刃没有直接死亡（HP " + blade.getHp() + "）",
+                    blade.isAlive() && blade.getHp() > 0);
+            check("/kill 触发了结界免死：退出【无量忿怒】", !blade.isInfiniteFury());
+            boolean allyEffectGone = ally.getEntityEffectList().stream().noneMatch(effect ->
+                    effect instanceof cn.gfhnv.game.officialStuff.customEffect.mortenaxBladeEffects
+                            .MortalBladeAllyEnhanceEffect);
+            check("/kill 退出结界后队友的【万淬心】被清掉", allyEffectGone);
+        } catch (Exception e) {
+            fail("/kill 免死测试抛出异常：" + e);
+        } finally {
+            blade.endInfiniteFury();
+        }
+    }
+
+    /**
+     * 多段攻击里的免死：第一段只锁 1 血、不退出结界也不播报；后续段不能再把他打死；
+     * 回合末的收口动作才依次退出结界、播报“不会倒下”并回 50% 生命上限。
+     */
+    private static void testDeathWardSurvivesMultiHit() {
+        section("千冶·刃：多段致死时免死回血不被后续段打断");
+        cn.gfhnv.game.officialStuff.customEntity.players.MortenaxBlade blade =
+                new cn.gfhnv.game.officialStuff.customEntity.players.MortenaxBlade(125);
+        try {
+            PlayerOne ally = new PlayerOne(125);
+            LivingThing enemy = entityTemplateOf("game_official_content:commonInsect").copy();
+            Fight fight = new Fight(new ArrayList<>(List.of(enemy)), new ArrayList<>(),
+                    new ArrayList<>(List.of(blade, ally)));
+            blade.beginInfiniteFury(fight);
+            blade.setHp(100);
+            Skill probe = blade.getController().getSkills().get(0);
+            TurnEntry present = new TurnEntry(ally, java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO);
+            cn.gfhnv.game.eventListener.FightTurnPastListener.setPresentTurn(present);
+
+            java.io.PrintStream originalOut = System.out;
+            java.io.ByteArrayOutputStream earlySink = new java.io.ByteArrayOutputStream();
+            try {
+                System.setOut(new java.io.PrintStream(earlySink, true, java.nio.charset.StandardCharsets.UTF_8));
+                cn.gfhnv.game.event.DamageEvent first = new cn.gfhnv.game.event.DamageEvent(enemy, blade, probe);
+                first.getDamage().setDamageAmount(9999L);
+                blade.takeDamage(first);
+            } finally {
+                System.setOut(originalOut);
+            }
+            String earlyText = earlySink.toString(java.nio.charset.StandardCharsets.UTF_8);
+            check("第一段致死：只锁 1 血、结界还在，退出/免死播报还没出现 —— 实际 HP " + blade.getHp()
+                            + "、结界 " + blade.isInfiniteFury() + "、输出「" + earlyText.strip() + "」",
+                    blade.isInfiniteFury() && blade.getHp() == 1
+                            && !earlyText.contains("结界解除")
+                            && !earlyText.contains("不会倒下"));
+
+            java.io.ByteArrayOutputStream secondSink = new java.io.ByteArrayOutputStream();
+            try {
+                System.setOut(new java.io.PrintStream(secondSink, true, java.nio.charset.StandardCharsets.UTF_8));
+                cn.gfhnv.game.event.DamageEvent second = new cn.gfhnv.game.event.DamageEvent(enemy, blade, probe);
+                second.getDamage().setDamageAmount(9999L);
+                blade.takeDamage(second);
+            } finally {
+                System.setOut(originalOut);
+            }
+            String secondText = secondSink.toString(java.nio.charset.StandardCharsets.UTF_8);
+            check("第二段仍致死：回血动作还没执行，继续锁 1 血且不重复播报 —— 实际 HP " + blade.getHp()
+                            + "、输出「" + secondText.strip() + "」",
+                    blade.isInfiniteFury() && blade.getHp() == 1
+                            && !secondText.contains("结界解除")
+                            && !secondText.contains("不会倒下"));
+
+            java.io.ByteArrayOutputStream endSink = new java.io.ByteArrayOutputStream();
+            try {
+                System.setOut(new java.io.PrintStream(endSink, true, java.nio.charset.StandardCharsets.UTF_8));
+                for (cn.gfhnv.game.interfaces.ISpecialAction action
+                        : new ArrayList<>(present.getLastExecuteList())) {
+                    action.execute(fight, ally);
+                }
+            } finally {
+                System.setOut(originalOut);
+            }
+            String endText = endSink.toString(java.nio.charset.StandardCharsets.UTF_8);
+            int exitAt = endText.indexOf("结界解除");
+            int wardAt = endText.indexOf("不会倒下");
+            int healAt = endText.indexOf("回复至");
+            check("回合末才依次退出结界 / 不会倒下 / 回复 50% 上限 —— 实际 HP " + blade.getHp()
+                            + "/" + blade.getHpMax() + "、结界 " + blade.isInfiniteFury()
+                            + "、输出「" + endText.strip() + "」",
+                    !blade.isInfiniteFury()
+                            && blade.getHp() == 1 + blade.getHpMax() / 2
+                            && exitAt >= 0 && exitAt < wardAt && wardAt < healAt);
+
+            cn.gfhnv.game.event.DamageEvent third = new cn.gfhnv.game.event.DamageEvent(enemy, blade, probe);
+            third.getDamage().setDamageAmount(9999L);
+            blade.takeDamage(third);
+            check("回血动作执行完后保护解除：再吃致死伤害会正常倒下", !blade.isAlive());
+        } catch (Exception e) {
+            fail("多段免死测试抛出异常：" + e);
+        } finally {
+            cn.gfhnv.game.eventListener.FightTurnPastListener.setPresentTurn(null);
+        }
+    }
+
+    /**
      * 跑本主题的全部用例（顺序 = 下面列的顺序）。
      */
     public static void runAll() throws Exception {
@@ -875,5 +1079,8 @@ public final class MortalBladeTests {
         testMortalBladeEnergyGain();
         testMortalBladeChargeLoop();
         testInfiniteFurySkillsTakeConfig();
+        testMortalBladeEidolonFourAndSix();
+        testKillCommandRespectsDeathWard();
+        testDeathWardSurvivesMultiHit();
     }
 }

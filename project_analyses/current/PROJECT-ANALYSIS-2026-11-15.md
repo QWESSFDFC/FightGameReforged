@@ -515,3 +515,115 @@ lambda 用 `user instanceof MortenaxBlade` 取自己 → 行动者是敌人 → 
    `DataBridge` 的 `/data` `damageReductions` 断言保持；`SkillDataTests` 的 `skills` 不显示 1 条。
 8. 长期规则写入 `10-RULES.md` §3.1：以后战斗/伤害逻辑走 `CombatComponent`，
    `LivingThing` 只留转发。
+
+---
+
+## 二十、2026-11-21（第二周）第 89 批：千冶·刃 E4/E6 + `/kill` 修复
+
+1. **E4「锻打遗恨，后剑骨自成」**：`MortalBladeAllyEnhanceEffect` 支持构造增伤值；
+   4 魂起队友【万淬心】+100%（原 50 + 额外 50），千冶·刃自己 +75% + 50% = +125%；
+   退出结界按 `appliedSelfEnhance` 记的实际值撤回。
+2. **E6「神若当殒，自誓弑寿瘟」**：结界期间本回合第一次受到伤害或消耗生命值额外 +1 充能
+   （与【千锻魂】每次受击 +1 独立）；`MortalBladeFuryHitListener` 监听 `EffectUpdateEvent`，
+   在每个目标回合头复位“本回合已触发”；`consumeHp` 也走同一入口；
+   `infiniteFurySkills()` 给【千冶铸一】的倍率乘 1.5（原型配置改了也照样乘）。
+3. **`/kill` 修复**：不再 `setHp(0)` + `setAlive(false)`，改为构造
+   `DamageType.SystemDamage + ElementSort.UNIVERSAL` 的无限大固定原始值，
+   post `DamageEvent` 后走 `takeDamage`。因此免死/转阶段/结界退出等 `IModifyDamage` 正常生效；
+   千冶·刃开大时第一次 `/kill` 只退出大招，`endInfiniteFury` 清掉队友【万淬心】。
+   计算器未改，外部仍可监听 `DamageEvent`。
+4. **验证**：`通过 1239 条，失败 0 条`、`CHECK OK`、`src` **292** 文件、`mods/` 4 个、
+   `check-doc-links.py` **65 links + 298 paths / broken 0**。
+   守卫：`MortalBladeTests#testMortalBladeEidolonFourAndSix`、`#testKillCommandRespectsDeathWard`。
+
+---
+
+## 二十一、2026-11-21（第二周）第 90 批：外包式子代理工作流
+
+用户要求：可以多用子代理，但不能多个子代理改同一个文件；每个子代理要有独立工作空间与临时记忆；
+长结论写 md，避免上下文吃紧。
+
+1. `10-RULES.md` §9.4 改为“能切分就多用”，新增 §9.4 1.1：
+   `out/agents/<任务id>/` 工作空间、`memory/agents/<任务id>.md` 临时记忆、
+   写入边界、不重叠、长结论 md、权威文档由主代理回写。
+2. `30-WORKFLOW.md` 新增 §9.10 外包式子代理工作流：
+   发包单 SOW 模板、承包执行、验收清单、集成收口、并行边界、何时不用外包。
+3. `memory/00-INDEX.md` 增加子代理临时记忆路径。
+4. 验证：`check-doc-links.py` → **66 links + 298 paths / broken 0**。本次不改代码。
+
+---
+
+## 二十二、2026-11-21（第二周）第 91 批：千冶·刃多段免死修复 + 转阶段优先级
+
+作者日志：千冶·刃在【无量忿怒】中被多段攻击的第一段打到致死，结界解除、免死触发并停在 1 血；
+同一动作的后续段继续打，把他打到 0；回合末回血动作执行时已死，打印“回复至 0 → 0”。
+
+1. **`deathWardPending`**：第一段致死触发免死、退出结界、把回血排进 `PRIORITY_LAST` 后置位；
+   在回血动作执行前，同一个 `IModifyDamage` 对后续致死段一律返回 1；回血动作执行时清标记。
+   没有当前回合（自测 / 战斗结束）时当场回血并返回回血后的血量，不再返回 1 被 `setHp` 覆盖。
+2. **ActionEntry 优先级常量**：新增 `ActEntry.PRIORITY_PHASE_TRANSITION = 2000` 与
+   `PRIORITY_EIDOLON_EXTRA = 800`；盗火行者转阶段与白厄星魂 2 额外行动都改用常量。
+   阶段转换 ActionEntry 明确高于额外行动。
+3. **验证**：`通过 1243 条，失败 0 条`、`CHECK OK`、`src` 292 文件、`mods/` 4 个、
+   `check-doc-links.py` **66 links + 298 paths / broken 0**。
+   守卫：`MortalBladeTests#testDeathWardSurvivesMultiHit`，以及转阶段/E2 优先级断言。
+
+---
+
+## 二十三、2026-11-21（第二周）第 92 批：千冶·刃免死收口延后到回合末
+
+作者日志：多段攻击的第一段触发免死后，“结界解除”“不会倒下”会打印在攻击行前面；
+希望这三行（含回复）都排到当前回合最后，和白厄把收尾动作排进 `PRIORITY_LAST` 的口径一致。
+
+**根因**：`IModifyDamage#damageModify` 是伤害结算中间的一步，攻击行要等它返回后才打印；
+在里面直接 `endInfiniteFury()` / `System.out.println`，播报必然抢在命中日志与后续目标之前。
+
+**改法**（`MortenaxBlade#infiniteFuryDeathWard` / `#scheduleDeathWardResolution`）：
+
+1. 第一段致死只把 `newHp` 钳到 1、置 `deathWardPending`，不退出、不播报；
+2. 退出、`不会倒下`、回血三件事一起排进当前 `TurnEntry` 的 `PRIORITY_LAST`
+   （当前回合所有行动之后），收口动作按“清标记 → 退出（打印）→ 不会倒下 → 回血（打印）”执行；
+3. 收口前仍在【无量忿怒】：后续致死段继续钳回 1，非致死段仍吃 50% 减伤，
+   也仍触发【千锻魂】每次受击 +1（E6 每回合一次已在第一段用掉）；
+4. 没有当前回合（自测 / 战斗结束）仍当场收口并返回回血后的血量。
+
+**边界**：不改伤害公式、不改回血量（仍是 `1 + 50%` 生命上限）、不动白厄退出协议、不改 E4/E6 数值。
+
+**验证**：`通过 1243 条，失败 0 条`、`CHECK OK`、`src` 292 文件、`mods/` 4 个、
+`check-doc-links.py` **66 links + 297 paths / broken 0**。
+守卫：`MortalBladeTests#testDeathWardSurvivesMultiHit` 增加了输出捕获断言：
+第一段/第二段输出里没有“结界解除 / 不会倒下”，回合末输出顺序为
+“结界解除 → 不会倒下 → 回复至”。
+
+---
+
+## 二十四、2026-11-21（第二周）第 93 批：白厄打断退出的时点核实
+
+作者问：白厄变身被打断时是不是直接退出？如果是，改成回合末、最后一击之后再退出，
+让最后一击吃到变身加成。
+
+**核实结论：不是直接退出，当前已经是“最后一击之后才退出”。**
+
+- `Phainon#finalizeAwakenByInterrupt()` 只有两件实事：
+  ① `interruptedRemainingExtraTurns = extraTurns` 冻结倍率输入；
+  ② `clearSoulscorchState()` 清【弑魂之炽】、75% 减伤与待行动名单。
+  它**不发** `AwakenEndEvent`、**不**把 `awaken` 置 false、**不**摘 `AWAKEN_ENHANCE_SOURCE`
+  （`EventBus.post` 那一行在代码里是注释掉的）。
+- 真正退出发生在 `LastAttack#comeToEffect` 的**最后一行**：先按攻击 +80% 结算完所有目标的伤害，
+  再给敌方挂速度效果，最后才 `EventBus.post(new AwakenEndEvent(...))`。
+  `AwakeEndListener.end` 收到事件后才置 `awaken=false`、还原技能表/名字、按 25% 生命上限回血。
+- 所以打断路径的 `LastAttack` 在挥刀时 `awaken=true`、攻击加成 `+0.8` 仍在；退出在它之后。
+
+**这次改了什么**：只修文档/注释与测试，不改生产行为。
+
+1. `Phainon#soulscorchDeathWard()` 与 `#finalizeAwakenByInterrupt()` 的 javadoc 原来写“当场完成退出协议 /
+   就地 post 事件”，与代码不符；改成“只冻结+清层，退出由最后一击末尾发事件完成”。
+2. `LastAttack#comeToEffect()` 补注释，明确“伤害结算在 `AwakenEndEvent` 之前、最后一击必须吃变身加成”。
+3. `TestSupport#testAwakenInterruptExitProtocol()` 增加探针：在 `ProbeFragileDummy#takeDamage` 里记录
+   攻击者白厄的 `isAwaken()` 与 `getPropertyEnhancePercent(ATTACK)`；断言命中时 `awaken=true`、
+   加成 `0.8`，整圈跑完后 `awaken=false`。测试从 5 条变 6 条，并在描述里把“当场退出”改为“最后一击之后退出”。
+4. `60-COMBAT` §5.7 的“退出协议由中止变身的动作自己收口”整段更正为“由最后一击自己收口”。
+5. **没有改** `LastAttack` 的 `0.125`、下限 `7`、12 火种、8 个额外回合、75% 减伤，也没有改千冶·刃第 92 批的收口。
+
+**验证**：`通过 1244 条，失败 0 条`、`CHECK OK`、`src` 292 文件、`mods/` 4 个、
+`check-doc-links.py` **66 links + 297 paths / broken 0**。

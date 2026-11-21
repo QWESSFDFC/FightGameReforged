@@ -237,18 +237,17 @@ public class Phainon extends HSRActor {
      * 伤害试算（{@code isAnticipating()}）期间只算数、不改状态：
      * AI 预判一次致死伤害就会把这一次免死花掉的话，等于 AI 光靠「看一眼」就能破掉免死。
      * <p>
-     * 触发时先 {@link #clearAwakenExtraTurns() 中止还没走完的额外回合}（变身被打断），
-     * 由 {@link #finalizeAwakenByInterrupt()} <b>当场完成退出协议</b>
-     * （发 {@link AwakenEndEvent}，清掉 {@code awaken} 与技能表、把 {@code extraTurns} 归零），
-     * 再把「最后一击」排进<b>当前回合</b>的收尾队列：伤害照旧挥出去，
-     * 倍率按 {@link #getInterruptedRemainingExtraTurns() 打断那一刻剩余的额外回合数}算。
+     * 触发时先 {@link #clearAwakenExtraTurns() 中止还没走完的额外回合}，
+     * 再由 {@link #finalizeAwakenByInterrupt()} 冻结剩余回合数、清【弑魂之炽】与 75% 减伤。
+     * 这一步<b>不退出变身</b>：{@code awaken}、技能表和攻击 +80% 都留着，
+     * 好让「最后一击」先吃到变身加成。
      * <p>
-     * <b>为什么退出协议不能继续挂在时间轴上</b>：它原来挂在第 8 条额外回合
-     * （{@code UltimateAttack} 的 {@code lastestOne}）的收尾队列里 ——
-     * 而"中止变身"干的正是把这些额外回合从时间轴上摘掉，
-     * 于是中止变身的动作会把退出协议自己一起取消掉：技能表没人清、{@code AwakenEndEvent} 没人发，
-     * 白厄就留在觉醒状态里（用户 2026-10 实测的「白厄无敌」）。
-     * 现在退出由<b>中止变身的那个动作自己收口</b>，与时间轴上还剩什么条目无关。
+     * 然后把「最后一击」排进<b>当前回合</b>的收尾队列；它挥完所有目标后，才在自己的
+     * {@code comeToEffect} 末尾发 {@link AwakenEndEvent}，由 {@link AwakeEndListener#end}
+     * 退出变身并按 +25% 生命上限回血。这样既不会因为摘掉额外回合而漏掉退出协议，
+     * 也不会让最后一击提前失去变身加成。
+     * <p>
+     * 倍率按 {@link #getInterruptedRemainingExtraTurns() 打断那一刻剩余的额外回合数}算。
      * <p>
      * 试算期间（{@code isAnticipating()}）绝不改状态、也绝不排队。
      *
@@ -392,15 +391,12 @@ public class Phainon extends HSRActor {
     }
 
     /**
-     * 「变身被打断」的<b>退出收口</b>：把退出协议就地走完，不再依赖时间轴上还剩什么条目。
+     * 「变身被打断」的<b>预处理</b>：冻结剩余回合数，并清掉【弑魂之炽】与 75% 减伤。
      * <p>
-     * <b>它解决的是什么</b>：退出协议原本挂在第 8 条额外回合
-     * （{@code UltimateAttack} 的 {@code lastestOne}）的收尾队列里，而那条条目正是
-     * {@link #clearAwakenExtraTurns()} 要摘掉的东西之一 ——
-     * 于是"中止变身"这个动作恰好取消了变身的退出协议：技能表没人清、
-     * {@code AwakenEndEvent} 没人发、{@code extraTurns} 没人归零，
-     * 白厄留在觉醒状态里，而 {@link #soulscorchDeathWard()} 的「已经在等最后一击」那一支
-     * 又只会把血锁在 1 → 表现就是用户 2026-10 实测的「白厄无敌」。
+     * <b>它不退出变身</b>：{@code awaken}、觉醒技能表、攻击 +80% / 生命上限 +270% 都保留，
+     * 因为紧接着要挥出的 {@link LastAttack} 还要吃这些加成。真正的退出协议由
+     * {@link LastAttack#comeToEffect} 在全部伤害结算完之后发 {@link AwakenEndEvent} 触发，
+     * 那时才把 {@code awaken} 置 false、还原技能表/名字并按 +25% 生命上限回血。
      * <p>
      * <b>为什么要先冻结剩余回合数</b>：退出协议（{@link AwakeEndListener#end}）会把
      * {@link #extraTurns} 清零，而 {@link LastAttack} 的倍率是按"还剩几个额外回合"算的
@@ -415,7 +411,6 @@ public class Phainon extends HSRActor {
         // 2026-11-21 第 82 批：原文"如果卡厄斯兰那在上述目标行动完前退出变身，反击不释放，
         // 清除弑魂之炽和对应的减伤"。
         this.clearSoulscorchState();
-        //EventBus.post(new AwakenEndEvent(this)); 白厄在变身时释放最后一击.
     }
 
     /**

@@ -226,7 +226,8 @@ public class FlameReaver extends LivingThing {
      * 转阶段行动在回合队列里的优先级：必须<b>高于</b>额外行动（星魂 2 的 800）
      * 和正常行动（0），否则玩家会先看到"白厄的额外行动"，再看到 BOSS 回满血。
      */
-    private static final int PHASE_TRANSITION_PRIORITY = 2000;
+    private static final int PHASE_TRANSITION_PRIORITY =
+            cn.gfhnv.game.system.fight.ActEntry.PRIORITY_PHASE_TRANSITION;
     /**
      * 是否处在【沉默的悲叹】的蓄力中（下一次行动要放【莫因舍弃而哭泣】）。
      */

@@ -2,6 +2,7 @@ package cn.gfhnv.game.officialStuff.customEvent.mortenaxBladeEvents;
 
 import cn.gfhnv.game.annotation.SubscribeEvent;
 import cn.gfhnv.game.event.DamageEvent;
+import cn.gfhnv.game.event.EffectUpdateEvent;
 import cn.gfhnv.game.officialStuff.customEffect.mortenaxBladeEffects.BalefireBindEffect;
 import cn.gfhnv.game.officialStuff.customEntity.players.MortenaxBlade;
 
@@ -45,6 +46,10 @@ public class MortalBladeFuryHitListener {
         if (event.getAttackedEntity() != owner) {
             return;
         }
+        // 星魂 6：本回合第一次受伤（包括 /kill 的系统伤害）额外 +1 充能。
+        // 放在 attacker 判空之前 —— 系统伤害可能没有攻击者；
+        // 与下面【千锻魂】“每次受击 +1”是两条独立来源。
+        owner.gainEidolonSixCharge();
         cn.gfhnv.game.entity.LivingThing attacker = event.getAttacker();
         if (attacker == null || attacker == owner) {
             return;
@@ -57,8 +62,22 @@ public class MortalBladeFuryHitListener {
                 cn.gfhnv.game.officialStuff.customSkill.mortenaxBlade.FornaxExCorpore.BALEFIRE_LAST_TIME)
                 .setOrigin(owner.getUUID()));
         // 「千锻魂」：受到攻击后获得 1 点充能
-        //（「神若当殒」那条"受伤/扣血也给充能"是星魂 6，用户拍板不做）
         owner.gainCharge(1);
         owner.requestPayoff(null);
+    }
+
+    /**
+     * 每个目标回合的回合头（{@code EffectUpdateEvent}）复位星魂 6 的“每回合一次”标记。
+     * <p>
+     * 监听器只在结界期间注册（begin 注册 / end 注销），所以这里不用再判结界，
+     * 但仍判一次 {@code isInfiniteFury()}，防止注销时序中的边界。
+     *
+     * @param event 效果更新事件（回合头）
+     */
+    @SubscribeEvent
+    public void onTurnStart(EffectUpdateEvent event) {
+        if (owner != null && owner.isInfiniteFury()) {
+            owner.resetEidolonSixChargeForTurn();
+        }
     }
 }

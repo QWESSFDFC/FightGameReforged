@@ -138,7 +138,7 @@ public class FoundationStardeathVerdict extends Skill implements SkillCoefficien
                         if (u.getController() != null) {
                             u.getController().act(f);
                         }
-                    }, 800);
+                    }, cn.gfhnv.game.system.fight.ActEntry.PRIORITY_EIDOLON_EXTRA);
                 }
             }
 

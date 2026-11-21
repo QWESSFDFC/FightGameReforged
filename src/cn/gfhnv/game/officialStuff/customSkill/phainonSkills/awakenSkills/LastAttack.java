@@ -107,7 +107,9 @@ public class LastAttack extends Skill implements SkillCoefficientTunable {
         if (user instanceof Phainon phainon) {
             // 最后一击的倍率跟着「还剩多少额外回合」走：剩得越少打得越狠，走完 8 个回合时是满倍率 13。
             // 被打断的那一刀用「打断那一刻冻结下来的剩余回合数」：退出协议（AwakeEndListener#end）
-            // 已经把它清零了，再读实时值会变成满倍率 13（见 Phainon#finalizeAwakenByInterrupt）。
+            // 会在本方法末尾才把 extraTurns 清零，所以这里优先读冻结值（见 Phainon#finalizeAwakenByInterrupt）。
+            // 注意：伤害结算发生在 AwakenEndEvent 之前，此时 awaken 仍为 true、攻击 +80% 还在 ——
+            // 最后一击必须吃变身加成，退出必须等它挥完。
             // 2026-10-24：两个系数（每回合折扣 / 上限 7）已外置成具名系数，公式与夹取都在
             // magnificationFor(...) 里 —— 这里不要再写死 7，否则外配的上限会被这一层盖掉。
             int remainingExtraTurns = phainon.getInterruptedRemainingExtraTurns() >= 0
@@ -124,6 +126,8 @@ public class LastAttack extends Skill implements SkillCoefficientTunable {
             livingThing.addEffect(new SpeedEnhanceEffect(0.15, 1).setOrigin(user.getUUID()));
         }
 
+        // 伤害与后续效果都结算完，才真正退出变身（置 awaken=false、还原技能表/名字、回 25%）。
+        // 不能提前到免死触发时：那样最后一击会失去变身攻击加成。
         EventBus.post(new AwakenEndEvent((Phainon) user));
     }
 

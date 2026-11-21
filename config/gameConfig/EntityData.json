@@ -258,15 +258,15 @@
         "chargeMax": 9,
         "charge": 0,
         "energyOverflowMax": 80,
-        "eidolon": 0,
+        "eidolon": 6,
         "energyMax": 160,
-        "energy": 0
+        "energy": 160
       },
       "derived": {
         "baseAttack": 1598,
-        "hp": 7640,
-        "baseDefence": 944,
-        "baseHpMax": 7640
+        "hp": 13798,
+        "baseDefence": 2244,
+        "baseHpMax": 13798
       },
       "base": {
         "waterManaGrow": 1,
@@ -274,16 +274,16 @@
         "description": "这是千冶·刃",
         "type": "player",
         "waterResistance": 0,
-        "baseCriticalDamage": 0.5,
+        "baseCriticalDamage": 1,
         "fireResistance": 0.7,
-        "baseCriticalRate": 0.05,
+        "baseCriticalRate": 10,
         "element": "FIRE",
         "enhance": 0,
         "metalResistance": 0,
         "inventorySlots": 0,
         "level": 125,
         "penetration": 0,
-        "baseSpeed": 107,
+        "baseSpeed": 250,
         "dirtResistance": 0,
         "woodResistance": 0,
         "defenceLoss": 0,

@@ -45,6 +45,18 @@ public record ActEntry(ISpecialAction action, int priority, String label, Living
     }
 
     /**
+     * 星魂 2 的额外行动（例如白厄【支柱·死星天裁】满层后再选一次技能）：
+     * 高于正式行动（0），低于回合头检查（900）。
+     */
+    public static final int PRIORITY_EIDOLON_EXTRA = 800;
+
+    /**
+     * 阶段转换（例如盗火行者进入二阶段）：<b>高于所有额外行动/正式行动</b>，
+     * 保证“先切阶段、再让额外行动看到回满/免伤后的状态”。
+     */
+    public static final int PRIORITY_PHASE_TRANSITION = 2000;
+
+    /**
      * 开场动作的优先级（原来的 {@code firstExecuteList}）。
      */
     public static final int PRIORITY_FIRST = 1000;

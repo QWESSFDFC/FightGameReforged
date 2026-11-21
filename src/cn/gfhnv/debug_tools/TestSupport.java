@@ -88,34 +88,6 @@ public final class TestSupport {
     }
 
     /**
-     * <b>「只挨一次打 → 只出一刀」+「中止变身自己收口」</b>：跑<b>真实回合循环</b>的守卫
-     * （2026-10 用户实测的「白厄无敌」+「每挨一次打就放一次【最后一击】」）。
-     * <p>
-     * 场景与用户那条日志同形：白厄变身（{@code extraTurns = 3}）→ 敌方行动打出致死伤害 →
-     * 免死把血锁在 1 → <b>中止变身</b>（时间轴上那 8 条额外回合被摘掉）。
-     * <p>
-     * 钉住三件事：
-     * <ol>
-     *     <li><b>退出协议必须在"中止变身"这一刻走完</b>：它原来挂在时间轴第 8 条额外回合的收尾队列里，
-     *     而中止变身干的正是把那些条目摘掉 —— 于是"中止变身"取消了变身的退出协议，
-     *     白厄留在觉醒状态、{@code pendingLastAttack} 永不清、血永久锁 1（= 白厄无敌）；</li>
-     *     <li><b>一次挨打只出一刀</b>：那一刀排在"当前回合收尾队列"上，同一圈循环只执行一次
-     *     （挨打探针只有 2 点血：一刀 2600 必死。若同一圈排了两刀，各自的倍率会对半砍到 1300、
-     *     它反而活着 —— 于是"排了几刀"变成一个能观测的数字）；</li>
-     *     <li><b>变身退掉之后不再复发</b>：退出协议跑完 {@code isAwaken} 就是 false，
-     *     免死不再武装 —— 所以不存在"每挨一次打就再放一次【最后一击】"。</li>
-     * </ol>
-     * <p>
-     * 这条用例能进 {@code src} 靠的是两个<b>自测专用装配入口</b>：
-     * {@link cn.gfhnv.game.GameMain#setFightInProgressForSelfTest(boolean)}（回合循环的硬门）
-     * 与 {@link Phainon#forSelfTest(Phainon)}（换成不读标准输入的控制器）。
-     * <p>
-     * ⚠️ <b>它一个数值都没改</b>：{@code LastAttack} 的 {@code 0.125}、下限 {@code 7}、
-     * 12 火种、8 个额外回合、75% 减伤全部原样（探针自己的倍率与血量只服务这条用例）。
-     *
-     * @author AI（DeepSeek）生成
-     */
-    /**
      * <b>效果结算前移</b>（2026-11-14 第 58 批，Step 6 第一步）：
      * 回合头输出之后先 tick 效果，再跑「开场动作」与正式行动。
      * <p>
@@ -134,8 +106,9 @@ public final class TestSupport {
      * ⚠️ <b>「那一击排晚了就永久锁血」那套死锁兜底已经整条撤掉</b>（它没能在任何场景里被复现，
      * 而且在复现场景里一次都没救回来；见 {@code 60-COMBAT.md} 的 §5.7）——
      * 连带撤掉了它的 4 条断言（旧 ③④ 两组与旧 ⑤ 里"回合引用一起清"那半条）。
-     * 真正修掉「白厄无敌」的是<b>退出协议改由"中止变身"这个动作自己收口</b>：
-     * 见 {@code Phainon#finalizeAwakenByInterrupt()} 与下面
+     * 真正修掉「白厄无敌」的是<b>退出协议改由"最后一击"自己收口</b>：
+     * 中止变身只调用 {@code Phainon#finalizeAwakenByInterrupt()} 冻结剩余回合数并清【弑魂之炽】，
+     * 最后一击挥完才发 {@code AwakenEndEvent}。见
      * {@link #testAwakenInterruptExitProtocol()} 那条跑真实回合循环的用例。
      * <p>
      * ⚠️ 这条测试不碰任何数值：{@code LastAttack} 的 {@code 0.125} 与下限 {@code 7} 原样不动。
@@ -340,14 +313,47 @@ public final class TestSupport {
         }
     }
 
+    /**
+     * <b>「只挨一次打 → 只出一刀」+「最后一击之后才退出变身」</b>：跑<b>真实回合循环</b>的守卫
+     * （2026-10 用户实测的「白厄无敌」+「每挨一次打就放一次【最后一击】」）。
+     * <p>
+     * 场景与用户那条日志同形：白厄变身（{@code extraTurns = 3}）→ 敌方行动打出致死伤害 →
+     * 免死把血锁在 1 → <b>中止变身</b>（时间轴上那 8 条额外回合被摘掉）。
+     * <p>
+     * 钉住三件事：
+     * <ol>
+     *     <li><b>退出必须由最后一击自己收口</b>：{@code finalizeAwakenByInterrupt()} 只冻结剩余回合数、
+     *     清【弑魂之炽】与 75% 减伤；它<b>不</b>发 {@code AwakenEndEvent}，也不改 {@code awaken}。
+     *     最后一击先按攻击 +80% 挥刀，全部结算完才在 {@code LastAttack#comeToEffect} 末尾发事件退出。
+     *     这样既不会因为摘掉额外回合而漏掉退出，也不会让最后一击提前失去变身加成；</li>
+     *     <li><b>一次挨打只出一刀</b>：那一刀排在"当前回合收尾队列"上，同一圈循环只执行一次
+     *     （挨打探针只有 2 点血：一刀 2600 必死。若同一圈排了两刀，各自的倍率会对半砍到 1300、
+     *     它反而活着 —— 于是"排了几刀"变成一个能观测的数字）；</li>
+     *     <li><b>变身退掉之后不再复发</b>：最后一击末尾的退出协议跑完 {@code isAwaken} 就是 false，
+     *     免死不再武装 —— 所以不存在"每挨一次打就再放一次【最后一击】"。</li>
+     * </ol>
+     * <p>
+     * 这条用例能进 {@code src} 靠的是两个<b>自测专用装配入口</b>：
+     * {@link cn.gfhnv.game.GameMain#setFightInProgressForSelfTest(boolean)}（回合循环的硬门）
+     * 与 {@link Phainon#forSelfTest(Phainon)}（换成不读标准输入的控制器）。
+     * <p>
+     * ⚠️ <b>它一个数值都没改</b>：{@code LastAttack} 的 {@code 0.125}、下限 {@code 7}、
+     * 12 火种、8 个额外回合、75% 减伤全部原样（探针自己的倍率与血量只服务这条用例）。
+     *
+     * @author AI（DeepSeek）生成
+     */
     static void testAwakenInterruptExitProtocol() {
         System.out.println();
-        System.out.println("-------- 白厄：中止变身自己收口 + 只挨一次打只反击一次（真实回合循环） --------");
+        System.out.println("-------- 白厄：最后一击之后才退出变身 + 只挨一次打只反击一次（真实回合循环） --------");
         boolean inFightBefore = cn.gfhnv.game.GameMain.isInFight();
         List<TurnEntry> turnsBefore = new ArrayList<>(TurnManager.getTurns());
         cn.gfhnv.game.officialStuff.customEvent.phainonEvents.AwakeEndListener probeListener = null;
         Phainon awakened = null;
         LivingThing victim = null;
+        // 最后一击挥出时记下白厄的状态：awaken 必须还是 true、攻击 +80% 必须还在。
+        // 这两个值只在「最后一击真的打中探针」那一刻采，晚采（回合跑完）就区分不出是否提前退出。
+        final boolean[] lastAttackSawAwaken = {false};
+        final double[] lastAttackAttackEnhance = {Double.NaN};
         try {
             // 免死里会 World.prototypeCopyOf(LastAttack.class)，原型必须在注册表里
             World.getSkillList();
@@ -366,7 +372,16 @@ public final class TestSupport {
             awakened.addPropertyEnhance(PropertyEnhanceType.MAX_HP, 2.7, 0, Phainon.AWAKEN_ENHANCE_SOURCE);
 
             // 挨打探针只有 2 点血：只要它活过这一圈，就说明"最后一击"被排了不止一次
-            victim = new ProbeFragileDummy();
+            victim = new ProbeFragileDummy() {
+                @Override
+                public void takeDamage(DamageEvent da) {
+                    if (da.getAttacker() instanceof Phainon attacker) {
+                        lastAttackSawAwaken[0] = attacker.isAwaken();
+                        lastAttackAttackEnhance[0] = attacker.getPropertyEnhancePercent(PropertyEnhanceType.ATTACK);
+                    }
+                    super.takeDamage(da);
+                }
+            };
             victim.setName("挨打探针");
 
             List<LivingThing> fighters = new ArrayList<>();
@@ -413,8 +428,12 @@ public final class TestSupport {
             return;
         }
 
-        // ② 退出协议：中止变身的那一刻就该走完（不再依赖时间轴上那 8 条额外回合里的最后一条）
-        check("中止变身②：退出协议当场跑完 —— 挨打之后已经把变身退掉（isAwaken 为 false）",
+        // ② 最后一击挥出时还在变身里（吃 +80% 攻击），挥完才由 LastAttack 发事件退出
+        check("最后一击②：挥出时仍在变身中、攻击 +80% 还在（不是提前退出）—— 实际 awaken="
+                        + lastAttackSawAwaken[0] + "、攻击加成=" + lastAttackAttackEnhance[0],
+                lastAttackSawAwaken[0]
+                        && Math.abs(lastAttackAttackEnhance[0] - 0.8) < 1e-9);
+        check("最后一击②：退出发生在它之后 —— 跑完这一圈时已退掉变身（isAwaken 为 false）",
                 !awakened.isAwaken() && awakened.getAwakenExtraTurns().isEmpty());
         check("中止变身②：名字也还原成「白厄」（不是只清了标志）",
                 "白厄".equals(awakened.getName()));

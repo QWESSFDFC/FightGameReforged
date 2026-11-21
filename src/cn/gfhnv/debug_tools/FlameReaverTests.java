@@ -489,11 +489,13 @@ public final class FlameReaverTests {
                                 + staged.getHp() + " / phase " + staged.isPhaseTwo(),
                         staged.getHp() == 0 && !staged.isPhaseTwo());
                 var transition = present.getActQueue().stream()
-                        .filter(act -> act.priority() == 2000)
+                        .filter(act -> act.priority() == cn.gfhnv.game.system.fight.ActEntry.PRIORITY_PHASE_TRANSITION)
                         .findFirst().orElse(null);
-                check("② 转阶段排成 2000 优先级行动（高于额外行动的 800）—— 实际 "
+                check("② 转阶段排成 PRIORITY_PHASE_TRANSITION（高于 E2 的 PRIORITY_EIDOLON_EXTRA）—— 实际 "
                                 + (transition == null ? "没排" : transition.priority()),
-                        transition != null && transition.actor() == staged);
+                        transition != null && transition.actor() == staged
+                                && cn.gfhnv.game.system.fight.ActEntry.PRIORITY_PHASE_TRANSITION
+                                > cn.gfhnv.game.system.fight.ActEntry.PRIORITY_EIDOLON_EXTRA);
                 cn.gfhnv.game.eventListener.FightTurnPastListener.runActQueue(stagedFight, present);
                 check("③ 转阶段行动执行后：先播报再回满、拿到 70% 免伤",
                         staged.isPhaseTwo() && staged.getHp() == staged.getHpMax()

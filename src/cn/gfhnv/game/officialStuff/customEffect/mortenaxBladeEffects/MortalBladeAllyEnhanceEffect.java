@@ -19,9 +19,14 @@ import cn.gfhnv.game.entity.LivingThing;
 public class MortalBladeAllyEnhanceEffect extends Effect {
 
     /**
-     * 增伤比例（设计：我方目标造成的伤害提高 50%）。
+     * 基础增伤比例（设计：我方目标造成的伤害提高 50%）。
      */
     public static final double ENHANCE = 0.5;
+
+    /**
+     * 本效果实际加多少（E4 会在基础值上再 +0.5）。
+     */
+    private final double enhance;
 
     /**
      * 是否已经加过（防重复进出把数值加两遍）。
@@ -29,10 +34,18 @@ public class MortalBladeAllyEnhanceEffect extends Effect {
     private boolean isOn;
 
     public MortalBladeAllyEnhanceEffect() {
+        this(ENHANCE);
+    }
+
+    /**
+     * @param enhance 本效果提供的增伤比例（0.5 = +50%）
+     */
+    public MortalBladeAllyEnhanceEffect(double enhance) {
         super("mortenaxBladeAllyEnhance");
         this.getEffectTagsList().add(EffectTags.UNIVERSAL);
         this.getEffectTagsList().add(EffectTags.POSITIVE);
         this.setName("万淬心");
+        this.enhance = enhance;
         // 结界期间一直有效：结界的结束由倒计时/免死负责，这里不靠回合数
         this.setLastTime(Integer.MAX_VALUE);
     }
@@ -50,6 +63,7 @@ public class MortalBladeAllyEnhanceEffect extends Effect {
         this.setLastTime(other.getLastTime());
         this.setLevel(other.getLevel());
         this.setOrigin(other.getOrigin());
+        this.enhance = other.enhance;
         this.isOn = other.isOn;
     }
 
@@ -61,14 +75,14 @@ public class MortalBladeAllyEnhanceEffect extends Effect {
     @Override
     public void comeIntoEffect(LivingThing thing) {
         if (!isOn) {
-            thing.setEnhance(thing.getEnhance() + ENHANCE);
+            thing.setEnhance(thing.getEnhance() + enhance);
         }
         isOn = true;
     }
 
     @Override
     public void whenLastTimeEnd(LivingThing thing) {
-        thing.setEnhance(thing.getEnhance() - ENHANCE);
+        thing.setEnhance(thing.getEnhance() - enhance);
         isOn = false;
     }
 }
