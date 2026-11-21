@@ -102,6 +102,11 @@ public class FoundationStardeathVerdict extends Skill implements SkillCoefficien
         return false;
     }
 
+    /**
+     * 星魂 6「亘古长升，蚀火残阳」：本次攻击总伤害值转为真实伤害的比例。
+     */
+    public static final double E6_TRUE_DAMAGE_RATIO = 0.36;
+
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         List<LivingThing> e = new ArrayList<>(enemies);
@@ -117,34 +122,101 @@ public class FoundationStardeathVerdict extends Skill implements SkillCoefficien
             int scourge = Math.min(phainon.getScourge(), scourgeCostCap);//消耗的数量
             phainon.setScourge(phainon.getScourge() - scourge);
             int attackTimes = hitsPerScourge * scourge;
+            // 星魂 2：单次施放消耗【毁伤】达到上限（4 点）时，给当前回合追加一条高优先级行动：
+            // 让卡厄斯兰那「额外选一次技能」，但不额外触发效果结算（区别于完整容器的真回合）。
+            if (phainon.getEidolon() >= 2 && scourge == scourgeCostCap) {
+                cn.gfhnv.game.system.fight.TurnEntry present =
+                        cn.gfhnv.game.eventListener.FightTurnPastListener.getPresentTurn();
+                if (present != null) {
+                    present.addAct(phainon, (f, u) -> {
+                        // 这一条排在当前回合里，真正执行时战斗可能已经结束（最后一个敌人已倒）。
+                        // 回合循环要到下一圈才清尸体/判胜负，所以这里必须自己看"双方还有没有活人"。
+                        if (!cn.gfhnv.game.GameMain.isInFight()
+                                || !cn.gfhnv.game.system.fight.FightState.canTakeAction(f, u)) {
+                            return;
+                        }
+                        if (u.getController() != null) {
+                            u.getController().act(f);
+                        }
+                    }, 800);
+                }
+            }
 
+            long totalApplied = 0;
             for (int i = 1; i <= attackTimes; i++) {
                 e.removeIf(livingThing -> !livingThing.isAlive());
                 if (e.isEmpty()) {
-                    this.setAtkMagnification(0.45);
-                    return;
+                    break;
                 }
                 Collections.shuffle(e);
                 LivingThing livingThing = e.getFirst();
-                user.makeDamage(livingThing, this, DamageType.UltimateAttack);
-            }
-            if (scourge != scourgeCostCap) {
-                this.setAtkMagnification(0.45);
-                return;
+                totalApplied += appliedDamage(user, livingThing);
             }
             // 收尾那一击只在"真的消耗满了"时打；上限被配成 0 或敌人列表为空时它没有意义
             // （摊开到 0 个目标会算出无穷倍率），所以直接跳过。
-            if (e.isEmpty()) {
-                this.setAtkMagnification(0.45);
-                return;
+            if (scourge == scourgeCostCap && !e.isEmpty()) {
+                this.setAtkMagnification(finishMagnification / e.size());
+                for (LivingThing livingThing : e) {
+                    totalApplied += appliedDamage(user, livingThing);
+                }
             }
-            this.setAtkMagnification(finishMagnification / e.size());
-            for (LivingThing livingThing : e) {
-                user.makeDamage(livingThing, this, DamageType.UltimateAttack);
+            this.setAtkMagnification(0.45);
+            // 星魂 6：攻击后对生命值最高的敌方目标追加 36% 真实伤害。
+            // 放在倍率复位之后：这一击是固定值，不依赖当前技能的 atkMagnification。
+            if (phainon.getEidolon() >= 6) {
+                dealE6TrueDamage(fight, phainon, totalApplied);
             }
-
         }
         this.setAtkMagnification(0.45);
+    }
+
+    /**
+     * 打一刀并把"实际掉了多少血"算进本次施放的总伤害。
+     * <p>
+     * 用 HP 前后差而不是 {@code Damage#getCalculateDamageResult()}：星魂 6 的文案是
+     * "本次攻击总伤害值"，本项目对"实际造成"的口径就是 {@code appliedDamage}（会被生命值夹取）。
+     *
+     * @param user   施法者
+     * @param target 目标
+     * @return 实际掉血量（≥ 0）
+     */
+    private long appliedDamage(LivingThing user, LivingThing target) {
+        // makeDamage 返回这一刀的 Damage；appliedDamage 就是"实际掉血"（已夹生命值/免死/转阶段）。
+        return Math.max(0, user.makeDamage(target, this, DamageType.UltimateAttack).getAppliedDamage());
+    }
+
+    /**
+     * 星魂 6：对当前存活、生命值最高的敌方目标追加一次固定原始值的真实伤害。
+     * <p>
+     * 数值 = 本次施放总伤害 × 36%，作为<b>原始值</b>走 UNIVERSAL 公式：
+     * 免增伤/抗性，吃防御/减伤/易伤，且不暴击（与项目对真实伤害的边界一致）。
+     * 没有伤害 / 没有存活目标 / 6 魂未解锁时不做事。
+     *
+     * @param fight      当前战斗
+     * @param phainon    施法者
+     * @param totalDamage 本次施放累计的实际伤害
+     */
+    private void dealE6TrueDamage(Fight fight, Phainon phainon, long totalDamage) {
+        if (totalDamage <= 0) {
+            return;
+        }
+        LivingThing target = null;
+        for (LivingThing candidate : fight.getOpponentList(phainon)) {
+            if (candidate == null || !candidate.isAlive()) {
+                continue;
+            }
+            if (target == null || candidate.getHp() > target.getHp()) {
+                target = candidate;
+            }
+        }
+        if (target == null) {
+            return;
+        }
+        long amount = Math.round(totalDamage * E6_TRUE_DAMAGE_RATIO);
+        if (amount <= 0) {
+            return;
+        }
+        phainon.makeTrueDamage(target, this, amount, DamageType.SystemDamage);
     }
 
     @Override

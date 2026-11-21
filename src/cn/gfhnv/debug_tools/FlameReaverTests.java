@@ -409,6 +409,9 @@ public final class FlameReaverTests {
      */
     private static void testFlameReaverPhaseTwo() {
         section("盗火行者：切阶段保护（血条第一次清空时进二阶段）");
+        // 本用例的前 4 段测的是"没有当前回合"时的自测路径（当场收口）；
+        // 防止别的测试留下 presentTurn，让这里悄悄走成"排队"路径。
+        cn.gfhnv.game.eventListener.FightTurnPastListener.setPresentTurn(null);
         try {
             cn.gfhnv.game.officialStuff.customEntity.monsters.FlameReaver reaver =
                     new cn.gfhnv.game.officialStuff.customEntity.monsters.FlameReaver(125);
@@ -466,6 +469,47 @@ public final class FlameReaverTests {
             bypassed.updateSelf();
             check("绕过伤害结算的扣血（直接 setHp(0)）也被 updateSelf 兜底切阶段并回满",
                     bypassed.isPhaseTwo() && bypassed.getHp() == bypassed.getHpMax());
+
+            // ⑤ 真实回合路径：致命一击先把血打到 0，转阶段排成高优先级行动，
+            //    执行完才播报 + 回满（播报前的伤害都只是鞭尸）
+            FlameReaver staged = new FlameReaver(125);
+            staged.setHp(1);
+            LivingThing dummy = new PlayerOne(125).copy();
+            Fight stagedFight = new Fight(new ArrayList<>(List.of(staged)), new ArrayList<>(),
+                    new ArrayList<>(List.of(dummy)));
+            cn.gfhnv.game.system.fight.TurnEntry present =
+                    new cn.gfhnv.game.system.fight.TurnEntry(dummy, java.math.BigDecimal.ZERO,
+                            java.math.BigDecimal.ZERO);
+            cn.gfhnv.game.eventListener.FightTurnPastListener.setPresentTurn(present);
+            try {
+                DamageEvent stagedLethal = new DamageEvent(attacker, staged, probe);
+                stagedLethal.getDamage().setDamageAmount(9999L);
+                staged.takeDamage(stagedLethal);
+                check("① 有当前回合时：致命一击先清空血条、还没进二阶段 —— 实际 HP "
+                                + staged.getHp() + " / phase " + staged.isPhaseTwo(),
+                        staged.getHp() == 0 && !staged.isPhaseTwo());
+                var transition = present.getActQueue().stream()
+                        .filter(act -> act.priority() == 2000)
+                        .findFirst().orElse(null);
+                check("② 转阶段排成 2000 优先级行动（高于额外行动的 800）—— 实际 "
+                                + (transition == null ? "没排" : transition.priority()),
+                        transition != null && transition.actor() == staged);
+                cn.gfhnv.game.eventListener.FightTurnPastListener.runActQueue(stagedFight, present);
+                check("③ 转阶段行动执行后：先播报再回满、拿到 70% 免伤",
+                        staged.isPhaseTwo() && staged.getHp() == staged.getHpMax()
+                                && Math.abs(staged.getDamageTakenMultiplier() - 0.3) < 1e-9);
+                check("④ 战斗状态：还有活人时 canTakeAction = true",
+                        cn.gfhnv.game.system.fight.FightState.canTakeAction(stagedFight, dummy));
+                FlameReaver alreadyDead = new FlameReaver(125);
+                alreadyDead.setHp(0);
+                Fight decided = new Fight(new ArrayList<>(List.of(alreadyDead)), new ArrayList<>(),
+                        new ArrayList<>(List.of(dummy)));
+                check("⑤ 敌方全灭（还没到下一回合清尸体）时 isDecided / canTakeAction 都判断结束",
+                        cn.gfhnv.game.system.fight.FightState.isDecided(decided)
+                                && !cn.gfhnv.game.system.fight.FightState.canTakeAction(decided, dummy));
+            } finally {
+                cn.gfhnv.game.eventListener.FightTurnPastListener.setPresentTurn(null);
+            }
         } catch (Exception e) {
             check("盗火行者的切阶段逻辑不该抛异常，实际抛了：" + e, false);
             e.printStackTrace();

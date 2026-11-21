@@ -1,7 +1,9 @@
 package cn.gfhnv.debug_tools;
 
 import cn.gfhnv.game.effect.Effect;
+import cn.gfhnv.game.damage.DamageType;
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.event.DamageEvent;
 import cn.gfhnv.game.entityController.FixOrderController;
 import cn.gfhnv.game.event.EffectUpdateEvent;
 import cn.gfhnv.game.event.EventBus;
@@ -19,6 +21,7 @@ import cn.gfhnv.game.officialStuff.customEntity.summons.BrokenContainer;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.configLoadingSystem.DataKeys;
 import cn.gfhnv.game.system.configLoadingSystem.GameRules;
+import cn.gfhnv.game.system.fight.ActEntry;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.fight.TurnEntry;
 import cn.gfhnv.game.system.fight.TurnManager;
@@ -343,6 +346,62 @@ final class FightLifecycleTests {
     }
 
     /**
+     * 行动者字段（第 81 批）：条目自带执行者，不再一律用"当前回合的行动者"。
+     */
+    private static void testActEntryActor() {
+        section("行动队列：条目自带行动者");
+        try {
+            PlayerOne owner = new PlayerOne(125);
+            owner.setName("回合主角");
+            CommonInsect other = new CommonInsect(125L);
+            other.setName("别人");
+            List<String> log = new ArrayList<>();
+            TurnEntry turn = new TurnEntry(owner, BigDecimal.ONE, BigDecimal.ZERO);
+            turn.addAct((f, u) -> log.add("默认:" + u.getName()), ActEntry.PRIORITY_NORMAL);
+            turn.addAct(other, (f, u) -> log.add("显式:" + u.getName()), ActEntry.PRIORITY_FIRST);
+            Fight fight = new Fight(new ArrayList<>(List.of(other)), new ArrayList<>(),
+                    new ArrayList<>(List.of(owner)));
+            FightTurnPastListener.runActQueue(fight, turn);
+            check("① 默认行动者 = 回合行动者 —— " + log, log.contains("默认:回合主角"));
+            check("② 显式行动者优先于回合行动者 —— " + log, log.contains("显式:别人"));
+        } catch (Exception e) {
+            fail("行动者字段测试抛出异常：" + e);
+        }
+    }
+
+    /**
+     * 千冶·刃免死回血（第 81 批真 bug）：他在**别人的回合**里被打死时，
+     * 回血动作必须仍然以「千冶·刃本人」为执行者（而不是那个回合的行动者）。
+     */
+    private static void testMortenaxDeathWardForeignTurn() {
+        section("千冶·刃：别人的回合里死亡也要回血");
+        TurnEntry turnBefore = FightTurnPastListener.getPresentTurn();
+        try {
+            MortenaxBlade blade = new MortenaxBlade(125);
+            blade.setHp(1);
+            blade.setInfiniteFury(true);
+            CommonInsect killer = new CommonInsect(125L);
+            Fight fight = new Fight(new ArrayList<>(List.of(killer)), new ArrayList<>(),
+                    new ArrayList<>(List.of(blade)));
+            // 关键：当前回合属于**别人**（完整容器/盗火行者），不是千冶·刃
+            TurnEntry enemyTurn = new TurnEntry(killer, BigDecimal.ONE, BigDecimal.ZERO);
+            FightTurnPastListener.setPresentTurn(enemyTurn);
+
+            blade.modifyIncomingDamage(0,
+                    new DamageEvent(killer, blade, null, DamageType.SpecialSkill));
+            FightTurnPastListener.runActQueue(fight, enemyTurn);
+
+            check("① 免死触发后血量恢复（不再是 1）—— 实际 " + blade.getHp() + "/" + blade.getHpMax(),
+                    blade.getHp() > 1);
+            check("② 结界已解除", !blade.isInfiniteFury());
+        } catch (Exception e) {
+            fail("免死回血测试抛出异常：" + e);
+        } finally {
+            FightTurnPastListener.setPresentTurn(turnBefore);
+        }
+    }
+
+    /**
      * 跑本主题的全部用例。
      */
     static void runAll() {
@@ -356,6 +415,8 @@ final class FightLifecycleTests {
         testTurnLoopExceptionGuard();
         testSacrificeRiteCleanup();
         testThrowableLogging();
+        testActEntryActor();
+        testMortenaxDeathWardForeignTurn();
     }
 
     /**

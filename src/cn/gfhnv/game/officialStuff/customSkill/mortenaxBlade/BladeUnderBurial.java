@@ -139,7 +139,6 @@ public class BladeUnderBurial extends Skill implements IAiScoreBonus {
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         if (user instanceof MortenaxBlade blade) {
-            blade.gainEnergy(ENERGY_GAIN);
         }
         // ① 消耗生命上限 10%（不够就降到 1）—— 这是"消耗"，不走 heal
         long cost = (long) (user.getHpMax() * HP_COST_RATIO);
@@ -152,7 +151,7 @@ public class BladeUnderBurial extends Skill implements IAiScoreBonus {
         // ② 全体 72%
         List<LivingThing> targets = new ArrayList<>(enemies);
         for (LivingThing enemy : targets) {
-            user.makeDamage(enemy, this, DamageType.SpecialSkill);
+            user.makeDamage(enemy, this, DamageType.SpecialSkill, DamageType.AdditionAttack);
         }
         // ③ 额外 4 段，每段随机打一个（倍率临时改成 24% 的副本 —— 不能改自己，模板是全局共享的）
         if (targets.isEmpty()) {
@@ -162,7 +161,7 @@ public class BladeUnderBurial extends Skill implements IAiScoreBonus {
         extraHit.setHpMagnification(EXTRA_HIT_MAGNIFICATION);
         for (int i = 0; i < EXTRA_HITS; i++) {
             LivingThing victim = targets.get(RANDOM.nextInt(targets.size()));
-            user.makeDamage(victim, extraHit, DamageType.SpecialSkill);
+            user.makeDamage(victim, extraHit, DamageType.SpecialSkill, DamageType.AdditionAttack);
         }
     }
 }

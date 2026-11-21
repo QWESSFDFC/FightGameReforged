@@ -175,39 +175,45 @@ public final class DamageDisplayTests {
     }
 
     /**
-     * <b>承伤倍率允许 &gt; 1</b>（2026-10-24，用户拍板"让负数表达增伤"）：负的减伤 = 增伤。
+     * <b>易伤是独立乘区</b>（2026-11-21 第 87 批）：负的减伤来源不再和减伤混在一起连乘，
+     * 而是进 {@code getDamageVulnerabilityMultiplier() = 1 + Σ|负减伤|}。
      * <p>
-     * 为什么改：千冶·刃的【煞火缠身】要"受到的伤害 +50%"，而旧实现把倍率夹在 {@code [0,1]}、
-     * 并且在 {@code addDamageReduction} 里<b>静默丢掉</b>负数（钳制 {@code [0,1]} + 只留 {@code > 0}）
-     * —— 写 {@code -0.5} 会看起来完全没效果。
-     * <p>
-     * 验四件事：① 负数真的进了表（不再被丢掉）；② 倍率与"总减伤"按新语义算；
-     * ③ <b>下界仍是 0</b>（减伤叠满不会算出负伤害 = 治疗）；④ 行为对照：同一只木桩上
-     * 挂一个 -0.5 来源之后，同一技能打出来的伤害约 ×1.5。
+     * 验四件事：① 负数真的进了表；② 易伤倍率与减伤倍率分开算、多个易伤相加；
+     * ③ 减伤/易伤各自的上下界；④ 行为对照：同一只木桩上挂一个 -0.5 来源之后，伤害约 ×1.5。
      */
     private static void testDamageTakenIncrease() {
-        section("承伤倍率：负数 = 增伤（原来被夹在 [0,1] 且负数会被丢掉）");
+        section("易伤独立乘区：负数来源相加，不与减伤连乘");
 
         LivingThing probe = entityTemplateOf("game_official_content:commonInsect").copy();
         Object source = new Object();
         probe.addDamageReduction(source, -0.5d);
         check("增伤：负数减伤不再被丢掉（表里有一条）—— 实际 " + probe.getDamageReductions().size() + " 条",
                 probe.getDamageReductions().size() == 1);
-        check("增伤：-0.5 → 承伤倍率 1.5、总减伤 -0.5 —— 实际 " + probe.getDamageTakenMultiplier()
-                        + " / " + probe.getDamageAbsorbedPercent(),
-                Math.abs(probe.getDamageTakenMultiplier() - 1.5d) < 1e-9
-                        && Math.abs(probe.getDamageAbsorbedPercent() + 0.5d) < 1e-9);
+        check("增伤：-0.5 进独立的易伤乘区 → 1.5，减伤乘区仍是 1、总减伤 0 —— 实际 "
+                        + probe.getDamageVulnerabilityMultiplier() + " / "
+                        + probe.getDamageTakenMultiplier() + " / " + probe.getDamageAbsorbedPercent(),
+                Math.abs(probe.getDamageVulnerabilityMultiplier() - 1.5d) < 1e-9
+                        && Math.abs(probe.getDamageTakenMultiplier() - 1d) < 1e-9
+                        && Math.abs(probe.getDamageAbsorbedPercent()) < 1e-9);
 
-        probe.removeDamageReduction(source);
+        // 多个易伤来源相加，不连乘：-0.5 与 -0.3 → 1.8（连乘会是 1.95）
+        Object secondIncrease = new Object();
+        probe.addDamageReduction(secondIncrease, -0.3d);
+        check("易伤：两个来源相加（1 + 0.5 + 0.3 = 1.8，不是 1.5 × 1.3）—— 实际 "
+                        + probe.getDamageVulnerabilityMultiplier(),
+                Math.abs(probe.getDamageVulnerabilityMultiplier() - 1.8d) < 1e-9);
+        probe.clearDamageReductions();
+
         probe.addDamageReduction(source, 1.5d);
         check("下界仍然是 0：减伤写 1.5 会被夹到 1 → 承伤倍率 0（不会算出负伤害=治疗）—— 实际 "
                         + probe.getDamageTakenMultiplier(),
                 probe.getDamageTakenMultiplier() == 0d);
         probe.removeDamageReduction(source);
         probe.addDamageReduction(source, -2d);
-        check("上界：增伤写 -2 会被夹到 -1 → 最多翻倍（倍率 2）—— 实际 " + probe.getDamageTakenMultiplier(),
-                Math.abs(probe.getDamageTakenMultiplier() - 2d) < 1e-9);
-        probe.removeDamageReduction(source);
+        check("上界：易伤写 -2 会被夹到 -1 → 最多 +100%（倍率 2）—— 实际 "
+                        + probe.getDamageVulnerabilityMultiplier(),
+                Math.abs(probe.getDamageVulnerabilityMultiplier() - 2d) < 1e-9);
+        probe.clearDamageReductions();
 
         // ④ 行为对照：同一只木桩，挂 -0.5 之后同一个技能打出来的伤害约 ×1.5
         cn.gfhnv.game.officialStuff.customEntity.players.MortenaxBlade blade =
@@ -238,13 +244,13 @@ public final class DamageDisplayTests {
                 new cn.gfhnv.game.officialStuff.customEffect.mortenaxBladeEffects.BalefireBindEffect(2);
         bind.comeIntoEffect(bindTarget);
         check("煞火缠身：防御 -0.3 与 受伤 ×1.5 同时生效 —— 实际 defenceLoss=" + bindTarget.getDefenceLoss()
-                        + "、倍率 " + bindTarget.getDamageTakenMultiplier(),
+                        + "、易伤 ×" + bindTarget.getDamageVulnerabilityMultiplier(),
                 Math.abs(bindTarget.getDefenceLoss() - 0.3d) < 1e-9
-                        && Math.abs(bindTarget.getDamageTakenMultiplier() - 1.5d) < 1e-9);
+                        && Math.abs(bindTarget.getDamageVulnerabilityMultiplier() - 1.5d) < 1e-9);
         bind.whenLastTimeEnd(bindTarget);
-        check("煞火缠身：到期两个都撤回（倍率回 1、防御削减回 0）—— 实际 "
-                        + bindTarget.getDamageTakenMultiplier() + " / " + bindTarget.getDefenceLoss(),
-                Math.abs(bindTarget.getDamageTakenMultiplier() - 1d) < 1e-9
+        check("煞火缠身：到期两个都撤回（易伤回 1、防御削减回 0）—— 实际 "
+                        + bindTarget.getDamageVulnerabilityMultiplier() + " / " + bindTarget.getDefenceLoss(),
+                Math.abs(bindTarget.getDamageVulnerabilityMultiplier() - 1d) < 1e-9
                         && Math.abs(bindTarget.getDefenceLoss()) < 1e-9);
     }
 

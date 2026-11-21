@@ -25,7 +25,8 @@ import java.util.Set;
  * <p>
  * <b>伤害类型</b>可以有多个（{@link #getDamageTypes()}），由技能在造成伤害时显式传入。
  * <b>伤害元素</b>是 {@link ElementSort#UNIVERSAL} 时表示<b>真实伤害</b>：
- * 免属性抗性、免单元素增伤、免全局增伤，但<b>防御与减伤照算</b>（见 {@link DamageCalculate}）。
+ * 免属性抗性、免单元素增伤、免全局增伤，但<b>防御、减伤、易伤照算</b>，并且<b>不能暴击</b>
+ * （见 {@link DamageCalculate}）。
  *
  * @author AI（DeepSeek）生成；设计稿作者：仓库作者
  */
@@ -102,6 +103,34 @@ public class Damage {
         this.damageTypes = typesOf(damageTypes);
         DamageCalculate.Result result = DamageCalculate.resolve(this, skill);
         this.rawDamageAmount = result.rawDamageAmount();
+        this.calculateDamageResult = result.calculateDamageResult();
+    }
+
+    /**
+     * <b>固定原始值伤害</b>：原始值由调用方给定（例如星魂 6 的 36%、DOT 的“已损失生命 × 比例”），
+     * 之后<b>照常走完整条伤害公式</b>。
+     * <p>
+     * 与“固定结果值”不同：防御、抗性、增伤、易伤、减伤都还会参与计算。
+     * 真实伤害（{@link ElementSort#UNIVERSAL}）照例免增伤/抗性、吃防御/减伤，并且<b>不暴击</b>；
+     * DOT 类型同样不暴击。
+     *
+     * @param sourceEntity     伤害来源实体
+     * @param targetEntity     受害实体
+     * @param damageSource     伤害原因（技能 / 效果 / 系统；可为 {@code null}）
+     * @param elementSort      伤害元素
+     * @param rawDamageAmount  固定原始值（负值按 0 算）
+     * @param damageTypes      伤害类型
+     */
+    public Damage(LivingThing sourceEntity, LivingThing targetEntity, DamageSource damageSource,
+                  ElementSort elementSort, double rawDamageAmount, DamageType... damageTypes) {
+        this.sourceEntity = sourceEntity;
+        this.targetEntity = targetEntity;
+        this.elementSort = elementSort == null ? ElementSort.UNIVERSAL : elementSort;
+        this.damageSource = damageSource;
+        this.damageTypes = typesOf(damageTypes);
+        double raw = Math.max(0, rawDamageAmount);
+        DamageCalculate.Result result = DamageCalculate.resolve(this, damageSource instanceof Skill skill ? skill : null, raw);
+        this.rawDamageAmount = raw;
         this.calculateDamageResult = result.calculateDamageResult();
     }
 

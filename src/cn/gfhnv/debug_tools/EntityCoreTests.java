@@ -833,9 +833,12 @@ public final class EntityCoreTests {
                     Math.abs(monster.getCriticalRate()) < 1e-9);
             LivingThing withEnhance = new PlayerOne(125);
             withEnhance.addPropertyEnhance(PropertyEnhanceType.CRITICAL_RATE, 0.1, 0, "自测-暴击加成");
-            // 百分比加成是"乘基础值"（base × (1 + percent)），不是加 0.1 个绝对百分点 —— 与全部属性的口径一致
-            check("③ 暴击率百分比加成乘在 5% 上（0.05 × 1.1）—— 实际 " + withEnhance.getCriticalRate(),
-                    Math.abs(withEnhance.getCriticalRate() - 0.055) < 1e-9);
+            // 暴击率/暴伤的“+X%”按绝对值叠加（HSR 口径）：5% + 10% = 15%。
+            check("③ 暴击率百分比加成是绝对值（0.05 + 0.1）—— 实际 " + withEnhance.getCriticalRate(),
+                    Math.abs(withEnhance.getCriticalRate() - 0.15) < 1e-9);
+            withEnhance.addPropertyEnhance(PropertyEnhanceType.CRITICAL_DAMAGE, 0.5, 0, "自测-暴伤加成");
+            check("④ 暴伤百分比加成也是绝对值（0.5 + 0.5）—— 实际 " + withEnhance.getCriticalDamage(),
+                    Math.abs(withEnhance.getCriticalDamage() - 1.0) < 1e-9);
         } catch (Exception e) {
             fail("玩家暴击率测试抛出异常：" + e);
         }

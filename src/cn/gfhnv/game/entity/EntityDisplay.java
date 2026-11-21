@@ -1,5 +1,6 @@
 package cn.gfhnv.game.entity;
 
+import cn.gfhnv.game.damage.DamageSource;
 import cn.gfhnv.game.skill.Skill;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.utils.ConsoleColor;
@@ -111,6 +112,46 @@ public final class EntityDisplay {
                 "→ HP " + attacked.getHp() + "/" + attacked.getHpMax()));
         if (skill != null && skill.getName() != null) {
             line.append("  ").append(ConsoleColor.cyan("【" + skill.getName() + "】"));
+        }
+        return line.toString();
+    }
+
+    /**
+     * 打印一条伤害行（来源是 {@link DamageSource}，用于 DOT / 效果伤害）。
+     *
+     * @param attacker 攻击者
+     * @param attacked 被打的目标
+     * @param source   伤害来源；可为 {@code null}
+     * @param damage   应该造成的伤害
+     * @param critical 这一击有没有触发暴击
+     */
+    public static void printAttackLine(LivingThing attacker, LivingThing attacked, DamageSource source,
+                                       long damage, boolean critical) {
+        System.out.println(attackLine(attacker, attacked, source, damage, critical));
+    }
+
+    /**
+     * 拼一行攻击日志（来源是 {@link DamageSource}）。
+     *
+     * @param attacker 攻击者
+     * @param attacked 被打的目标
+     * @param source   伤害来源；可为 {@code null}
+     * @param damage   应该造成的伤害
+     * @param critical 这一击有没有触发暴击
+     * @return 整行文本
+     */
+    public static String attackLine(LivingThing attacker, LivingThing attacked, DamageSource source,
+                                    long damage, boolean critical) {
+        StringBuilder line = new StringBuilder(nameWithUuidAndSide(attacker)).append("攻击了")
+                .append(nameWithUuidAndSide(attacked));
+        line.append("  ").append(ConsoleColor.red("-" + damage));
+        if (critical) {
+            line.append(ConsoleColor.yellow("（暴击）"));
+        }
+        line.append("  ").append(ConsoleColor.dim(
+                "→ HP " + attacked.getHp() + "/" + attacked.getHpMax()));
+        if (source != null && source.sourceName() != null) {
+            line.append("  ").append(ConsoleColor.cyan("【" + source.sourceName() + "】"));
         }
         return line.toString();
     }

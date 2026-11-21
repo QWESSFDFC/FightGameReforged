@@ -30,7 +30,9 @@ import java.util.List;
  * 会和本体的回合混在一条轴上（排序 / 延后 / {@code getNextTurnOf} 全污染），
  * 详见 {@code project_analyses/current/MORTENAX-BLADE-2026-10.md} §三.1。
  * <p>
- * <b>"敌人受伤 +50%" 这一条今天没做</b>（`getDamageTakenMultiplier` 夹在 `[0,1]`，见分析文档 §三.3）。
+ * <b>"敌人受伤 +50%" 由 {@code BalefireBindEffect} 以负数承伤来源（易伤乘区）实现</b>；
+ * 减伤与易伤已拆成两个独立乘区，见 {@code LivingThing#getDamageTakenMultiplier()} /
+ * {@code getDamageVulnerabilityMultiplier()}。
  *
  * @author AI（DeepSeek）生成；设计稿作者：仓库作者
  */
@@ -130,6 +132,14 @@ public class FornaxExCorpore extends Skill implements IAiScoreBonus {
      * @param user    使用者
      * @param targets 目标（忽略）
      */
+    /**
+     * 终结技伤害类型（回能按类型区分：终结技不拿战技的 +30）。
+     */
+    @Override
+    public java.util.Set<cn.gfhnv.game.damage.DamageType> getDamageTypes() {
+        return java.util.Set.of(cn.gfhnv.game.damage.DamageType.UltimateAttack);
+    }
+
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> targets) {
         ignite(fight, user);

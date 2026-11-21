@@ -646,7 +646,7 @@ FightGameReforged/
 | `FixOrderController` | **现在已接上线**：盗火行者与残破容器按预设顺序出招（开了 `setSkipUnusable(true)`，用不了的招顺延）；复制构造器也能识别它（`LivingThing` 的控制器重建表），不会再降级成随机控制器 |
 | `system/useItemSystem/` | 空包；实际的物品使用逻辑写在 `PlayerController.useItem()` 里，`UniversalController.useItem()` 是空方法 |
 | 物理系统（`system/physics/`） | 数据结构齐全，但 `PhysicsStateUpdateEvent` 全项目从未被 post，`PhysicsEventListener` 因此从不触发 |
-| 暴击系统 | ~~永远不会暴击~~ ✅ **2026-11-15 起玩家角色基础暴击率 5% + 基础暴伤 50%**（怪物 / 召唤物仍是 0）；暴击时攻击行会带「（暴击）」标记；百分比加成按 `base × (1 + percent)` 叠 |
+| 暴击系统 | ~~永远不会暴击~~ ✅ **2026-11-15 起玩家角色基础暴击率 5% + 基础暴伤 50%**（怪物 / 召唤物仍是 0）；暴击时攻击行会带「（暴击）」标记；暴击率/暴伤的百分比加成按**绝对值**叠加（2026-11-21：5% + 20% = 25%） |
 
 ### 顺手发现的小毛病（不影响玩，但改的时候别踩）
 

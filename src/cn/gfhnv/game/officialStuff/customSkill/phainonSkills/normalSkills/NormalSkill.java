@@ -41,7 +41,7 @@ public class NormalSkill extends Skill {
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         if (user instanceof Phainon) {
-            ((Phainon) user).setCoreflame(Math.min(((Phainon) user).getCoreflameMax(), ((Phainon) user).getCoreflame() + 2));
+            ((Phainon) user).addCoreflame(2);
             System.out.println(user.getName() + "获得了两个火种");
         }
         for (LivingThing livingThing : enemies) {

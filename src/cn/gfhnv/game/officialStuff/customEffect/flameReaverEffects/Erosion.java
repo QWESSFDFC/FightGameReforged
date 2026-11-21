@@ -1,27 +1,30 @@
 package cn.gfhnv.game.officialStuff.customEffect.flameReaverEffects;
 
+import cn.gfhnv.game.damage.DamageSource;
+import cn.gfhnv.game.damage.DamageType;
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.effect.EffectTags;
 import cn.gfhnv.game.entity.LivingThing;
-import cn.gfhnv.game.utils.ConsoleColor;
+import cn.gfhnv.game.system.ElementSort;
+import cn.gfhnv.game.world.World;
 
 /**
  * 【侵蚀】—— 盗火行者的专属负面效果。
  * <p>
  * 官方定义：被【将尽的命数】击中的目标，<b>降低生命值的一部分转化为【侵蚀】</b>。
- * 本项目把它落成"每回合按<b>已损失生命值</b>的比例掉血"的持续伤害：
+ * 本项目把它落成"每回合按<b>已损失生命值</b>的比例造成火属性 DOT"：
  * 血越少掉得越多，与官方"损失的生命值转化而来"的语义一致。
  * <p>
- * 掉血逻辑写在 {@link #comeIntoEffect(LivingThing)} 里：该方法由
- * {@code EffectEventListener} 在<b>持有者自己的回合结束时</b>调用一次，
- * 并把 {@code lastTime} 递减。
+ * DOT 走完整条伤害公式（可以吃增伤/防御/抗性/易伤/减伤），但<b>不能暴击</b>；
+ * 原始值 = 已损失生命 × {@link #rate}。来源实体优先取 {@code origin} 对应的实体
+ * （盗火行者 / 容器的主人），找不到时退回目标自己（保证自测与无来源场景也能算）。
  * <p>
  * 这是<b>角色专属</b>效果（不标 {@link EffectTags#UNIVERSAL}），
  * 所以 {@code /effect} 命令不会把它施加给任意生物。
  *
  * @author AI（DeepSeek）生成
  */
-public class Erosion extends Effect {
+public class Erosion extends Effect implements DamageSource {
 
     /**
      * 每回合按"已损失生命值"扣除的比例。
@@ -59,6 +62,9 @@ public class Erosion extends Effect {
         super(other.getID());
         this.setLastTime(other.getLastTime());
         this.setLevel(other.getLevel());
+        // origin 是 DOT 伤害来源（盗火行者 / 容器主人）的查找键，副本必须一起带走
+        this.setOrigin(other.getOrigin());
+        this.setName(other.getName());
         this.rate = other.rate;
         this.setNegative(true);
     }
@@ -141,8 +147,8 @@ public class Erosion extends Effect {
     /**
      * 每回合结算一次侵蚀伤害。
      * <p>
-     * 伤害来源是"自身已损失的生命值"，所以不会直接把人打死：
-     * 最少保留 1 点生命（否则侵蚀会变成无视一切减伤的处决）。
+     * 伤害来源是"自身已损失的生命值"，按火属性 DOT 走伤害公式：
+     * 吃增伤/防御/抗性/易伤/减伤，但不能暴击。DOT 可以打死目标（不再强制留 1 点）。
      *
      * @param thing 持有侵蚀的生物
      */
@@ -155,19 +161,41 @@ public class Erosion extends Effect {
         if (lost <= 0) {
             return;
         }
-        long damage = (long) (lost * rate);
-        if (damage <= 0) {
+        double raw = lost * rate;
+        if (raw <= 0) {
             return;
         }
-        long oldHp = thing.getHp();
-        long newHp = Math.max(1, oldHp - damage);
-        thing.setHp(newHp);
-        // 与普通攻击行同一套格式：`【侵蚀】<目标>#短标识（阵营）  -实际掉血  → HP 当前/上限`
-        // 掉血要按"实际值"打（被"至少留 1 点"夹住时，想扣的和真扣的不一样）。
-        // 短标识与阵营都照回合头（LivingThing#getNameWithUuidAndSide）：侵蚀会同时挂在多只同名容器上，
-        // 光靠阵营分不出是哪一只在掉血。
-        System.out.println(ConsoleColor.magenta("【侵蚀】") + thing.getNameWithUuidAndSide() + "  "
-                + ConsoleColor.red("-" + (oldHp - newHp)) + "  "
-                + ConsoleColor.dim("→ HP " + thing.getHp() + "/" + thing.getHpMax()));
+        LivingThing applier = applierOf(thing);
+        applier.makeDotDamage(thing, this, ElementSort.FIRE, raw, DamageType.DOT);
+    }
+
+    /**
+     * 找【侵蚀】的来源实体：先在本场战斗的全体实体里按 UUID 找（战斗副本不在
+     * {@code World.things} 里），再退回运行时对象列表；都找不到时用持有者自己兜底
+     * （自测 / 无来源场景仍能算出伤害）。
+     *
+     * @param target 持有者
+     * @return 伤害来源实体
+     */
+    private LivingThing applierOf(LivingThing target) {
+        String origin = getOrigin();
+        if (origin == null || origin.isEmpty() || "null".equals(origin)) {
+            return target;
+        }
+        cn.gfhnv.game.system.fight.Fight fight = target.getParticipateFight();
+        if (fight != null) {
+            for (LivingThing entity : fight.getAllEntities()) {
+                if (entity != null && origin.equals(entity.getUUID())) {
+                    return entity;
+                }
+            }
+        }
+        cn.gfhnv.game.Thing thing = World.getAimedThing(origin);
+        return thing instanceof LivingThing living ? living : target;
+    }
+
+    @Override
+    public String sourceName() {
+        return "侵蚀";
     }
 }

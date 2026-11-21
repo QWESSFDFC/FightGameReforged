@@ -25,6 +25,10 @@ public class CalamitySoulscorchEdict extends Skill implements SkillCoefficientTu
      */
     private static final String COEFF_SOULSCORCH_GAIN = "soulscorchGain";
     /**
+     * 星魂 4「多少泰坦面目模糊」：施放时<b>额外</b>获得的【弑魂之炽】层数。
+     */
+    public static final int E4_EXTRA_SOULSCORCH = 4;
+    /**
      * 具名系数：施放时按来源键挂上的减伤比例（乘算叠加）。
      */
     private static final String COEFF_ABSORB_DAMAGE_REDUCTION = "absorbDamageReduction";
@@ -85,12 +89,18 @@ public class CalamitySoulscorchEdict extends Skill implements SkillCoefficientTu
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         if (user instanceof Phainon) {
-            ((Phainon) user).setScourge(((Phainon) user).getScourge() + enemies.size());
-            ((Phainon) user).setSoulscorch(((Phainon) user).getSoulscorch() + soulscorchGain);
-            if (!((Phainon) user).isAbsorbDamage())
+            Phainon phainon = (Phainon) user;
+            int gain = soulscorchGain;
+            // 星魂 4：在基础层数之外额外 +4（不是把基础 1 层改成 4 层）
+            if (phainon.getEidolon() >= 4) {
+                gain += E4_EXTRA_SOULSCORCH;
+            }
+            phainon.setScourge(phainon.getScourge() + enemies.size());
+            phainon.setSoulscorch(phainon.getSoulscorch() + gain);
+            if (!phainon.isAbsorbDamage())
                 // 按来源键加一份减伤：乘算叠加，且同一来源重复触发不会翻倍
                 user.addDamageReduction(Phainon.SOULSCORCH_DAMAGE_REDUCTION, absorbDamageReduction);
-            ((Phainon) user).setAbsorbDamage(true);
+            phainon.setAbsorbDamage(true);
 
         }
         willAct = new ArrayList<>(enemies);

@@ -599,12 +599,12 @@ public final class SkillDataTests {
         java.util.Map<String, Double> counterDefaults =
                 new cn.gfhnv.game.officialStuff.customSkill.phainonSkills.awakenSkills.Counterattack()
                         .coefficientValues();
-        check("具名系数：灾厄-弑魂焚诏的反击 4 个出厂值（0.2 / 0.3 / 0.2 / 6）—— " + counterDefaults,
+        check("具名系数：灾厄-弑魂焚诏的反击 4 个出厂值（0.2 / 0.3 / 0.2 / 4）—— " + counterDefaults,
                 counterDefaults.size() == 4
                         && counterDefaults.get("healRatio") == 0.2
                         && counterDefaults.get("extraHitMagnification") == 0.3
                         && counterDefaults.get("magnificationPerStack") == 0.2
-                        && counterDefaults.get("extraHits") == 6.0);
+                        && counterDefaults.get("extraHits") == 4.0);
 
         java.util.Map<String, Double> awakenDefaults =
                 new cn.gfhnv.game.officialStuff.customSkill.phainonSkills.awakenSkills.AwakenCommonAttack()
@@ -662,6 +662,8 @@ public final class SkillDataTests {
         cn.gfhnv.game.officialStuff.customEntity.players.Phainon phainon =
                 new cn.gfhnv.game.officialStuff.customEntity.players.Phainon(125);
         phainon.setCriticalRate(0);
+        check("白厄 /data 不显示 skills 备份表（它不是当前装备的技能，也不是配置项）",
+                cn.gfhnv.game.data.DataBridge.toCompound(phainon).get("skills") == null);
         cn.gfhnv.game.officialStuff.customSkill.phainonSkills.awakenSkills.FoundationStardeathVerdict
                 oneHit = new cn.gfhnv.game.officialStuff.customSkill.phainonSkills.awakenSkills
                 .FoundationStardeathVerdict();

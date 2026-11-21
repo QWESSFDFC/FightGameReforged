@@ -1,5 +1,6 @@
 package cn.gfhnv.game.system.fight;
 
+import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.interfaces.ISpecialAction;
 
 /**
@@ -16,12 +17,32 @@ import cn.gfhnv.game.interfaces.ISpecialAction;
  * <b>默认优先级</b>保持原来"开场 > 正式行动 > 收尾"的三段顺序（见下面的常量），
  * 所以这次改造对现有机制的<b>顺序零变化</b>；需要插队的技能/效果用 {@code addAct(action, priority)} 自己排。
  *
+ * <p>
+ * <b>行动者（2026-11-21 第 81 批，作者要求）</b>：每条条目都必须能回答"这条动作是<b>谁</b>做的"。
+ * 以前执行时统一传 {@code TurnEntry#getLivingThing()}（当前回合的行动者）—— 对于"某人的免死/追打
+ * 排在别人回合的收尾队列里"这类情况是错的：动作会被当成别人的回合行动执行。
+ * 典型 bug：千冶·刃在【无量忿怒】期间被别人的回合打死，免死回血排进那个回合的收尾，
+ * 执行者却是对方 → {@code user instanceof MortenaxBlade} 不成立 → 血量停在 1。
+ * 现在条目自带 {@link #actor()}，执行时用它；{@code null} 才回退到回合行动者（兼容旧条目）。
+ *
  * @param action   要做的事
  * @param priority 优先级（越大越先执行；同优先级按入队顺序）
  * @param label    日志/排错用的可读标识（可为 {@code null}）
+ * @param actor    执行这条动作的实体（{@code null} = 回退到 {@code TurnEntry#getLivingThing()}）
  * @author AI（DeepSeek）生成；设计稿作者：仓库作者
  */
-public record ActEntry(ISpecialAction action, int priority, String label) {
+public record ActEntry(ISpecialAction action, int priority, String label, LivingThing actor) {
+
+    /**
+     * 兼容旧调用方的三参构造（行动者为 {@code null}，执行时回退到回合行动者）。
+     *
+     * @param action   要做的事
+     * @param priority 优先级
+     * @param label    可读标识
+     */
+    public ActEntry(ISpecialAction action, int priority, String label) {
+        this(action, priority, label, null);
+    }
 
     /**
      * 开场动作的优先级（原来的 {@code firstExecuteList}）。
@@ -51,9 +72,18 @@ public record ActEntry(ISpecialAction action, int priority, String label) {
 
     /**
      * @param action 要做的事
-     * @return 一条"正式行动"优先级的条目
+     * @return 一条"正式行动"优先级的条目（行动者为 {@code null}，执行时回退到回合行动者）
      */
     public static ActEntry of(ISpecialAction action) {
-        return new ActEntry(action, PRIORITY_NORMAL, null);
+        return new ActEntry(action, PRIORITY_NORMAL, null, null);
+    }
+
+    /**
+     * @param actor  执行这条动作的实体
+     * @param action 要做的事
+     * @return 一条"正式行动"优先级的条目，行动者已指定
+     */
+    public static ActEntry of(LivingThing actor, ISpecialAction action) {
+        return new ActEntry(action, PRIORITY_NORMAL, null, actor);
     }
 }

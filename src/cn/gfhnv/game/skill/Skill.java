@@ -335,6 +335,7 @@ public class Skill implements DamageSource {
                 }
             }
             this.applyCooldownAfterUse();
+            this.grantEnergyAfterUse(user);
             return true;
         }
         return false;
@@ -382,6 +383,7 @@ public class Skill implements DamageSource {
                 }
             }
             this.applyCooldownAfterUse();
+            this.grantEnergyAfterUse(user);
             return true;
         }
         return false;
@@ -399,6 +401,22 @@ public class Skill implements DamageSource {
      */
     public java.util.Set<cn.gfhnv.game.damage.DamageType> getDamageTypes() {
         return java.util.Set.of(cn.gfhnv.game.damage.DamageType.SpecialSkill);
+    }
+
+    /**
+     * 技能释放后的回能（HSRActor：普攻 +20、战技 +30；其他类型不回）。
+     *
+     * @param user 施法者
+     */
+    private void grantEnergyAfterUse(LivingThing user) {
+        if (!(user instanceof cn.gfhnv.game.entity.HSRActor actor)) {
+            return;
+        }
+        if (getDamageTypes().contains(cn.gfhnv.game.damage.DamageType.CommonAttack)) {
+            actor.gainEnergyOnCommonAttack();
+        } else if (getDamageTypes().contains(cn.gfhnv.game.damage.DamageType.SpecialSkill)) {
+            actor.gainEnergyOnSkill();
+        }
     }
 
     /**

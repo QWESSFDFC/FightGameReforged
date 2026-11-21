@@ -24,7 +24,7 @@
 ## 零、TL;DR
 
 **一句话**：引擎底座这半年完成了三件"结构性升级"（属性/效果容器化、伤害管线重做、回合行动队列），
-工程纪律（自测 1,164 条、文档分层、静态检查、链接检查）已经成型；但**"能跑通"与"跑不坏"之间还有两道硬缺口**：
+工程纪律（自测 1,185 条、文档分层、静态检查、链接检查）已经成型；但**"能跑通"与"跑不坏"之间还有两道硬缺口**：
 
 1. ~~**整场战斗跑在 `EventBus.post(FightStartEvent)` 的派发栈里，而回合循环没有 try/catch**~~ ✅ **第 78 批已修** ——
    任何动作抛异常，EventBus 记一行日志后吞掉，`fightInProgress`/时间轴/监听器全都不复原（玩家侧表现为"卡住"）；
@@ -36,7 +36,7 @@
 | 范围 | 数量 | 结论 |
 |---|---|---|
 | src | **285 文件 / 55,903 行**（2026-09 基准：200 / 29,398） | 规模约 **1.9 倍**；其中 `debug_tools` 占 12,576 行（22.5%） |
-| 自测 | **23 个主题类 / 1,164 条断言 / 0 失败**（2026-11-15 实跑） | 覆盖厚；有 3 类"假绿"风险（见 §四 P2） |
+| 自测 | **23 个主题类 / 1,185 条断言 / 0 失败**（2026-11-15 实跑） | 覆盖厚；有 3 类"假绿"风险（见 §四 P2） |
 | 事件 | **24 个事件类 + 1 个官方事件** / **35 个发布点** / 11 个生产监听方法 | 12 个新事件只有发布者、无监听器（按设计） |
 | 内容 | 10 个官方实体 / 16 个效果 / 9 件物品 / 10 条命令 | 盗火行者机制链最完整；千冶·刃有一处断点 |
 | 文档 | `notes_for_llm` 11 份 5,462 行；`project_analyses` 20 份 12,393 行 | 链接 62 + 路径 295，**broken 0**；但"现状数字"散落 5 处互相打架 |
@@ -94,7 +94,7 @@
 1. **EventBus 是"可验收"的基础设施**：可赋值派发、注册去重、派发中注销、异常隔离，每条都有断言，且用例开头记 `handlerCount()` 基线、结尾要求回到同值（`EventBusTests:33/108-110`）。【已复核：`EventBus:307-327/406-418`】
 2. **回合循环不随回合数加深栈**：从"递归 post"改成 `continue turnLoop`，行动队列用"快照 + 清空"，效果 tick 遍历快照 —— 把两类 `ConcurrentModificationException` 从设计上堵死（`FightTurnPastListener:56-63,100-110,336-337`）。【已复核】
 3. **配置面单一事实源**：`EntityKeySpecs` 一张表同时驱动默认值写出、补丁应用、对外元数据；未知键**带理由点名**而不是静默跳过（`EntityDataPatcher:267-314`）；参考副本 `EntityData.default.json` 有 `_note` 与"空壳才重写"契约。
-4. **自测纪律**：23 个主题、1,164 条断言、0 失败；暴击引入随机后，专门加了 `setCriticalEnabledForSelfTest(false)` 让"比较两次伤害"的断言可复现 —— 这是踩到痛处后做的正确决定（`DamageCalculate`，第 73 批）。
+4. **自测纪律**：23 个主题、1,185 条断言、0 失败；暴击引入随机后，专门加了 `setCriticalEnabledForSelfTest(false)` 让"比较两次伤害"的断言可复现 —— 这是踩到痛处后做的正确决定（`DamageCalculate`，第 73 批）。
 5. **文档分层真的在运行**：`rules/pitfalls/workflow/subsystems/state` + `project_analyses/{guides,current,archive}`，archive 有统一过期横幅，`check-doc-links.py` 实测 **broken 0**。
 6. **安全边界写得诚实**：README 明确"模组 = 同 JVM 同权限，可联网/`System.exit`"，与 `ModLoader` 的实现一致，不假装有沙箱。
 
@@ -240,7 +240,7 @@ FightEndEventListener → whenFightEnds 全员 → 注销两个监听器 → 奖
 | 项 | 2026-09-26 | 2026-11-15 | 变化 |
 |---|---|---|---|
 | src 文件 / 行数 | 200 / 29,398 | **285 / 55,903** | +42.5% / +90% |
-| 自测断言 | 未记录（当时无运行时基线） | **1,164** | 新增量化基线 |
+| 自测断言 | 未记录（当时无运行时基线） | **1,185** | 新增量化基线 |
 | 事件 | 未系统统计 | 24 + 1，35 个发布点 | 新增 12 个扩展事件 |
 | 配置 | `GameRules` 含大量 BOSS 旋钮 | **8 键** + `EntityData.classState` | 实体数值彻底搬家 |
 | 单类最大 | `LivingThing` 1,843 行（旧文档说法） | 2,180 行 | 组件化后**没变小**（符合预期） |
@@ -297,7 +297,7 @@ FightEndEventListener → whenFightEnds 全员 → 注销两个监听器 → 奖
 - `config/data/<分组>.json`：模组配置，首次运行会生成默认文件（与 README 旧说法相反，见 P2-11）。
 
 ### 8.3 自测基线（2026-11-15 08:10）
-- 通过 **1,164** 条 / 失败 **0**（第 76 批 +10 条守卫）；`CHECK OK`；干净目录全量编译通过；`mods/` 4 个手工编译通过；
+- 通过 **1,185** 条 / 失败 **0**（第 76 批 +10 条守卫）；`CHECK OK`；干净目录全量编译通过；`mods/` 4 个手工编译通过；
 - `check-doc-links.py`：**62 链接 + 295 根路径 / broken 0**；
 - 注意：该数字是**本机**基线（含 `mods/*/bin` 产物；干净检出会少 3 条，见 P2-4）。
 
@@ -363,3 +363,155 @@ FightEndEventListener → whenFightEnds 全员 → 注销两个监听器 → 奖
 
 **动机**：第 79 批那个 UOE 没有 message，旧日志只有一行类名，无法定位；现在日志里有完整调用链与行号。
 守卫：`FightLifecycleTests#testThrowableLogging`（堆栈文本 + 真实落盘 `logs/latest.log`）。
+
+---
+
+## 十三、2026-11-21（第二周）第 81 批：行动条目自带行动者
+
+**作者反馈的 bug**：千冶·刃在【无量忿怒】期间、被**别人的回合**打死时血量不回复（停在 1）。
+
+**根因**：`ActEntry` 只有"动作/优先级/标签"，执行时 `runActQueue` 一律传 `turn.getLivingThing()`；
+而 `MortenaxBlade#scheduleDeathWardHeal` 把回血动作排在"当前回合"（敌人的回合）里，
+lambda 用 `user instanceof MortenaxBlade` 取自己 → 行动者是敌人 → 静默跳过。
+
+**修复**：`ActEntry` 增加 `actor` 字段；`TurnEntry.addAct(actor, ...)` 显式指定；
+`runActQueue` 用 `entry.actor()`（`null` 才回退回合行动者）；千冶·刃的免死回血/因果尽偿、
+白厄的最后一击都改成显式行动者。旧调用（`addAct(action, priority)`、`getLastExecuteList().add(...)`）行为不变。
+
+**守卫**：`FightLifecycleTests#testActEntryActor`、`#testMortenaxDeathWardForeignTurn`。
+
+---
+
+## 十四、2026-11-21（第二周）第 82 批：内容机制补全
+
+1. **白厄【灾厄·弑魂焚诏的反击】按游戏原文重做**：主刀打敌方全体 + 额外 4 段随机单体；
+   每层【弑魂之炽】提高"原倍率 20%"；伤害类型 = 战技 + 追加攻击；结算后清层/清减伤/清名单；
+   提前退出变身统一 `Phainon#clearSoulscorchState()`（反击不释放、减伤清除）；倍率沿用旧具名系数。
+2. **千冶·刃「刃下归葬」**：伤害类型改为 `SpecialSkill + AdditionAttack`（原文"额外战技"）。
+3. **千冶·刃二魂**：新增通用 `IAdditionAttackBonus` 光环接口 + `getTeamAdditionAttackDamageBonus()`；
+   `DamageCalculate` 对追加攻击 ×(1+75%)；有光环时我方终结技伤害补 `AdditionAttack` 类型；充能上限 7。
+
+守卫见 `CombatMechanicsTests`；说明：旧 `Counterattack` 还保留回血（原文没有，作者要求倍率沿用旧代码，故保留为可配项）。
+
+---
+
+## 十五、2026-11-21（第二周）第 83 批：HSRActor 与白厄星魂
+
+- 新增 `entity/HSRActor extends Player`（星魂 `eidolon` + 能量 `energy/energyMax/energyOverflowMax`，带钩子）；
+  千冶·刃与白厄改为继承；白厄不使用自带能量（继续火种）。
+- 白厄星魂 1：额外回合基础速度继承 200% + 每击杀 1 个敌方目标 +1.5%（上限 +84%）；
+  终结技时挂暴击伤害 +50%（3 回合）。
+- 白厄星魂 2：+20% 穿透（项目无物理元素，按全元素实现）；【支柱·死星天裁】消耗满 4 点【毁伤】时，
+  给当前回合追加一条 800 优先级 ActionEntry（额外选一次技能、不额外结算效果；区别于容器真回合）。
+- 未单独断言：击杀计数累积、暴伤挂载、死星天裁追加行动（代码已接，待补）。
+
+---
+
+## 十六、2026-11-21（第二周）第 85 批：溢出能量效果化 + 白厄星魂 4/6
+
+1. **⑥ 千冶·刃的溢出能量改由效果记录**：新增 `effect/EnergyOverflowEffect`
+   （`id=energyOverflow`、`INFINITE`、等级 = 溢出点数、显示名「能量溢出」）；
+   `HSRActor.energy` 只存正常上限以内的部分，溢出由效果记录，`getEnergy()` 返回两者之和，
+   `setEnergy` 自动挂/更新/摘效果，复制构造器重建自己的效果副本（避免浅拷贝串体）。
+   `energyOverflowMax` 仍是可配上限（80），`/data` 的 `energy` 仍写总量；
+   千冶·刃删掉重复的能量 getter/setter 覆盖，回能/付终结技/保底统一走基类总量。
+2. **白厄星魂 4「多少泰坦面目模糊」**：`CalamitySoulscorchEdict` 4 魂起在基础 1 层上额外 +4 层
+   （共 5 层，`E4_EXTRA_SOULSCORCH`）。
+3. **白厄星魂 6「亘古长升，蚀火残阳」**：
+   - `Phainon#setCoreflame` 在 6 魂时不再夹上限；`addCoreflame` 统一所有增减火种调用点；
+     `whenFightStart` 在原有 +1 之外再 +6（15+1+6=22）；
+   - 【支柱·死星天裁】累计本次施放**实际掉血**，全部结算完后对当前存活、生命值最高的敌方目标
+     追加 **36% 固定真实伤害**（`Damage`/`DamageEvent` 固定值构造器 +
+     `LivingThing#makeFixedDamage/makeTrueDamage`；不再套防御/抗性/增伤，减伤照算，
+     类型 `SystemDamage`）。
+   - 顺带修配置顺序：`ReflectionConfigBridge#upperBoundFirst` 把 `eidolon` 也排到值键之前，
+     否则同一个补丁里"升 6 魂 + 写超上限火种"会先被旧上限夹掉。
+4. **② 补白厄 E1/E2 断言**：击杀计数 +1.5%、终结技暴伤（0.5×1.5=0.75 / 3 回合）、
+   死星天裁满层 `ActEntry`（优先级 800、actor = 白厄）。
+5. **实战反馈追加修复**：白厄同样会触发 `LivingThing#takeDamage` / `Skill#grantEnergyAfterUse`
+   的 HSRActor 回能，攒过 160 后挂上【能量溢出】效果，回合头打印
+   「这里写效果具体内容........」占位。修法：`HSRActor#usesEnergy()`（默认 true，白厄覆盖 false）
+   让白厄的普通能量始终为 0；`EnergyOverflowEffect#comeIntoEffect` 显式空实现，溢出效果 tick 不再打印。
+6. **验证**：`通过 1207 条，失败 0 条`（+22 守卫）、`CHECK OK`、`src` **290** 文件、
+   `mods/` 4 个编译通过、`check-doc-links.py` **65 links + 297 paths / broken 0**。
+   守卫集中在 `CombatMechanicsTests`（溢出效果 5 条、E1 4 条、E2 2 条、E4 2 条、E6 7 条、
+   白厄不吃普通能量 1 条）与 `ConfigTests`（eidolon 写入顺序 1 条）。
+
+---
+
+## 十七、2026-11-21（第二周）第 86 批：额外行动检查战斗结束 + 转阶段排队
+
+**作者实战反馈（六魂白厄、`scourge=88` 连续死星天裁）**：打死盗火行者后，
+星魂 2 的额外行动仍然弹出技能菜单；转阶段的播报出现得太晚，回血又在播报之前就发生了。
+
+1. **新增 `system/fight/FightState`**：`isDecided(fight)` 按当前两个阵营列表判断
+   "还有没有活人"；`canTakeAction(fight, actor)` 再叠上"行动者活着 + 仍在阵营"。
+   它不等到下一回合清尸体，正好覆盖"本回合内最后一个敌人已倒、回合循环还没判胜负"的窗口。
+2. **星魂 2 额外行动加守卫**：`FoundationStardeathVerdict` 的 800 优先级行动执行前查
+   `GameMain.isInFight()` 与 `FightState.canTakeAction(...)`，战斗结束/行动者死亡即跳过。
+3. **盗火行者转阶段改为排队**：
+   - `phaseTwoDeathWard` 不再当场 `enterPhaseTwo`，而是把血照常打到 0，并排一条
+     **2000 优先级**行动（`PHASE_TRANSITION_PRIORITY`，高于额外行动 800 与普通行动 0）；
+   - `enterPhaseTwo` **先播报再回满**，然后挂 70% 免伤、换轮转表；
+   - `phaseTwoPending` 防同一回合多段伤害重复排队；`updateSelf` 兜底也走同一入口；
+   - 没有当前回合（自测 / 战斗已结束）时仍当场收口，保持"这一击被整个吃掉"的旧语义。
+4. **验证**：`通过 1212 条，失败 0 条`（+5 守卫）、`CHECK OK`、`src` **291** 文件、
+   `mods/` 4 个编译通过、`check-doc-links.py` **65 links + 297 paths / broken 0**。
+
+---
+
+## 十八、2026-11-21（第二周）第 87 批：伤害公式对齐 HSR
+
+作者给出 HSR 伤害公式后逐项对齐，**不做韧性**。七处改动：
+
+1. **暴击率/暴伤绝对值**：`getCriticalRate/getCriticalDamage` 从
+   `base × (1 + percent) + amount` 改为 `base + percent + amount`。
+   效果写“+20% 暴击率 / +50% 暴伤”现在是 +20 个百分点 / +50 个百分点。
+2. **暴击边界与期望**：实际掷骰改 `Math.random() < rate`；`anticipating` 期间用
+   `1 + 暴击率 × 暴伤`（不掷骰），真实出手仍随机。
+3. **减伤/易伤拆分**：`getDamageTakenMultiplier()` 只算正减伤的 `Π(1-r)`；
+   新增 `getDamageVulnerabilityMultiplier() = 1 + Σ|负减伤|`。公式分别乘两个乘区。
+4. **抗性乘区**：改为 `1 + 穿透 − 抗性`，允许穿透把抗性压成负数、乘区超过 100%；
+   负抗性也会被穿透放大（旧“穿透最多抵到 0”规则被推翻）。
+5. **防御固定无视**：固定值折算成“占目标防御的比例”，并入 `(1 − 总减防 − 总无视防御)`，
+   与 HSR 公式同形。
+6. **DOT 接入公式**：新增固定原始值的 `Damage`/`DamageEvent` 构造器与
+   `LivingThing#makeDotDamage`；DOT 不暴击，但吃增伤/防御/抗性/易伤/减伤/独立乘区。
+   【侵蚀】从直接 `setHp`（最低留 1 点）改为火属性 DOT（可致死），来源优先按 origin
+   在战斗实体里查；`Erosion.copy()` 补带 origin。
+7. **真实伤害**：`ElementSort.UNIVERSAL` 免增伤/抗性，但吃防御/减伤/易伤，**且不能暴击**；
+   星魂 6 的 36% 改为固定原始值走同一公式（不再绕防御）。旧的“固定结果值”构造器与
+   `makeFixedDamage` 删除，避免绕过公式。`makeDamage` 现在返回 `Damage`，
+   星魂 6 直接累加 `getAppliedDamage()` 得到“实际伤害”。
+8. **验证**：`通过 1224 条，失败 0 条`、`CHECK OK`、`src` **291** 文件、`mods/` 4 个、
+   `check-doc-links.py` **65 links + 298 paths / broken 0**。
+   守卫：`DamageTests#testCriticalAbsoluteExpectedAndDot`（暴击绝对值 / 期望 / DOT）、
+   `DamageTests` 的穿透与负抗性、`DamageDisplayTests` 的易伤拆分、
+   `EntityCoreTests` 的绝对值、`CombatMechanicsTests` 的 E6 固定原始值。
+
+---
+
+## 十九、2026-11-21（第二周）第 88 批：LivingThing 战斗职责拆分
+
+作者要求：**不要把过多战斗/伤害方法和字段继续堆在 `LivingThing`**，
+每实体单独一个“战斗控制器/组件”。
+
+1. 新增 `entity/CombatComponent`，由 `LivingThing` 在字段初始化时注入自己；
+   每个实体一个，`LivingThing#getCombat()` 取。
+2. 迁入：`takeDamage`、`makeDamage`（三参/两参/真伤/DOT）、`modifyIncomingDamage`、
+   伤害修正器增删查、`damageReductions`/`damageModifiers`/`baseDamageReduction` 字段、
+   减伤/易伤查询、`getTeamAdditionAttackDamageBonus`。
+3. `LivingThing` 只留薄转发；旧 API（460 个调用点与 4 个模组）不用改。
+   复制构造器调用 `CombatComponent.copyFrom(...)`，每个副本拿到独立列表。
+4. `/data` 兼容：`CombatComponent` 加 `@DataFlatten`，并在 `DataBridge.isDataObject` 登记
+   （不登记会被当行为对象整个跳过，`damageReductions` 会静默消失）。
+5. 不搬 `AttributeProfile` / `EffectContainer` / `UniversalController` / `presentTurn` /
+   `participateFight` / HP/治疗/死亡判定。
+6. **`/data` 不再显示白厄的 `skills`**：该字段是变身前普通技能备份（退出变身还原控制器用），
+   不是当前装备技能，也不是配置项，已加 `@NoData`；`SkillDataTests` 有守卫。
+7. **验证**：`通过 1226 条，失败 0 条`、`CHECK OK`、`src` **292** 文件、
+   `mods/` 4 个、`check-doc-links.py` **65 links + 298 paths / broken 0**。
+   守卫：`DamageTests#testDamageReduction` 追加“copy 后组件与列表独立”1 条；
+   `DataBridge` 的 `/data` `damageReductions` 断言保持；`SkillDataTests` 的 `skills` 不显示 1 条。
+8. 长期规则写入 `10-RULES.md` §3.1：以后战斗/伤害逻辑走 `CombatComponent`，
+   `LivingThing` 只留转发。

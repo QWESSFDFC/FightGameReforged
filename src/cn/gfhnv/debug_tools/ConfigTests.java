@@ -164,7 +164,7 @@ public final class ConfigTests {
                 classStateSection != null);
         java.util.Set<String> expectedPhainonClassKeys = new java.util.TreeSet<>(Arrays.asList(
                 "coreflame", "coreflameMax", "soulscorch", "scourge", "scourgeMax",
-                "extraAbilityTier"));
+                "extraAbilityTier", "eidolon", "energy", "energyMax", "energyOverflowMax"));
         check("生成器（classState）：白厄那一段写全了 " + expectedPhainonClassKeys.size()
                         + " 个键 —— 实际 "
                         + (classStateSection == null ? "没有这一段" : classStateSection.keySet()),
@@ -1491,6 +1491,16 @@ public final class ConfigTests {
             check("classState 生效：补丁里\"先值后上限\"也先抬上限（不靠 JSON 的键顺序）—— coreflame "
                             + phainon.getCoreflame() + " / coreflameMax " + phainon.getCoreflameMax(),
                     phainon.getCoreflameMax() == 21 && phainon.getCoreflame() == 21);
+
+            // 星魂 6 会让 setCoreflame 不再夹上限，所以 eidolon 也必须排在 coreflame 之前写；
+            // 这条故意把 eidolon 与 coreflame 放在同一个补丁里，验"同一个补丁里升魂 + 写超上限"能一起生效。
+            cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.applyJson(
+                    "{\"entities\":{\"game_official_content:phainon\":"
+                            + "{\"classState\":{\"eidolon\":6,\"coreflame\":99}}}}",
+                    "自测-classState-星魂顺序");
+            check("classState 生效：同一补丁里先升 6 魂再写 99 火种（不被旧上限夹）—— eidolon "
+                            + phainon.getEidolon() + " / coreflame " + phainon.getCoreflame(),
+                    phainon.getEidolon() == 6 && phainon.getCoreflame() == 99);
 
             // 裸键写法等价（两种写法都认）
             cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.Report bare = cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.applyJson(

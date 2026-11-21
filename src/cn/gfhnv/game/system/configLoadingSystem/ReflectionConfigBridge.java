@@ -341,11 +341,27 @@ public final class ReflectionConfigBridge {
      * @param object 这一层的 JSON 对象
      * @return 键名列表：上限键在前、其余在后（组内顺序仍是 JSON 的迭代顺序）
      */
+    /**
+     * 把一层的键排成"<b>上限键先写</b>"的顺序：{@code *Max} / {@code *_max} 以及
+     * {@code eidolon} 打头，其余随后。
+     * <p>
+     * <b>为什么需要</b>：这一层（裸键 / {@code classState}）的键是直接照 {@code JSONObject} 的
+     * 迭代顺序写的，而 {@code JSONObject} 背后是 {@code HashMap} —— <b>顺序取决于键名的哈希</b>，
+     * 用户写什么顺序都没用。于是"同一个补丁里既抬上限又写值"就会按运气生效：
+     * <p>
+     * ⚠️ {@code eidolon} 也要排前面：白厄 6 魂会让 {@code setCoreflame} 不再夹上限
+     * （星魂 6「火种可溢出点数不再拥有上限」）。如果先写 {@code coreflame} 再写 {@code eidolon}，
+     * 同一个补丁里的 99 会先被旧上限夹成 15，之后升到 6 魂也回不来了。
+     *
+     * @param object 一个补丁对象
+     * @return 排好序的键
+     */
     private static List<String> upperBoundFirst(JSONObject object) {
         List<String> bounds = new ArrayList<>();
         List<String> rest = new ArrayList<>();
         for (String key : object.keySet()) {
-            if (key.length() > 3 && key.regionMatches(true, key.length() - 3, "max", 0, 3)) {
+            if (key.length() > 3 && key.regionMatches(true, key.length() - 3, "max", 0, 3)
+                    || "eidolon".equalsIgnoreCase(key)) {
                 bounds.add(key);
             } else {
                 rest.add(key);

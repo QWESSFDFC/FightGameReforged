@@ -174,8 +174,36 @@ public class TurnEntry {
      * @return 当前条目（链式）
      */
     public TurnEntry addAct(ISpecialAction action, int priority) {
+        return addAct(this.livingThing, action, priority, null);
+    }
+
+    /**
+     * 往回合内队列里加一条行动条目，并<b>显式指定行动者</b>。
+     * <p>
+     * 用于"这条动作属于 A、但排在 B 的回合里"的场景（免死回血、追打、反制等）；
+     * 不指定时默认用回合行动者（老行为）。
+     *
+     * @param actor    执行这条动作的实体
+     * @param action   要做的事
+     * @param priority 优先级
+     * @return 当前回合条目
+     */
+    public TurnEntry addAct(LivingThing actor, ISpecialAction action, int priority) {
+        return addAct(actor, action, priority, null);
+    }
+
+    /**
+     * 同 {@link #addAct(LivingThing, ISpecialAction, int)}，但带可读标签。
+     *
+     * @param actor    执行这条动作的实体
+     * @param action   要做的事
+     * @param priority 优先级
+     * @param label    可读标识
+     * @return 当前回合条目
+     */
+    public TurnEntry addAct(LivingThing actor, ISpecialAction action, int priority, String label) {
         if (action != null) {
-            this.actQueue.add(new ActEntry(action, priority, null));
+            this.actQueue.add(new ActEntry(action, priority, label, actor));
         }
         return this;
     }
@@ -286,7 +314,7 @@ public class TurnEntry {
 
         @Override
         public boolean add(ISpecialAction action) {
-            return actQueue.add(new ActEntry(action, band, null));
+            return actQueue.add(new ActEntry(action, band, null, TurnEntry.this.livingThing));
         }
 
         @Override
@@ -298,7 +326,7 @@ public class TurnEntry {
         public ISpecialAction set(int index, ISpecialAction element) {
             int real = indices().get(index);
             ISpecialAction old = actQueue.get(real).action();
-            actQueue.set(real, new ActEntry(element, band, null));
+            actQueue.set(real, new ActEntry(element, band, null, TurnEntry.this.livingThing));
             return old;
         }
 

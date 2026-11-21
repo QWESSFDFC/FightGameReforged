@@ -26,7 +26,7 @@ import cn.gfhnv.game.system.fight.Fight;
  *
  * @author AI（DeepSeek）生成；设计稿作者：仓库作者
  */
-public class MortenaxBlade extends Player {
+public class MortenaxBlade extends cn.gfhnv.game.entity.HSRActor implements cn.gfhnv.game.interfaces.IAdditionAttackBonus {
 
     /**
      * 【千锻魂】那笔「受到的治疗量 +50%」的来源键：开结界时挂、收结界时按它摘。
@@ -65,20 +65,6 @@ public class MortenaxBlade extends Player {
      */
     private final java.util.Map<LivingThing, cn.gfhnv.game.effect.Effect> allyEnhanceEffects
             = new java.util.LinkedHashMap<>();
-    /**
-     * 终结技需要的能量，也是能量的"正常上限"（设计：160）。
-     */
-    private long energyMax = 160;
-    /**
-     * 溢出上限：能量最多攒到 {@code energyMax + energyOverflowMax}（设计：80）。
-     * <p>
-     * 对应「百炼骨」：<i>可积攒最多 80 点溢出能量</i>。
-     */
-    private long energyOverflowMax = 80;
-    /**
-     * 当前能量（施放终结技时一次性付掉一个 {@link #energyMax}，溢出部分留下）。
-     */
-    private long energy;
 
     /* ------------------------------------------------------------------
      * 能量
@@ -107,13 +93,6 @@ public class MortenaxBlade extends Player {
      * 充能监听器是否已经注册（每实例一份，开战时注册、战斗结束注销）。
      */
     private boolean chargeListenerRegistered;
-    /**
-     * 命座等级（0 = 没有；1 = E1「我殁之前，我仍未成形」；2 = E2「心若死灰，而炉火未熄」）。
-     * <p>
-     * 用户 2026-10-24 拍板"星魂只做到 2 魂"。E1：结界期间给自己 <b>+20% 穿透</b>
-     * （设计原文是"敌方全属性抗性 -20%"，按用户决定改成加穿透）；E2：<b>充能上限 9 → 7</b>。
-     */
-    private int eidolon;
     /**
      * 「因果尽偿」追打进行中：追打造成的伤害会再次触发受击监听器，
      * 不挡一下就会自己触发自己（递归）。
@@ -171,10 +150,7 @@ public class MortenaxBlade extends Player {
      */
     public MortenaxBlade(MortenaxBlade mortenaxBlade) {
         super(mortenaxBlade);
-        this.energyMax = mortenaxBlade.energyMax;
-        this.energyOverflowMax = mortenaxBlade.energyOverflowMax;
         this.chargeMax = mortenaxBlade.chargeMax;
-        this.energy = mortenaxBlade.energy;
         this.charge = mortenaxBlade.charge;
         this.setModifyDamage(infiniteFuryDeathWard());
     }
@@ -188,40 +164,23 @@ public class MortenaxBlade extends Player {
         return new MortenaxBlade(this);
     }
 
-    /**
-     * @return 当前能量
-     */
-    public long getEnergy() {
-        return energy;
-    }
 
     /**
-     * 直接设置当前能量（<b>夹在 {@code 0 … energyMax + energyOverflowMax}</b>）。
-     * <p>
-     * 想"回能并顺带触发满能效果"用 {@link #gainEnergy(long)}。
-     *
-     * @param energy 新能量
+     * 满能时清掉自身负面（旧 gainEnergy 的钩子；2026-11-21 第 84 批保留）。
      */
-    public void setEnergy(long energy) {
-        long top = energyMax + energyOverflowMax;
-        this.energy = Math.max(0, Math.min(top, energy));
-    }
-
-    /**
-     * @return 能量的"正常上限"（= 终结技消耗，设计 160）
-     */
-    public long getEnergyMax() {
-        return energyMax;
-    }
-
-    /**
-     * 设置能量上限；当前能量会被重新夹进新范围。
-     *
-     * @param energyMax 新上限（{@code < 1} 按 1 算）
-     */
-    public void setEnergyMax(long energyMax) {
-        this.energyMax = Math.max(1, energyMax);
-        setEnergy(this.energy);
+    @Override
+    public void addEnergy(long amount) {
+        long before = getEnergy();
+        super.addEnergy(amount);
+        if (before < getEnergyMax() && getEnergy() >= getEnergyMax()) {
+            this.removeEffectsIf(effect -> {
+                if (effect.isNegative()) {
+                    effect.whenLastTimeEnd(this);
+                    return true;
+                }
+                return false;
+            });
+        }
     }
 
     /* ------------------------------------------------------------------
@@ -229,24 +188,10 @@ public class MortenaxBlade extends Player {
      * ------------------------------------------------------------------ */
 
     /**
-     * @return 溢出上限（设计 80）
-     */
-    public long getEnergyOverflowMax() {
-        return energyOverflowMax;
-    }
-
-    /**
-     * 设置溢出上限；当前能量会被重新夹进新范围。
-     *
-     * @param energyOverflowMax 新溢出上限（{@code < 0} 按 0 算）
-     */
-    public void setEnergyOverflowMax(long energyOverflowMax) {
-        this.energyOverflowMax = Math.max(0, energyOverflowMax);
-        setEnergy(this.energy);
-    }
-
-    /**
      * 回能（会触发「能量到上限时解除自身所有负面效果」）。
+     * <p>
+     * 与 {@link #addEnergy(long)} 是同一套语义：跨过正常上限那一次顺手清负面；
+     * 保留这个方法只是为了让技能侧的写法保持"回能"这个动词。
      *
      * @param amount 回复量（{@code <= 0} 不做事）
      */
@@ -254,11 +199,7 @@ public class MortenaxBlade extends Player {
         if (amount <= 0) {
             return;
         }
-        boolean wasBelowMax = energy < energyMax;
-        setEnergy(energy + amount);
-        if (wasBelowMax && energy >= energyMax) {
-            cleanseNegativeEffects();
-        }
+        addEnergy(amount);
     }
 
     /* ------------------------------------------------------------------
@@ -270,7 +211,7 @@ public class MortenaxBlade extends Player {
      * （对应「施放终结技后清空并恢复相应的能量值」）。
      */
     public void spendUltimateEnergy() {
-        setEnergy(energy - energyMax);
+        setEnergy(getEnergy() - getEnergyMax());
     }
 
     /**
@@ -279,8 +220,8 @@ public class MortenaxBlade extends Player {
      * 结界解除时也要调一次（那一半随结界一起做，见施工单 P1）。
      */
     public void ensureEnergyFloor() {
-        long floor = (long) (energyMax * 0.75);
-        if (energy < floor) {
+        long floor = (long) (getEnergyMax() * 0.75);
+        if (getEnergy() < floor) {
             setEnergy(floor);
         }
     }
@@ -393,7 +334,11 @@ public class MortenaxBlade extends Player {
         cn.gfhnv.game.system.fight.TurnEntry presentTurn =
                 cn.gfhnv.game.eventListener.FightTurnPastListener.getPresentTurn();
         if (presentTurn != null) {
-            presentTurn.getLastExecuteList().add((currentFight, user) -> payoffNow(currentFight));
+            presentTurn.addAct(this, (currentFight, user) -> {
+                payoffNow(currentFight);
+                this.gainEnergyOnSkill();
+            },
+                cn.gfhnv.game.system.fight.ActEntry.PRIORITY_LAST);
             return;
         }
         if (fight != null) {
@@ -465,8 +410,15 @@ public class MortenaxBlade extends Player {
     /**
      * @return 命座等级（0 = 无；1 = E1；2 = E2）
      */
-    public int getEidolon() {
-        return eidolon;
+
+    /**
+     * 二魂「心若死灰，而炉火未熄」：我方目标造成的追加攻击伤害 +75%。
+     *
+     * @return 0.75（二魂及以上）或 0
+     */
+    @Override
+    public double getAdditionAttackDamageBonus() {
+        return eidolon >= 2 ? 0.75 : 0;
     }
 
     /**
@@ -474,9 +426,14 @@ public class MortenaxBlade extends Player {
      *
      * @param eidolon 命座等级（夹在 0…6）
      */
-    public void setEidolon(int eidolon) {
-        this.eidolon = Math.max(0, Math.min(6, eidolon));
-        this.setChargeMax(this.eidolon >= 2 ? 7 : 9);
+    /**
+     * 星魂变化钩子（HSRActor 的唯一入口，不再自己维护一份 eidolon 字段）。
+     * <p>
+     * E2「心若死灰，而炉火未熄」：充能上限 9 → 7。
+     */
+    @Override
+    protected void onEidolonChanged() {
+        this.setChargeMax(getEidolon() >= 2 ? 7 : 9);
     }
 
     /**
@@ -712,13 +669,14 @@ public class MortenaxBlade extends Player {
             heal((long) (getHpMax() * 0.5));
             return;
         }
-        presentTurn.getLastExecuteList().add((fight, user) -> {
-            if (user instanceof MortenaxBlade blade) {
-                long before = blade.getHp();
-                blade.heal((long) (blade.getHpMax() * 0.5));
-                System.out.println(blade.getName() + "「我殁之前，我仍未成形」—— 回复至 "
-                        + before + " → " + blade.getHp());
-            }
-        });
+        // 2026-11-21 第 81 批：这条动作的执行者是**千冶·刃本人**，不是当前回合的行动者 ——
+        // 他完全可能在别人的回合里被打死（例如完整容器的共祭攻击），以前用回合行动者判断
+        // `instanceof MortenaxBlade`，于是回血被静默跳过、血量停在 1。
+        presentTurn.addAct(this, (fight, user) -> {
+            long before = this.getHp();
+            this.heal((long) (this.getHpMax() * 0.5));
+            System.out.println(this.getName() + "「我殁之前，我仍未成形」—— 回复至 "
+                    + before + " → " + this.getHp());
+        }, cn.gfhnv.game.system.fight.ActEntry.PRIORITY_LAST);
     }
 }

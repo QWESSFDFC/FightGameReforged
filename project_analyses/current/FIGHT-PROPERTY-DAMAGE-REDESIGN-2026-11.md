@@ -227,6 +227,11 @@ PropertyEnhanceContainer(List,放PropertyEnhance)
 **不需要动防御与减伤那两段**。⚠️ 今天 `UNIVERSAL` 走 `default` 分支：抗性已是 0、单元素增伤已不叠，
 **只有全局 `enhance` 还在乘**（`DamageCalculate:88/151`）⇒ 这一条的净改动只有**一处**。
 
+> **2026-11-21 第 87 批更新**：真实伤害与 DOT **不能暴击**；抗性乘区改为
+> `1 + 穿透 − 抗性`（允许负抗性与 >100%）；减伤与易伤拆成两个乘区
+> （减伤 `Π(1−r)`、易伤 `1+Σ|负减伤|`）；DOT 也接入了完整公式。
+> 详见 `PROJECT-ANALYSIS-2026-11-15.md` §十八与 `notes_for_llm/subsystems/60-COMBAT.md` §5.6。
+
 ### 2.4 回合流程（`ActEntry` 队列的语义，作者 2026-11-08 定）
 
 1. **效果结算挪到回合头输出之后**（现在是**回合最后一步**，`FightTurnPastListener:265`）；

@@ -93,7 +93,9 @@ public class FightTurnPastListener {
             if (entry.action() == null) {
                 continue;
             }
-            entry.action().execute(fight, turn.getLivingThing());
+            // 2026-11-21 第 81 批：执行者取条目自己的行动者（旧条目为 null 时才回退到回合行动者）
+            LivingThing actActor = entry.actor() == null ? turn.getLivingThing() : entry.actor();
+            entry.action().execute(fight, actActor);
             // 每执行完一条行动条目发一次（第 74 批新增事件）：日志/AI 复盘/调试面板用
             EventBus.post(new cn.gfhnv.game.event.TurnActionExecutedEvent(fight, turn, entry));
             executed++;

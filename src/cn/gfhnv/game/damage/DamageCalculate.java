@@ -20,16 +20,20 @@ import cn.gfhnv.game.system.ElementSort;
  * <pre>
  * raw
  *   × (1 + 增伤)                      // 真实伤害不乘
- *   × (1 − 有效抗性)                   // 真实伤害不乘；有效抗性 = 抗性 − 穿透（先抵后乘）
- *   × 承伤倍率                         // Π(1 − 每个减伤)，乘算叠加，见 LivingThing#getDamageTakenMultiplier
+ *   × (1 + 穿透 − 抗性)                // 真实伤害不乘；允许穿透把抗性压成负数、乘区 &gt; 100%
+ *   × 减伤乘区                         // Π(1 − 正减伤)，见 LivingThing#getDamageTakenMultiplier
+ *   × 易伤乘区                         // 1 + Σ|负减伤|，见 LivingThing#getDamageVulnerabilityMultiplier
  *   × (等级 × 10 + 200) / (等级 × 10 + 200 + 目标有效防御)
  *   × 单体伤害倍率                     // 面板基础值 × Π(各来源乘数)，见 LivingThing#getIndividualMultipleArea
- *   × 暴击倍率
+ *   × 暴击倍率                         // 实际暴击 1+暴伤；试算用期望 1+暴击率×暴伤
  * </pre>
  * 结果不会小于 0：负伤害会被 {@code LivingThing#getDamage} 当成治疗。
  * <p>
  * <b>真实伤害</b>（{@link ElementSort#UNIVERSAL}）：免属性抗性、免单元素增伤、免<b>全局增伤</b>，
- * 但<b>防御与减伤照算</b>（作者 2026-11-08 拍板）。
+ * 但<b>防御、减伤、易伤照算</b>，并且<b>不能暴击</b>（真实伤害常按之前伤害的比例施加，
+ * 再吃暴击会双重放大）。
+ * <p>
+ * <b>DOT</b>（{@link DamageType#DOT}）：同样不暴击，但吃增伤 / 防御 / 抗性 / 易伤 / 减伤。
  * <p>
  * <b>两个事件</b>都在这里发：{@link CalculateDamageGetStatusEvent}（读任何数值<b>之前</b>）、
  * {@link CalculateDamageEndEvent}（系数全部读完、开始相乘<b>之前</b>）。
@@ -109,34 +113,59 @@ public class DamageCalculate {
      * @return 两段数值
      */
     static Result resolve(Damage damage, Skill skill) {
+        return resolve(damage, skill, null);
+    }
+
+    /**
+     * 算一条伤害；{@code rawOverride} 非空时使用调用方给定的<b>原始值</b>
+     * （固定数值伤害，例如 DOT / 星魂 6 的 36%），其余乘区照常走公式。
+     *
+     * @param damage      伤害载体
+     * @param skill       造成伤害的技能（可为 {@code null}）
+     * @param rawOverride 固定的原始值；{@code null} = 按技能倍率算
+     * @return 两段数值
+     */
+    static Result resolve(Damage damage, Skill skill, Double rawOverride) {
         LivingThing attacker = damage.getSourceEntity();
         LivingThing targetEntity = damage.getTargetEntity();
         EventBus.post(new CalculateDamageGetStatusEvent(attacker, targetEntity));
         // ⚠️ 这一段（到 EventBus.post(End) 之前）负责把**所有**参与计算的数值读完 ——
         // 与改造前逐行一致。监听 CalculateDamageEndEvent 的人改属性不该影响这一击。
-        double rawDamageAmount = rawAmount(attacker, skill);
-        double criticalRate = attacker.getCriticalRate();
+        double rawDamageAmount = rawOverride != null
+                ? Math.max(0, rawOverride)
+                : rawAmount(attacker, skill);
+        double criticalRate = Math.max(0, Math.min(1, attacker.getCriticalRate()));
         double criticalMultiplier = 1;
-        if (criticalEnabled && Math.random() <= criticalRate) {
-            criticalMultiplier += attacker.getCriticalDamage();
-            // 只给显示用：数字已经进了 criticalMultiplier，这里记一下"这一击暴击了"
-            damage.setCritical(true);
+        // DOT 与真实伤害按规则不能暴击：真实伤害通常按"之前造成的伤害比例"施加，
+        // 若再吃一次暴击会变成双重放大。AI 试算用期望值，不掷骰（真实出手仍然随机）。
+        boolean dot = damage.hasDamageType(DamageType.DOT);
+        boolean trueDamage = damage.isTrueDamage();
+        if (criticalEnabled && !dot && !trueDamage) {
+            if (targetEntity.isAnticipating()) {
+                criticalMultiplier += criticalRate * attacker.getCriticalDamage();
+            } else if (Math.random() < criticalRate) {
+                criticalMultiplier += attacker.getCriticalDamage();
+                // 只给显示用：数字已经进了 criticalMultiplier，这里记一下"这一击暴击了"
+                damage.setCritical(true);
+            }
         }
         double resistance = 0;
-        double penetration = attacker.getPenetration();
-        // 减伤是乘算叠加的（50% + 25% → 只受 37.5%），且已夹在 [0,1]，见 LivingThing#getDamageTakenMultiplier
+        double penetration = Math.max(0, attacker.getPenetration());
+        // 减伤是乘算叠加的（50% + 25% → 只受 37.5%），见 LivingThing#getDamageTakenMultiplier
         double damageTakenMultiplier = targetEntity.getDamageTakenMultiplier();
+        // 易伤是独立乘区：1 + Σ|负减伤|（多个易伤来源相加，不连乘）
+        double vulnerabilityMultiplier = targetEntity.getDamageVulnerabilityMultiplier();
         double enhance = attacker.getEnhance();
         double individualMultipleArea = attacker.getIndividualMultipleArea();
         long level = attacker.getLevel();
-        double defenseLoss = targetEntity.getDefenceLoss();
-        // 无视防御由「效果实现 IDefenceIgnore」提供，这里只读汇总值（不认识具体效果类）
-        defenseLoss += attacker.getIgnoreDefencePercent();
-        double lossAmount = attacker.getIgnoreDefenceAmount();
-        double targetDefence = targetEntity.getDefence() * (1 - defenseLoss) - lossAmount;
-        if (targetDefence <= 0) {
-            targetDefence = 0;
+        double targetDefenceBase = targetEntity.getDefence();
+        // 防御削减 + 无视防御百分比；固定无视值折算成"占目标防御的比例"，
+        // 与 HSR 的 `防御 × (1 − 总减防 − 总无视防御)` 保持同一个形状。
+        double totalDefenceLoss = targetEntity.getDefenceLoss() + attacker.getIgnoreDefencePercent();
+        if (targetDefenceBase > 0) {
+            totalDefenceLoss += Math.max(0, attacker.getIgnoreDefenceAmount()) / targetDefenceBase;
         }
+        double targetDefence = Math.max(0, targetDefenceBase * (1 - totalDefenceLoss));
         if (!damage.isTrueDamage()) {
             switch (damage.getElementSort()) {
                 case DIRT -> {
@@ -170,28 +199,26 @@ public class DamageCalculate {
             }
         }
         EventBus.post(new CalculateDamageEndEvent(attacker, targetEntity));
-        // 抗性/穿透：**先抵后乘** —— 有效抗性 = 抗性 − 穿透，再按 (1 − 有效抗性) 乘进去。
-        // ⚠️ 两个夹紧都是必须的（2026-10-04 用户确认的语义）：
-        //   ① 穿透只能把抗性**抵到 0 为止**（`Math.max(0, …)`）——
-        //      否则"抗性 0 + 穿透 50%"会算成有效抗性 −0.5、伤害 ×1.5，变成额外增伤，不是"抵消抗性"；
-        //   ② 抗性本来就 ≤0（弱点）时**原样保留**，穿透不去碰它 ——
-        //      没有抗性可抵消时穿透就该无效，而不是把弱点放大。
-        // 负穿透当 0（不会反过来变成减伤）；乘数本身夹在 ≥0。
-        double effectiveResistance = resistance > 0
-                ? Math.max(0, resistance - Math.max(0, penetration))
-                : resistance;
+        // 抗性/穿透：按 `1 + 穿透 − 抗性`，允许穿透把抗性压成负数、乘区超过 100%。
+        // 负穿透按 0（不会反过来变成减伤）；最终乘数不小于 0。
+        penetration = Math.max(0, penetration);
+        double effectiveResistance = resistance - penetration;
         // 真实伤害：免抗性、免元素增伤、免全局增伤（防御与减伤照乘，作者 2026-11-08 拍板）
-        boolean trueDamage = damage.isTrueDamage();
         double resistanceMultiplier = trueDamage ? 1 : Math.max(0, 1 - effectiveResistance);
         double enhanceMultiplier = trueDamage ? 1 : 1 + enhance;
         double finalDamage = rawDamageAmount
                 * enhanceMultiplier
                 * resistanceMultiplier
                 * damageTakenMultiplier
+                * vulnerabilityMultiplier
                 * ((level * LEVEL_DEFENCE_FACTOR + LEVEL_DEFENCE_BASE)
                 / (level * LEVEL_DEFENCE_FACTOR + LEVEL_DEFENCE_BASE + targetDefence))
                 * individualMultipleArea
                 * criticalMultiplier;
+        // 2026-11-21 第 82 批（千冶·刃二魂）：追加攻击伤害提高（己方光环，取最大，不叠乘）
+        if (damage.hasDamageType(DamageType.AdditionAttack)) {
+            finalDamage *= 1 + attacker.getTeamAdditionAttackDamageBonus();
+        }
         // 伤害永不为负：负数会被 LivingThing#getDamage 当成治疗
         return new Result(rawDamageAmount, Math.max(0, (long) finalDamage));
     }

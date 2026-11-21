@@ -72,6 +72,14 @@ public class MortalBladeCommonAttack extends Skill {
         return new MortalBladeCommonAttack(this);
     }
 
+    /**
+     * 普攻伤害类型（能量回能按类型区分：普攻 +20）。
+     */
+    @Override
+    public java.util.Set<cn.gfhnv.game.damage.DamageType> getDamageTypes() {
+        return java.util.Set.of(cn.gfhnv.game.damage.DamageType.CommonAttack);
+    }
+
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         for (LivingThing enemy : enemies) {
@@ -79,6 +87,5 @@ public class MortalBladeCommonAttack extends Skill {
             // 嘲讽：让被打的目标优先打千冶·刃（判据在 TargetStrategies.tauntLevelFrom）
             enemy.addEffect(new Taunt(TAUNT_LAST_TIME).setOrigin(user.getUUID()));
         }
-        gainEnergy(user, ENERGY_GAIN);
     }
 }

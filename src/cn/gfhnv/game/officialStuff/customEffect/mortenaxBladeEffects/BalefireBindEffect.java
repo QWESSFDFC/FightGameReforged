@@ -11,9 +11,9 @@ import cn.gfhnv.game.entity.LivingThing;
  * <ul>
  *     <li><b>防御 -30%</b> —— 现成的 {@code defenceLoss}（百分比防御削减，{@code DamageCalculate} 读它打折防御），
  *     进来加、到期减；</li>
- *     <li><b>受到的伤害 +50%</b> —— 往 {@code damageReductions} 里加一个<b>负数</b>来源
- *     （{@code addDamageReduction(this, -0.5)}）。2026-10-24 起承伤倍率允许 &gt; 1，
- *     所以负减伤 = 增伤（见 {@code LivingThing#getDamageTakenMultiplier()} 的注释）。</li>
+ *     <li><b>受到的伤害 +50%</b> —— 往承伤来源里加一个<b>负数</b>条目
+ *     （{@code addDamageReduction(this, -0.5)}），它进独立的<b>易伤乘区</b>
+ *     （{@code getDamageVulnerabilityMultiplier() = 1 + Σ|负减伤|}）。</li>
  * </ul>
  * 两个都"进来加、到期减"，形状与 {@code CriticalDamageEnhanceEffect} 一致。
  *

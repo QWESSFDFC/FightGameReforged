@@ -11,6 +11,22 @@ import cn.gfhnv.game.system.thinkingSystem.TagType;
 
 import java.util.*;
 
+/**
+ * 灾厄·弑魂焚诏的反击（白厄变身期的反击）。
+ * <p>
+ * <b>2026-11-21 第 82 批按作者贴的游戏原文重做</b>：
+ * <ul>
+ *     <li>主刀：对<b>敌方全体</b>造成伤害；</li>
+ *     <li>额外：再打 <b>4 段</b>，每段对敌方<b>随机单体</b>；</li>
+ *     <li>每层【弑魂之炽】让本次反击的倍率提高"原倍率的 20%"（主刀与额外段都吃）；</li>
+ *     <li>伤害类型 = <b>战技 + 追加攻击</b>（原文："视为造成了战技伤害以及追击攻击"）；</li>
+ *     <li>结算完把【弑魂之炽】清零、解除对应减伤、清掉"还会行动"的名单。</li>
+ * </ul>
+ * <b>倍率数值沿用改造前的具名系数</b>（作者：倍率按现有代码；原文里的 20%/40%、15%/30% 不照搬）。
+ * <p>
+ * 触发时机由 {@link CalamitySoulscorchEdict} 负责：被标记的敌人全部行动后发动；
+ * 额外回合开始时仍持有【弑魂之炽】也立即发动（见 {@code UltimateAttack} 的额外回合首动作）。
+ */
 public class Counterattack extends Skill implements SkillCoefficientTunable {
 
     /**
@@ -32,6 +48,8 @@ public class Counterattack extends Skill implements SkillCoefficientTunable {
 
     /**
      * 施法者回血比例（占自身生命上限）。
+     * <p>
+     * ⚠️ 游戏原文没有这一段；这是改造前就有、且作者要求"倍率按现有代码"时保留的旧手感。
      */
     private double healRatio = 0.2;
     /**
@@ -43,9 +61,9 @@ public class Counterattack extends Skill implements SkillCoefficientTunable {
      */
     private double magnificationPerStack = 0.2;
     /**
-     * 主刀之后追击几刀。
+     * 主刀之后追击几刀（原文：额外 4 次）。
      */
-    private int extraHits = 6;
+    private int extraHits = 4;
 
     public Counterattack() {
         super("灾厄-弑魂焚诏的反击", "灾厄-弑魂焚诏的反击", 0, 1, 0, -1);
@@ -112,14 +130,24 @@ public class Counterattack extends Skill implements SkillCoefficientTunable {
 
     @Override
     public Skill copy() {
-        return new cn.gfhnv.game.officialStuff.customSkill.phainonSkills.awakenSkills.Counterattack(this);
+        return new Counterattack(this);
     }
 
+    /**
+     * 释放反击。
+     * <p>
+     * 主刀打全体；随后额外 {@link #extraHits} 段随机单体。两种情况都用
+     * <b>战技 + 追加攻击</b> 两种伤害类型（原文："被视为造成了战技伤害以及追击攻击"）。
+     *
+     * @param fight   当前战斗
+     * @param user    施法者（白厄）
+     * @param enemies 敌方全体
+     */
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         int soulscorch = 0;
+        // 旧手感：回血（原文没有，保留为可配置项）
         user.heal((long) (user.getHpMax() * healRatio));
-        double randomMag = extraHitMagnification;
         if (user instanceof Phainon phainon) {
             soulscorch = phainon.getSoulscorch();
             phainon.setSoulscorch(0);
@@ -129,36 +157,35 @@ public class Counterattack extends Skill implements SkillCoefficientTunable {
                 phainon.setAbsorbDamage(false);
             }
             for (Skill skill : user.getController().getSkills()) {
-                if (skill instanceof CalamitySoulscorchEdict) ((CalamitySoulscorchEdict) skill).getWillAct().clear();
-
+                if (skill instanceof CalamitySoulscorchEdict soulscorchEdict) {
+                    soulscorchEdict.getWillAct().clear();
+                }
             }
         }
 
-        this.setAtkMagnification(this.getAtkMagnification() * (1 + soulscorch * magnificationPerStack));
-        randomMag = randomMag * (1 + soulscorch * magnificationPerStack);
-        // 只打【还活着】的目标。死亡结算要等回合循环走到开头才做（先把尸体移出阵营列表，
-        // 再走 whenLeaveFight），所以本回合内 enemies 里可能还躺着 0 血的尸体 ——
-        // 不过滤就会刷出一串「攻击了 X  -0  → HP 0/…  【灾厄-弑魂焚诏的反击】」，日志尾巴全是打尸体。
-        // 顺带抽自己的副本：旧写法 {@code Collections.shuffle(enemies)} 是就地打乱<b>调用方</b>的列表。
+        double scale = 1 + soulscorch * magnificationPerStack;
+        double originalMagnification = this.getAtkMagnification();
+        // 主刀：敌方全体，倍率 = 原倍率 × (1 + 层数×20%)
+        this.setAtkMagnification(originalMagnification * scale);
         List<LivingThing> aliveEnemies = aliveOf(enemies);
         for (LivingThing livingThing : aliveEnemies) {
-            user.makeDamage(livingThing, this, DamageType.AdditionAttack);
+            user.makeDamage(livingThing, this, DamageType.SpecialSkill, DamageType.AdditionAttack);
         }
-        this.setAtkMagnification(randomMag);
+
+        // 额外 4 段：随机单体，倍率 = 额外基准倍率 × (1 + 层数×20%)
+        // 用副本，避免改到模板/全局共享的这一个实例。
+        Skill extraHit = this.copy();
+        extraHit.setAtkMagnification(extraHitMagnification * scale);
         for (int i = 0; i < extraHits; i++) {
-            // 上一刀可能已经把目标打死了，抽之前重新过一遍
             aliveEnemies.removeIf(target -> !target.isAlive());
             if (aliveEnemies.isEmpty()) {
-                // 旧写法无条件 enemies.getFirst()，敌方全倒下（或一开始就是空表）时抛
-                // NoSuchElementException，整局游戏跟着崩
+                // 目标全倒下了：剩下的段数没有意义（旧写法在这里会抛 NoSuchElementException）
                 break;
             }
             Collections.shuffle(aliveEnemies);
-            user.makeDamage(aliveEnemies.getFirst(), this, DamageType.AdditionAttack);
+            user.makeDamage(aliveEnemies.getFirst(), extraHit,
+                    DamageType.SpecialSkill, DamageType.AdditionAttack);
         }
-
-        this.setAtkMagnification(1);
-
+        this.setAtkMagnification(originalMagnification);
     }
-
 }

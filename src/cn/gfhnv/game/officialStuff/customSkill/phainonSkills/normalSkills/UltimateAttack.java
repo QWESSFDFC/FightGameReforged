@@ -203,7 +203,7 @@ public class UltimateAttack extends Skill implements SkillCoefficientTunable, IA
         FightTurnPastListener.getPresentTurn().setActionSignal(ActionSignal.SKIP_WITHOUT_NEW_TURN);
         if (user instanceof Phainon) {
             ((Phainon) user).setAwaken(true);
-            ((Phainon) user).setCoreflame(((Phainon) user).getCoreflame() - coreflameCost);
+            ((Phainon) user).addCoreflame(-coreflameCost);
             List<Skill> awakenSkills = new ArrayList<>();
             // 觉醒技能一律取"注册表原型"的副本：配置（SkillData.json）打在原型上，
             // 只有 copy() 出来的副本才带着那些值（原型本身全场共用，不能直接拿去用）。
@@ -216,6 +216,11 @@ public class UltimateAttack extends Skill implements SkillCoefficientTunable, IA
             this.awakeEndListener = new AwakeEndListener((Phainon) user);
             EventBus.register(awakeEndListener);
             user.getController().setActionSignal(ActionSignal.WITHOUT_NEW_TURN);
+            // 星魂 1：施放终结技时暴击伤害 +50%，持续 3 回合
+            if (((Phainon) user).getEidolon() >= 1) {
+                user.addEffect(new cn.gfhnv.game.officialStuff.customEffect.universalEffects
+                        .CriticalDamageEnhanceEffect(0.5, 3).setOrigin(user.getUUID()));
+            }
         }
         BigDecimal needTime = cn.gfhnv.game.system.fight.TurnManager.needTimeOf(user);
         if (user instanceof Phainon phainon) {
@@ -229,7 +234,12 @@ public class UltimateAttack extends Skill implements SkillCoefficientTunable, IA
         if (awakenEntries != null) awakenEntries.clear();
         for (int i = 0; i <= scheduled - 2; i++) {
 
-            TurnEntry extraTurn = new TurnEntry(user, needTime.multiply(BigDecimal.valueOf(i)), TurnManager.getPresentTime()).setExtra(true).addLastSpecialAction((fight1, user1) -> {
+            BigDecimal extraNeed = needTime.multiply(BigDecimal.valueOf(i));
+            if (user instanceof Phainon speedOwner && speedOwner.getEidolon() >= 1) {
+                extraNeed = extraNeed.divide(BigDecimal.valueOf(speedOwner.getExtraTurnSpeedRatio()),
+                        10, java.math.RoundingMode.HALF_UP);
+            }
+            TurnEntry extraTurn = new TurnEntry(user, extraNeed, TurnManager.getPresentTime()).setExtra(true).addLastSpecialAction((fight1, user1) -> {
                 if (user1 instanceof Phainon phainon) {
                     phainon.setExtraTurns(phainon.getExtraTurns() - 1);
 
@@ -247,7 +257,12 @@ public class UltimateAttack extends Skill implements SkillCoefficientTunable, IA
             if (awakenEntries != null) awakenEntries.add(extraTurn);
         }
 
-        TurnEntry lastestOne = new TurnEntry(user, needTime.multiply(BigDecimal.valueOf(scheduled - 1)), TurnManager.getPresentTime()).setExtra(true);//8
+        BigDecimal lastNeed = needTime.multiply(BigDecimal.valueOf(scheduled - 1));
+        if (user instanceof Phainon speedOwner && speedOwner.getEidolon() >= 1) {
+            lastNeed = lastNeed.divide(BigDecimal.valueOf(speedOwner.getExtraTurnSpeedRatio()),
+                    10, java.math.RoundingMode.HALF_UP);
+        }
+        TurnEntry lastestOne = new TurnEntry(user, lastNeed, TurnManager.getPresentTime()).setExtra(true);//8
         lastestOne.setActionSignal(ActionSignal.SKIP_WITHOUT_NEW_TURN);
         lastestOne.addFirstAction((fight1, user1) -> {
 
@@ -265,7 +280,7 @@ public class UltimateAttack extends Skill implements SkillCoefficientTunable, IA
             List<LivingThing> availableTargets = fight1.getOpponentList(user1);
             if (user1 instanceof Phainon phainon) {
                 phainon.setExtraTurns(phainon.getExtraTurns() - 1);
-                phainon.setCoreflame(phainon.getCoreflame() + 3);
+                phainon.addCoreflame(3);
                 if (!availableTargets.isEmpty())
                     World.prototypeCopyOf(LastAttack.class).comeToEffect(fight1, user1, availableTargets);
             }

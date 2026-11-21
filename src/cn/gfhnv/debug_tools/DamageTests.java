@@ -8,8 +8,10 @@ import cn.gfhnv.game.data.NbtCompound;
 import cn.gfhnv.game.data.NbtList;
 import cn.gfhnv.game.entity.DamageReductionSource;
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.entity.PropertyEnhanceType;
 import cn.gfhnv.game.event.DamageEvent;
 import cn.gfhnv.game.interfaces.IModifyDamage;
+import cn.gfhnv.game.officialStuff.customEffect.flameReaverEffects.Erosion;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.CommonInsect;
 import cn.gfhnv.game.officialStuff.customEntity.players.PlayerOne;
 import cn.gfhnv.game.skill.Skill;
@@ -50,6 +52,18 @@ public final class DamageTests {
             target.addDamageReduction(sourceB, 0.25);
             check("两个减伤 50% + 25% 乘算 → 承伤 0.375",
                     Math.abs(target.getDamageTakenMultiplier() - 0.375) < 1e-9);
+
+            // 每个实体一个战斗组件：copy() 之后列表/组件都必须是独立的一份
+            LivingThing componentSource = new CommonInsect(100L).copy();
+            componentSource.addDamageReduction(sourceA, 0.5);
+            LivingThing componentCopy = componentSource.copy();
+            componentCopy.addDamageReduction(sourceB, 0.25);
+            check("战斗组件随 copy() 独立：原体 1 条、副本 2 条、组件不是同一个 —— "
+                            + componentSource.getDamageReductions().size() + " / "
+                            + componentCopy.getDamageReductions().size(),
+                    componentSource.getCombat() != componentCopy.getCombat()
+                            && componentSource.getDamageReductions().size() == 1
+                            && componentCopy.getDamageReductions().size() == 2);
             check("总减伤 = 1 − 承伤倍率 = 0.625",
                     Math.abs(target.getDamageAbsorbedPercent() - 0.625) < 1e-9);
 
@@ -108,8 +122,7 @@ public final class DamageTests {
             long zeroed = DamageCalculate.calculate(attacker, dummy, probe);
             check("减伤 100% 时伤害为 0（不是负数，也就不会变成治疗）", zeroed == 0);
 
-            // ---- 抗性 / 穿透：**先抵后乘** —— 有效抗性 = 抗性 − 穿透，再乘 (1 − 有效抗性) ----
-            // （2026-10-04 用户要求改的语义：穿透是"抵消除抗性"，不是"额外增伤"）
+            // ---- 抗性 / 穿透：抗性乘区 = 1 + 穿透 − 抗性，允许穿透把抗性压成负数 ----
             // 虫子的元素是金，金属抗性 0.95；用同族虫子当靶子，数值可控
             LivingThing metalAttacker = new CommonInsect(100L).copy();
             metalAttacker.setCriticalRate(-1);
@@ -126,15 +139,15 @@ public final class DamageTests {
                             + pierced + " vs " + resistant,
                     Math.abs(pierced - expectedPierced) <= Math.max(3, expectedPierced / 10));
 
-            // 抗性 0 时穿透**完全无效**（这就是新语义；旧行为是 ×1.5）
+            // 抗性 0 + 穿透 50% → 乘区 1 + 0.5 = 1.5（穿透允许把抗性压成负数）
             metalAttacker.setPenetration(0);
             metalVictim.setMetalResistance(0);
             long noResistanceNoPen = DamageCalculate.calculate(metalAttacker, metalVictim, probe);
             metalAttacker.setPenetration(0.5);
             long noResistanceWithPen = DamageCalculate.calculate(metalAttacker, metalVictim, probe);
-            check("抗性 0 时穿透**完全无效**（穿透不是额外增伤）—— 无穿透 " + noResistanceNoPen
+            check("抗性 0 + 穿透 50% → ×1.5（穿透能把抗性压成负数）—— 无穿透 " + noResistanceNoPen
                             + " / 有穿透 " + noResistanceWithPen,
-                    Math.abs(noResistanceWithPen - noResistanceNoPen) <= 2);
+                    Math.abs(noResistanceWithPen - noResistanceNoPen * 1.5) <= 2);
 
             // 抗性 0.5 + 穿透 0.5 = 有效抗性 0 → 正好抵消，伤害与"无抗性无穿透"一致
             metalVictim.setMetalResistance(0.5);
@@ -143,6 +156,14 @@ public final class DamageTests {
             check("抗性 50% + 穿透 50% = 正好抵消（回到无抗性无穿透的伤害）—— 实际 " + exactlyCancelled,
                     Math.abs(exactlyCancelled - noResistanceNoPen) <= 2);
 
+            // 抗性 0.3 + 穿透 0.5 → 有效抗性 -0.2 → ×1.2（穿透超过抗性时成为增伤）
+            metalVictim.setMetalResistance(0.3);
+            metalAttacker.setPenetration(0.5);
+            long overPierced = DamageCalculate.calculate(metalAttacker, metalVictim, probe);
+            check("穿透超过抗性：抗性 30% + 穿透 50% → 有效抗性 -20%、乘区 1.2 —— 实际 "
+                            + overPierced + " vs 无抗性 " + noResistanceNoPen,
+                    Math.abs(overPierced - noResistanceNoPen * 1.2) <= 2);
+
             metalAttacker.setPenetration(0);
             metalVictim.setMetalResistance(0);
             long neutral = DamageCalculate.calculate(metalAttacker, metalVictim, probe);
@@ -150,6 +171,12 @@ public final class DamageTests {
             long weak = DamageCalculate.calculate(metalAttacker, metalVictim, probe);
             check("抗性为负（弱点）→ 受伤 ×1.5（负抗性不会被夹掉）",
                     Math.abs(weak - neutral * 1.5) <= 2);
+
+            metalAttacker.setPenetration(0.5);
+            long weakPierced = DamageCalculate.calculate(metalAttacker, metalVictim, probe);
+            check("负抗性也能被穿透放大：抗性 -50% + 穿透 50% → ×2.0 —— 实际 "
+                            + weakPierced + " vs 无抗性 " + neutral,
+                    Math.abs(weakPierced - neutral * 2.0) <= 2);
 
             // ---- 伤害修正器：可以有多个，按添加顺序依次套用 ----
             LivingThing tank = new CommonInsect(100L).copy();
@@ -247,9 +274,26 @@ public final class DamageTests {
             piercer.addEffect(new ProbeDefenceIgnoreEffect(0.5, 0));
             check("无视防御：接口实现被汇总（0.5）",
                     Math.abs(piercer.getIgnoreDefencePercent() - 0.5) < 1e-9);
+            // 前面的穿透用例把 metalAttacker 的穿透留在 0.5、metalVictim 的抗性留在 -0.5；
+            // 这里要单独比较"无视防御"，先清回中性状态。
+            metalAttacker.setPenetration(0);
+            metalVictim.setMetalResistance(0);
             long normalHit = DamageCalculate.calculate(metalAttacker, metalVictim, probe);
             long ignoreHit = DamageCalculate.calculate(piercer, metalVictim, probe);
             check("无视防御确实让伤害变高", ignoreHit > normalHit);
+
+            // 固定无视值按"占目标防御的比例"折算：与等价的纯百分比写法结果一致
+            LivingThing fixedPiercer = new CommonInsect(100L).copy();
+            fixedPiercer.addEffect(new ProbeDefenceIgnoreEffect(0.2, 1_000));
+            double defence = metalVictim.getDefence();
+            LivingThing percentPiercer = new CommonInsect(100L).copy();
+            percentPiercer.addEffect(new ProbeDefenceIgnoreEffect(0.2 + 1_000.0 / defence, 0));
+            long fixedHit = DamageCalculate.calculate(fixedPiercer, metalVictim, probe);
+            long percentHit = DamageCalculate.calculate(percentPiercer, metalVictim, probe);
+            check("无视固定值折算进百分比（防御 " + defence + "，1000 点 = "
+                            + Math.round(1_000.0 / defence * 10000) / 100.0 + "%）—— 固定 " + fixedHit
+                            + " / 百分比 " + percentHit,
+                    Math.abs(fixedHit - percentHit) <= 1);
         } catch (Exception e) {
             fail("减伤测试抛出异常：" + e);
         }
@@ -374,6 +418,83 @@ public final class DamageTests {
     }
 
     /**
+     * 暴击绝对值 / 暴击期望 / DOT 新口径（2026-11-21 第 87 批）。
+     */
+    private static void testCriticalAbsoluteExpectedAndDot() {
+        section("暴击绝对值 / 期望 / DOT 公式");
+        boolean enabledBefore = DamageCalculate.isCriticalEnabled();
+        try {
+            DamageCalculate.setCriticalEnabledForSelfTest(true);
+
+            LivingThing stats = new PlayerOne(125);
+            stats.setCriticalRate(0.05);
+            stats.setCriticalDamage(0.5);
+            stats.addPropertyEnhance(PropertyEnhanceType.CRITICAL_RATE, 0.2, 0, "自测-暴击率");
+            stats.addPropertyEnhance(PropertyEnhanceType.CRITICAL_DAMAGE, 0.5, 0, "自测-暴伤");
+            check("① 暴击率 +20% 是绝对值：5% + 20% = 25% —— 实际 " + stats.getCriticalRate(),
+                    Math.abs(stats.getCriticalRate() - 0.25) < 1e-9);
+            check("② 暴伤 +50% 是绝对值：50% + 50% = 100% —— 实际 " + stats.getCriticalDamage(),
+                    Math.abs(stats.getCriticalDamage() - 1.0) < 1e-9);
+
+            LivingThing target = new CommonInsect(100L).copy();
+            Skill probe = new ProbeSkill("暴击期望探针", new ArrayList<>(), 1, 1.0);
+
+            LivingThing critter = new PlayerOne(125);
+            critter.setCriticalRate(1.0);
+            critter.setCriticalDamage(0.5);
+            long critTrue = new Damage(critter, target, probe, ElementSort.UNIVERSAL)
+                    .getCalculateDamageResult();
+            critter.setCriticalRate(0);
+            long noCritTrue = new Damage(critter, target, probe, ElementSort.UNIVERSAL)
+                    .getCalculateDamageResult();
+            check("③ 真实伤害不能暴击（暴击率 100% 与 0% 结果相同）—— " + critTrue + " / " + noCritTrue,
+                    Math.abs(critTrue - noCritTrue) <= 2);
+
+            LivingThing expectedAttacker = new PlayerOne(125);
+            expectedAttacker.setCriticalRate(0.5);
+            expectedAttacker.setCriticalDamage(0.5);
+            long expected = target.anticipating(() ->
+                    new Damage(expectedAttacker, target, probe).getCalculateDamageResult());
+            expectedAttacker.setCriticalRate(0);
+            long baseline = new Damage(expectedAttacker, target, probe).getCalculateDamageResult();
+            check("④ 试算用期望暴击：1 + 50% × 50% = 1.25 倍 —— 基线 " + baseline
+                            + "，期望 " + expected,
+                    Math.abs(expected - Math.round(baseline * 1.25)) <= 2);
+
+            LivingThing dotUser = new PlayerOne(125);
+            dotUser.setCriticalRate(1.0);
+            dotUser.setCriticalDamage(0.5);
+            LivingThing dotTarget = new CommonInsect(100L).copy();
+            dotTarget.setHpMax(100_000L);
+            dotTarget.setHp(100_000L);
+            Damage dot = new Damage(dotUser, dotTarget, new Erosion(0.5, 1),
+                    ElementSort.FIRE, 1_000.0, DamageType.DOT);
+            check("⑤ DOT 原始值固定为 1000，但不暴击、且吃防御（结算 " + dot.getCalculateDamageResult()
+                            + " < 1000）",
+                    Math.abs(dot.getRawDamageAmount() - 1_000.0) < 1e-9
+                            && !dot.isCritical() && dot.getCalculateDamageResult() < 1_000L);
+
+            LivingThing victim = new CommonInsect(100L).copy();
+            victim.setHpMax(100_000L);
+            victim.setHp(50_000L);
+            victim.setCriticalRate(1.0);   // 若 DOT 会暴击，这里会放大
+            Erosion erosion = new Erosion(0.5, 1);
+            long hpBefore = victim.getHp();
+            erosion.comeIntoEffect(victim);
+            long actualDrop = hpBefore - victim.getHp();
+            long expectedDrop = new Damage(victim, victim, erosion, ElementSort.FIRE,
+                    25_000.0, DamageType.DOT).getCalculateDamageResult();
+            check("⑥ 【侵蚀】已接入 DOT 公式（实际掉血 = 同参数 DOT 的公式结果）—— 实际 "
+                            + actualDrop + " / 期望 " + expectedDrop,
+                    actualDrop == expectedDrop);
+        } catch (Exception e) {
+            fail("暴击绝对值/DOT 测试抛出异常：" + e);
+        } finally {
+            DamageCalculate.setCriticalEnabledForSelfTest(enabledBefore);
+        }
+    }
+
+    /**
      * 跑本主题的全部用例（顺序 = 下面列的顺序）。
      */
     public static void runAll() throws Exception {
@@ -381,5 +502,6 @@ public final class DamageTests {
         testCriticalHit();
         testDamageReduction();
         testDamageStages();
+        testCriticalAbsoluteExpectedAndDot();
     }
 }

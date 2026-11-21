@@ -3,6 +3,7 @@ package cn.gfhnv.game.data;
 import cn.gfhnv.game.Thing;
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.AttributeProfile;
+import cn.gfhnv.game.entity.CombatComponent;
 import cn.gfhnv.game.entity.ElementValue;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entity.PropertyEnhance;
@@ -22,7 +23,8 @@ import java.util.*;
  * <p>
  * <b>方向一（读，{@link #toTag(Object)}）</b>：把对象当数据看，反射出字段做成标签树。
  * 只认这几类"数据对象"：{@link Thing}（实体/物品）、{@link Effect}、{@link Slot}、{@link Inventory}、
- * {@link Mana}、{@link Skill}、{@link LivingThing.DamageReduction}、{@link AttributeProfile}。
+ * {@link Mana}、{@link Skill}、{@link LivingThing.DamageReduction}、{@link AttributeProfile}、
+ * {@link CombatComponent}。
  * <b>带 {@link DataFlatten} 的组件（如 {@code AttributeProfile}）也必须在这个名单里</b> ——
  * 否则它会被当成"行为对象"整个跳过，组件里那些属性在 {@code /data} 里<b>静默消失</b>
  * （不报错，只是查不到）。
@@ -278,6 +280,7 @@ public final class DataBridge {
                 || value instanceof Skill
                 || value instanceof LivingThing.DamageReduction
                 || value instanceof AttributeProfile
+                || value instanceof CombatComponent
                 || value instanceof PropertyEnhance
                 || value instanceof ElementValue;
     }

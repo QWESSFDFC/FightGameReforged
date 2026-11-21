@@ -1,6 +1,8 @@
 package cn.gfhnv.game.officialStuff.customEntity.monsters;
 
 import cn.gfhnv.game.damage.DamageType;
+import cn.gfhnv.game.data.NoConfig;
+import cn.gfhnv.game.data.NoData;
 import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entityController.FixOrderController;
 import cn.gfhnv.game.event.DamageEvent;
@@ -212,6 +214,19 @@ public class FlameReaver extends LivingThing {
      * 是否已进入二阶段。
      */
     private boolean phaseTwo = false;
+    /**
+     * 转阶段是否已经排进当前回合的队列（防止同一回合多段伤害重复排队）。
+     * <p>
+     * 它是运行期状态，不是模板属性：不进 {@code /data}、不进配置。
+     */
+    @NoData
+    @NoConfig("运行期状态（转阶段是否已排队），不是模板属性")
+    private boolean phaseTwoPending = false;
+    /**
+     * 转阶段行动在回合队列里的优先级：必须<b>高于</b>额外行动（星魂 2 的 800）
+     * 和正常行动（0），否则玩家会先看到"白厄的额外行动"，再看到 BOSS 回满血。
+     */
+    private static final int PHASE_TRANSITION_PRIORITY = 2000;
     /**
      * 是否处在【沉默的悲叹】的蓄力中（下一次行动要放【莫因舍弃而哭泣】）。
      */
@@ -1190,53 +1205,76 @@ public class FlameReaver extends LivingThing {
     @Override
     public void updateSelf() {
         super.updateSelf();
-        if (!phaseTwo && getHpMax() > 0 && getHp() <= 0) {
-            enterPhaseTwo();
+        if (!phaseTwo && !phaseTwoPending && getHpMax() > 0 && getHp() <= 0) {
+            schedulePhaseTwoTransition();
         }
     }
 
     /**
-     * 进入二阶段：<b>生命回满</b> + 获得【高额免伤】，并把轮转换成二阶段表（多出蓄力与大招）。
+     * 把"转阶段"排进<b>当前回合</b>的行动队列；没有当前回合（自测 / 战斗已结束）时当场做。
      * <p>
-     * 回血放在这里而不是修正器里，是为了让兜底路径（{@link #updateSelf}）拿到同样的效果。
-     * 重复调用是安全的：修正器那边判了 {@code !phaseTwo}，兜底这边也判了。
+     * 必须排在队列里、而不是在伤害修正器里直接回血：玩家看到的消息顺序是
+     * <b>「攻击行（HP 0）→ 挡下致命一击、进入二阶段 → 生命回满」</b>，
+     * 在播报之前继续结算的伤害都只是打在 0 血上的"鞭尸"。
+     * <p>
+     * 优先级 {@link #PHASE_TRANSITION_PRIORITY} 高于星魂 2 的额外行动（800），
+     * 所以白厄的额外行动一定看到的是"已经回满、已经拿到免伤"的 BOSS。
+     */
+    private boolean schedulePhaseTwoTransition() {
+        if (phaseTwo || phaseTwoPending) {
+            return false;
+        }
+        phaseTwoPending = true;
+        TurnEntry presentTurn = FightTurnPastListener.getPresentTurn();
+        if (presentTurn == null) {
+            // 自测 / 战斗已结束：没有回合可排，只能当场收口
+            enterPhaseTwo();
+            return true;
+        }
+        presentTurn.addAct(this, (fight, user) -> enterPhaseTwo(), PHASE_TRANSITION_PRIORITY);
+        return false;
+    }
+
+    /**
+     * 正式进入二阶段：<b>先播报，再回满血</b> + 获得【高额免伤】，并把轮转换成二阶段表。
+     * <p>
+     * 由 {@link #schedulePhaseTwoTransition()} 排进队列后调用；重复调用安全。
+     * 播报必须在 {@code setHp} 之前：玩家要看到的顺序是"挡下致命一击"，
+     * 然后才是"生命回满"。在播报之前承受的伤害都只打在 0 血上（鞭尸）。
      * <p>
      * 官方阶段二是"躲到后排 + 召唤分身顶在前面"；本项目按用户决定改成<b>高额免伤</b>。
      */
     private void enterPhaseTwo() {
-        this.phaseTwo = true;
-        this.setHp(getHpMax());
-        this.addDamageReduction(PHASE_TWO_REDUCTION_KEY, this.phaseTwoDamageReduction);
-        // ⚠️ 这句**不能当场打**：enterPhaseTwo 是从伤害修正器里调的，而攻击行
-        // （"A 攻击了 B  -伤害 → HP …"）要等 getDamage 返回之后才打印 ——
-        // 当场打的话，这句会跑到"造成它的那一击"前面去（用户 2026-10-24 报的就是这个）。
-        // 排进当前回合的 lastExecuteList：等这一回合彻底结算完再播报（用户要求"转阶段放在 lastAction"）。
+        if (phaseTwo) {
+            phaseTwoPending = false;
+            return;
+        }
         String phaseLine = ConsoleColor.yellow("【" + getName()
                 + "】挡下致命一击，进入二阶段：生命回满，并获得高额免伤（"
                 + Math.round(this.phaseTwoDamageReduction * 100) + "%）");
-        cn.gfhnv.game.system.fight.TurnEntry presentTurn =
-                cn.gfhnv.game.eventListener.FightTurnPastListener.getPresentTurn();
-        if (presentTurn == null) {
-            // 自测 / 战斗已结束：没有"回合"可排，只能当场打
-            System.out.println(phaseLine);
-        } else {
-            presentTurn.getLastExecuteList().add((fight, user) -> System.out.println(phaseLine));
-        }
+        System.out.println(phaseLine);
+        phaseTwoPending = false;
+        this.phaseTwo = true;
+        this.setHp(getHpMax());
+        this.addDamageReduction(PHASE_TWO_REDUCTION_KEY, this.phaseTwoDamageReduction);
         if (getController() instanceof FixOrderController controller) {
             controller.setRotationByName(rotationNames());
         }
     }
 
     /**
-     * 二阶段的「切阶段保护」修正器：把<b>第一发致命伤害整个吃掉</b>，改为进入二阶段。
+     * 二阶段的「切阶段保护」修正器：把<b>第一发致命伤害</b>照常结算成 0 血，
+     * 然后排一条高优先级行动，等这一轮动作结算完再播报 + 回满。
      * <p>
-     * 挂在伤害修正器链上（见构造器）。走到这里时 {@code newHp} 已经是"当前生命 − 伤害"，
-     * 所以 {@code newHp <= 0} 就等价于"这一击会清空血条"。
-     * 触发后生命回满、拿到高额免伤；{@code phaseTwo} 置位后本修正器不再拦，二阶段该倒就倒。
+     * 返回 {@code newHp} 而不是回满后的血量：攻击行会显示 {@code HP 0/80000}，
+     * 播报之后才回满 —— 播报之前同一行动里继续结算的伤害都只是"鞭尸"。
+     * 没有当前回合（自测 / 战斗已结束）时当场切阶段，这时返回回满后的血量，
+     * 保持"这一击被整个吃掉"的旧语义。
+     * 触发后 {@code phaseTwoPending} 置位，同一回合的多段伤害不会重复排队；
+     * {@code phaseTwo} 置位后本修正器不再拦，二阶段该倒就倒。
      * <p>
      * <b>试算期间只算数、不改状态</b>（{@link LivingThing#isAnticipating()}）：
-     * 返回 1 表示"这一下最多把它打到 1 血"。既不会让 AI 靠"看一眼"把这次保护花掉，
-     * 也不会让它因为预判到"打完会回满"而算出负数伤害。这个约定与白厄的免死一致。
+     * 返回 1 表示"这一下最多把它打到 1 血"，不会把这次保护花掉。
      *
      * @return 伤害修正器
      */
@@ -1252,9 +1290,10 @@ public class FlameReaver extends LivingThing {
                     if (reaver.isAnticipating()) {
                         return 1;
                     }
-                    reaver.enterPhaseTwo();
-                    // 生命已经被回满了：把"当前生命"原样交回去，等于这一击被整个吃掉
-                    return reaver.getHp();
+                    reaver.schedulePhaseTwoTransition();
+                    // 有当前回合：这一击照常把血打到 0，回满由队列里的转阶段行动做（播报之后）；
+                    // 没有当前回合：schedule 已经当场回满，把回满后的血量交回去（这一击被吃掉）。
+                    return reaver.isPhaseTwo() ? reaver.getHp() : newHp;
                 }
                 return newHp;
             }
@@ -1266,6 +1305,7 @@ public class FlameReaver extends LivingThing {
      */
     private void clearPhaseTwo() {
         this.phaseTwo = false;
+        this.phaseTwoPending = false;
         this.charging = false;
         this.removeDamageReduction(PHASE_TWO_REDUCTION_KEY);
     }

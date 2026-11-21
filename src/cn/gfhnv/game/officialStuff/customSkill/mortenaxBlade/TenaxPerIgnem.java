@@ -113,6 +113,14 @@ public class TenaxPerIgnem extends Skill implements IAiScoreBonus {
         return AI_PRIORITY;
     }
 
+    /**
+     * 终结技伤害类型（能量回能按类型区分：终结技不拿战技的 +30，自身另有 +5）。
+     */
+    @Override
+    public java.util.Set<cn.gfhnv.game.damage.DamageType> getDamageTypes() {
+        return java.util.Set.of(cn.gfhnv.game.damage.DamageType.UltimateAttack);
+    }
+
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         for (LivingThing enemy : enemies) {

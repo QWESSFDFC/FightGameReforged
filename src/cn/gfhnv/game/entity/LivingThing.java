@@ -1,5 +1,7 @@
 package cn.gfhnv.game.entity;
 
+import cn.gfhnv.game.damage.Damage;
+import cn.gfhnv.game.damage.DamageSource;
 import cn.gfhnv.game.damage.DamageType;
 import cn.gfhnv.game.data.DataField;
 import cn.gfhnv.game.data.DataFlatten;
@@ -60,11 +62,6 @@ import java.util.function.Supplier;
  */
 public class LivingThing extends Entity {
     /**
-     * 「基础减伤」在 {@link #damageReductions} 里的来源键。
-     * <p>
-     * 只有 {@link #setDamageAbsorbedPercent(double)} 用它，用来兼容旧写法（直接设置一个总减伤）。
-     */
-    /**
      * 五行法力表的固定顺序（金木水火土）。
      * <p>
      * ⚠️ <b>不能用</b> {@link ElementSort#values()}：那里还有第 6 个常量
@@ -73,17 +70,13 @@ public class LivingThing extends Entity {
     private static final List<ElementSort> MANA_ELEMENTS = List.of(
             ElementSort.METAL, ElementSort.WOOD, ElementSort.WATER, ElementSort.FIRE, ElementSort.DIRT);
     /**
-     * 「基础减伤」的来源键（<b>每只实体各一个</b>，2026-11-15 第 64 批从 static 改成实例）。
+     * <b>战斗组件</b>：伤害入口、减伤/易伤、伤害修正器都在这里，每个实体各一个。
      * <p>
-     * 它只给旧写法 {@code setDamageAbsorbedPercent(0.75)} 用：那是一个"整只实体一个数"的旧接口，
-     * 现在等价的写法是 {@code addDamageReduction(来源, 0.75)}。
+     * {@code @DataFlatten} 让它内部的 {@code damageReductions} / {@code damageModifiers}
+     * 仍以原来的数据名出现在 {@code /data} 里。
      */
-    private final DamageReductionSource baseDamageReduction = new DamageReductionSource("基础减伤");
-    /**
-     * 减伤来源（<b>乘算叠加</b>）：承伤倍率 = Π(1 − 每个减伤)，见 {@link #getDamageTakenMultiplier()}。
-     */
-    private final List<DamageReduction> damageReductions = new ArrayList<>();
-    private final List<IModifyDamage> damageModifiers = new ArrayList<>();
+    @DataFlatten
+    private final CombatComponent combat = new CombatComponent(this);
     /**
      * 属性组件：面板组（{@code hp} / {@code baseHpMax} / {@code baseAttack} / {@code baseDefence} /
      * {@code baseSpeed} /
@@ -164,9 +157,8 @@ public class LivingThing extends Entity {
         this.setType(other.getType());
         // alive 不复制：它是"状态"，按项目规则（面板复制、状态清零）副本一律从存活开始。
         this.setShowSpecialMes(other.getShowSpecialMes());
-        this.damageModifiers.addAll(other.damageModifiers);
+        this.combat.copyFrom(other.combat);
         this.entityEffectList.replaceAll(other.getEntityEffectList());
-        this.damageReductions.addAll(other.damageReductions);
         this.participateFight = null;
         this.presentTurn = null;
         // 控制器复制交给它自己（每种控制器重写 copy(LivingThing)）——
@@ -1174,7 +1166,10 @@ public class LivingThing extends Entity {
      * @return 最终暴击率（基础暴击率 × (1 + 暴击率增强百分比) + 暴击率增强固定值）
      */
     public double getCriticalRate() {
-        return attributes.getBaseCriticalRate() * (1 + attributes.percentOf(PropertyEnhanceType.CRITICAL_RATE))
+        // 暴击率/暴伤的“+X%”按绝对值叠加（HSR 口径）：基础 5% + 效果 20% = 25%，
+        // 不是 5% × 1.2。amount（固定值）继续直接相加。
+        return attributes.getBaseCriticalRate()
+                + attributes.percentOf(PropertyEnhanceType.CRITICAL_RATE)
                 + attributes.amountOf(PropertyEnhanceType.CRITICAL_RATE);
     }
 
@@ -1192,6 +1187,19 @@ public class LivingThing extends Entity {
      */
     public Fight getParticipateFight() {
         return participateFight;
+    }
+
+    /**
+     * 己方"追加攻击伤害提高"光环的汇总（同类取最大，不叠乘）。
+     * <p>
+     * 2026-11-21 第 82 批（千冶·刃二魂）：遍历己方阵营里实现了
+     * {@link cn.gfhnv.game.interfaces.IAdditionAttackBonus} 的存活实体，取最大的那一份加成。
+     * 不在战斗里 / 自己不在己方阵营时返回 0。
+     *
+     * @return 追加攻击伤害加成（0.75 = +75%；没有返回 0）
+     */
+    public double getTeamAdditionAttackDamageBonus() {
+        return combat.getTeamAdditionAttackDamageBonus();
     }
 
     /**
@@ -1331,102 +1339,74 @@ public class LivingThing extends Entity {
     }
 
     /**
-     * @return 总减伤比例（{@code 1 − 承伤倍率}）。
-     * <p>
-     * 例如两个减伤 50% 与 25%：承伤倍率 0.5 × 0.75 = 0.375，所以这里是 0.625。
-     * 注意减伤是<b>乘算</b>叠加的，不是相加 —— 想要逐项明细看 {@link #getDamageReductions()}。
+     * @return 这个实体的战斗组件（伤害入口、减伤/易伤、伤害修正器）
+     */
+    public CombatComponent getCombat() {
+        return combat;
+    }
+
+    /**
+     * @return 总减伤比例（{@code 1 − 减伤乘区}，<b>不含易伤</b>）
      */
     public double getDamageAbsorbedPercent() {
-        return 1 - getDamageTakenMultiplier();
+        return combat.getDamageAbsorbedPercent();
     }
 
     /**
-     * 设置「基础减伤」（替换掉上一次用它设置的值）。
-     * <p>
-     * 兼容旧写法：{@code setDamageAbsorbedPercent(0.75)} 表示少受 75% 伤害。
-     * 它会作为一个独立来源参与乘算，比例被夹到 [0,1]；
-     * 想要多个来源叠加请用 {@link #addDamageReduction(Object, double)}。
+     * 设置「基础减伤」（旧写法，转发到战斗组件）。
      *
-     * @param damageAbsorbedPercent 减伤比例（0.25 = 少受 25% 伤害）
+     * @param damageAbsorbedPercent 减伤比例（0.25 = 少受 25%）
      */
     public void setDamageAbsorbedPercent(double damageAbsorbedPercent) {
-        addDamageReduction(this.baseDamageReduction, damageAbsorbedPercent);
+        combat.setDamageAbsorbedPercent(damageAbsorbedPercent);
     }
 
     /**
-     * 增加一个减伤来源（<b>乘算</b>叠加）。
-     * <p>
-     * 承伤倍率 = Π(1 − 每个减伤)：50% 与 25% 两个来源 → 只受 37.5% 伤害。
-     * 同一个来源（按对象身份判断）重复添加只保留最后一次，所以技能反复触发不会越叠越多。
-     * <p>
-     * <b>负数 = 增伤</b>（2026-10-24 起）：{@code -0.5} 表示"受到的伤害 +50%"（承伤倍率 ×1.5），
-     * 千冶·刃的【煞火缠身】就是这么写的。比例夹在 {@code [-1, 1]}：
-     * 正的那一头最多减到 0 伤害（{@link #takeDamage(DamageEvent)} 不会算出负伤害 = 治疗），
-     * 负的那一头最多翻倍。
-     * <p>
-     * ⚠️ 旧实现在这里把负数<b>静默丢掉</b>（钳制 {@code [0,1]} + 只保留 {@code > 0}），
-     * 于是"写 -0.5 想增伤"会看起来完全没效果 —— 改这个语义时<b>两处都得动</b>。
+     * 增加一个承伤修正来源（正数 = 减伤，负数 = 易伤），转发到战斗组件。
      *
-     * @param source  来源，按对象身份区分（效果实例、技能、装备都可以）
-     * @param percent 减伤比例（0.25 = 少受 25%；{@code -0.5} = 多受 50%）
+     * @param source  来源
+     * @param percent 正数 = 减伤；负数 = 易伤
      */
     public void addDamageReduction(Object source, double percent) {
-        if (source == null) {
-            return;
-        }
-        removeDamageReduction(source);
-        // 2026-10-24：允许负数 —— 负的减伤 = 增伤（-0.5 → 承伤 ×1.5）。
-        // 旧实现在这里 Math.max(0, ...) + if (>0) 把负数静默丢掉了，写 -0.5 会看起来完全没效果。
-        double clamped = Math.max(-1, Math.min(1, percent));
-        if (clamped != 0) {
-            damageReductions.add(new DamageReduction(source, describeReductionSource(source), clamped));
-        }
+        combat.addDamageReduction(source, percent);
     }
 
     /**
-     * 移除一个减伤来源。
+     * 移除一个承伤来源（转发）。
      *
-     * @param source 来源（与添加时是同一个对象）
-     * @return 是否真的移除了
+     * @param source 来源
+     * @return 有没有移除
      */
     public boolean removeDamageReduction(Object source) {
-        return source != null && damageReductions.removeIf(reduction -> reduction.source() == source);
+        return combat.removeDamageReduction(source);
     }
 
     /**
-     * 清空全部减伤来源。
+     * 清空全部承伤来源（转发）。
      */
     public void clearDamageReductions() {
-        damageReductions.clear();
+        combat.clearDamageReductions();
     }
 
     /**
-     * @return 全部减伤来源（副本，改它不影响本体）
+     * @return 全部承伤来源（副本）
      */
     public List<DamageReduction> getDamageReductions() {
-        return new ArrayList<>(damageReductions);
+        return combat.getDamageReductions();
     }
 
     /**
-     * 承伤倍率：{@code Π(1 − 每个减伤)}。
-     * <p>
-     * 例：50% 与 25% → {@code 0.5 × 0.75 = 0.375}（只受 37.5% 伤害），而不是相加的 25%。
-     * 伤害计算（{@link cn.gfhnv.game.damage.DamageCalculate}）用的就是这个值。
-     * <p>
-     * <b>可以 &gt; 1</b>（2026-10-24 起）：负数减伤 = 增伤，例如一个 {@code -0.5} 的来源 →
-     * 倍率 1.5（多受 50%）。<b>下界仍然是 0</b> —— 减伤叠满只会把伤害压到 0，
-     * 不能算出负伤害（负数会被 {@link #takeDamage(DamageEvent)} 当成治疗）。
-     *
-     * @return 承伤倍率；没有任何减伤时是 1；有增伤时 &gt; 1
+     * @return 减伤乘区（{@code Π(1 − 正减伤)}）
      */
     public double getDamageTakenMultiplier() {
-        double multiplier = 1;
-        for (DamageReduction reduction : damageReductions) {
-            multiplier *= (1 - reduction.percent());
-        }
-        // 上界不再夹：负数减伤 = 增伤，倍率可以 > 1。下界仍是 0 —— 减伤叠满只能把伤害压到 0，
-        // 不能算出负伤害（负数会被 takeDamage(DamageEvent) 当成治疗）。
-        return Math.max(0, multiplier);
+        return combat.getDamageTakenMultiplier();
+    }
+
+    /**
+     * @return 易伤乘区（{@code 1 + Σ|负减伤|}）
+     */
+    public double getDamageVulnerabilityMultiplier() {
+        return combat.getDamageVulnerabilityMultiplier();
     }
 
     /**
@@ -1656,23 +1636,12 @@ public class LivingThing extends Entity {
     }
 
     /**
-     * 受到伤害。根据 {@link DamageEvent} 计算新生命值，并依次经过全部
-     * {@link IModifyDamage 伤害修正器}（见 {@link #modifyIncomingDamage}）后设置。
-     * <p>
-     * 结算完把<b>实际掉了多少血</b>写回 {@link Damage#setAppliedDamage(long)}：
-     * 那是 {@code setHp} 前后差，已经被生命值夹取（0 / 上限）与免死类机制影响过。
-     * 它和"公式算出来的值"是两件事 —— 攻击行显示的仍是后者。
+     * 受到伤害（转发到 {@link CombatComponent#takeDamage}）。
      *
      * @param da 伤害事件
      */
     public void takeDamage(DamageEvent da) {
-        long hpBefore = this.getHp();
-        long newHp = hpBefore - da.getDamage().getCalculateDamageResult();
-        newHp = modifyIncomingDamage(newHp, da);
-        this.setHp(newHp);
-        da.getDamage().setAppliedDamage(hpBefore - this.getHp());
-        // 打印不在这里做：攻击行的完整文案（攻击者/目标/伤害/剩余 HP/技能名）统一在
-        // makeDamage 里打，其它"直接调 getDamage"的场合（自测等）不需要刷屏。
+        combat.takeDamage(da);
     }
 
     /**
@@ -1901,7 +1870,7 @@ public class LivingThing extends Entity {
         // 战斗结束时没人摘，留着会渗进下一局 —— 最典型的是白厄【灾厄】那 75%
         // （`CalamitySoulscorchEdict` 挂、`Counterattack` 摘），变身打到一半战斗结束就带走了。
         // 清空是安全的：生产环境里**没有"构造期就永久挂着"的减伤**
-        // （`baseDamageReduction` 只有旧写法 `setDamageAbsorbedPercent` 会加，而它没人调），
+        // （战斗组件里的 baseDamageReduction 只有旧写法 `setDamageAbsorbedPercent` 会加，而它没人调），
         // 层数减伤与二阶段免伤由 FlameReaver 在自己的 whenFightStart 重新挂，醉意由效果自己摘。
         this.clearDamageReductions();
         // 「单体伤害倍率」的来源乘数同理：技能挂上来的、不走效果生命周期，
@@ -1912,47 +1881,53 @@ public class LivingThing extends Entity {
     }
 
     /**
-     * 使用技能对目标造成伤害（构造 {@link DamageEvent} 并调用目标的 {@link #getDamage}）。
-     * <p>
-     * <b>攻击行的打印统一在这里做</b>：{@code A#短标识（我方）攻击了B#短标识（敌方）  -伤害  → HP 当前/上限  【技能名】}。
-     * 以前是"各技能自己 print 前缀 + makeDamage 打伤害 + getDamage 打剩余 HP"三段拼的，
-     * 结果<b>只要哪个技能漏了那句 print，日志里就会冒出一行没有主语的 "  -1109  → HP …"</b>
-     * （实测踩过：{@code Counterattack} 的 6 次追加攻击）。收进来之后谁也漏不了，
-     * 顺带还能把技能名一起打出来。
-     * <p>
-     * 攻守双方都带阵营（见 {@link #getNameWithSide()}）：双方可能有同名生物
-     * （典型是各一只【残破容器】），不带阵营根本分不出是谁打谁。
+     * 使用技能对目标造成伤害（转发到 {@link CombatComponent#makeDamage}）。
      *
      * @param attacked 被攻击目标
-     * @param skill    使用的技能（用来显示技能名；可为 {@code null}）
+     * @param skill    使用的技能（可为 {@code null}）
+     * @return 这一刀的 {@link Damage}
      */
-    public void makeDamage(LivingThing attacked, Skill skill) {
-        // 兼容重载（模组老写法 user.makeDamage(target, this)）：没传类型就按战技算。
-        // 它只影响"伤害类型"这个标签，不影响任何数值；新代码请传显式类型。
-        makeDamage(attacked, skill, DamageType.SpecialSkill);
+    public Damage makeDamage(LivingThing attacked, Skill skill) {
+        return combat.makeDamage(attacked, skill);
     }
 
     /**
-     * 使用技能对目标造成伤害，并声明这一击的<b>伤害类型</b>（可以多个，全都生效）。
-     * <p>
-     * 类型由技能自己传（{@code user.makeDamage(target, this, DamageType.CommonAttack)}）——
-     * 不做按类自动推断：同一个技能类在不同形态/来源下可能算不同类型。
+     * 使用技能对目标造成伤害，并声明伤害类型（转发）。
      *
      * @param attacked    被攻击目标
      * @param skill       使用的技能；可为 {@code null}
-     * @param damageTypes 伤害类型（不传按 {@link DamageType#SpecialSkill} 算）
+     * @param damageTypes 伤害类型
+     * @return 这一刀的 {@link Damage}
      */
-    public void makeDamage(LivingThing attacked, Skill skill, DamageType... damageTypes) {
-        DamageEvent damageEvent = new DamageEvent(this, attacked, skill, damageTypes);
-        EventBus.post(damageEvent);
-        attacked.takeDamage(damageEvent);
-        // 显示**"应该造成的伤害"**（伤害公式算出来的那一刀），不是"这一击实际掉了多少血"。
-        // 理由（2026-10-24 用户拍板）：90000 打在只剩 400 血的敌人身上，打"实际掉血"会显示 -400，
-        // 看不出这一刀的威力；显示 -90000 才是玩家想看的数。
-        // 代价：被免死/高额免伤拦下时，这一行的数字会大于"HP 前后差" —— 那是**故意的**。
-        // "实际掉血"现在记在 Damage#getAppliedDamage() 里（不再只活在这一行的计算中间）。
-        EntityDisplay.printAttackLine(this, attacked, skill, damageEvent.getDamage().getCalculateDamageResult(),
-                damageEvent.getDamage().isCritical());
+    public Damage makeDamage(LivingThing attacked, Skill skill, DamageType... damageTypes) {
+        return combat.makeDamage(attacked, skill, damageTypes);
+    }
+
+    /**
+     * 造成一次固定原始值的真实伤害（转发）。
+     *
+     * @param attacked    被攻击目标
+     * @param skill       使用的技能（可为 {@code null}）
+     * @param rawAmount   固定原始值
+     * @param damageTypes 伤害类型
+     */
+    public void makeTrueDamage(LivingThing attacked, Skill skill, double rawAmount, DamageType... damageTypes) {
+        combat.makeTrueDamage(attacked, skill, rawAmount, damageTypes);
+    }
+
+    /**
+     * 造成一次固定原始值的 DOT 伤害（转发）。
+     *
+     * @param attacked    被攻击目标
+     * @param source      伤害来源
+     * @param elementSort 伤害元素
+     * @param rawAmount   固定原始值
+     * @param damageTypes 伤害类型
+     */
+    public void makeDotDamage(LivingThing attacked, DamageSource source,
+                              cn.gfhnv.game.system.ElementSort elementSort,
+                              double rawAmount, DamageType... damageTypes) {
+        combat.makeDotDamage(attacked, source, elementSort, rawAmount, damageTypes);
     }
 
     /**
@@ -2010,7 +1985,9 @@ public class LivingThing extends Entity {
      * @return 最终暴击伤害倍率加成
      */
     public double getCriticalDamage() {
-        return attributes.getBaseCriticalDamage() * (1 + attributes.percentOf(PropertyEnhanceType.CRITICAL_DAMAGE))
+        // 与暴击率同一个口径：基础 50% + 效果 50% = 100%，暴击乘区 = 1 + 1.0 = 2.0。
+        return attributes.getBaseCriticalDamage()
+                + attributes.percentOf(PropertyEnhanceType.CRITICAL_DAMAGE)
                 + attributes.amountOf(PropertyEnhanceType.CRITICAL_DAMAGE);
     }
 
@@ -2039,11 +2016,7 @@ public class LivingThing extends Entity {
      * @return 修正后的新生命值
      */
     public long modifyIncomingDamage(long newHp, DamageEvent da) {
-        long result = newHp;
-        for (IModifyDamage modifier : damageModifiers) {
-            result = modifier.damageModify(result, da);
-        }
-        return result;
+        return combat.modifyIncomingDamage(newHp, da);
     }
 
     /**
@@ -2082,10 +2055,7 @@ public class LivingThing extends Entity {
      * @param modifier 修正器；{@code null} 与 {@link IModifyDamage#DEFAULT} 会被忽略
      */
     public void addModifyDamage(IModifyDamage modifier) {
-        if (modifier == null || modifier == IModifyDamage.DEFAULT) {
-            return;
-        }
-        damageModifiers.add(modifier);
+        combat.addModifyDamage(modifier);
     }
 
     /**
@@ -2095,21 +2065,21 @@ public class LivingThing extends Entity {
      * @return 是否真的移除了
      */
     public boolean removeModifyDamage(IModifyDamage modifier) {
-        return modifier != null && damageModifiers.removeIf(each -> each == modifier);
+        return combat.removeModifyDamage(modifier);
     }
 
     /**
      * 清空全部伤害修正器。
      */
     public void clearModifyDamage() {
-        damageModifiers.clear();
+        combat.clearModifyDamage();
     }
 
     /**
      * @return 全部伤害修正器（副本，按套用顺序）
      */
     public List<IModifyDamage> getModifyDamageList() {
-        return new ArrayList<>(damageModifiers);
+        return combat.getModifyDamageList();
     }
 
     /**
@@ -2121,8 +2091,7 @@ public class LivingThing extends Entity {
      * @param modifyDamage 伤害修正接口
      */
     public void setModifyDamage(IModifyDamage modifyDamage) {
-        damageModifiers.clear();
-        addModifyDamage(modifyDamage);
+        combat.setModifyDamage(modifyDamage);
     }
 
     /**

@@ -81,6 +81,14 @@ public class MortalBladeSkill extends Skill {
         return canUse(fight, user) && super.canUse(fight, user, targets);
     }
 
+    /**
+     * 普攻伤害类型（能量回能按类型区分：普攻 +20）。
+     */
+    @Override
+    public java.util.Set<cn.gfhnv.game.damage.DamageType> getDamageTypes() {
+        return java.util.Set.of(cn.gfhnv.game.damage.DamageType.CommonAttack);
+    }
+
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
         for (LivingThing enemy : enemies) {
@@ -88,7 +96,6 @@ public class MortalBladeSkill extends Skill {
             enemy.addEffect(new Taunt(TAUNT_LAST_TIME).setOrigin(user.getUUID()));
         }
         if (user instanceof MortenaxBlade blade) {
-            blade.gainEnergy(MortalBladeCommonAttack.ENERGY_GAIN);
         }
     }
 }

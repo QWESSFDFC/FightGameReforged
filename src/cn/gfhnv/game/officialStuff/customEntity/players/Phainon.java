@@ -3,6 +3,7 @@ package cn.gfhnv.game.officialStuff.customEntity.players;
 import cn.gfhnv.game.data.NoConfig;
 import cn.gfhnv.game.data.NoData;
 import cn.gfhnv.game.entity.LivingThing;
+import cn.gfhnv.game.entity.HSRActor;
 import cn.gfhnv.game.entity.Player;
 import cn.gfhnv.game.entity.PropertyEnhanceType;
 import cn.gfhnv.game.entityController.PlayerController;
@@ -28,7 +29,7 @@ import cn.gfhnv.game.world.World;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Phainon extends Player {
+public class Phainon extends HSRActor {
 
     /**
      * 「变身」那两笔加成（攻击 +80%、生命上限 +270%）的来源键：
@@ -69,6 +70,13 @@ public class Phainon extends Player {
     private boolean awaken = false;
     private int extraAbilityTier = 0;
     private int appliedExtraAbilityTier = 0;
+    /**
+     * 变身前的普通技能表备份：退出变身时用它还原控制器。
+     * <p>
+     * 它不是运行时真正装备的技能（觉醒期间控制器里是觉醒三招），也不是配置项，
+     * 所以 {@code /data} 不显示它，避免和菜单/控制器对不上。
+     */
+    @NoData
     private List<Skill> skills;
     private boolean absorbDamage = false;
     private boolean pendingLastAttack = false;
@@ -96,6 +104,37 @@ public class Phainon extends Player {
     @NoConfig("运行期上下文（这一刀是不是被打断的那一刀、当时还剩几个额外回合），不是模板属性，也不进 /data")
     private int interruptedRemainingExtraTurns = -1;
     private int extraTurns = 0;
+    /**
+     * 星魂 2 的物理抗性穿透来源键。
+     */
+    private static final Object E2_PENETRATION_SOURCE = new Object();
+    /**
+     * 本场战斗里被消灭的敌方目标数（星魂 1 的额外回合速度成长用）。
+     */
+    @NoData
+    @NoConfig("运行期计数（本场击杀数），不是模板属性")
+    private int enemyDeaths;
+    /**
+     * 击杀计数器（监听 `EntityDeathEvent`）。
+     */
+    private final EnemyDeathCounter enemyDeathCounter = new EnemyDeathCounter();
+
+    /**
+     * 星魂 6「亘古长升，蚀火残阳」：战斗开始时额外获得的【火种】点数。
+     */
+    public static final int E6_COREFLAME_ON_START = 6;
+
+    /**
+     * 白厄不使用 HSRActor 的普通能量 —— 他的特殊资源是【火种】。
+     * <p>
+     * 这一条必须覆盖：否则 {@code LivingThing#takeDamage}（受击/击杀）与
+     * {@code Skill#grantEnergyAfterUse}（普攻/战技）都会按 HSRActor 规则给他攒能量，
+     * 攒过 160 之后还会挂上【能量溢出】效果，在回合头打印一行占位内容。
+     */
+    @Override
+    protected boolean usesEnergy() {
+        return false;
+    }
 
     public Phainon(Phainon phainon1) {
         super(phainon1);
@@ -233,7 +272,7 @@ public class Phainon extends Player {
                     phainon.clearAwakenExtraTurns();
                     phainon.finalizeAwakenByInterrupt();
                     TurnEntry armingTurn = FightTurnPastListener.getPresentTurn();
-                    armingTurn.getLastExecuteList().add((fight, user) -> {
+                    armingTurn.addAct(phainon, (fight, user) -> {
                         List<LivingThing> availableTargets;
                         if (fight.getEnemiesList().contains(phainon))
                             availableTargets = new ArrayList<>(fight.getFighterList());
@@ -243,7 +282,7 @@ public class Phainon extends Player {
 
                         if (!availableTargets.isEmpty())
                             World.prototypeCopyOf(LastAttack.class).comeToEffect(fight, phainon, availableTargets);
-                    });
+                    }, cn.gfhnv.game.system.fight.ActEntry.PRIORITY_LAST);
                 }
                 return newHp;
             }
@@ -272,6 +311,46 @@ public class Phainon extends Player {
 
     public void removeScourge(int i) {
         this.setScourge(Math.max(0, scourge - i));
+    }
+
+    /**
+     * 星魂 1：额外回合的「基础速度继承比例」。
+     * <p>
+     * 1 魂起为 200%，本场每消灭 1 个敌方目标再 +1.5%，最多 +84%（即最高 284%）。
+     * 未到 1 魂时是常规 100%。
+     *
+     * @return 速度继承比例（1.0 = 常规；2.0 = 200%）
+     */
+    public double getExtraTurnSpeedRatio() {
+        if (getEidolon() < 1) {
+            return 1.0;
+        }
+        return 2.0 + Math.min(0.84, 0.015 * enemyDeaths);
+    }
+
+    /**
+     * 星魂 2：物理属性抗性穿透 +20%（本项目无"物理"独立元素，按全元素穿透实现）。
+     */
+    @Override
+    protected void onEidolonChanged() {
+        if (getEidolon() >= 2) {
+            addPenetration(null, 0.2, E2_PENETRATION_SOURCE);
+        } else {
+            removePenetration(E2_PENETRATION_SOURCE);
+        }
+    }
+
+    /**
+     * 监听敌方死亡，给星魂 1 的额外回合速度计数。
+     */
+    public final class EnemyDeathCounter {
+        @cn.gfhnv.game.annotation.SubscribeEvent
+        public void onDeath(cn.gfhnv.game.event.EntityDeathEvent event) {
+            Fight fight = getParticipateFight();
+            if (fight != null && fight.getEnemiesList().contains(event.getEntity())) {
+                enemyDeaths++;
+            }
+        }
     }
 
     public int getExtraTurns() {
@@ -333,7 +412,29 @@ public class Phainon extends Player {
      */
     public void finalizeAwakenByInterrupt() {
         this.interruptedRemainingExtraTurns = this.extraTurns;
+        // 2026-11-21 第 82 批：原文"如果卡厄斯兰那在上述目标行动完前退出变身，反击不释放，
+        // 清除弑魂之炽和对应的减伤"。
+        this.clearSoulscorchState();
         //EventBus.post(new AwakenEndEvent(this)); 白厄在变身时释放最后一击.
+    }
+
+    /**
+     * 清掉【弑魂之炽】相关的全部状态（层数 / 减伤 / 待行动名单）。
+     * <p>
+     * 退出变身（正常结束或被打断）都要调用：否则反击还会按旧名单触发、
+     * 75% 减伤也会留在身上。
+     */
+    public void clearSoulscorchState() {
+        this.soulscorch = 0;
+        this.absorbDamage = false;
+        this.removeDamageReduction(SOULSCORCH_DAMAGE_REDUCTION);
+        if (getController() != null) {
+            for (Skill skill : getController().getSkills()) {
+                if (skill instanceof cn.gfhnv.game.officialStuff.customSkill.phainonSkills.awakenSkills.CalamitySoulscorchEdict edict) {
+                    edict.getWillAct().clear();
+                }
+            }
+        }
     }
 
     /**
@@ -390,8 +491,24 @@ public class Phainon extends Player {
         return coreflame;
     }
 
+    /**
+     * 设置【火种】。未到 6 魂时夹在 {@code 0 … coreflameMax}；
+     * 6 魂起<b>不再夹上限</b>（星魂 6：可溢出点数不再拥有上限），但下界仍是 0。
+     *
+     * @param coreflame 新火种数
+     */
     public void setCoreflame(int coreflame) {
-        this.coreflame = Math.min(coreflameMax, coreflame);
+        int capped = getEidolon() >= 6 ? coreflame : Math.min(coreflameMax, coreflame);
+        this.coreflame = Math.max(0, capped);
+    }
+
+    /**
+     * 增加/减少【火种】（结果按 {@link #setCoreflame(int)} 的规则夹取）。
+     *
+     * @param amount 增量（可为负）
+     */
+    public void addCoreflame(int amount) {
+        setCoreflame(this.coreflame + amount);
     }
 
     public int getCoreflameMax() {
@@ -422,6 +539,8 @@ public class Phainon extends Player {
         scourge = 0;
         soulscorch = 0;
         pendingLastAttack = false;
+        EventBus.unregister(this.enemyDeathCounter);
+        enemyDeaths = 0;
         interruptedRemainingExtraTurns = -1;
         this.absorbDamage = false;
         this.clearAwakenExtraTurns();
@@ -451,10 +570,16 @@ public class Phainon extends Player {
     public void whenFightStart(Fight fight) {
         super.whenFightStart(fight);
         if (!isListenerRegister()) EventBus.register(this.fightStartAndSelectEventListener);
+        EventBus.register(this.enemyDeathCounter);
         isListenerRegister = true;
 
         this.setExtraAbilityTier(this.getExtraAbilityTier() + 1);
-        this.setCoreflame(this.getCoreflame() + 1);
+        this.addCoreflame(1);
+        // 星魂 6：战斗开始时额外获得 6 点【火种】。
+        // 6 魂起 setCoreflame 不再夹上限，所以这里会真的叠在初始火种上。
+        if (getEidolon() >= 6) {
+            this.addCoreflame(E6_COREFLAME_ON_START);
+        }
     }
 
     @Override

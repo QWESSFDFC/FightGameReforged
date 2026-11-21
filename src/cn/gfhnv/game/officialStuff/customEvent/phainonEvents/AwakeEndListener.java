@@ -62,7 +62,7 @@ public class AwakeEndListener {
                 TurnManager.needTimeOf(endEvent.getPhainon()), TurnManager.getPresentTime()));
         endEvent.getPhainon().setExtraTurns(0);
         endEvent.getPhainon().setExtraAbilityTier(Math.min(2, endEvent.getPhainon().getExtraAbilityTier() + 1));
-        endEvent.getPhainon().setSoulscorch(0);
+        endEvent.getPhainon().clearSoulscorchState();
         System.out.println("白厄再次踏上轮回....");
         EventBus.unregister(this);
     }

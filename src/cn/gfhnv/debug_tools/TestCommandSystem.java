@@ -41,6 +41,7 @@ public final class TestCommandSystem {
         EventBusTests.runAll();
         DisplayTests.runAll();
         CombatCoreTests.runAll();
+        CombatMechanicsTests.runAll();
         ExtensionEventTests.runAll();
         FightLifecycleTests.runAll();
         MortalBladeTests.runAll();

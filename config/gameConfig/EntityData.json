@@ -6,18 +6,18 @@
         "summonHpCostRate": 0.03,
         "containerLimit": 0,
         "phaseTwoDamageReduction": 0.7,
-        "completeContainerHpRatio": 0.25,
+        "completeContainerHpRatio": 0.005,
         "damageReductionPerLayer": 0.25,
         "completeContainerChance": 0.34,
-        "containerHpRatio": 0.15,
+        "containerHpRatio": 0.005,
         "containerAttackRatio": 0.4,
         "damageReductionLayersDefault": 2
       },
       "derived": {
         "baseAttack": 9050,
-        "hp": 80000,
+        "hp": 8000000,
         "baseDefence": 3925,
-        "baseHpMax": 80000
+        "baseHpMax": 8000000
       },
       "base": {
         "waterManaGrow": 1,
@@ -26,7 +26,7 @@
         "type": "boss",
         "waterResistance": 0.2,
         "baseCriticalDamage": 0,
-        "fireResistance": 0.7,
+        "fireResistance": 0.5,
         "baseCriticalRate": 0,
         "element": "FIRE",
         "enhance": 0,
@@ -208,14 +208,18 @@
     "game_official_content:phainon": {
       "classState": {
         "soulscorch": 0,
-        "extraAbilityTier": 0,
+        "extraAbilityTier": 2,
         "scourge": 0,
-        "scourgeMax": 8,
+        "energyOverflowMax": 80,
+        "scourgeMax": 888888,
+        "eidolon": 6,
         "coreflame": 15,
-        "coreflameMax": 15
+        "coreflameMax": 15,
+        "energyMax": 160,
+        "energy": 0
       },
       "derived": {
-        "baseAttack": 5070,
+        "baseAttack": 9070,
         "hp": 3796,
         "baseDefence": 3300,
         "baseHpMax": 3796
@@ -226,16 +230,16 @@
         "description": "这是白厄.",
         "type": "player",
         "waterResistance": 0,
-        "baseCriticalDamage": 0.5,
+        "baseCriticalDamage": 10,
         "fireResistance": 0.7,
-        "baseCriticalRate": 0.05,
+        "baseCriticalRate": 1,
         "element": "FIRE",
         "enhance": 0,
         "metalResistance": 0,
         "inventorySlots": 63,
         "level": 125,
         "penetration": 0,
-        "baseSpeed": 120,
+        "baseSpeed": 150,
         "dirtResistance": 0,
         "woodResistance": 0,
         "defenceLoss": 0,
