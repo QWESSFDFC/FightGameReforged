@@ -5,7 +5,7 @@
 > 这份文档同时面向**人类开发者**和**AI 助手**：正文按"怎么做"组织，需要的精确签名、
 > 行号、坑与自检手段都写进去了；第 8 节是给 AI 的压缩版契约，可以直接整段丢给 AI 当上下文。
 >
-> - 适用版本：**Java 25 + 当前源码**（`src/cn/gfhnv`，215 个 java 文件）；
+> - 适用版本：**Java 25 + 当前源码**（`src/cn/gfhnv`，当前 **292** 个 java 文件 / 58,868 行）；
 > - 本文与源码不一致时，**以源码为准**；
 > - 配套阅读：
 >   [`README.md`](../../README.md)（怎么玩、各个系统在哪）、
@@ -347,7 +347,7 @@ CommandManager.register(new MyCommand());
 ```
 
 命令树的完整写法（节点类型、参数类型、选择器、补全、返回值语义）见
-`officialStuff/customCommands/` 下的 9 个官方命令与
+`officialStuff/customCommands/` 下的 10 个官方命令（`OfficialCommands` 注册 10 个，另有 `/help` 的 `?` 别名）与
 [`COMMAND-SYSTEM-2026-08.md`](../current/COMMAND-SYSTEM-2026-08.md)。
 
 ### 4.6 监听器（可选，但很有用）
@@ -368,11 +368,11 @@ public class MyListener {
    （这条没改 —— 把方法写在监听器类自己身上）；
 3. **注册去重**：同一个对象 + 同一个方法注册两次只跑**一次**（旧版会跑两次）；
 4. **异常隔离**：一个监听器抛异常**不再打断**后面的监听器，异常记进 `EventBus.dispatchErrorCount()` /
-   `recentDispatchErrors()`（旧版直接抛 `RuntimeException`，后面的监听器这一轮收不到事件）；
+   `recentDispatchErrors()`，并把完整堆栈写 `LogWriter`（旧版直接抛 `RuntimeException`，后面的监听器这一轮收不到事件）；
 5. **派发中注销生效**：`post` 里把某个监听器 `unregister` 掉，它**本轮就不再被调用**（旧版迭代副本，照样跑）。
 
-优先级默认 `3`（数字越小越先执行，同优先级按注册顺序）；`Event#setCanceled(true)` 会跳过后续监听器
-（⚠️ 全项目 0 处调用，别指望它）。
+优先级默认 `3`（数字越小越先执行，同优先级按注册顺序）；`Event#setCanceled(true)` 会跳过后续监听器。
+真正把取消当业务语义读的只有 `SkillUseEvent`（取消 = 这一击不生效、不扣蓝/不进冷却）；`DamageEvent` / `SelectTargetEvent` 的 cancel 发布者不读。
 
 **排查"我的监听器到底挂上没有"**：`EventBus.dump()`（事件类型 → 监听器类名#方法名）、
 `EventBus.handlerCount()` / `handlerCount(某个事件类)`、`EventBus.audit("标签")`。
@@ -381,6 +381,10 @@ public class MyListener {
 ---
 
 ## 4.7 模组配置（可选，2026-10-03 新增）
+
+> ⚠️ **下面这段是“改造示意”，不是 `mods/drunkenSword` 的现有代码**：
+> 该模组实际只 `extends Mod`，没有 `@ModConfig` / `ModDataAware` / `applyConfig`，
+> `config/data/drunkenSword.json` 对它不生效。要看真正接线的例子，看 `mods/liXiaoYanPlus/`。
 
 想让玩家能调你模组的数值（初始层数、技能门槛、掉落概率……），用**注解 + 可选接口**：
 

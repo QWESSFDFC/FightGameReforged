@@ -514,7 +514,7 @@ public final class ConfigTests {
             /* ⑤-5b D1/D2 + Q2 回归：那批"看着像能配、其实这一版刻意不支持"的键
              *        必须显式报出来并说清理由 —— 不许静默，也不许再谎报"能配置"。
              *        摘掉的是：五元素 *Penetration / *DamageEnhance（临时属性，打完一局清零）
-             *        与 extraDamage（死字段）。 */
+             *        与已删除的 extraDamage / individualMultipleArea 标量。 */
             cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.Report notSupported =
                     cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.applyJson(
                             "{\"entities\":{\"game_official_content:playerOne\":{\"base\":"
@@ -536,11 +536,6 @@ public final class ConfigTests {
                             .isConfigurable("extraDamage"));
             check("不支持键（D2）：写 temporary 块时得到的是「它不是配置块」，不是误导性的「未知键」",
                     notSupportedText.contains("不是一个配置块"));
-            check("不支持键：extraDamage 被点名，而且说清它是「死字段」",
-                    cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.applyJson(
-                                    "{\"entities\":{\"game_official_content:playerOne\":"
-                                            + "{\"base\":{\"extraDamage\":5}}}}", "自测-死字段")
-                            .skippedEntries().toString().contains("死字段"));
             snapshots.get("game_official_content:playerOne").restore();
 
             /* ⑤-5c D4：TagConfig 的「出厂默认值」只有 Java 里那一份，钉住它的形状 ——
@@ -603,7 +598,7 @@ public final class ConfigTests {
                 }
             }
             check("表驱动：表里读得出值的每一行都出现在默认文件里（两边同一张表）—— 缺 " + notWritten,
-                    writtenKeys.size() == 30 && notWritten.isEmpty());
+                    writtenKeys.size() == 29 && notWritten.isEmpty());
             check("表驱动：DataKeys.META / groups() 与 EntityKeySpecs 是同一份（不许再手写第二张）",
                     cn.gfhnv.game.system.configLoadingSystem.DataKeys.META
                             .equals(cn.gfhnv.game.system.configLoadingSystem.EntityKeySpecs.meta())
@@ -616,25 +611,21 @@ public final class ConfigTests {
             LivingThing panel = entityTemplateOf("game_official_content:playerOne");
             double oldRate = panel.getCriticalRate();
             double oldDmg = panel.getCriticalDamage();
-            double oldEnhance = panel.getEnhance();
             double oldPenetration = panel.getPenetration();
             double oldLoss = panel.getDefenceLoss();
             cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.applyJson(
                     "{\"entities\":{\"game_official_content:playerOne\":{\"base\":"
-                            + "{\"baseCriticalRate\":0.5,\"baseCriticalDamage\":1.5,\"enhance\":0.25,"
+                            + "{\"baseCriticalRate\":0.5,\"baseCriticalDamage\":1.5,"
                             + "\"penetration\":0.3,\"defenceLoss\":0.1}}}}", "自测-面板键");
-            check("面板键：baseCriticalRate / baseCriticalDamage / enhance / penetration / defenceLoss 真的写进去了"
+            check("面板键：baseCriticalRate / baseCriticalDamage / penetration / defenceLoss 真的写进去了"
                             + "（以前它们在 META 里声明能配，写进去一点反应都没有）",
                     panel.getCriticalRate() == 0.5 && panel.getCriticalDamage() == 1.5
-                            && panel.getEnhance() == 0.25 && panel.getPenetration() == 0.3
-                            && panel.getDefenceLoss() == 0.1);
+                            && panel.getPenetration() == 0.3 && panel.getDefenceLoss() == 0.1);
             LivingThing panelCopy = panel.copy();
             check("面板键：copy() 会把它们带过去（面板属性，不是打完一局就清零的临时属性）",
-                    panelCopy.getCriticalRate() == 0.5 && panelCopy.getEnhance() == 0.25
-                            && panelCopy.getPenetration() == 0.3);
+                    panelCopy.getCriticalRate() == 0.5 && panelCopy.getPenetration() == 0.3);
             panel.setCriticalRate(oldRate);
             panel.setCriticalDamage(oldDmg);
-            panel.setEnhance(oldEnhance);
             panel.setPenetration(oldPenetration);
             panel.setDefenceLoss(oldLoss);
             snapshots.get("game_official_content:playerOne").restore();
@@ -1018,7 +1009,7 @@ public final class ConfigTests {
     private static void testReflectionDrivenConfig() {
         section("反射驱动配置（实验：配置面寄生在 /data 的反射上）");
 
-        /* ---------- ① 三个真实字段：criticalRate / speed / enhance ---------- */
+        /* ---------- ① 三个真实字段：criticalRate / speed / defenceLoss ---------- */
         // 2026-11-14 第 50 批：metalResistance 已容器化（/data 里变成 resistances 列表），
         // 这里换一个仍在 @DataFlatten 组件里、且有 setter 的面板标量来证明反射写入。
         LivingThing target = entityTemplateOf("game_official_content:playerOne");
@@ -1028,17 +1019,17 @@ public final class ConfigTests {
         String beforeState = cn.gfhnv.game.system.configLoadingSystem.EntityDataPatcher.stateOf(target);
         double beforeCritical = target.getCriticalRate();
         long beforeSpeed = target.getSpeed();
-        double beforeEnhance = target.getEnhance();
+        double beforeLoss = target.getDefenceLoss();
         System.out.println("  [信息] 打补丁前：" + beforeState);
         try {
             // 用**另一个值**，这样"变了"这件事有信息量（写成原值什么都不变，断言会假绿）
             double newCritical = beforeCritical + 0.125;
             long newSpeed = beforeSpeed + 7;
-            double newEnhance = beforeEnhance + 0.5;
+            double newLoss = beforeLoss + 0.5;
             org.json.JSONObject patch = new org.json.JSONObject()
                     .put("baseCriticalRate", newCritical)
                     .put("baseSpeed", newSpeed)
-                    .put("enhance", newEnhance);
+                    .put("defenceLoss", newLoss);
             System.out.println("  [信息] 补丁（键名 = /data 数据名）：" + patch);
             cn.gfhnv.game.system.configLoadingSystem.ReflectionConfigBridge.Applied applied =
                     cn.gfhnv.game.system.configLoadingSystem.ReflectionConfigBridge.patch(target, patch);
@@ -1050,9 +1041,9 @@ public final class ConfigTests {
                     Math.abs(target.getCriticalRate() - (beforeCritical + 0.125)) < 1e-9);
             check("① 反射驱动：speed 真的变了（+7）—— " + beforeSpeed + " → " + target.getSpeed(),
                     target.getSpeed() == beforeSpeed + 7);
-            check("① 反射驱动：enhance 真的变了（+0.5，字段住在 @DataFlatten 组件里）—— "
-                            + beforeEnhance + " → " + target.getEnhance(),
-                    Math.abs(target.getEnhance() - (beforeEnhance + 0.5)) < 1e-9);
+            check("① 反射驱动：defenceLoss 真的变了（+0.5，字段住在 @DataFlatten 组件里）—— "
+                            + beforeLoss + " → " + target.getDefenceLoss(),
+                    Math.abs(target.getDefenceLoss() - (beforeLoss + 0.5)) < 1e-9);
 
             /* ---------- ①-b 默认值 = 构造当时的字段值 ---------- */
             // 探针对象刚 new 出来、谁都没碰过：dump 出来多少，就是成员初始化器/构造器当时写的多少。
@@ -1068,7 +1059,7 @@ public final class ConfigTests {
         } finally {
             target.setCriticalRate(beforeCritical);
             target.setSpeed(beforeSpeed);
-            target.setEnhance(beforeEnhance);
+            target.setDefenceLoss(beforeLoss);
         }
         check("① 还原：模板逐字段回到打补丁之前（自测不污染注册表）—— "
                         + (beforeState.equals(

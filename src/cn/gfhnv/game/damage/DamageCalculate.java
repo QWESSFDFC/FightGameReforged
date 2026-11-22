@@ -142,9 +142,9 @@ public class DamageCalculate {
         boolean trueDamage = damage.isTrueDamage();
         if (criticalEnabled && !dot && !trueDamage) {
             if (targetEntity.isAnticipating()) {
-                criticalMultiplier += criticalRate * attacker.getCriticalDamage();
+                criticalMultiplier += criticalRate * attacker.getCriticalDamage(damage);
             } else if (Math.random() < criticalRate) {
-                criticalMultiplier += attacker.getCriticalDamage();
+                criticalMultiplier += attacker.getCriticalDamage(damage);
                 // 只给显示用：数字已经进了 criticalMultiplier，这里记一下"这一击暴击了"
                 damage.setCritical(true);
             }
@@ -155,7 +155,7 @@ public class DamageCalculate {
         double damageTakenMultiplier = targetEntity.getDamageTakenMultiplier();
         // 易伤是独立乘区：1 + Σ|负减伤|（多个易伤来源相加，不连乘）
         double vulnerabilityMultiplier = targetEntity.getDamageVulnerabilityMultiplier();
-        double enhance = attacker.getEnhance();
+        double enhance = attacker.getDamageEnhance(damage);
         double individualMultipleArea = attacker.getIndividualMultipleArea();
         long level = attacker.getLevel();
         double targetDefenceBase = targetEntity.getDefence();
@@ -170,27 +170,22 @@ public class DamageCalculate {
             switch (damage.getElementSort()) {
                 case DIRT -> {
                     resistance = targetEntity.getDirtResistance();
-                    enhance += attacker.getElementDamageEnhance(ElementSort.DIRT);
                     penetration += attacker.getElementPenetration(ElementSort.DIRT);
                 }
                 case FIRE -> {
                     resistance = targetEntity.getFireResistance();
-                    enhance += attacker.getElementDamageEnhance(ElementSort.FIRE);
                     penetration += attacker.getElementPenetration(ElementSort.FIRE);
                 }
                 case WOOD -> {
                     resistance = targetEntity.getWoodResistance();
-                    enhance += attacker.getElementDamageEnhance(ElementSort.WOOD);
                     penetration += attacker.getElementPenetration(ElementSort.WOOD);
                 }
                 case METAL -> {
                     resistance = targetEntity.getMetalResistance();
-                    enhance += attacker.getElementDamageEnhance(ElementSort.METAL);
                     penetration += attacker.getElementPenetration(ElementSort.METAL);
                 }
                 case WATER -> {
                     resistance = targetEntity.getWaterResistance();
-                    enhance += attacker.getElementDamageEnhance(ElementSort.WATER);
                     penetration += attacker.getElementPenetration(ElementSort.WATER);
                 }
                 default -> {
@@ -215,10 +210,6 @@ public class DamageCalculate {
                 / (level * LEVEL_DEFENCE_FACTOR + LEVEL_DEFENCE_BASE + targetDefence))
                 * individualMultipleArea
                 * criticalMultiplier;
-        // 2026-11-21 第 82 批（千冶·刃二魂）：追加攻击伤害提高（己方光环，取最大，不叠乘）
-        if (damage.hasDamageType(DamageType.AdditionAttack)) {
-            finalDamage *= 1 + attacker.getTeamAdditionAttackDamageBonus();
-        }
         // 伤害永不为负：负数会被 LivingThing#getDamage 当成治疗
         return new Result(rawDamageAmount, Math.max(0, (long) finalDamage));
     }
@@ -238,8 +229,7 @@ public class DamageCalculate {
         return attacker.getHpMax() * hpMagnification
                 + atkMagnification * attacker.getAttack()
                 + attacker.getDefence() * dfkMagnification
-                + skillExtraDamage
-                + attacker.getExtraDamage();
+                + skillExtraDamage;
     }
 
     /**

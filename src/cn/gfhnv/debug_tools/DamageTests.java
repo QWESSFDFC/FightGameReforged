@@ -321,8 +321,8 @@ public final class DamageTests {
             double expectedRaw = attacker.getHpMax() * probe.getHpMagnification()
                     + attacker.getAttack() * probe.getAtkMagnification()
                     + attacker.getDefence() * probe.getDefMagnification()
-                    + probe.getExtraDamage() + attacker.getExtraDamage();
-            check("① 原始值 = 生命×hp倍率 + 攻击×atk倍率 + 防御×def倍率 + 两个额外伤害 —— 实际 "
+                    + probe.getExtraDamage();
+            check("① 原始值 = 生命×hp倍率 + 攻击×atk倍率 + 防御×def倍率 + 技能额外伤害 —— 实际 "
                             + hit.getRawDamageAmount() + "，期望 " + expectedRaw,
                     Math.abs(hit.getRawDamageAmount() - expectedRaw) < 1e-6);
             check("① 公式结果不超过原始值（暴击关掉，防御/抗性/减伤都只往下压）—— 实际 "
@@ -495,6 +495,96 @@ public final class DamageTests {
     }
 
     /**
+     * 增伤条目：damageEnhances 按元素命中；暴伤仍走 PropertyEnhance 的 DamageType 过滤。
+     */
+    private static void testDamageEnhanceAndTypedCritical() {
+        section("damageEnhances 增伤 / typed 暴伤 / 真伤 / DOT");
+        boolean enabledBefore = DamageCalculate.isCriticalEnabled();
+        try {
+            DamageCalculate.setCriticalEnabledForSelfTest(true);
+            LivingThing target = new CommonInsect(100L).copy();
+            Skill probe = new ProbeSkill("增伤探针", new ArrayList<>(), 1, 1.0);
+
+            LivingThing user = new PlayerOne(125);
+            user.setCriticalRate(0);
+            long base = new Damage(user, target, probe, DamageType.AdditionAttack)
+                    .getCalculateDamageResult();
+            user.addDamageEnhance(null, 0.8, "自测-全属性增伤");
+            long added = new Damage(user, target, probe, DamageType.AdditionAttack)
+                    .getCalculateDamageResult();
+            check("① 全属性增伤 +80% 对所有元素生效（1.8 倍）—— 实际 " + base + " / " + added,
+                    Math.abs(added - base * 1.8) <= 2);
+
+            LivingThing typedUser = new PlayerOne(125);
+            typedUser.setCriticalRate(0);
+            long typedBase = new Damage(typedUser, target, probe, DamageType.AdditionAttack)
+                    .getCalculateDamageResult();
+            typedUser.addDamageTypeEnhance(DamageType.AdditionAttack, 0.8, "自测-只追加");
+            long typedHit = new Damage(typedUser, target, probe, DamageType.AdditionAttack)
+                    .getCalculateDamageResult();
+            long typedSpecial = new Damage(typedUser, target, probe, DamageType.SpecialSkill)
+                    .getCalculateDamageResult();
+            check("①-b 按伤害类型的增伤只命中追加攻击（追加 1.8 倍、战技不变）—— 实际 "
+                            + typedBase + " / " + typedHit + " / " + typedSpecial,
+                    Math.abs(typedHit - typedBase * 1.8) <= 2
+                            && Math.abs(typedSpecial - typedBase) <= 2);
+
+            LivingThing elementUser = new PlayerOne(125);
+            elementUser.addDamageEnhance(ElementSort.FIRE, 0.3, "自测-火增伤");
+            check("② 单元素增伤只命中对应元素（火 0.3 / 金 0）—— 实际 "
+                            + elementUser.getDamageEnhance(ElementSort.FIRE) + " / "
+                            + elementUser.getDamageEnhance(ElementSort.METAL),
+                    Math.abs(elementUser.getDamageEnhance(ElementSort.FIRE) - 0.3) < 1e-9
+                            && Math.abs(elementUser.getDamageEnhance(ElementSort.METAL)) < 1e-9);
+            elementUser.addDamageEnhance(null, 0.2, "自测-全属性增伤");
+            check("③ 全属性 + 元素增伤在同一个和里连加（0.3 + 0.2 = 0.5）—— 实际 "
+                            + elementUser.getDamageEnhance(ElementSort.FIRE),
+                    Math.abs(elementUser.getDamageEnhance(ElementSort.FIRE) - 0.5) < 1e-9);
+
+            LivingThing crit = new PlayerOne(125);
+            crit.setCriticalDamage(0.5);
+            crit.setCriticalRate(0);
+            crit.addPropertyEnhance(PropertyEnhanceType.CRITICAL_DAMAGE, 0.4, 0, "typed-暴伤");
+            crit.addPropertyEnhance(PropertyEnhanceType.CRITICAL_DAMAGE, 0.8, 0, "typed-追加暴伤",
+                    DamageType.AdditionAttack);
+            long noCrit = new Damage(crit, target, probe, DamageType.AdditionAttack)
+                    .getCalculateDamageResult();
+            crit.setCriticalRate(1.0);
+            long critHit = new Damage(crit, target, probe, DamageType.AdditionAttack)
+                    .getCalculateDamageResult();
+            check("④ 暴伤连加：基础 0.5 + 0.4(全) + 0.8(追加) = 2.7 倍 —— 实际 "
+                            + noCrit + " / " + critHit,
+                    Math.abs(critHit - noCrit * 2.7) <= 3);
+
+            LivingThing trueUser = new PlayerOne(125);
+            trueUser.setCriticalRate(1.0);
+            long trueBase = new Damage(trueUser, target, probe, ElementSort.UNIVERSAL)
+                    .getCalculateDamageResult();
+            trueUser.addDamageEnhance(null, 1.0, "自测-真伤增伤");
+            trueUser.addPropertyEnhance(PropertyEnhanceType.CRITICAL_DAMAGE, 1.0, 0, "自测-真伤暴伤");
+            long trueTyped = new Damage(trueUser, target, probe, ElementSort.UNIVERSAL)
+                    .getCalculateDamageResult();
+            check("⑤ 真伤不吃增伤/暴伤 —— 实际 " + trueBase + " / " + trueTyped,
+                    Math.abs(trueBase - trueTyped) <= 2);
+
+            LivingThing dotter = new PlayerOne(125);
+            dotter.addDamageEnhance(null, 0.5, "自测-DOT增伤");
+            Damage dot = new Damage(dotter, target, probe, ElementSort.FIRE, 1_000.0, DamageType.DOT);
+            LivingThing plain = new PlayerOne(125);
+            Damage plainDot = new Damage(plain, target, probe, ElementSort.FIRE, 1_000.0, DamageType.DOT);
+            check("⑥ DOT 吃全属性增伤、不暴击 —— 实际 " + plainDot.getCalculateDamageResult()
+                            + " / " + dot.getCalculateDamageResult(),
+                    !dot.isCritical()
+                            && Math.abs(dot.getCalculateDamageResult()
+                            - plainDot.getCalculateDamageResult() * 1.5) <= 3);
+        } catch (Exception e) {
+            fail("damageEnhances/typed 暴伤测试抛出异常：" + e);
+        } finally {
+            DamageCalculate.setCriticalEnabledForSelfTest(enabledBefore);
+        }
+    }
+
+    /**
      * 跑本主题的全部用例（顺序 = 下面列的顺序）。
      */
     public static void runAll() throws Exception {
@@ -503,5 +593,6 @@ public final class DamageTests {
         testDamageReduction();
         testDamageStages();
         testCriticalAbsoluteExpectedAndDot();
+        testDamageEnhanceAndTypedCritical();
     }
 }

@@ -114,12 +114,12 @@ public class Damage {
      * 真实伤害（{@link ElementSort#UNIVERSAL}）照例免增伤/抗性、吃防御/减伤，并且<b>不暴击</b>；
      * DOT 类型同样不暴击。
      *
-     * @param sourceEntity     伤害来源实体
-     * @param targetEntity     受害实体
-     * @param damageSource     伤害原因（技能 / 效果 / 系统；可为 {@code null}）
-     * @param elementSort      伤害元素
-     * @param rawDamageAmount  固定原始值（负值按 0 算）
-     * @param damageTypes      伤害类型
+     * @param sourceEntity    伤害来源实体
+     * @param targetEntity    受害实体
+     * @param damageSource    伤害原因（技能 / 效果 / 系统；可为 {@code null}）
+     * @param elementSort     伤害元素
+     * @param rawDamageAmount 固定原始值（负值按 0 算）
+     * @param damageTypes     伤害类型
      */
     public Damage(LivingThing sourceEntity, LivingThing targetEntity, DamageSource damageSource,
                   ElementSort elementSort, double rawDamageAmount, DamageType... damageTypes) {

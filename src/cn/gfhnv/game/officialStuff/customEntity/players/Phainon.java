@@ -2,9 +2,8 @@ package cn.gfhnv.game.officialStuff.customEntity.players;
 
 import cn.gfhnv.game.data.NoConfig;
 import cn.gfhnv.game.data.NoData;
-import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entity.HSRActor;
-import cn.gfhnv.game.entity.Player;
+import cn.gfhnv.game.entity.LivingThing;
 import cn.gfhnv.game.entity.PropertyEnhanceType;
 import cn.gfhnv.game.entityController.PlayerController;
 import cn.gfhnv.game.entityController.UniversalController;
@@ -51,6 +50,14 @@ public class Phainon extends HSRActor {
      */
     public static final Object SOULSCORCH_DAMAGE_REDUCTION =
             new cn.gfhnv.game.entity.DamageReductionSource("白厄·灾厄");
+    /**
+     * 星魂 6「亘古长升，蚀火残阳」：战斗开始时额外获得的【火种】点数。
+     */
+    public static final int E6_COREFLAME_ON_START = 6;
+    /**
+     * 星魂 2 的物理抗性穿透来源键。
+     */
+    private static final Object E2_PENETRATION_SOURCE = new Object();
     private static boolean isListenerRegister = false;
     private final FightStartAndSelectEventListener fightStartAndSelectEventListener = new FightStartAndSelectEventListener();
     /**
@@ -62,6 +69,10 @@ public class Phainon extends HSRActor {
      * 手里没有引用就只能靠 {@code isExtra} 去扫，会误伤别的体系排的额外回合。
      */
     private final List<TurnEntry> awakenExtraTurns = new ArrayList<>();
+    /**
+     * 击杀计数器（监听 `EntityDeathEvent`）。
+     */
+    private final EnemyDeathCounter enemyDeathCounter = new EnemyDeathCounter();
     private int coreflame = 0;
     private int coreflameMax = 15;
     private int soulscorch;
@@ -105,36 +116,11 @@ public class Phainon extends HSRActor {
     private int interruptedRemainingExtraTurns = -1;
     private int extraTurns = 0;
     /**
-     * 星魂 2 的物理抗性穿透来源键。
-     */
-    private static final Object E2_PENETRATION_SOURCE = new Object();
-    /**
      * 本场战斗里被消灭的敌方目标数（星魂 1 的额外回合速度成长用）。
      */
     @NoData
     @NoConfig("运行期计数（本场击杀数），不是模板属性")
     private int enemyDeaths;
-    /**
-     * 击杀计数器（监听 `EntityDeathEvent`）。
-     */
-    private final EnemyDeathCounter enemyDeathCounter = new EnemyDeathCounter();
-
-    /**
-     * 星魂 6「亘古长升，蚀火残阳」：战斗开始时额外获得的【火种】点数。
-     */
-    public static final int E6_COREFLAME_ON_START = 6;
-
-    /**
-     * 白厄不使用 HSRActor 的普通能量 —— 他的特殊资源是【火种】。
-     * <p>
-     * 这一条必须覆盖：否则 {@code LivingThing#takeDamage}（受击/击杀）与
-     * {@code Skill#grantEnergyAfterUse}（普攻/战技）都会按 HSRActor 规则给他攒能量，
-     * 攒过 160 之后还会挂上【能量溢出】效果，在回合头打印一行占位内容。
-     */
-    @Override
-    protected boolean usesEnergy() {
-        return false;
-    }
 
     public Phainon(Phainon phainon1) {
         super(phainon1);
@@ -216,6 +202,18 @@ public class Phainon extends HSRActor {
     public static Phainon forSelfTest(Phainon phainon) {
         phainon.setController(new UniversalController(new ArrayList<>(phainon.getController().getSkills()), phainon));
         return phainon;
+    }
+
+    /**
+     * 白厄不使用 HSRActor 的普通能量 —— 他的特殊资源是【火种】。
+     * <p>
+     * 这一条必须覆盖：否则 {@code LivingThing#takeDamage}（受击/击杀）与
+     * {@code Skill#grantEnergyAfterUse}（普攻/战技）都会按 HSRActor 规则给他攒能量，
+     * 攒过 160 之后还会挂上【能量溢出】效果，在回合头打印一行占位内容。
+     */
+    @Override
+    protected boolean usesEnergy() {
+        return false;
     }
 
     /**
@@ -336,19 +334,6 @@ public class Phainon extends HSRActor {
             addPenetration(null, 0.2, E2_PENETRATION_SOURCE);
         } else {
             removePenetration(E2_PENETRATION_SOURCE);
-        }
-    }
-
-    /**
-     * 监听敌方死亡，给星魂 1 的额外回合速度计数。
-     */
-    public final class EnemyDeathCounter {
-        @cn.gfhnv.game.annotation.SubscribeEvent
-        public void onDeath(cn.gfhnv.game.event.EntityDeathEvent event) {
-            Fight fight = getParticipateFight();
-            if (fight != null && fight.getEnemiesList().contains(event.getEntity())) {
-                enemyDeaths++;
-            }
         }
     }
 
@@ -617,5 +602,18 @@ public class Phainon extends HSRActor {
 
     public void setAwaken(boolean awaken) {
         this.awaken = awaken;
+    }
+
+    /**
+     * 监听敌方死亡，给星魂 1 的额外回合速度计数。
+     */
+    public final class EnemyDeathCounter {
+        @cn.gfhnv.game.annotation.SubscribeEvent
+        public void onDeath(cn.gfhnv.game.event.EntityDeathEvent event) {
+            Fight fight = getParticipateFight();
+            if (fight != null && fight.getEnemiesList().contains(event.getEntity())) {
+                enemyDeaths++;
+            }
+        }
     }
 }

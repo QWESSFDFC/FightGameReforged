@@ -439,10 +439,9 @@ public final class DataKeys {
                 ReadOnly.UUID, ReadOnly.ID, ReadOnly.INVENTORY, ReadOnly.TAGS, ReadOnly.ALIVE,
                 ReadOnly.MANAS, ReadOnly.CONTROLLER, ReadOnly.DAMAGE_MODIFIERS,
                 ReadOnly.DAMAGE_REDUCTIONS, ReadOnly.EFFECTS, ReadOnly.PARTICIPATE_FIGHT,
-                ReadOnly.PRESENT_TURN, ReadOnly.EXTRA_DAMAGE,
+                ReadOnly.PRESENT_TURN,
                 ReadOnly.PROPERTY_ENHANCES, ReadOnly.PENETRATIONS, ReadOnly.RESISTANCES,
-                ReadOnly.DAMAGE_ENHANCES,
-                ReadOnly.INDIVIDUAL_MULTIPLE_AREA,
+                ReadOnly.DAMAGE_ENHANCES, ReadOnly.DAMAGE_TYPE_ENHANCES,
                 Temporary.SHOW_SPECIAL_MES));
 
         return Collections.unmodifiableSet(readOnly);
@@ -525,7 +524,7 @@ public final class DataKeys {
                             + "临时增伤本来也不进配置文件。要加增伤请用效果/技能里的 "
                             + "LivingThing#addDamageEnhance(...)。");
         }
-        hints.put(ReadOnly.EXTRA_DAMAGE, "死字段：全项目零写入点，配了不会有任何反应。");
+
         hints.put(Temporary.SHOW_SPECIAL_MES, "接口对象：配置里没有能表达它的写法。");
         hints.put(ReadOnly.ALIVE, "存活标志由战斗流程维护，配置里改它不算「出厂值」。");
         hints.put(ReadOnly.MANAS, "五行法力列表由 initialMana() 按法力成长重建，"
@@ -799,7 +798,8 @@ public final class DataKeys {
      * <b>不</b>清它们（那张"临时属性"表就是 {@code resetTemporary()} 自己，
      * 面板属性一个都不在里面），所以配在模板上 = 整局生效，语义干净。
      * <p>
-     * <b>这里只剩这五个。</b>另外那一批曾经也写在这里的键已经被摘掉了，理由分别是：
+     * <b>这里只剩这四个</b>（`enhance` 已于 2026-11-22 随标量字段删除）。
+     * 另外那一批曾经也写在这里的键已经被摘掉了，理由分别是：
      * <ul>
      *     <li>五元素 {@code *Penetration} / {@code *DamageEnhance} —— <b>临时属性</b>：
      *     {@code AttributeProfile#resetTemporary()} 在第一局结束时清零，配在
@@ -818,10 +818,7 @@ public final class DataKeys {
          * 基础暴击率（最终值还要叠 {@code criticalRateEnhance*}）。
          */
         public static final String BASE_CRITICAL_RATE = "baseCriticalRate";
-        /**
-         * 全属性增强系数。
-         */
-        public static final String ENHANCE = "enhance";
+
         /**
          * 防御削减系数。
          */
@@ -904,7 +901,7 @@ public final class DataKeys {
          * 所以它<b>不是</b>可配置键 —— 配了不会有任何反应。活着的那一套是
          * {@code Skill#extraDamage}，是另一个字段。
          */
-        public static final String EXTRA_DAMAGE = "extraDamage";
+
         /**
          * 属性加成条目列表（每条是 {@code {type, percent, amount, source}}）。
          * 只读：写它要构造合法条目，请用 {@code LivingThing#addPropertyEnhance(...)}。
@@ -926,9 +923,14 @@ public final class DataKeys {
          */
         public static final String DAMAGE_ENHANCES = "damageEnhances";
         /**
+         * 按伤害类型（{@link cn.gfhnv.game.damage.DamageType}）的增伤条目；与按元素的
+         * {@link #DAMAGE_ENHANCES} 分开。
+         */
+        public static final String DAMAGE_TYPE_ENHANCES = "damageTypeEnhances";
+        /**
          * 单次攻击的独立倍率区（由角色自己的构造器按玩法算出来）。
          */
-        public static final String INDIVIDUAL_MULTIPLE_AREA = "individualMultipleArea";
+
     }
 
     /**

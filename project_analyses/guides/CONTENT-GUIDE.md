@@ -1,5 +1,10 @@
 # CONTENT-GUIDE.md —— 往游戏里加内容（实体 / 技能 / 规则 / 模组）与"配置能改到什么"
 
+> **2026-11-22 复核基线**：`src` **292 文件 / 58,868 行**、自测 **1244/0**、
+> 官方 **10 实体 / 35 技能键 / 16 注册效果 / 9 物品**、`GameRules` **8 键**（formula 6 + mana 2）、
+> `classState` **33 开放 / 21 挡住**。
+> 正文里的绝对行号会漂，**优先按“类#方法/配置键”定位**；旧数字按“当时快照”读。
+
 > **文档分类**：[B] 操作指南 ｜ **这是什么**：往游戏里加内容（实体 / 技能 / 规则）+ 配置能改到什么 ｜ **读者**：内容作者 ｜ **时效**：随代码更新
 
 > **这份文档给谁看**：**往游戏里加东西的人** —— 也就是"既是策划又是程序"的你，以及下一个接手
@@ -46,7 +51,7 @@
 2026-10-03 起**正常启动不再逐份播报**，改成结尾一行总量（你那次的数字长这样）：
 
 ```
-[配置] 已加载 GameRules.json 29 项、TagConfig.json 命中 6 个实体、1 个物品、EntityData.json 307 项、SkillData.json 281 项，应用 624 项，跳过 0 项，影响 10 个模板 / 33 个技能
+[配置] 已加载 GameRules.json 8 项、TagConfig.json 命中 N 个实体、EntityData.json … 项、SkillData.json … 项，应用 … 项，跳过 0 项，影响 … 个模板 / … 个技能
 ```
 
 （`EntityDataPatcher.Report#print` 与 `ConfigOutput#printPatchSummary` 一起打出这一行。
@@ -89,11 +94,11 @@ CommandManager.initialize()
 | 5 | **背包格数** | `inventorySlots`（`/data` 里**没有**这个键；减格子只从末尾删、遇到装着东西的格子会拒绝并报告） | `EntityKeySpecs.java:166-168`（登记）+ `EntityDataPatcher.java:374-409`（唯一有副作用的写入口） |
 | 6 | **派生值（用固定值覆盖公式）** | `baseHpMax` / `baseAttack` / `baseDefence` / `hp` | `EntityKeySpecs.java:48-60`，**顺序 = 应用顺序**：`hp` 必须最后（`setHp` 会夹到 `getHpMax()`，`LivingThing.java:2241`） |
 | 7 | **5 个面板属性** | `baseCriticalRate` / `baseCriticalDamage` / `enhance` / `penetration` / `defenceLoss` | `EntityKeySpecs.java:170-184`；**整局生效**（副本会带、战斗结束不清）。⚠️ 它们曾经是 D1 那批"声明了没人读"的假键，现在真接上了 |
-| 8 | **子类出厂值（`classState` 段，7 个）** | `ignition`（李晓焰）/ `coreflame` `coreflameMax` `soulscorch` `scourge` `scourgeMax` `extraAbilityTier`（白厄） | 走**反射面**（`ReflectionConfigBridge.patchExtra`，`EntityDataPatcher.java:184`），因为这张通用表要求每行对**任意** `LivingThing` 成立，而 `coreflame` 只在白厄上有。`{"classState":{"coreflame":18}}` 与裸键 `{"coreflame":18}` 都认 |
+| 8 | **子类出厂值（`classState` 段，当前 33 个）** | 以 `DataKeys.CLASS_CONFIG` 为准；例：`ignition`（李晓焰）、`coreflame`/`coreflameMax`/`scourge`（白厄）、`charge`/`chargeMax`/`energyMax`（千冶·刃） | 走**反射面**（`ReflectionConfigBridge.patchExtra`），因为这张通用表要求每行对**任意** `LivingThing` 成立。`{"classState":{"coreflame":18}}` 与裸键 `{"coreflame":18}` 都认 |
 | 9 | **技能标量 6 个** | `aims`（0=自身 / -1=全体 / 正数=前 N 个）/ `coolDown` / `hpMagnification` / `atkMagnification` / `defMagnification` / `forEnemies` | `SkillKeySpecs.java:42-54` |
 | 10 | **技能两个块** | `consumedMana`（`{"amount":120,"element":"FIRE"}`，写 `null` = 取消消耗）/ `tags`（AI 权重，**整块覆盖**） | `SkillKeySpecs.java:59-63` + `SkillDataPatcher.java:335/384` |
 | 11 | **技能具名系数（N 个）** | 例：死星天裁的 `healRatio` / `scourgeCostCap` / `hitsPerScourge` / `finishMagnification`；反击的 `healRatio` / `extraHitMagnification` / `magnificationPerStack` / `extraHits`；最后一击的 `lastAttackPerTurn` / `lastAttackMaxTurns`；大招的 `coreflameCost` / `awakenExtraTurns` / **`aiPriority`**（AI 多想放大招，出厂 100）；`neededManaScale` | **扁平**写在技能对象里，与 `aims` 并列；名字由技能自己报（`SkillCoefficientTunable.coefficientValues()`）。**算式留代码，系数进配置** |
-| 12 | **规则键 29 条**（5 段） | `formula.*`（5）/ `mana.*`（2）/ `flameReaver.*`（11）/ `insectBoss.baseHpMax`（1）/ `actorLiXiaoYan.*`（10）。⚠️ 其中 `flameReaver.baseHpMax` 与 `insectBoss.baseHpMax` **同时**也被 `EntityData.json` 的 `derived.baseHpMax` 管，两个入口都写时**派生键赢**并打印一行 `[配置提醒]`（§1.2 第 14 条） | `GameRules.json`（你现在手上那份 42 行是**全量**的）；取值接口是 `GameRules.getLong/getDouble/getInt` |
+| 12 | **规则键 8 条**（2 段） | `formula.*`（6）/ `mana.*`（2）；实体数值已全部搬到 `EntityData.json` 的 `base`/`derived`/`classState`，规则表不再有 BOSS/角色旋钮 | `GameRules.json`；取值接口是 `GameRules.getLong/getDouble/getInt` |
 | 13 | **模组配置** | `config/data/<模组id>.json` 的自己的分组 + `common` 共享区 | 见第五节；`common` **支持 `entities` 与 `skills`**，**不支持规则段**（会打印一句明确的"改不了 + 去哪儿改"） |
 | 14 | **白厄那 5 个觉醒技能**（2026-10-03 起 ✅） | 键与别的技能一样：`game_official_content:phainon#支柱-死星天裁` / `#灾厄-弑魂焚诏` / `#灾厄-弑魂焚诏的反击` / `#普通攻击-创生-血棘渡亡` / `#最后一击`（**具名系数与标量都能改**） | 它们登记成了"挂在白厄名下"的**技能原型**，运行时按 `原型.copy()` 取副本；见 §3.1 第 2 条与 `70-DATA.md` §5.10.3 |
 
@@ -127,7 +132,7 @@ CommandManager.initialize()
 | 5 | **`extraDamage`** | **死字段**：参与伤害公式但全项目**零写入点**（活的那套是 `Skill#extraDamage`，另一个字段） | 不要用 |
 | 6 | **`individualMultipleArea`** | **派生面板倍率**：由**角色自己的构造器**按玩法算（李晓焰按燃点）。这一条是**判断**（不是"配了没用"） | 要改那个算法请改角色构造器 |
 | 7 | **`ignitionMax`（燃点上限）** | 私有 `int`，**没有 setter**；基准值来自规则表 + `IModifyIgnitionMax` 修正链 | 走**规则表** `actorLiXiaoYan.ignitionMax`，或走**修正链**（范例模组 `mods/liXiaoYanPlus/`） |
-| 8 | **`phaseTwo` / `awaken` / `charging` / `absorbed` / `kind` / `owner` …（`CLASS_RUNTIME` 19 个）** | 是**运行时状态**，不是出厂输入；放行它等于让一份 `EntityData.json` 把 boss 打成二阶段、把白厄的觉醒直接摆成 true | 机制上不该配。判据是**"配了能不能算数"**，不是"这个字段属于谁" |
+| 8 | **`phaseTwo` / `awaken` / `charging` / `absorbed` / `kind` / `owner` …（`CLASS_RUNTIME` 当前 21 个）** | 是**运行时状态**，不是出厂输入；放行它等于让一份 `EntityData.json` 把 boss 打成二阶段、把白厄的觉醒直接摆成 true | 机制上不该配。判据是**"配了能不能算数"**，不是"这个字段属于谁" |
 | 9 | **`temporary` 这个块名** | **它不是配置块**（`BARE_SECTIONS` 只有 `base` / `derived` / `classState`） | 面板属性写 `base` 里；战中的临时加成用效果/技能 |
 | 10 | **`formula` 之外的整条公式 / 技能行为逻辑** | 那是**代码**。用 JSON 描述技能行为等于发明一门脚本语言 | **不做**（用户没拍板；见 §9.3 与 `EXTERNAL-DATA-LOADING-2026-10.md` 第五节） |
 | 11 | **模组内容出现在 `EntityData.json` / `SkillData.json`** | 2026-10-03 起**刻意分开**：判据是**谁注册的**（`ConfigDefaultWriter.isOfficialContent`），不按 id 里的冒号 | 模组走 `config/data/<模组id>.json`（第五节）。⚠️ 你现有文件里**已经有**酒剑仙那几段（上次自愈写进去的）—— 自愈**只补不删**，所以它们会留着；想清干净手动删即可 |
@@ -138,7 +143,7 @@ CommandManager.initialize()
 三个办法，从快到慢：
 
 1. **看启动日志里那一行汇总**：
-   `[配置] 已加载 … EntityData.json 307 项 …，应用 624 项，跳过 0 项 …`。
+   `[配置] 已加载 … EntityData.json … 项 …，应用 … 项，跳过 0 项 …`（数字随内容变，别抄旧值）。
    - **跳过 > 0** → 上面跟着每一条的原因（类型不对 / 未知键 / 值超范围），这是**最直接的信号**；
    - **某一份文件一项都没算** → 文件里没有**这个加载器认识**的键（空文件、或者键名拼错但恰好被当成"不属于实体数据"）；
    - 注意：**"未知键"会显式点名**，不再静默（`EntityDataPatcher` 的 `reportUnknownKeys`）；
@@ -150,20 +155,12 @@ CommandManager.initialize()
 2. **用 `/data get entity @s` 对照**：**配置键就是 `/data` 的数据名**（一套名字两处用）。
    你在战斗里能 `get` 到的键，基本就是能写进 `EntityData.json` 的键（`@NoConfig` 挡住的除外）。
 3. **看默认配置文件里有没有这个键**：生成器写出来的键**一定读得回来**（自测有断言钉着这一点）。
-   官方 **9 个模板 / 25 个技能**都在 `EntityData.json` / `SkillData.json` 里
-   （⚠️ 你手上那两份现在还多一个酒剑仙 —— 那是**上一轮自愈**写进去的历史内容，见下面第 3 条）；
+   官方 **10 个模板 / 35 个技能键**都在 `EntityData.json` / `SkillData.json` 里（2026-11-22 实测）；
    **`EntityData.default.json` 是"出厂值参考副本"**（游戏不读它，只给你对照"原来是多少"）。
 
-> ⚠️ **一条查证过的坑（别按 README 那句话去拿它）**：`config/gameConfig/EntityData.default.json`
-> 现在是 **5 行的空壳**（`{"version":1,"entities":{},"skills（SkillData.json 的内容，游戏不读这一段）":{}}`）。
-> 原因是一条**链**：`writeReference`（写这个文件的那一步）**只由 `writeAll` 调用**，而 `writeAll` 只在
-> "**检测到配置缺失**"时走（`ConfigLoader.loadEntityData/loadSkillData/loadGameRules` 的三个
-> `if (文件不存在) writeDefaultConfigFiles()`）；**而这三个里第一个跑的是 `loadGameRules`
-> （`GameMain.java:65`），那一刻 `World` 注册表还是空的** —— 于是它生成的"出厂值参考副本"
-> 天生就是空的，之后再没有任何代码重写它（`healDefaultConfigFiles` 刻意**不**碰它）。
-> **所以"删掉它、重启一次"拿到的还是空壳**（README 里那句"删掉会重新生成一份全量默认值"
-> 对这一份**不成立**）。**要看"出厂值是多少"，请直接看** `EntityData.json` / `SkillData.json`
-> —— 那两份才是自愈真正在维护的。这一条属于**已知瑕疵**，不是这次改出来的。
+> ✅ **2026-10-03 已修（2026-11-22 复核）**：`EntityData.default.json` 不再恒为空壳，
+> 现在由 `ConfigDefaultWriter#writeReferenceIfNeeded` 在注册表就绪后写全量；有内容时不会重写。
+> 要看“出厂值是多少”，看这份参考副本或 `EntityData.json` / `SkillData.json` 均可。
 
 ---
 
@@ -281,12 +278,12 @@ CommandManager.initialize()
 
 ### 2.5 子类特殊字段：`CLASS_CONFIG`（开放）vs `CLASS_RUNTIME`（挡）的判据
 
-**判据不是"这个字段属于谁"，而是"配了能不能算数"**（`DataKeys.java:662-731`）：
+**判据不是"这个字段属于谁"，而是"配了能不能算数"**（以 `DataKeys` 为准）：
 
 | 清单 | 内容 | 为什么 |
 |---|---|---|
-| **`DataKeys.CLASS_CONFIG`**（7 个，**开放**） | `ignition` / `coreflame` / `coreflameMax` / `soulscorch` / `scourge` / `scourgeMax` / `extraAbilityTier` | 每一个都是"**这一局开始时该是多少**"的**输入**，而且**每个都有 setter** → 对象自己的钳制照旧生效。写法：`{"classState":{"coreflame":18}}` 或裸键 `{"coreflame":18}` |
-| **`DataKeys.CLASS_RUNTIME`**（19 个，**继续挡**） | `phaseTwo` / `awaken` / `charging` / `absorbed` / `owner` / `kind` / `deathNotified` / `extraTurns` / `ignitionMax` / `lastIgnition` / `memorizedRate` / `appliedExtraAbilityTier` / `absorbDamage` / `pendingLastAttack` / `skills` / `disasterPower` / `sacrificeWindow` / `damageReductionLayers` / `painCost` | 是**玩法进程**（由它自己的技能与流程维护），不是出厂输入。典型：`phaseTwo` **连 setter 都没有**，放行它就是"配置静默改掉 boss 的进程状态" |
+| **`DataKeys.CLASS_CONFIG`**（当前 33 个，**开放**） | 以 `DataKeys.CLASS_CONFIG` 为准；例：`ignition`、`coreflame`/`coreflameMax`、`charge`/`chargeMax`、`energyMax`、`eidolon` | 每一个都是"**这一局开始时该是多少**"的**输入**，而且**每个都有 setter** → 对象自己的钳制照旧生效。写法：`{"classState":{"coreflame":18}}` 或裸键 `{"coreflame":18}` |
+| **`DataKeys.CLASS_RUNTIME`**（当前 21 个，**继续挡**） | 以 `DataKeys.CLASS_RUNTIME` 为准；例：`phaseTwo`/`awaken`/`extraTurns`/`disasterPower`/`kind` | 是**玩法进程**（由它自己的技能与流程维护），不是出厂输入。典型：`phaseTwo` **连 setter 都没有**，放行它就是"配置静默改掉 boss 的进程状态" |
 
 > ⚠️ **它们为什么走"反射面"而不是进 `EntityKeySpecs` 那张通用表**：那张表的每一行都要对**任意**
 > `LivingThing` 成立，而 `coreflame` 只在 `Phainon` 上存在（表驱动的写入不分类型，会把"写一个不存在的
@@ -302,7 +299,7 @@ CommandManager.initialize()
 3. 跑自测。**三条断言会替你检查**：
    - 「**放行的子类配置键必须有 setter**」（**漏 setter 就是重开"静默裸写字段"那个洞**）；
    - 「**角色/召唤物类自己的状态键没有冒出新面孔**」（新键必须显式登记，不许悄悄混进去）；
-   - 「**反射面 ⊆ 允许清单**」（跑全部 9 个模板，不只 `playerOne`）。
+   - 「**反射面 ⊆ 允许清单**」（跑全部 10 个模板，不只 `playerOne`）。
 4. 生成器**只给真的有这个字段的模板写这一段**（`ReflectionConfigBridge.classStateValues`
    的口径是"实体上 dump 得出来才写"）—— 所以给白厄加的东西不会跑到玩家一身上。
 
@@ -338,11 +335,11 @@ CommandManager.initialize()
 ```powershell
 # 静态自查（快）
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force; & .\check-sources.ps1
-#   期望：Java files: 261（新增文件会 +1，删文件会 -1） / CHECK OK
+#   期望：Java files: 292（新增文件会 +1，删文件会 -1） / CHECK OK
 
 # 权威：全量编译 + 自测
 powershell -ExecutionPolicy Bypass -File .\test-command-system.ps1
-#   期望：通过 N 条，失败 0 条（N 只能涨不能跌；当前基线 1074）
+#   期望：通过 N 条，失败 0 条（N 只能涨不能跌；2026-11-22 基线 1244）
 ```
 
 自测会替你验：**新字段能配**、**全量默认值打回去数值逐字段不变**、**`copy()` 带得过去**、
@@ -641,7 +638,7 @@ public class MyMod extends Mod implements ModDataAware {
 | `70-DATA.md` §5.10.2 | **"配置键就是 `/data` 数据名 + 改数据名 = 破坏契约"** → 本轮**没有新增/改名任何数据名**（134 个断言点照旧）；同一节的"血量两个入口"正是本轮要修的误报源头 |
 | `30-WORKFLOW.md` §0 / §0.1 / §6 | **沙箱里不能接管道**（`cmd /c "… > out\x.log 2>&1"` + `Get-Content -Tail`）、**不要用 PowerShell 字符串读写改 `.java`**、**验证脚本别往 `src` 里植入错误** → 本轮全部照做，临时探针只落 `out/` 且用完即删 |
 | `60-COMBAT.md` §5.5.2（日志约定） | **要标明"对象来源"的输出统一走 `getNameWithSide()` / 短标识**，且有"**故意没加**"的判据（同一侧/同一只的续报不加）→ 本轮**没有动任何战斗日志**，收敛的只有启动播报；那条"故意的判据"也正是"哪些该留、哪些该收敛"的同一把尺子 |
-| `90-STATE.md` §9.1 | **上一轮收官 `822/0`、`src` 227 个文件**；**最后一轮「死代码清理 + 参考副本 `_note`」收官 `827/0`、`src` 226 个文件**（净减 1：删了 `debug_tools/TestAnticipateDamage.java`） |
+| `90-STATE.md` §9.1 | **2026-11-22 当前基线：`1244/0`、`src` 292 文件 / 58,868 行**；旧 `822/0`、`827/0`、226 是 2026-10-03 历史 |
 | `20-MISTAKES.md`「配置加载」分组 | ⚠️ **"同一个根因有几条产出路径时，修一条要回头数一遍还有几条"** → 本轮修"每次启动必响的提醒"时逐条复核了**既有断言**（那条"只写 `derived.baseHpMax` 不吵"的老断言按新判据**本来就该吵**，已改成写规则表生效值） |
 | `70-DATA.md` §5.10.5（最后一轮新增） | **参考副本 `EntityData.default.json` 的结构契约**：说明文字一律走根上的 **`_note`**（下划线开头 = 不是数据）、**键名里不许出现非 ASCII**（守卫断言盯着）、**技能段与 `SkillData.json` 逐键同构**、`consumedMana` 的 `null`（= 取消消耗）是**有语义的值** |
 

@@ -14,6 +14,10 @@ import java.util.*;
 public class FoundationStardeathVerdict extends Skill implements SkillCoefficientTunable {
 
     /**
+     * 星魂 6「亘古长升，蚀火残阳」：本次攻击总伤害值转为真实伤害的比例。
+     */
+    public static final double E6_TRUE_DAMAGE_RATIO = 0.36;
+    /**
      * 具名系数：施法者回血比例（占自身生命上限）。
      */
     private static final String COEFF_HEAL_RATIO = "healRatio";
@@ -29,7 +33,6 @@ public class FoundationStardeathVerdict extends Skill implements SkillCoefficien
      * 具名系数：满层时那一记收尾的<b>总</b>倍率（按场上存活的敌人数量摊开）。
      */
     private static final String COEFF_FINISH_MAGNIFICATION = "finishMagnification";
-
     /**
      * 施法者回血比例（占自身生命上限）。
      */
@@ -101,11 +104,6 @@ public class FoundationStardeathVerdict extends Skill implements SkillCoefficien
         }
         return false;
     }
-
-    /**
-     * 星魂 6「亘古长升，蚀火残阳」：本次攻击总伤害值转为真实伤害的比例。
-     */
-    public static final double E6_TRUE_DAMAGE_RATIO = 0.36;
 
     @Override
     public void comeToEffect(Fight fight, LivingThing user, List<LivingThing> enemies) {
@@ -192,8 +190,8 @@ public class FoundationStardeathVerdict extends Skill implements SkillCoefficien
      * 免增伤/抗性，吃防御/减伤/易伤，且不暴击（与项目对真实伤害的边界一致）。
      * 没有伤害 / 没有存活目标 / 6 魂未解锁时不做事。
      *
-     * @param fight      当前战斗
-     * @param phainon    施法者
+     * @param fight       当前战斗
+     * @param phainon     施法者
      * @param totalDamage 本次施放累计的实际伤害
      */
     private void dealE6TrueDamage(Fight fight, Phainon phainon, long totalDamage) {

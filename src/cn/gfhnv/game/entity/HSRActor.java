@@ -28,28 +28,43 @@ public class HSRActor extends Player {
      * 星魂上限（0 = 没点，6 = 满魂）。
      */
     public static final int EIDOLON_MAX = 6;
-
+    /**
+     * 普攻回能（2026-11-21 作者定：一次 +20）。
+     */
+    public static final long ENERGY_ON_COMMON_ATTACK = 20;
+    /**
+     * 战技回能（一次 +30）。
+     */
+    public static final long ENERGY_ON_SKILL = 30;
+    /**
+     * 受击回能（单体 +10）。
+     */
+    public static final long ENERGY_ON_DAMAGED = 10;
+    /**
+     * 受 AOE 回能（+5）。
+     */
+    public static final long ENERGY_ON_AOE_DAMAGED = 5;
+    /**
+     * 击杀回能（+10）。
+     */
+    public static final long ENERGY_ON_KILL = 10;
     /**
      * 星魂等级（0…6）。
      */
     protected int eidolon;
-
     /**
      * 当前能量<b>正常上限以内</b>的部分（0…{@link #energyMax}）。
      * 超出上限的溢出点数不在这里，见 {@link #energyOverflowEffect}。
      */
     protected long energy;
-
     /**
      * 能量正常上限。
      */
     protected long energyMax = 160;
-
     /**
      * 溢出上限：最多攒到 {@code energyMax + energyOverflowMax}。
      */
     protected long energyOverflowMax = 80;
-
     /**
      * 当前挂在身上的【能量溢出】效果；{@code null} = 没有溢出。
      * <p>
@@ -81,7 +96,6 @@ public class HSRActor extends Player {
         this.energyOverflowEffect = null;
         syncOverflowEffect(other.getEnergyOverflow());
     }
-
     public HSRActor(String name, String id, long l, ElementSort u) {
         super(name, id, l, u);
     }
@@ -112,27 +126,6 @@ public class HSRActor extends Player {
      */
     protected void onEidolonChanged() {
     }
-
-    /**
-     * 普攻回能（2026-11-21 作者定：一次 +20）。
-     */
-    public static final long ENERGY_ON_COMMON_ATTACK = 20;
-    /**
-     * 战技回能（一次 +30）。
-     */
-    public static final long ENERGY_ON_SKILL = 30;
-    /**
-     * 受击回能（单体 +10）。
-     */
-    public static final long ENERGY_ON_DAMAGED = 10;
-    /**
-     * 受 AOE 回能（+5）。
-     */
-    public static final long ENERGY_ON_AOE_DAMAGED = 5;
-    /**
-     * 击杀回能（+10）。
-     */
-    public static final long ENERGY_ON_KILL = 10;
 
     /**
      * 普攻回能。
@@ -187,19 +180,6 @@ public class HSRActor extends Player {
     }
 
     /**
-     * @return 当前溢出点数（0 = 没有溢出）
-     */
-    public long getEnergyOverflow() {
-        if (!usesEnergy()) {
-            return 0;
-        }
-        if (energyOverflowEffect == null || !getEntityEffectList().contains(energyOverflowEffect)) {
-            return 0;
-        }
-        return energyOverflowEffect.getOverflow();
-    }
-
-    /**
      * 设置当前能量总量（夹在 {@code 0 … energyMax + energyOverflowMax}）。
      * <p>
      * 超过 {@code energyMax} 的部分写进 {@link EnergyOverflowEffect}；
@@ -217,6 +197,19 @@ public class HSRActor extends Player {
         long clamped = Math.max(0, Math.min(top, energy));
         this.energy = Math.min(energyMax, clamped);
         syncOverflowEffect(clamped - this.energy);
+    }
+
+    /**
+     * @return 当前溢出点数（0 = 没有溢出）
+     */
+    public long getEnergyOverflow() {
+        if (!usesEnergy()) {
+            return 0;
+        }
+        if (energyOverflowEffect == null || !getEntityEffectList().contains(energyOverflowEffect)) {
+            return 0;
+        }
+        return energyOverflowEffect.getOverflow();
     }
 
     /**

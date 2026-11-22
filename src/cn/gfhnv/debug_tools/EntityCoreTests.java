@@ -1,5 +1,6 @@
 package cn.gfhnv.debug_tools;
 
+import cn.gfhnv.game.damage.DamageType;
 import cn.gfhnv.game.data.DataBridge;
 import cn.gfhnv.game.data.NbtCompound;
 import cn.gfhnv.game.data.NbtList;
@@ -52,13 +53,9 @@ public final class EntityCoreTests {
             // 「临时属性」：用户 2026-10-03 拍板 —— 这些是<b>一次性 / 战中的加成</b>，
             // copy() 刻意<b>不</b>带过去；对应地 whenFightEnds() 必须把它们清零（两张表互补）。
             // 12 个按「谁在写」分两类（细节见 AttributeProfile#resetTemporary 的 javadoc）：
-            //   ① 预留未接线的 10 个（五元素穿透 / 五元素增伤，全项目零写入点）
-            //   ② 死字段 1 个（extraDamage —— 活的那套是 Skill#extraDamage，另一个字段）
-            //   ⚠️ 原来还有 13 个 *Enhance* 标量，2026-11-14 已搬进 `propertyEnhances` 条目列表，
-            //     不再是标量字段（"不复制 / 清零"由 TestProbes/EffectLifecycleTests 那几组盯）。
-            java.util.Set<String> temporaryAttributes = new java.util.HashSet<>(java.util.Arrays.asList(
-                    "extraDamage",
-                    "extraDamage"));
+            //   ① 五元素穿透 / 五元素增伤、damageEnhances、propertyEnhances 都已是容器，不再走标量表；
+            //   ② 原死字段 extraDamage 已于 2026-11-22 删除（活的那套是 Skill#extraDamage）。
+            java.util.Set<String> temporaryAttributes = new java.util.HashSet<>();
             // 刻意<b>不</b>复制的另一类：只读试算标志。副本必须是一个干净的新个体
             java.util.Set<String> notCopiedOnPurpose = new java.util.HashSet<>(
                     java.util.Arrays.asList("anticipating"));
@@ -71,7 +68,7 @@ public final class EntityCoreTests {
             java.util.Set<String> panelAttributes = new java.util.HashSet<>(java.util.Arrays.asList(
                     "hp", "baseHpMax", "baseAttack", "baseDefence", "baseSpeed", "baseCriticalRate",
                     "hpGrow", "attackGrow", "defenceGrow", "element",
-                    "defenceLoss", "individualMultipleArea"));
+                    "defenceLoss"));
 
             PlayerOne template = new PlayerOne(125);
             List<ScalarSlot> scalars = scalarSlotsOf(template);
@@ -88,7 +85,7 @@ public final class EntityCoreTests {
             check("前提：扫描范围下潜进了 @DataFlatten 组件（搬走的属性没从契约里静默消失）",
                     scannedNames.containsAll(java.util.Arrays.asList(
 
-                            "metalManaGrow", "enhance", "baseCriticalDamage",
+                            "metalManaGrow", "baseCriticalDamage",
                             "alive",
                             "hp", "baseHpMax", "baseAttack", "baseDefence", "baseSpeed", "baseCriticalRate",
                             "hpGrow", "attackGrow", "defenceGrow", "element")));
@@ -411,6 +408,77 @@ public final class EntityCoreTests {
                     hpProbe.getHpMax() < capBefore && hpProbe.getHp() == hpProbe.getHpMax());
         } catch (Exception e) {
             fail("属性加成容器测试抛出异常：" + e);
+        }
+    }
+
+    /**
+     * typed 属性加成：同一来源可以同时挂“全伤害”与“只对追加攻击”两条；
+     * 精确移除只摘对应 tag，不把另一条也删掉。
+     */
+    private static void testTypedPropertyEnhanceContainer() {
+        section("typed 属性加成（tag 并存 / 精确摘 / /data）");
+        try {
+            LivingThing probe = new PlayerOne(125);
+            Object source = new Object();
+            probe.addPropertyEnhance(PropertyEnhanceType.ATTACK, 0.1, 0, source);
+            probe.addPropertyEnhance(PropertyEnhanceType.ATTACK, 0.2, 0, source, DamageType.AdditionAttack);
+            check("① 同来源同类型、不同 tag 可以并存（2 条）—— 实际 "
+                            + probe.getPropertyEnhances().size(),
+                    probe.getPropertyEnhances().size() == 2);
+            check("② 旧读取器只读未标注条目（0.1，不是 0.3）—— 实际 "
+                            + probe.getPropertyEnhancePercent(PropertyEnhanceType.ATTACK),
+                    Math.abs(probe.getPropertyEnhancePercent(PropertyEnhanceType.ATTACK) - 0.1) < 1e-9);
+            check("③ 按追加攻击读取时 null 与 tag 都命中（0.3）—— 实际 "
+                            + probe.getPropertyEnhancePercent(PropertyEnhanceType.ATTACK,
+                            java.util.Set.of(DamageType.AdditionAttack)),
+                    Math.abs(probe.getPropertyEnhancePercent(PropertyEnhanceType.ATTACK,
+                            java.util.Set.of(DamageType.AdditionAttack)) - 0.3) < 1e-9);
+            check("④ 非追加攻击只命中 null（0.1）—— 实际 "
+                            + probe.getPropertyEnhancePercent(PropertyEnhanceType.ATTACK,
+                            java.util.Set.of(DamageType.SpecialSkill)),
+                    Math.abs(probe.getPropertyEnhancePercent(PropertyEnhanceType.ATTACK,
+                            java.util.Set.of(DamageType.SpecialSkill)) - 0.1) < 1e-9);
+
+            boolean removedTag = probe.removePropertyEnhance(source, PropertyEnhanceType.ATTACK,
+                    DamageType.AdditionAttack);
+            check("⑤ 精确摘 tag 只删带 tag 的那条（剩 null 0.1）—— 实际 " + removedTag
+                            + " / " + probe.getPropertyEnhances().size(),
+                    removedTag && probe.getPropertyEnhances().size() == 1
+                            && Math.abs(probe.getPropertyEnhancePercent(PropertyEnhanceType.ATTACK) - 0.1) < 1e-9);
+            check("⑥ 精确摘 null 只删未标注条目（不会把 tag 当通配）",
+                    probe.removePropertyEnhance(source, PropertyEnhanceType.ATTACK, null)
+                            && probe.getPropertyEnhances().isEmpty());
+
+            probe.addPropertyEnhance(PropertyEnhanceType.ATTACK, 0.4, 0, source, DamageType.AdditionAttack);
+            probe.addPropertyEnhance(PropertyEnhanceType.ATTACK, 0.5, 0, source, DamageType.AdditionAttack);
+            check("⑦ 同 tag 重复挂是更新而不是叠加（0.5）—— 实际 "
+                            + probe.getPropertyEnhancePercent(PropertyEnhanceType.ATTACK,
+                            java.util.Set.of(DamageType.AdditionAttack)),
+                    probe.getPropertyEnhances().size() == 1
+                            && Math.abs(probe.getPropertyEnhancePercent(PropertyEnhanceType.ATTACK,
+                            java.util.Set.of(DamageType.AdditionAttack)) - 0.5) < 1e-9);
+
+            Object dumped = DataBridge.toCompound(probe).get("propertyEnhances");
+            check("⑧ /data 条目里看得见 damageType",
+                    dumped instanceof NbtList list && list.size() == 1
+                            && list.get(0) instanceof NbtCompound entry
+                            && "AdditionAttack".equals(entry.get("damageType").asString()));
+
+            probe.addDamageTypeEnhance(DamageType.AdditionAttack, 0.8, source);
+            check("⑨ 按伤害类型的增伤是独立列表，且只命中对应类型 —— 实际 "
+                            + probe.getDamageTypeEnhances().size() + " 条 / "
+                            + probe.getDamageEnhance(cn.gfhnv.game.system.ElementSort.METAL,
+                            java.util.Set.of(DamageType.AdditionAttack)),
+                    probe.getDamageTypeEnhances().size() == 1
+                            && DataBridge.toCompound(probe).get("damageTypeEnhances") != null
+                            && Math.abs(probe.getDamageEnhance(cn.gfhnv.game.system.ElementSort.METAL,
+                            java.util.Set.of(DamageType.AdditionAttack)) - 0.8) < 1e-9
+                            && Math.abs(probe.getDamageEnhance(cn.gfhnv.game.system.ElementSort.METAL,
+                            java.util.Set.of(DamageType.SpecialSkill))) < 1e-9);
+            check("⑩ 按伤害类型的增伤也按来源整批摘",
+                    probe.removeDamageTypeEnhance(source) && probe.getDamageTypeEnhances().isEmpty());
+        } catch (Exception e) {
+            fail("typed 属性加成测试抛出异常：" + e);
         }
     }
 
@@ -850,6 +918,7 @@ public final class EntityCoreTests {
     public static void runAll() throws Exception {
         testLivingThingAttributeContract();
         testPropertyEnhanceContainer();
+        testTypedPropertyEnhanceContainer();
         testLivingThingBuilder();
         testPenetrationContainer();
         testResistanceContainer();

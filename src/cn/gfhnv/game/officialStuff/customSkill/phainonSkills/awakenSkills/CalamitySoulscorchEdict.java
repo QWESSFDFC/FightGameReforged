@@ -21,13 +21,13 @@ import java.util.Map;
 public class CalamitySoulscorchEdict extends Skill implements SkillCoefficientTunable {
 
     /**
-     * 具名系数：施放时获得几层【弑魂之炽】。
-     */
-    private static final String COEFF_SOULSCORCH_GAIN = "soulscorchGain";
-    /**
      * 星魂 4「多少泰坦面目模糊」：施放时<b>额外</b>获得的【弑魂之炽】层数。
      */
     public static final int E4_EXTRA_SOULSCORCH = 4;
+    /**
+     * 具名系数：施放时获得几层【弑魂之炽】。
+     */
+    private static final String COEFF_SOULSCORCH_GAIN = "soulscorchGain";
     /**
      * 具名系数：施放时按来源键挂上的减伤比例（乘算叠加）。
      */

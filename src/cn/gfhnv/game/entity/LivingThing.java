@@ -10,7 +10,6 @@ import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entityController.PlayerController;
 import cn.gfhnv.game.entityController.UniversalController;
 import cn.gfhnv.game.event.DamageEvent;
-import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.event.HpLossEvent;
 import cn.gfhnv.game.event.HpRestorationEvent;
 import cn.gfhnv.game.interfaces.IDefenceIgnore;
@@ -370,7 +369,21 @@ public class LivingThing extends Entity {
      * @param source  来源对象（按身份比较，摘除时用；效果通常传 {@code this}）
      */
     public void addPropertyEnhance(PropertyEnhanceType type, double percent, double amount, Object source) {
-        this.attributes.addPropertyEnhance(type, percent, amount, source);
+        addPropertyEnhance(type, percent, amount, source, null);
+    }
+
+    /**
+     * 挂一条带伤害类型的属性加成；{@code null} = 对所有伤害生效。
+     *
+     * @param type       属性类型
+     * @param percent    百分比
+     * @param amount     固定值
+     * @param source     来源对象
+     * @param damageType 只对哪种伤害生效；{@code null} = 全部
+     */
+    public void addPropertyEnhance(PropertyEnhanceType type, double percent, double amount, Object source,
+                                   DamageType damageType) {
+        this.attributes.addPropertyEnhance(type, percent, amount, source, damageType);
         if (type == PropertyEnhanceType.MAX_HP) {
             renewHp();
         }
@@ -384,6 +397,24 @@ public class LivingThing extends Entity {
      */
     public boolean removePropertyEnhance(Object source) {
         boolean removed = this.attributes.removePropertyEnhances(source);
+        if (removed) {
+            renewHp();
+        }
+        return removed;
+    }
+
+    /**
+     * 摘掉某个来源的<b>精确槽位</b>：类型 + 伤害类型。
+     * <p>
+     * ⚠️ {@code damageType == null} 只摘未标注伤害类型的条目，不是通配。
+     *
+     * @param source     来源对象
+     * @param type       属性类型
+     * @param damageType 伤害类型；{@code null} 只匹配未标注条目
+     * @return 是否真的摘掉了东西
+     */
+    public boolean removePropertyEnhance(Object source, PropertyEnhanceType type, DamageType damageType) {
+        boolean removed = this.attributes.removePropertyEnhances(source, type, damageType);
         if (removed) {
             renewHp();
         }
@@ -406,11 +437,29 @@ public class LivingThing extends Entity {
     }
 
     /**
+     * @param type        属性类型
+     * @param damageTypes 当前伤害类型；null/空集只命中未标注条目
+     * @return 命中该伤害类型的百分比之和
+     */
+    public double getPropertyEnhancePercent(PropertyEnhanceType type, java.util.Set<DamageType> damageTypes) {
+        return this.attributes.percentOf(type, damageTypes);
+    }
+
+    /**
      * @param type 属性类型
      * @return 该类型所有条目的固定值之和
      */
     public double getPropertyEnhanceAmount(PropertyEnhanceType type) {
         return this.attributes.amountOf(type);
+    }
+
+    /**
+     * @param type        属性类型
+     * @param damageTypes 当前伤害类型；null/空集只命中未标注条目
+     * @return 命中该伤害类型的固定值之和
+     */
+    public double getPropertyEnhanceAmount(PropertyEnhanceType type, java.util.Set<DamageType> damageTypes) {
+        return this.attributes.amountOf(type, damageTypes);
     }
 
     /**
@@ -513,22 +562,6 @@ public class LivingThing extends Entity {
      */
     public Mana getDirtMana() {
         return this.getMana(ElementSort.DIRT);
-    }
-
-    /**
-     * @return 生物附加的固定额外伤害值
-     */
-    public long getExtraDamage() {
-        return attributes.getExtraDamage();
-    }
-
-    /**
-     * 设置生物附加的固定额外伤害值。
-     *
-     * @param extraDamage 固定额外伤害值
-     */
-    public void setExtraDamage(long extraDamage) {
-        this.attributes.setExtraDamage(extraDamage);
     }
 
     /**
@@ -1190,6 +1223,15 @@ public class LivingThing extends Entity {
     }
 
     /**
+     * 设置当前参与的战斗上下文。
+     *
+     * @param participateFight 战斗上下文
+     */
+    public void setParticipateFight(Fight participateFight) {
+        this.participateFight = participateFight;
+    }
+
+    /**
      * 己方"追加攻击伤害提高"光环的汇总（同类取最大，不叠乘）。
      * <p>
      * 2026-11-21 第 82 批（千冶·刃二魂）：遍历己方阵营里实现了
@@ -1200,15 +1242,6 @@ public class LivingThing extends Entity {
      */
     public double getTeamAdditionAttackDamageBonus() {
         return combat.getTeamAdditionAttackDamageBonus();
-    }
-
-    /**
-     * 设置当前参与的战斗上下文。
-     *
-     * @param participateFight 战斗上下文
-     */
-    public void setParticipateFight(Fight participateFight) {
-        this.participateFight = participateFight;
     }
 
     /**
@@ -1477,6 +1510,54 @@ public class LivingThing extends Entity {
      */
     public double getElementDamageEnhance(cn.gfhnv.game.system.ElementSort element) {
         return this.attributes.getElementDamageEnhance(element);
+    }
+
+    /**
+     * 按伤害元素读增伤：全属性条目 + 命中元素的条目。
+     *
+     * @param element 伤害元素
+     * @return 增伤总和
+     */
+    public double getDamageEnhance(cn.gfhnv.game.system.ElementSort element) {
+        return this.attributes.getDamageEnhance(element);
+    }
+
+    /**
+     * @param element     伤害元素
+     * @param damageTypes 伤害类型；null/空集只命中未标注类型的条目
+     * @return 元素 + 按伤害类型的增伤总和（不含团队光环）
+     */
+    public double getDamageEnhance(cn.gfhnv.game.system.ElementSort element,
+                                   java.util.Set<DamageType> damageTypes) {
+        return this.attributes.getDamageEnhance(element, damageTypes);
+    }
+
+    /**
+     * 挂一条按伤害类型的增伤（同“类型 + 来源”重复挂等于更新）。
+     *
+     * @param damageType 伤害类型；null = 所有类型
+     * @param amount     平值
+     * @param source     来源对象
+     */
+    public void addDamageTypeEnhance(DamageType damageType, double amount, Object source) {
+        this.attributes.addDamageTypeEnhance(damageType, amount, source);
+    }
+
+    /**
+     * 摘掉某个来源的按伤害类型增伤。
+     *
+     * @param source 来源对象
+     * @return 是否真的摘掉了东西
+     */
+    public boolean removeDamageTypeEnhance(Object source) {
+        return this.attributes.removeDamageTypeEnhance(source);
+    }
+
+    /**
+     * @return 当前所有按伤害类型的增伤条目（{@code /data} 里就是它）
+     */
+    public List<cn.gfhnv.game.entity.DamageTypeValue> getDamageTypeEnhances() {
+        return this.attributes.getDamageTypeEnhances();
     }
 
     /**
@@ -1989,6 +2070,38 @@ public class LivingThing extends Entity {
         return attributes.getBaseCriticalDamage()
                 + attributes.percentOf(PropertyEnhanceType.CRITICAL_DAMAGE)
                 + attributes.amountOf(PropertyEnhanceType.CRITICAL_DAMAGE);
+    }
+
+    /**
+     * 按这一刀的伤害类型读暴击伤害（null 条目对所有类型生效）。
+     *
+     * @param damage 当前伤害
+     * @return 最终暴击伤害倍率加成
+     */
+    public double getCriticalDamage(Damage damage) {
+        if (damage == null) {
+            return getCriticalDamage();
+        }
+        return attributes.getBaseCriticalDamage()
+                + attributes.percentOf(PropertyEnhanceType.CRITICAL_DAMAGE, damage.getDamageTypes())
+                + attributes.amountOf(PropertyEnhanceType.CRITICAL_DAMAGE, damage.getDamageTypes());
+    }
+
+    /**
+     * 按这一刀的伤害元素读增伤；追加攻击再把团队追加光环加进同一个和。
+     *
+     * @param damage 当前伤害
+     * @return 增伤总和
+     */
+    public double getDamageEnhance(Damage damage) {
+        if (damage == null) {
+            return attributes.getEnhance();
+        }
+        double enhance = attributes.getDamageEnhance(damage.getElementSort(), damage.getDamageTypes());
+        if (damage.hasDamageType(DamageType.AdditionAttack)) {
+            enhance += getTeamAdditionAttackDamageBonus();
+        }
+        return enhance;
     }
 
     /**

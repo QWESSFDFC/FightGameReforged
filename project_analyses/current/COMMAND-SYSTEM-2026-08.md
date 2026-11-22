@@ -1,5 +1,10 @@
 # 命令系统（AI 编写）· 说明与测试指南
 
+> **2026-11-22 复核：本文的命令表/数量是 2026-08 快照，当前以 `50-COMMANDS.md` 为准。**
+> 现注册 11 个名字（含 `data`、`summon`）；`/execute` 还有 `if data entity|storage ... run`；
+> `/summon` 接受 `friend`；`/give` 单次上限 999；中文参数/筛选值必须加引号。
+> 命令框架与设计结论仍有效；测试类名已拆到 `CmdSyntaxTests` / `SummonTests` / `DataCommandTests` 等。
+
 > **⚠️ 2026-10-24 起的一条硬规则**：命令里的**裸词只允许英文字符（ASCII）**。
 > 带中文 / `·` / 全角符号的内容**必须加引号**，否则在词法层直接报错并提示写法：
 >
@@ -142,7 +147,7 @@ CommandManager.describeState();                  // 当前状态（调试）
 | `/help <命令名>` | 看某条命令的用法 |
 | `/list` | 列出当前战斗里所有生物的状态（HP、攻防速、是否存活） |
 | `/list <目标>` | 只列出选择器选中的实体 |
-| `/kill <目标>` | 把目标生命值清零 |
+| `/kill <目标>` | 构造 `SystemDamage + UNIVERSAL` 的无限伤害，走 `DamageEvent`/`takeDamage`；免死/转阶段/结界会生效 |
 | `/hurt <目标> <数值>` | 改生命值，正数扣血、负数回血 |
 | `/effect <目标> list` | 列出目标身上的效果（id、等级、剩余回合、正面/负面） |
 | `/effect <目标> add <效果> [等级] [持续回合]` | 从效果注册表取模板并施加到目标身上 |
@@ -223,7 +228,7 @@ CommandManager.describeState();                  // 当前状态（调试）
 - 名字规则见上面的**命名空间规则**表：完整 id 谁都认，短名/类名只解析官方内容，
   写模组物品的短名会被拒绝并提示该写的完整 id；
 - **数量会叠进同一格**：同种物品按注册表 id 判等（`Item.equals`），`Inventory.addItem`
-  会叠到已有的那一格上，`stackNumber` 累加、没有上限 —— `/give @s aNiceSword 100` 只占 1 格；
+  会叠到已有的那一格上，`stackNumber` 累加；单次数量上限 **999**，`/give @s aNiceSword 100` 只占 1 格；
 - **使用物品只消耗 1 个**：`PlayerController.useItem` 走 `Inventory.removeOne`（扣 1 点堆叠数，
   扣到 0 清空格子），而不是 `removeItem`（那个按物品自带的 `stackNumber` 扣掉一整叠）；
 - 发的是 `注册表模板.copy()`，所以物品带**完整的注册表 id**
@@ -236,7 +241,7 @@ CommandManager.describeState();                  // 当前状态（调试）
 ```
 /summon CommonInsect                 不写阵营 = 我方（默认）
 /summon commonInsect enemy           丢到对面去
-/summon CommonInsect 敌方             中文别名也认（cmd.exe 打不出中文，Git Bash / VS Code 终端可以）
+/summon CommonInsect "敌方"          中文别名也认（cmd.exe 打不出中文，Git Bash / VS Code 终端可以；必须加引号）
 /summon completeContainer            同类的另一条模板：短名精确区分
 /summon drunkenSword:drunkenSwordsman  模组角色：必须带模组前缀
 ```
@@ -265,7 +270,7 @@ CommandManager.describeState();                  // 当前状态（调试）
 @p / @n / @r                  最近 / 最远 / 随机 一个生物
 @a / @e                       全部生物
 @e[type=CommonInsect]         按类型筛选（简单类名或中文名，大小写不敏感）
-@e[name=白厄]                  按名字筛选（支持 * 通配）
+@e[name="白厄"]                按名字筛选（中文值必须加引号；支持 * 通配）
 @e[limit=2]                   最多 2 个
 @e[sort=nearest]              排序：nearest / furthest / random / arbitrary
 @e[type=CommonInsect,limit=2,sort=nearest]   可以组合
@@ -343,7 +348,7 @@ chcp 65001
 java -Dfile.encoding=UTF-8 -jar build\libs\FightGameReforged-1.2.1.jar
 ```
 
-> **为什么需要它**：命令系统支持中文参数名与筛选值（`@e[type=虫皇]`、`@e[name=白厄]`），
+> **为什么需要它**：命令系统支持中文参数名与筛选值（`@e[type="虫皇"]`、`@e[name="白厄"]`；中文值必须加引号），
 > 而 Windows 的 `cmd.exe` 默认是 GBK（代码页 936）。直接 `java -jar` 启动时，
 > 你敲的中文会在**进入程序之前**变成 `???`，表现为「生物名明明打印正常，但选择器就是选不中」。
 > 游戏原本的输入（`yes`/`no`/`next`/数字）全是 ASCII，所以这个问题只在中文命令上暴露。
@@ -393,7 +398,7 @@ System.console() = 可用       console.charset() = UTF-8   isTerminal = true
 中文名/id 匹配本身**实现好了且有自测覆盖**（自测里 `@e[name=普通虫子]` 能选中虫子），
 只是 cmd 送不进来；换 Windows Terminal / IDEA 运行通常可用。
 
-1. **选人/选敌人/选奖励阶段**——输入 `/help`，应当列出 9 行命令（`kill / list / hurt / effect / execute / give / endfight / help / ?`）且**不会**被当成「输入错误」。
+1. **选人/选敌人/选奖励阶段**——输入 `/help`，应当列出 11 行命令（`kill / list / hurt / effect / execute / give / data / summon / endfight / help / ?`）且**不会**被当成「输入错误」。
 2. 选一个角色加入队伍后输入 `/list`，应当看到这个角色的名字与 HP。
 3. 战斗开始时输入 `/list`，应当列出双方所有生物。
 4. 轮到你行动时（提示「输入前方数字使用」）输入 `/hurt @s 100`，应当掉血；然后再输入技能编号，流程应当继续正常。
@@ -430,10 +435,10 @@ System.console() = 可用       console.charset() = UTF-8   isTerminal = true
     - `/summon CommonInsect` → 提示「已在我方召唤 commonInsect（普通虫子），HP 4670/4670」，
       用 `/list` 能看到场上多了一只，而且**下个回合它真的会行动**（时间轴已排好）
     - `/summon commonInsect enemy` → 换成敌方；`/list` 里它站在对面（攻击行会标 `（敌方）`）
-    - `/summon CommonInsect 敌方` → 中文别名（在 Git Bash / VS Code 终端里试；cmd 打不出中文）
+    - `/summon CommonInsect "敌方"` → 中文别名（在 Git Bash / VS Code 终端里试；cmd 打不出中文）
     - `/summon completeContainer` → 召唤【完整容器】（20000 血），与 `brokenContainer`（12000 血）能区分开
     - `/summon BrokenContainer` → 也能用（忽略大小写命中短名 `brokenContainer`）
-    - `/summon NoSuchEntity` → 报错并列出可用实体（9 条：playerOne … completeContainer）
+    - `/summon NoSuchEntity` → 报错并列出可用实体（10 条：playerOne … completeContainer / FlameReaver / mortenaxBlade）
     - `/summon CommonInsect 中间派` → 报错「只能填 our 或 enemy（也接受 我方/敌方）」
     - `/summon drunkenSword:drunkenSwordsman` → 模组角色（**装了醉剑仙模组才有**）；
       写短名 `drunkenSwordsman` 会被拒绝并提示该写的完整 id
@@ -577,7 +582,7 @@ System.console() = 可用       console.charset() = UTF-8   isTerminal = true
   将来任何「按通用性筛选」的逻辑都会漏掉它。10 个通用效果已全部补齐
   （`DamageEnhanceEffect` 的拷贝构造器连 `POSITIVE` 也一起补了，
   `DefenseEnhanceEffect(String,int,int)` 这个新建实例的构造器同样补了）。
-  自测里加了「每种通用效果的 `copy()` 副本都保留 UNIVERSAL 标签」与「通用效果共 10 种」，
+  自测里加了「每种通用效果的 `copy()` 副本都保留 UNIVERSAL 标签」与「通用效果共 11 种（含 Taunt）」，
   以后新增效果忘了加标签会直接报红。
 
 ---

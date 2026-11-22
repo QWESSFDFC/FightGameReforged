@@ -1,6 +1,11 @@
 # 千冶·刃（Mortenax Blade）
 
-> **文档分类**：[C] 内容 ｜ **这是什么**：角色文档：千冶·刃的玩法、机制、调参、验证、已知差异 ｜ **读者**：玩家 / 内容作者 ｜ **时效**：随角色更新（2026-10-24 起）
+> **2026-11-22 复核**：正文机制已到 2026-11-21 第 91/92 批；出厂构造器是
+> `baseSpeed=107`（`MortenaxBlade` 构造器），当前工作区 `EntityData.json` 的用户测试配置是 **250**；
+> 速度/血量等具体值以“出厂构造器 + 当前配置”两处为准，不要只看本文旧示例。
+> 守卫测试已拆到 `debug_tools/MortalBladeTests.java`，不再在 `TestCommandSystem` 里搜到。
+
+> **文档分类**：[C] 内容 ｜ **这是什么**：角色文档：千冶·刃的玩法、机制、调参、验证、已知差异 ｜ **读者**：玩家 / 内容作者 ｜ **时效**：随角色更新（2026-10-24 起；2026-11-22 复核）
 
 > 一个**以生命上限为倍率**、靠"开结界换技能表"打爆发的火属性角色。
 > 代码：`src/cn/gfhnv/game/officialStuff/customEntity/players/MortenaxBlade.java`、
@@ -149,7 +154,7 @@
 
 ```json
 {"entities": {"game_official_content:mortenax_blade": {
-  "base":   {"baseHpMax": 7640, "baseSpeed": 107},
+  "base":   {"baseHpMax": 13798, "baseSpeed": 250},   // 当前用户测试配置；出厂速度 107
   "derived":{ "hp": 7640, "baseHpMax": 7640 },
   "classState": {"energyMax": 160, "energyOverflowMax": 80, "chargeMax": 9, "eidolon": 0}
 }}}
@@ -194,7 +199,7 @@
   - 骸骨当炉 **100**（能量够就先开结界）
   - 千冶铸一 **100**（结界里能量够就打大招收尾）
   - 刃下归葬 **60**（结界里优先战技）
-- 另外在 `TagConfig.json` 里有 `game_official_content:mortenax_blade: {"attack": 5, "defence": 2}`。
+- 当前 `TagConfig.json` **没有** `mortenax_blade` 条目；它由 `PlayerController` 手动操作，不参与 AI Tag 权重。
 
 ---
 
@@ -207,7 +212,7 @@
 .\test-command-system.ps1                 # 期望：失败 0 条（基线见 notes_for_llm/workflow/30-WORKFLOW.md）
 ```
 
-千冶·刃的守卫（`TestCommandSystem` 里搜 `MortalBlade`）：
+千冶·刃的守卫（在 `debug_tools/MortalBladeTests.java` 里，不再在 `TestCommandSystem` 里搜）：
 
 | 用例 | 验什么 |
 |---|---|

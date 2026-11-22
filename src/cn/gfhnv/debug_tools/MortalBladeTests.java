@@ -13,9 +13,7 @@ import cn.gfhnv.game.system.fight.TurnEntry;
 import java.util.ArrayList;
 import java.util.List;
 
-import static cn.gfhnv.debug_tools.TestKit.check;
-import static cn.gfhnv.debug_tools.TestKit.fail;
-import static cn.gfhnv.debug_tools.TestKit.section;
+import static cn.gfhnv.debug_tools.TestKit.*;
 import static cn.gfhnv.debug_tools.TestSupport.*;
 
 /**

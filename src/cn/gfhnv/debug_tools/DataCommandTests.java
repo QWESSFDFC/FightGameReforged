@@ -84,14 +84,14 @@ public final class DataCommandTests {
         // 只是钳制与副作用没了（最阴的一种回归，2026-10-03 订正字段名时就差点踩上）。
         // 判据：把 setter 的名字换成反着的哨兵值 —— setter 生效时它会被**整体覆盖**，
         // 只裸写字段时哨兵还在。这里顺带把"这个字段真的能写"也验了。
-        double beforeEnhance = probe.getEnhance();
-        probe.setEnhance(1234.5d);
+        double beforeDefenceLoss = probe.getDefenceLoss();
+        probe.setDefenceLoss(1234.5d);
         check("写回契约：DataBridge#merge 走的是 setter（setter 生效时哨兵值被整体覆盖，"
                         + "不是只改了字段、把 setter 绕过去）",
-                DataBridge.merge(probe, Snbt.parseCompound("{enhance:0.5}")) == 1
-                        && probe.getEnhance() == 0.5d
-                        && DataBridge.toCompound(probe).get("enhance").asDouble() == 0.5d);
-        probe.setEnhance(beforeEnhance);
+                DataBridge.merge(probe, Snbt.parseCompound("{defenceLoss:0.5}")) == 1
+                        && probe.getDefenceLoss() == 0.5d
+                        && DataBridge.toCompound(probe).get("defenceLoss").asDouble() == 0.5d);
+        probe.setDefenceLoss(beforeDefenceLoss);
         check("改名之后照样能写（setter 是按 Java 字段名找的，所以 setCriticalRate 仍然命中）",
                 DataBridge.merge(probe, Snbt.parseCompound("{baseCriticalRate:0.5}")) == 1
                         && probe.getCriticalRate() == 0.5d
@@ -126,7 +126,7 @@ public final class DataCommandTests {
         }
         check("前提：这条扫描真的下潜进了 @DataFlatten 组件（字段搬进组件后不会从覆盖面里静默消失）"
                         + "—— 扫到 " + scannedWritable.size() + " 个能写的标量",
-                scannedWritable.contains("enhance")
+                scannedWritable.contains("metalManaGrow")
                         && !scannedWritable.contains("attackEnhancePercent")
                         && !scannedWritable.contains("metalResistance"));
         check("写回契约：每个 /data 能写的标量字段都挂着一个同名 setter（字段改名时 setter 必须跟着改）"
@@ -157,9 +157,14 @@ public final class DataCommandTests {
         check("组件里的字段照常进数据视图（@DataFlatten 没有因为白名单漏了组件类型而静默消失）",
                 data.get("resistances") != null && data.get("attributes") == null
                         && data.get("elements") == null);
-        // 从实体搬进组件的三个「全局组」面板属性，也必须是**顶层**键（不是 attributes.xxx）
-        check("搬进组件的全局组面板属性仍是顶层键（enhance / baseCriticalDamage 不带前缀）",
-                data.get("enhance") != null && data.get("baseCriticalDamage") != null);
+        // 从实体搬进组件的全局组面板属性仍是顶层键；增伤已改为 damageEnhances 列表。
+        check("搬进组件的全局组面板属性仍是顶层键（baseCriticalDamage 不带前缀）",
+                data.get("baseCriticalDamage") != null);
+        ActorLiXiaoYan dmgProbe = new ActorLiXiaoYan(125);
+        dmgProbe.addDamageEnhance(null, 0.25, "自测-增伤视图");
+        check("增伤是 damageEnhances 列表（不再有 enhance 标量）",
+                DataBridge.toCompound(dmgProbe).get("damageEnhances") != null
+                        && DataBridge.toCompound(dmgProbe).get("enhance") == null);
         // 穿透 2026-11-14 容器化：/data 里是一条 penetrations 列表（基础条目 source=BASE）。
         // 空列表按 /data 的既有口径会被省略，所以这条用一只"设过穿透"的探针单独断言。
         ActorLiXiaoYan penProbe = new ActorLiXiaoYan(125);

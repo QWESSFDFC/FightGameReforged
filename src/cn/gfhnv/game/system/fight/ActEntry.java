@@ -34,6 +34,38 @@ import cn.gfhnv.game.interfaces.ISpecialAction;
 public record ActEntry(ISpecialAction action, int priority, String label, LivingThing actor) {
 
     /**
+     * 星魂 2 的额外行动（例如白厄【支柱·死星天裁】满层后再选一次技能）：
+     * 高于正式行动（0），低于回合头检查（900）。
+     */
+    public static final int PRIORITY_EIDOLON_EXTRA = 800;
+    /**
+     * 阶段转换（例如盗火行者进入二阶段）：<b>高于所有额外行动/正式行动</b>，
+     * 保证“先切阶段、再让额外行动看到回满/免伤后的状态”。
+     */
+    public static final int PRIORITY_PHASE_TRANSITION = 2000;
+    /**
+     * 开场动作的优先级（原来的 {@code firstExecuteList}）。
+     */
+    public static final int PRIORITY_FIRST = 1000;
+    /**
+     * 回合头检查（存活检查 / 特殊状态显示）的优先级：排在开场动作之后、正式行动之前。
+     */
+    public static final int PRIORITY_CHECK = 900;
+    /**
+     * 正式行动的优先级（原来的 {@code controller.act}）。
+     */
+    public static final int PRIORITY_NORMAL = 0;
+    /**
+     * 重排 / 额外行动的优先级：排在正式行动之后、收尾动作之前
+     * （原来的"按信号决定要不要排下一回合 / WITHOUT_NEW_TURN 再动一次"）。
+     */
+    public static final int PRIORITY_RESCHEDULE = -500;
+    /**
+     * 收尾动作的优先级（原来的 {@code lastExecuteList}）。
+     */
+    public static final int PRIORITY_LAST = -1000;
+
+    /**
      * 兼容旧调用方的三参构造（行动者为 {@code null}，执行时回退到回合行动者）。
      *
      * @param action   要做的事
@@ -43,44 +75,6 @@ public record ActEntry(ISpecialAction action, int priority, String label, Living
     public ActEntry(ISpecialAction action, int priority, String label) {
         this(action, priority, label, null);
     }
-
-    /**
-     * 星魂 2 的额外行动（例如白厄【支柱·死星天裁】满层后再选一次技能）：
-     * 高于正式行动（0），低于回合头检查（900）。
-     */
-    public static final int PRIORITY_EIDOLON_EXTRA = 800;
-
-    /**
-     * 阶段转换（例如盗火行者进入二阶段）：<b>高于所有额外行动/正式行动</b>，
-     * 保证“先切阶段、再让额外行动看到回满/免伤后的状态”。
-     */
-    public static final int PRIORITY_PHASE_TRANSITION = 2000;
-
-    /**
-     * 开场动作的优先级（原来的 {@code firstExecuteList}）。
-     */
-    public static final int PRIORITY_FIRST = 1000;
-
-    /**
-     * 回合头检查（存活检查 / 特殊状态显示）的优先级：排在开场动作之后、正式行动之前。
-     */
-    public static final int PRIORITY_CHECK = 900;
-
-    /**
-     * 正式行动的优先级（原来的 {@code controller.act}）。
-     */
-    public static final int PRIORITY_NORMAL = 0;
-
-    /**
-     * 重排 / 额外行动的优先级：排在正式行动之后、收尾动作之前
-     * （原来的"按信号决定要不要排下一回合 / WITHOUT_NEW_TURN 再动一次"）。
-     */
-    public static final int PRIORITY_RESCHEDULE = -500;
-
-    /**
-     * 收尾动作的优先级（原来的 {@code lastExecuteList}）。
-     */
-    public static final int PRIORITY_LAST = -1000;
 
     /**
      * @param action 要做的事

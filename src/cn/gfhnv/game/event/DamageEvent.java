@@ -47,12 +47,12 @@ public class DamageEvent extends Event {
      * 用于 DOT（原始值 = 已损失生命 × 比例）与星魂 6 的 36% 真实伤害；
      * 真实伤害与 DOT 都不会暴击。
      *
-     * @param attacker       伤害来源实体
-     * @param attackedEntity 受害实体
-     * @param damageSource   伤害原因（技能 / 效果 / 系统；可为 {@code null}）
-     * @param elementSort    伤害元素
+     * @param attacker        伤害来源实体
+     * @param attackedEntity  受害实体
+     * @param damageSource    伤害原因（技能 / 效果 / 系统；可为 {@code null}）
+     * @param elementSort     伤害元素
      * @param rawDamageAmount 固定原始值（负值按 0 算）
-     * @param damageTypes    伤害类型
+     * @param damageTypes     伤害类型
      */
     public DamageEvent(LivingThing attacker, LivingThing attackedEntity, DamageSource damageSource,
                        ElementSort elementSort, double rawDamageAmount, DamageType... damageTypes) {

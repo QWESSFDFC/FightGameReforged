@@ -133,6 +133,12 @@ public class FlameReaver extends LivingThing {
      */
     private static final int JOINT_ATTACK_TARGETS = 3;
     /**
+     * 转阶段行动在回合队列里的优先级：必须<b>高于</b>额外行动（星魂 2 的 800）
+     * 和正常行动（0），否则玩家会先看到"白厄的额外行动"，再看到 BOSS 回满血。
+     */
+    private static final int PHASE_TRANSITION_PRIORITY =
+            cn.gfhnv.game.system.fight.ActEntry.PRIORITY_PHASE_TRANSITION;
+    /**
      * 「亡死的黑云」召唤出来、还没被它自己吸收的容器。
      * <p>
      * 官方「分离的哀痛」写的是"<b>曾被该攻击召唤</b>且处于【共祭】状态的残破容器"会一同攻击并被吸收 ——
@@ -153,9 +159,9 @@ public class FlameReaver extends LivingThing {
      * 协同攻击与吸收这一整套机制。
      */
     private int sacrificeWindow = 0;
-    private int damageReductionLayers = 2;
 
     /* ---------------- 机制旋钮（2026-11-14 第 53 批：从 GameRules 搬进实例字段） ---------------- */
+    private int damageReductionLayers = 2;
     /**
      * 【永别的决绝】的<b>出厂</b>减伤层数（classState 键 {@code damageReductionLayersDefault}）。
      * <p>
@@ -191,10 +197,6 @@ public class FlameReaver extends LivingThing {
      * 容器生命占盗火行者最大生命的比例。
      */
     private double containerHpRatio = 0.15;
-    /**
-     * 容器攻击占盗火行者攻击的比例。
-     */
-    private double containerAttackRatio = 0.4;
 
     /**
      * 二阶段的触发条件：<b>血条第一次被清空</b>（2026-10-03 起不再用血量比例阈值）。
@@ -205,11 +207,15 @@ public class FlameReaver extends LivingThing {
      * 保护<b>只有一次</b>：{@code phaseTwo} 置位后那个修正器就不再拦。
      */
     /**
+     * 容器攻击占盗火行者攻击的比例。
+     */
+    private double containerAttackRatio = 0.4;
+
+    /* ---------------- 状态 ---------------- */
+    /**
      * 【完整容器】生命占盗火行者最大生命的比例。
      */
     private double completeContainerHpRatio = 0.25;
-
-    /* ---------------- 状态 ---------------- */
     /**
      * 是否已进入二阶段。
      */
@@ -222,12 +228,6 @@ public class FlameReaver extends LivingThing {
     @NoData
     @NoConfig("运行期状态（转阶段是否已排队），不是模板属性")
     private boolean phaseTwoPending = false;
-    /**
-     * 转阶段行动在回合队列里的优先级：必须<b>高于</b>额外行动（星魂 2 的 800）
-     * 和正常行动（0），否则玩家会先看到"白厄的额外行动"，再看到 BOSS 回满血。
-     */
-    private static final int PHASE_TRANSITION_PRIORITY =
-            cn.gfhnv.game.system.fight.ActEntry.PRIORITY_PHASE_TRANSITION;
     /**
      * 是否处在【沉默的悲叹】的蓄力中（下一次行动要放【莫因舍弃而哭泣】）。
      */

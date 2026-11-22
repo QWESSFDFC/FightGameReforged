@@ -2,11 +2,7 @@ package cn.gfhnv.game.data;
 
 import cn.gfhnv.game.Thing;
 import cn.gfhnv.game.effect.Effect;
-import cn.gfhnv.game.entity.AttributeProfile;
-import cn.gfhnv.game.entity.CombatComponent;
-import cn.gfhnv.game.entity.ElementValue;
-import cn.gfhnv.game.entity.LivingThing;
-import cn.gfhnv.game.entity.PropertyEnhance;
+import cn.gfhnv.game.entity.*;
 import cn.gfhnv.game.inventory.Inventory;
 import cn.gfhnv.game.inventory.Slot;
 import cn.gfhnv.game.skill.Skill;
@@ -282,7 +278,8 @@ public final class DataBridge {
                 || value instanceof AttributeProfile
                 || value instanceof CombatComponent
                 || value instanceof PropertyEnhance
-                || value instanceof ElementValue;
+                || value instanceof ElementValue
+                || value instanceof cn.gfhnv.game.entity.DamageTypeValue;
     }
 
     /**

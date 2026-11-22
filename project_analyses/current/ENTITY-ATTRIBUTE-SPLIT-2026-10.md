@@ -1,6 +1,13 @@
 # 「实体属性拆分」可行性 / 实用性 / 维护性评估（2026-10-02 版）
 
-> **文档分类**：[D3] 分析 · 方案评估 ｜ **这是什么**：实体属性拆分（LivingThing → AttributeProfile）的可行性与做法 ｜ **读者**：引擎开发者 ｜ **时效**：2026-10-02 快照；**已落地**
+> **2026-11-22 复核：主体已落地，但本文停在 2026-10-24。**
+> 后续 2026-11-14 五行容器化（`resistances`/`penetrations`/`damageEnhances`）与
+> 2026-11-21 `CombatComponent` 继续搬家；本文的 `LivingThing 2262 行`、`AttributeProfile 1440 行`、
+> 旧字段名（`hpMax`/`elementSort` 等）与旧行号均已过期。
+> 当前事实看 `notes_for_llm/subsystems/70-DATA.md`、`90-STATE.md` 与
+> `LIVINGTHING-RESPONSIBILITY-AUDIT-2026-10.md`；本文只保留架构结论与生命周期原则。
+
+> **文档分类**：[D3] 分析 · 方案评估 ｜ **这是什么**：实体属性拆分（LivingThing → AttributeProfile）的可行性与做法 ｜ **读者**：引擎开发者 ｜ **时效**：2026-10-02 快照；主体已落地，数字已冻结
 
 > **这是什么**：对"把实体（`LivingThing`）的属性字段拆开"这件事的一次评估 ——
 > 能不能做、值不值得做、做完以后是更好维护还是更糟。**本文没有改任何代码**，是纯评估。

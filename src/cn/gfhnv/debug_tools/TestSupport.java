@@ -71,18 +71,10 @@ public final class TestSupport {
      * 分类结果（第 2 步，逐条给了理由）：<b>没有一个该开放</b> ——
      * 10 个五元素 {@code *Penetration} / {@code *DamageEnhance}（临时属性，副本都不带）、
      * 12 个 {@code *Enhance*}（效果与技能在战斗中加减的运行时加成，战斗结束清零）、
-     * {@code extraDamage}（死字段）、{@code individualMultipleArea}（角色构造器算出来的派生面板倍率）。
-     * 所以第 2 步给这 24 个逐个写 {@code @NoConfig}，写完这条断言就翻成
-     * "这 24 个<b>全部</b>在 {@code @NoConfig} 清单里"（清单继续留着当分类记录）。
+     * 2026-11-22 起 {@code extraDamage} 与 {@code individualMultipleArea} 两个标量字段已删除，
+     * 后者改由 {@code individualMultipleAreaModifiers} 承载，不再出现在反射标量表里。
      */
-    static final java.util.Set<String> REFLECTION_ONLY_SCALAR_KEYS =
-            new java.util.TreeSet<>(Arrays.asList(
-                    // ② 2026-11-14 起 13 个 *Enhance* 标量已搬进 `propertyEnhances` 条目列表，
-                    //    不再是标量字段（所以不在这张"反射面多出来的标量键"清单里）
-                    // ③ 死字段：全项目零写入点（活的那套是 Skill#extraDamage）
-                    "extraDamage",
-                    // ④ 派生面板倍率：由角色构造器算（清了会永久削弱该角色）
-                    "individualMultipleArea"));
+    static final java.util.Set<String> REFLECTION_ONLY_SCALAR_KEYS = new java.util.TreeSet<>();
 
     private TestSupport() {
     }

@@ -73,7 +73,7 @@ public class DamageEnhanceEffect extends Effect {
     @Override
     public void comeIntoEffect(LivingThing thing) {
         if (!isOn) {
-            thing.setEnhance(thing.getEnhance() + enhanceN);
+            thing.addDamageEnhance(null, enhanceN, this);
             // **起了名才播报**：没起名的通用增伤（`/effect add damageEnhanceEffect`）会每回合触发，
             // 每次都打一行会刷屏；起了名的（例如【破容器之赏】）就是要让人看见的那一次。
             if (hasCustomName()) {
@@ -86,7 +86,7 @@ public class DamageEnhanceEffect extends Effect {
 
     @Override
     public void whenLastTimeEnd(LivingThing livingThing) {
-        livingThing.setEnhance(livingThing.getEnhance() - enhanceN);
+        livingThing.removeDamageEnhance(this);
         this.isOn = false;
         if (hasCustomName()) {
             System.out.println("【" + getName() + "】" + livingThing.getName() + " 的增伤结束了");

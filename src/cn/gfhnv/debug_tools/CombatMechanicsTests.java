@@ -11,7 +11,6 @@ import cn.gfhnv.game.event.EntityDeathEvent;
 import cn.gfhnv.game.event.EventBus;
 import cn.gfhnv.game.eventListener.FightTurnPastListener;
 import cn.gfhnv.game.officialStuff.customEffect.universalEffects.CriticalDamageEnhanceEffect;
-import cn.gfhnv.game.officialStuff.customEntity.monsters.CommonInsect;
 import cn.gfhnv.game.officialStuff.customEntity.monsters.FlameReaver;
 import cn.gfhnv.game.officialStuff.customEntity.players.MortenaxBlade;
 import cn.gfhnv.game.officialStuff.customEntity.players.Phainon;
@@ -22,7 +21,6 @@ import cn.gfhnv.game.officialStuff.customSkill.phainonSkills.awakenSkills.Counte
 import cn.gfhnv.game.officialStuff.customSkill.phainonSkills.awakenSkills.FoundationStardeathVerdict;
 import cn.gfhnv.game.officialStuff.customSkill.phainonSkills.normalSkills.UltimateAttack;
 import cn.gfhnv.game.skill.Skill;
-import cn.gfhnv.game.system.ElementSort;
 import cn.gfhnv.game.system.fight.Fight;
 import cn.gfhnv.game.system.fight.TurnEntry;
 import cn.gfhnv.game.system.fight.TurnManager;
@@ -32,7 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static cn.gfhnv.debug_tools.TestKit.*;
-import static cn.gfhnv.debug_tools.TestProbes.*;
+import static cn.gfhnv.debug_tools.TestProbes.ProbeSkill;
 
 /**
  * 自测：<b>2026-11-21 第 82 批的内容机制</b>。
@@ -43,28 +41,6 @@ import static cn.gfhnv.debug_tools.TestProbes.*;
  * </ul>
  */
 final class CombatMechanicsTests {
-
-    /**
-     * 伤害探针：记录每次 {@link DamageEvent}。
-     */
-    static final class DamageProbe {
-        final List<Damage> damages = new ArrayList<>();
-
-        @SubscribeEvent
-        public void onDamage(DamageEvent event) {
-            damages.add(event.getDamage());
-        }
-
-        boolean allHaveBothTypes() {
-            for (Damage damage : damages) {
-                if (!damage.hasDamageType(DamageType.SpecialSkill)
-                        || !damage.hasDamageType(DamageType.AdditionAttack)) {
-                    return false;
-                }
-            }
-            return !damages.isEmpty();
-        }
-    }
 
     private CombatMechanicsTests() {
     }
@@ -175,6 +151,15 @@ final class CombatMechanicsTests {
                     .getCalculateDamageResult();
             check("④ 追加攻击伤害 = 普通战技的 1.75 倍 —— 实际 " + special + " / " + addition,
                     Math.abs((double) addition / special - 1.75) < 0.01);
+
+            // 2026-11-22：增伤一律连加。团队光环 +75% 与自身追加增伤 +80% 应得 2.55 倍，
+            // 不是 1.75 × 1.8 = 3.15。
+            ally.addDamageTypeEnhance(DamageType.AdditionAttack, 0.8, "自测-追加增伤");
+            long stacked = new Damage(ally, enemy, probeSkill, DamageType.AdditionAttack)
+                    .getCalculateDamageResult();
+            check("④-b 团队光环与自身增伤连加（+75% + 80% = 2.55 倍）—— 实际 "
+                            + special + " / " + stacked,
+                    Math.abs((double) stacked / special - 2.55) < 0.01);
 
             DamageProbe probe = new DamageProbe();
             EventBus.register(probe);
@@ -527,5 +512,27 @@ final class CombatMechanicsTests {
         testPhainonE2Assertion();
         testPhainonE4();
         testPhainonE6();
+    }
+
+    /**
+     * 伤害探针：记录每次 {@link DamageEvent}。
+     */
+    static final class DamageProbe {
+        final List<Damage> damages = new ArrayList<>();
+
+        @SubscribeEvent
+        public void onDamage(DamageEvent event) {
+            damages.add(event.getDamage());
+        }
+
+        boolean allHaveBothTypes() {
+            for (Damage damage : damages) {
+                if (!damage.hasDamageType(DamageType.SpecialSkill)
+                        || !damage.hasDamageType(DamageType.AdditionAttack)) {
+                    return false;
+                }
+            }
+            return !damages.isEmpty();
+        }
     }
 }

@@ -4,7 +4,6 @@ import cn.gfhnv.game.data.NoConfig;
 import cn.gfhnv.game.data.NoData;
 import cn.gfhnv.game.effect.Effect;
 import cn.gfhnv.game.entity.LivingThing;
-import cn.gfhnv.game.entity.Player;
 import cn.gfhnv.game.entity.PropertyEnhanceType;
 import cn.gfhnv.game.entityController.PlayerController;
 import cn.gfhnv.game.skill.Skill;
@@ -390,10 +389,10 @@ public class MortenaxBlade extends cn.gfhnv.game.entity.HSRActor implements cn.g
                 cn.gfhnv.game.eventListener.FightTurnPastListener.getPresentTurn();
         if (presentTurn != null) {
             presentTurn.addAct(this, (currentFight, user) -> {
-                payoffNow(currentFight);
-                this.gainEnergyOnSkill();
-            },
-                cn.gfhnv.game.system.fight.ActEntry.PRIORITY_LAST);
+                        payoffNow(currentFight);
+                        this.gainEnergyOnSkill();
+                    },
+                    cn.gfhnv.game.system.fight.ActEntry.PRIORITY_LAST);
             return;
         }
         if (fight != null) {

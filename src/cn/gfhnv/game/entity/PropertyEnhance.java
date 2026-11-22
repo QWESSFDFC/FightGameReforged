@@ -1,5 +1,7 @@
 package cn.gfhnv.game.entity;
 
+import cn.gfhnv.game.damage.DamageType;
+
 /**
  * 一条「属性加成」：类型 + 百分比 + 固定值 + <b>来源</b>。
  * <p>
@@ -10,11 +12,25 @@ package cn.gfhnv.game.entity;
  * <p>
  * {@code source} 按<b>对象身份</b>比较（效果实例用 {@code this}）；它不进 {@code /data}。
  *
- * @param type    加在哪个属性上
- * @param percent 百分比（{@code 0.2} = +20%）
- * @param amount  固定值（{@code +2} 点）
- * @param source  来源对象（按身份比较；用于整批摘除）
+ * @param type       加在哪个属性上
+ * @param percent    百分比（{@code 0.2} = +20%）
+ * @param amount     固定值（{@code +2} 点）
+ * @param source     来源对象（按身份比较；用于整批摘除）
+ * @param damageType 只对哪种伤害类型生效；{@code null} = 所有类型
  * @author AI（DeepSeek）生成；设计稿作者：仓库作者
  */
-public record PropertyEnhance(PropertyEnhanceType type, double percent, double amount, Object source) {
+public record PropertyEnhance(PropertyEnhanceType type, double percent, double amount, Object source,
+                              DamageType damageType) {
+
+    /**
+     * 兼容 4 参写法：不带伤害类型 = 对所有伤害生效。
+     *
+     * @param type    加在哪个属性上
+     * @param percent 百分比
+     * @param amount  固定值
+     * @param source  来源对象
+     */
+    public PropertyEnhance(PropertyEnhanceType type, double percent, double amount, Object source) {
+        this(type, percent, amount, source, null);
+    }
 }

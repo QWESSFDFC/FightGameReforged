@@ -173,9 +173,8 @@ public final class EntityKeySpecs {
         keys.add(spec(DataKeys.Temporary.BASE_CRITICAL_DAMAGE, DataKeys.GROUP_TEMPORARY, KeySpec.Kind.DOUBLE,
                 LivingThing::getCriticalDamage, doubles(LivingThing::setCriticalDamage),
                 "暴击伤害倍率加成（面板属性，整局生效）"));
-        keys.add(spec(DataKeys.Temporary.ENHANCE, DataKeys.GROUP_TEMPORARY, KeySpec.Kind.DOUBLE,
-                LivingThing::getEnhance, doubles(LivingThing::setEnhance),
-                "全属性增强系数（面板属性，整局生效）"));
+        // 2026-11-22：enhance 不再是 AttributeProfile 标量，增伤统一走 damageEnhances 列表，
+        // 因此这里不再把它登记成可配置键；旧 EntityData.json 里的 enhance 会被当成未知键。
         keys.add(spec(DataKeys.Temporary.PENETRATION, DataKeys.GROUP_TEMPORARY, KeySpec.Kind.DOUBLE,
                 LivingThing::getPenetration, doubles(LivingThing::setPenetration),
                 "穿透（面板属性，整局生效；五行的 *Penetration 是临时属性，不在这里）"));

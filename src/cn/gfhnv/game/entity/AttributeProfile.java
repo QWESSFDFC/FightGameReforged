@@ -1,5 +1,6 @@
 package cn.gfhnv.game.entity;
 
+import cn.gfhnv.game.damage.DamageType;
 import cn.gfhnv.game.data.NoConfig;
 import cn.gfhnv.game.data.NoData;
 import cn.gfhnv.game.event.EventBus;
@@ -10,6 +11,7 @@ import cn.gfhnv.game.system.mana.Mana;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 生物的「属性组件」：五行组 + 全局组。
@@ -24,10 +26,10 @@ import java.util.List;
  *     （{@code hp} / {@code baseHpMax} / {@code baseAttack} / {@code baseDefence} / {@code baseSpeed} /
  *     {@code baseCriticalRate}）
  *     与 3 个成长系数 + {@code element}、法力表 {@code manas}，五行组的 5 抗性 + 5 法力成长，
- *     全局组的 {@code penetration} / {@code enhance} / {@code baseCriticalDamage}。
+ *     全局组的 {@code penetration} / {@code baseCriticalDamage}。
  *     {@link #copyFrom} 要把它们带过去，{@link #resetTemporary} <b>不动</b>它们；</li>
- *     <li><b>临时属性</b> —— 效果/技能给的一次性加成：五行组的 5 单元素穿透 + 5 元素增伤，
- *     以及 13 个 {@code *Enhance*} 运行时加成（其中 {@code healEnhancePercent} 是 2026-10-24 加的治疗量加成）。
+ *     <li><b>临时属性</b> —— 效果/技能给的一次性加成：五行组的 5 单元素穿透 + 5 元素增伤、
+ *     {@code damageEnhances} 列表、{@code propertyEnhances} 列表。
  * 不复制，整场结束时由 {@link #resetTemporary} 清零。</li>
  * </ul>
  * <p>
@@ -43,6 +45,15 @@ import java.util.List;
  * @author AI（DeepSeek）生成
  */
 public class AttributeProfile {
+
+    /**
+     * 兼容 {@link #setEnhance(double)} 的“全局增伤”来源标记；它不会进 {@code /data}。
+     */
+    private static final Object ENHANCE_BASE = new Object();
+    /**
+     * 单体伤害倍率“面板基础值”的来源标记；{@code clearIndividualMultipleAreaModifiers()} 不会清它。
+     */
+    private static final Object AREA_BASE = new Object();
 
     /**
      * 那 10 个临时属性（5 单元素穿透 + 5 元素增伤）共同的 {@code @NoConfig} 理由。
@@ -135,6 +146,14 @@ public class AttributeProfile {
      */
     @cn.gfhnv.game.data.Temporary(reason = "增伤条目：全是临时加成（效果/技能挂、按来源摘、整场结束清），配置里没有对应键")
     private final List<ElementValue> damageEnhances = new ArrayList<>();
+    /**
+     * <b>按伤害类型</b>的增伤条目（与 {@link #damageEnhances} 按元素分开）。
+     * <p>
+     * 例：只对 {@link cn.gfhnv.game.damage.DamageType#AdditionAttack} 生效的 +80%。
+     * 同样是临时属性：不复制、整场结束清空、按来源摘。
+     */
+    @cn.gfhnv.game.data.Temporary(reason = "按伤害类型的增伤：效果/技能挂、按来源摘、整场结束清")
+    private final List<DamageTypeValue> damageTypeEnhances = new ArrayList<>();
     /**
      * <b>穿透条目</b>（2026-11-14 第 49 批容器化，Step 3 第一部分）。
      * <p>
@@ -254,11 +273,6 @@ public class AttributeProfile {
      * 土法力成长系数。
      */
     private double dirtManaGrow;
-    /**
-     * 全属性增伤百分比。
-     */
-    private double enhance;
-
     /* ------------------------------------------------------------------
      * ⑥ 运行时属性加成（临时属性：copyFrom 不带、resetTemporary 清空）
      *
@@ -298,36 +312,7 @@ public class AttributeProfile {
      * ⑨ 派生面板倍率（面板属性：copyFrom 带过去，resetTemporary 不动）
      * ------------------------------------------------------------------ */
 
-    /**
-     * 单次攻击的独立倍率区<b>面板基础值</b>（对外数据名 {@code individualMultipleArea}）。
-     * <p>
-     * <b>生效值</b> = 这个基础值 × **Π(每个来源的乘数)**（{@link #getIndividualMultipleArea()}）——
-     * 那么多来源的乘数挂在 {@link #individualMultipleAreaModifiers} 上，
-     * 面板基础值本身由角色构造器按玩法算出来（{@code ActorLiXiaoYan} 按【燃点】算）。
-     * <p>
-     * <b>面板属性</b>：{@link #copyFrom} 带过去、{@link #resetTemporary} 不动。
-     * <p>
-     * <b>不进配置文件</b>（{@code @NoConfig}）：它是<b>派生值</b>而不是可调旋钮 ——
-     * 放开它等于让配置覆盖角色自己的算法（还会让默认配置文件多出一个键）。
-     * <b>这一条是"判断"，不是"配了没用"</b>：它真的会被副本带进战斗，所以理由必须写成"为什么不开放"。
-     */
-    @NoConfig("派生面板倍率：由角色构造器按玩法算出来（副本会带、战斗结束不清）——"
-            + "开放它等于让配置覆盖角色自己的算法，要改请改那个角色的构造器")
-    private double individualMultipleArea = 1;
-    /**
-     * 单次额外伤害（对外数据名 {@code extraDamage}）。
-     * <p>
-     * <b>死字段</b>：参与伤害公式（{@code DamageCalculate} 读它）却<b>全项目零写入点</b>，
-     * 永远是 0；活着的那一套是 {@code Skill#extraDamage}，是<b>另一个</b>字段。
-     * 所以别删（公式还在读），也别指望配置它 —— 配了不会有任何反应。
-     * <p>
-     * <b>临时属性</b>：{@link #copyFrom} 不带、{@link #resetTemporary} 清零 ——
-     * 与它还写在实体上时（当时由 {@code LivingThing#clearTemporaryAttributes()} 清零）逐位一致。
-     * <p>
-     * <b>不进配置文件</b>（{@code @NoConfig}）：允许配置它等于给用户一个"写了没反应"的键。
-     */
-    @NoConfig("死字段：全项目零写入点（活的那套是 Skill#extraDamage），配了不会有任何反应")
-    private long extraDamage = 0;
+
     /**
      * 是否存活。<b>临时状态</b>（用户 2026-10-04 确认）：{@code copy()} <b>不复制</b>、
      * 战斗结束清零回 {@code true}。
@@ -392,8 +377,7 @@ public class AttributeProfile {
         this.defenceGrow = other.defenceGrow;
         this.element = other.element;
         this.defenceLoss = other.defenceLoss;
-        // 派生面板倍率：基础值照抄，来源乘数也整表拷过去（元素是不可变 record，浅拷列表即可）
-        this.individualMultipleArea = other.individualMultipleArea;
+        // 派生面板倍率：基础值（AREA_BASE 条目）与来源乘数一起整表拷过去
         this.individualMultipleAreaModifiers.clear();
         this.individualMultipleAreaModifiers.addAll(other.individualMultipleAreaModifiers);
         // 法力表：**深拷贝**（每个 Mana 都是新对象 —— 与它还写在实体上时复制构造器的行为一致；
@@ -423,7 +407,6 @@ public class AttributeProfile {
                 this.penetrations.add(entry);
             }
         }
-        this.enhance = other.enhance;
         this.baseCriticalDamage = other.baseCriticalDamage;
     }
 
@@ -447,7 +430,7 @@ public class AttributeProfile {
 
     /**
      * 把<b>临时属性</b>清零：五行组的 5 单元素穿透 + 5 元素增伤、12 个 {@code *Enhance*} 运行时加成、
-     * 死字段 {@code extraDamage}，以及两个状态位（{@code alive} 回到真、{@code anticipating} 回到假）。
+     * 以及两个状态位（{@code alive} 回到真、{@code anticipating} 回到假）。
      * <p>
      * <b>面板组的基础值与抗性、法力成长、全局组（{@code penetration} / {@code enhance} /
      * {@code baseCriticalDamage}）、{@code element}、{@code defenceLoss}、{@code manas} 与
@@ -456,7 +439,7 @@ public class AttributeProfile {
      * {@code setHp(getHpMax())} 做，那是一次有意的复位、不是清零。）
      * <p>
      * 由 {@link LivingThing#whenFightEnds()} 在整场战斗结束时调用：
-     * 这 23 个数值是"战斗中一次性给出去"的加成，留着会渗进下一局。
+     * 这些临时条目/容器是“战斗中一次性给出去”的加成，留着会渗进下一局。
      * <p>
      * <b>这张表和 {@link #copyFrom(AttributeProfile)} 是互补的</b>：复制只带面板属性、
      * 这里只清临时属性。改一个记得看另一个 —— 这正是
@@ -468,8 +451,7 @@ public class AttributeProfile {
         this.resistances.removeIf(entry -> !entry.isBase());
         // 增伤：全是临时条目（没有基础值），整表清空
         this.damageEnhances.clear();
-        // 死字段（活的那套在 Skill#extraDamage 上）
-        this.extraDamage = 0;
+        this.damageTypeEnhances.clear();
         // 13 个 *Enhance*（效果与技能成对加减；这里清一遍是兜底）
         this.propertyEnhances.clear();
         // 状态类（2026-10-04 搬进来的）：战斗结束回到"活着、不在试算"
@@ -682,24 +664,10 @@ public class AttributeProfile {
     }
 
     /**
-     * @return 单次额外伤害（死字段，永远是 0；活的那套在 {@code Skill#extraDamage}）
-     */
-    public long getExtraDamage() {
-        return extraDamage;
-    }
-
-    /**
-     * @param extraDamage 单次额外伤害（只有 {@code /data} 之类的调试手段会写它）
-     */
-    public void setExtraDamage(long extraDamage) {
-        this.extraDamage = extraDamage;
-    }
-
-    /**
-     * @return 单体伤害倍率的<b>生效值</b> = 面板基础值 × Π(每个来源的乘数)
+     * @return 单体伤害倍率的生效值 = Π(每个来源的乘数；面板基础值也是其中一条)
      */
     public double getIndividualMultipleArea() {
-        double result = individualMultipleArea;
+        double result = 1;
         for (AreaMultiple each : individualMultipleAreaModifiers) {
             result *= each.factor();
         }
@@ -711,12 +679,20 @@ public class AttributeProfile {
      * ------------------------------------------------------------------ */
 
     /**
-     * 设置单体伤害倍率的<b>面板基础值</b>（来源乘数不受影响）。
+     * 设置单体伤害倍率的面板基础值（来源乘数不受影响）。
      *
      * @param individualMultipleArea 单体伤害倍率（面板基础值）
      */
     public void setIndividualMultipleArea(double individualMultipleArea) {
-        this.individualMultipleArea = individualMultipleArea;
+        for (int i = 0; i < individualMultipleAreaModifiers.size(); i++) {
+            if (individualMultipleAreaModifiers.get(i).source() == AREA_BASE) {
+                individualMultipleAreaModifiers.set(i,
+                        new AreaMultiple(AREA_BASE, "面板基础值", individualMultipleArea));
+                return;
+            }
+        }
+        individualMultipleAreaModifiers.add(
+                new AreaMultiple(AREA_BASE, "面板基础值", individualMultipleArea));
     }
 
     /**
@@ -761,7 +737,7 @@ public class AttributeProfile {
      * 留着会渗进下一局（与减伤同一个理由，见 {@code LivingThing#whenFightEnds}）。
      */
     public void clearIndividualMultipleAreaModifiers() {
-        individualMultipleAreaModifiers.clear();
+        individualMultipleAreaModifiers.removeIf(each -> each.source() != AREA_BASE);
     }
 
     /**
@@ -1178,17 +1154,89 @@ public class AttributeProfile {
     }
 
     /**
-     * @return 全属性增伤百分比
+     * @return 全属性增伤（{@code damageEnhances} 里 {@code elementSort == null} 的条目之和）
      */
     public double getEnhance() {
-        return enhance;
+        return getDamageEnhance(null);
     }
 
     /**
+     * 兼容旧写法：整批替换“全属性增伤”条目（来源固定为内部标记）。
+     *
      * @param enhance 全属性增伤百分比
      */
     public void setEnhance(double enhance) {
-        this.enhance = enhance;
+        this.damageEnhances.removeIf(entry -> entry.elementSort() == null);
+        if (enhance != 0) {
+            addDamageEnhance(null, enhance, ENHANCE_BASE);
+        }
+    }
+
+    /**
+     * 按伤害元素读增伤：全属性条目 + 命中元素的条目。
+     *
+     * @param element 伤害元素；{@code null} 只返回全属性条目
+     * @return 增伤总和
+     */
+    public double getDamageEnhance(ElementSort element) {
+        double sum = 0;
+        for (ElementValue entry : this.damageEnhances) {
+            if (entry.elementSort() == null || entry.elementSort() == element) {
+                sum += entry.amount();
+            }
+        }
+        return sum;
+    }
+
+    /**
+     * 按“元素 + 伤害类型”读增伤：元素列表 + 按伤害类型的列表，两者连加。
+     *
+     * @param element     伤害元素
+     * @param damageTypes 当前伤害类型；null/空集只命中未标注类型的条目
+     * @return 增伤总和
+     */
+    public double getDamageEnhance(ElementSort element, Set<cn.gfhnv.game.damage.DamageType> damageTypes) {
+        double sum = getDamageEnhance(element);
+        for (DamageTypeValue entry : this.damageTypeEnhances) {
+            if (entry.damageType() == null
+                    || (damageTypes != null && damageTypes.contains(entry.damageType()))) {
+                sum += entry.amount();
+            }
+        }
+        return sum;
+    }
+
+    /**
+     * 挂一条按伤害类型的增伤（同“类型 + 来源”重复挂等于更新）。
+     *
+     * @param damageType 伤害类型；null = 所有类型
+     * @param amount     平值
+     * @param source     来源对象
+     */
+    public void addDamageTypeEnhance(cn.gfhnv.game.damage.DamageType damageType, double amount, Object source) {
+        if (amount == 0 || source == null) {
+            return;
+        }
+        this.damageTypeEnhances.removeIf(entry -> entry.source() == source
+                && entry.damageType() == damageType);
+        this.damageTypeEnhances.add(new DamageTypeValue(damageType, amount, source));
+    }
+
+    /**
+     * 摘掉某个来源的按伤害类型增伤。
+     *
+     * @param source 来源对象
+     * @return 是否真的摘掉了东西
+     */
+    public boolean removeDamageTypeEnhance(Object source) {
+        return this.damageTypeEnhances.removeIf(entry -> entry.source() == source);
+    }
+
+    /**
+     * @return 当前所有按伤害类型的增伤条目（{@code /data} 里就是它）
+     */
+    public List<DamageTypeValue> getDamageTypeEnhances() {
+        return this.damageTypeEnhances;
     }
 
     /**
@@ -1206,7 +1254,9 @@ public class AttributeProfile {
     }
 
     /**
-     * 挂一条属性加成。同一个（类型 + 来源）只保留一条：重复挂等于<b>更新</b>，
+     * 挂一条属性加成，不带伤害类型（对所有伤害生效）。
+     * <p>
+     * 同一个（类型 + 来源 + 伤害类型）只保留一条：重复挂等于<b>更新</b>，
      * 所以效果每回合 tick 时重复调用是安全的（旧写法会越加越多）。
      *
      * @param type    加在哪个属性上
@@ -1215,11 +1265,26 @@ public class AttributeProfile {
      * @param source  来源对象（按身份比较，摘除时用）
      */
     public void addPropertyEnhance(PropertyEnhanceType type, double percent, double amount, Object source) {
+        addPropertyEnhance(type, percent, amount, source, null);
+    }
+
+    /**
+     * 挂一条属性加成。去重键是<b>来源 + 类型 + 伤害类型</b>，同一个来源可以同时挂
+     * “全伤害”和“只对追加攻击”两条，互不覆盖。
+     *
+     * @param type       加在哪个属性上
+     * @param percent    百分比
+     * @param amount     固定值
+     * @param source     来源对象（按身份比较，摘除时用）
+     * @param damageType 只对哪种伤害类型生效；{@code null} = 所有类型
+     */
+    public void addPropertyEnhance(PropertyEnhanceType type, double percent, double amount, Object source,
+                                   DamageType damageType) {
         if (type == null || (percent == 0 && amount == 0)) {
             return;
         }
-        removePropertyEnhances(source, type);
-        this.propertyEnhances.add(new PropertyEnhance(type, percent, amount, source));
+        removePropertyEnhances(source, type, damageType);
+        this.propertyEnhances.add(new PropertyEnhance(type, percent, amount, source, damageType));
     }
 
     /**
@@ -1233,7 +1298,7 @@ public class AttributeProfile {
     }
 
     /**
-     * 摘掉某个来源挂的<b>某一种</b>属性加成。
+     * 摘掉某个来源挂的<b>某一种</b>属性加成（该类型下所有伤害类型）。
      *
      * @param source 来源对象
      * @param type   属性类型
@@ -1244,13 +1309,43 @@ public class AttributeProfile {
     }
 
     /**
+     * 摘掉某个来源挂的<b>精确槽位</b>：来源 + 类型 + 伤害类型。
+     * <p>
+     * ⚠️ {@code damageType == null} 表示“只摘未标注伤害类型的条目”，
+     * <b>不是</b>通配所有类型；要整类摘请用两参重载。
+     *
+     * @param source     来源对象
+     * @param type       属性类型
+     * @param damageType 伤害类型；{@code null} 只匹配未标注条目
+     * @return 是否真的摘掉了东西
+     */
+    public boolean removePropertyEnhances(Object source, PropertyEnhanceType type, DamageType damageType) {
+        return this.propertyEnhances.removeIf(entry -> entry.source() == source
+                && entry.type() == type
+                && entry.damageType() == damageType);
+    }
+
+    /**
      * @param type 属性类型
-     * @return 该类型所有条目的百分比之和
+     * @return 该类型下<b>未标注伤害类型</b>的百分比之和（旧读取器口径）
      */
     public double percentOf(PropertyEnhanceType type) {
+        return percentOf(type, null);
+    }
+
+    /**
+     * 统计某类型下命中当前伤害类型的百分比。
+     * <p>
+     * 匹配规则：条目未标注伤害类型（{@code null}）或 {@code damageTypes} 包含条目类型。
+     *
+     * @param type        属性类型
+     * @param damageTypes 当前伤害类型；{@code null}/空集只命中未标注条目
+     * @return 百分比之和
+     */
+    public double percentOf(PropertyEnhanceType type, Set<DamageType> damageTypes) {
         double sum = 0;
         for (PropertyEnhance entry : this.propertyEnhances) {
-            if (entry.type() == type) {
+            if (entry.type() == type && matches(entry.damageType(), damageTypes)) {
                 sum += entry.percent();
             }
         }
@@ -1259,16 +1354,38 @@ public class AttributeProfile {
 
     /**
      * @param type 属性类型
-     * @return 该类型所有条目的固定值之和
+     * @return 该类型下<b>未标注伤害类型</b>的固定值之和（旧读取器口径）
      */
     public double amountOf(PropertyEnhanceType type) {
+        return amountOf(type, null);
+    }
+
+    /**
+     * 统计某类型下命中当前伤害类型的固定值。
+     *
+     * @param type        属性类型
+     * @param damageTypes 当前伤害类型；{@code null}/空集只命中未标注条目
+     * @return 固定值之和
+     */
+    public double amountOf(PropertyEnhanceType type, Set<DamageType> damageTypes) {
         double sum = 0;
         for (PropertyEnhance entry : this.propertyEnhances) {
-            if (entry.type() == type) {
+            if (entry.type() == type && matches(entry.damageType(), damageTypes)) {
                 sum += entry.amount();
             }
         }
         return sum;
+    }
+
+    /**
+     * 条目没有标伤害类型时对所有类型生效；标了则必须被当前类型集合包含。
+     *
+     * @param entryType   条目上的伤害类型（可为 null）
+     * @param damageTypes 当前伤害类型（可为 null/空）
+     * @return 是否命中
+     */
+    private static boolean matches(DamageType entryType, Set<DamageType> damageTypes) {
+        return entryType == null || (damageTypes != null && damageTypes.contains(entryType));
     }
 
     /**
